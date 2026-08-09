@@ -1,0 +1,79 @@
+# ---- Build output ----
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ---- Secrets — never commit real credentials (CLAUDE.md §1) ----
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.snk
+secrets.json
+**/licence-signing-key*
+**/*.private.pem
+
+# ---- Local databases / caches ----
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- IDE ----
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# ---- Test / coverage ----
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.trx
+BenchmarkDotNet.Artifacts/
+
+# ---- Packaging ----
+*.nupkg
+*.snupkg
+packages/
+Releases/
+publish/
+
+# ---- Android ----
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# ---- Node (samples/storefront) ----
+node_modules/
+dist/
+.next/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Claude Code local overrides ----
+.claude/settings.local.json

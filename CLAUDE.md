@@ -1,0 +1,320 @@
+# CLAUDE.md — Zenith Retail
+
+> **This file is the contract.** Read it fully at the start of every session, before touching any code.
+> Zenith Retail is a Windows-installed retail ERP + POS platform with an in-store server, a cloud
+> replica/backup tier, and an Android admin app. It is built stage-by-stage by autonomous Claude Code
+> sessions. Each session picks up where the last one stopped by reading `docs/PROGRESS.md`.
+
+---
+
+## 0. Session protocol (do this every time, no exceptions)
+
+```
+1. Read  CLAUDE.md                      (this file)
+2. Read  docs/PROGRESS.md               (current state, next stage, blockers)
+3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
+4. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage whose status is NOT_STARTED or IN_PROGRESS)
+5. Read  the reference docs that stage lists under "Reference reading"
+6. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
+7. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
+8. Update docs/PROGRESS.md  (status, date, files touched, notes for the next session)
+9. Append any new architectural choices to docs/DECISIONS.md as an ADR
+10. Commit with:  feat(stage-NN): <stage title>
+11. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, and stop
+    cleanly at a green build. Never leave the repo in a non-compiling state.
+```
+
+**Universal kickoff prompt** (the user pastes this into any fresh chat, nothing else needed):
+
+```
+Read CLAUDE.md and docs/PROGRESS.md, then execute the next incomplete stage to completion
+following the session protocol. Do not ask me any questions.
+```
+
+---
+
+## 1. Autonomy policy — NON-NEGOTIABLE
+
+The user will not be available to answer questions. Treat every ambiguity as a decision you own.
+
+- **Never ask the user a question.** Not for scope, not for naming, not for library choice, not for
+  confirmation. If you are about to write "Would you like me to…", stop and just do it.
+- **When ambiguous, choose** the option that is (a) consistent with `docs/DECISIONS.md`, (b) simplest
+  to maintain, (c) least likely to need rework in a later stage. Then record it as an ADR in
+  `docs/DECISIONS.md` with a one-line rationale.
+- **Never mark a stage DONE that isn't.** If something genuinely cannot be completed (e.g. it needs a
+  paid third-party account), stub it behind an interface, write a fake/in-memory implementation that
+  satisfies the tests, log it in `docs/PROGRESS.md` under "Deferred — needs real credentials", and
+  keep going. The build stays green.
+- **Never delete or rewrite a completed stage's work** to make your own stage easier. Extend it.
+- **Do not skip ahead.** Stages are ordered by dependency. If Stage 09 needs something Stage 06 was
+  meant to build and it's missing, go back, finish it properly, and note the correction.
+- **Secrets:** never commit real credentials. Use `appsettings.Development.json` (git-ignored) and
+  `.env.example` with placeholder values.
+
+---
+
+## 2. Permissions
+
+This project is intended to be run with full tool access so sessions never stall on a prompt:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+`.claude/settings.json` already sets `permissions.defaultMode` to `bypassPermissions` and allows the
+full tool set. **Run this on a dedicated dev machine, VM, or container** — that flag disables the
+approval prompts that normally protect the filesystem and shell. The repo ships a `.gitignore` and a
+`scripts/` folder; keep destructive operations inside the repo working tree.
+
+You are explicitly authorised to, without asking: create/modify/delete files anywhere under the repo,
+run `dotnet`, `git`, `npm`, `psql`, `docker`, `gradle`, install NuGet/npm packages, generate and apply
+EF Core migrations, run test suites, spin up Docker containers for Postgres/MinIO, write scripts, and
+refactor anything you built in an earlier stage.
+
+---
+
+## 3. What we are building
+
+**Zenith Retail** — a modular retail ERP with POS at its centre, deployed as a Windows application
+against an in-store physical server, replicating to a cloud tier for backup, multi-store roll-up and
+mobile access.
+
+### Topology
+
+```
+┌──────────────────────── STORE (physical premises) ────────────────────────┐
+│                                                                            │
+│   POS Terminal (Win)     POS Terminal (Win)     Back-Office (Win)          │
+│   Zenith Desktop         Zenith Desktop         Zenith Desktop             │
+│   + SQLite offline cache + SQLite offline cache + SQLite offline cache     │
+│          │                      │                      │                   │
+│          └──────────────────────┴──────────────────────┘                   │
+│                                 │  HTTPS/LAN + SignalR                     │
+│                    ┌────────────▼─────────────┐                            │
+│                    │  ZENITH STORE SERVER     │  Windows Service           │
+│                    │  ASP.NET Core API        │  (the store keeps trading  │
+│                    │  PostgreSQL 16           │   even if internet is down)│
+│                    │  Sync agent + Outbox     │                            │
+│                    └────────────┬─────────────┘                            │
+└─────────────────────────────────┼──────────────────────────────────────────┘
+                                  │  mTLS + JWT, batched, resumable
+                    ┌─────────────▼──────────────┐
+                    │  ZENITH CLOUD              │
+                    │  ASP.NET Core API          │
+                    │  PostgreSQL (replica of    │
+                    │   all stores, tenant-keyed)│
+                    │  S3-compatible backup vault│
+                    │  (encrypted snapshots)     │
+                    └─────────────┬──────────────┘
+                                  │  HTTPS REST + push
+                    ┌─────────────▼──────────────┐
+                    │  ZENITH ADMIN (Android)    │
+                    │  Dashboards, approvals,    │
+                    │  stock lookup, alerts      │
+                    └────────────────────────────┘
+```
+
+### Non-negotiable product requirements
+
+| # | Requirement |
+|---|---|
+| R1 | **POS never stops.** Sales complete offline; queue and replay on reconnect. |
+| R2 | **Store server is the source of truth for the store**; cloud is the source of truth for the tenant/roll-up. |
+| R3 | **Everything is API-first.** No feature exists in the desktop UI that is not reachable via the versioned REST API. |
+| R4 | **Cloud backup is continuous and restorable.** "Store burns down" → new box, run restore, back trading. Verified by an automated DR drill in Stage 31. |
+| R5 | **Ingest from Excel/CSV/PDF** for suppliers, customers, inventory and specials — with mapping, preview, validation and rollback. |
+| R6 | **Full audit trail.** Who changed what, when, from which terminal — immutable. |
+| R7 | **Modular licensing.** Each module can be switched on/off per tenant without breaking the rest. |
+| R8 | **Multi-store, multi-warehouse, multi-currency, multi-tax** from the data model up, even if v1 ships single-store. |
+| R9 | **Licensed SaaS on a recurring subscription.** Mandatory monthly signed licence, hardware-bound activation, entitlement gating, usage metering. A lapsed subscription drops the tenant to **read-only**: full read, report, reprint and export; no writes, including no sales. It must only ever be triggered by a known subscription state after completed dunning — never by a network fault, a vendor-side outage, a single failed charge or a hardware change. See `docs/LICENSING.md`. |
+| R10 | **Telemetry is counts and health only.** No customer names, sales detail, employee data or document content ever leaves a tenant's premises for vendor purposes. Vendor staff have no path to tenant business data without a tenant-granted, time-boxed, audited support grant. |
+
+---
+
+## 4. Locked technology stack
+
+Do not substitute these. If you believe one is wrong, write an ADR arguing it and get it into
+`docs/DECISIONS.md` *before* changing code — but the default answer is "keep it".
+
+| Layer | Choice |
+|---|---|
+| Language / runtime | C# 13 on .NET 9 (LTS-track), `net9.0-windows` for desktop |
+| Desktop app | WPF + MVVM via `CommunityToolkit.Mvvm`, `Microsoft.Extensions.Hosting` generic host |
+| Desktop UI kit | WPF-UI (Fluent) + custom Zenith theme; touch-first POS layouts |
+| Store server | ASP.NET Core 9 Minimal APIs + Windows Service host |
+| Cloud API | ASP.NET Core 9, container-deployable (Docker) |
+| Database | PostgreSQL 16 (store + cloud), schema-per-module |
+| Terminal-local store | SQLite (`Microsoft.Data.Sqlite`) — offline cache + outbound queue |
+| ORM | EF Core 9 + Npgsql; migrations checked into `src/ZenithRetail.Infrastructure/Migrations` |
+| IDs | **UUID v7** everywhere (sortable, offline-safe generation) |
+| Auth | ASP.NET Core Identity + JWT (15 min access / 30 day rotating refresh), device certs for terminals, 4–8 digit PIN for POS operators |
+| Realtime | SignalR (store LAN + cloud push) |
+| Background work | `IHostedService` + Quartz.NET for schedules |
+| Messaging pattern | Transactional Outbox + Inbox (idempotent) for all sync |
+| Validation | FluentValidation |
+| Mapping | Mapperly (source-generated, no runtime reflection) |
+| Logging | Serilog → rolling file + OpenTelemetry OTLP → cloud |
+| PDF / receipts | QuestPDF |
+| Excel | ClosedXML (read + write) |
+| PDF ingest | PdfPig for text, Tesseract OCR fallback for scans |
+| Object storage | S3-compatible via AWS SDK (works with AWS S3, Backblaze B2, Wasabi, MinIO) |
+| Tests | xUnit + FluentAssertions + NSubstitute + Testcontainers (Postgres) + Bogus |
+| Desktop UI tests | FlaUI |
+| Auto-update | Velopack (desktop + store server) |
+| Installer | Velopack bundle wrapped by a WiX v4 bootstrapper that provisions PostgreSQL + the Windows Service |
+| Android app | Kotlin 2.x, Jetpack Compose, Retrofit + kotlinx.serialization, Room offline cache |
+| CI | GitHub Actions (`build`, `test`, `migrate-check`, `package`) |
+
+---
+
+## 5. Repository layout
+
+```
+zenith-retail/
+├── CLAUDE.md                     ← you are here
+├── README.md
+├── .claude/
+│   ├── settings.json             ← full-access permission config
+│   └── agents/                   ← subagent definitions (see docs/AGENTS.md)
+├── docs/
+│   ├── PROGRESS.md               ← ★ THE STATE FILE. Read first, write last.
+│   ├── DECISIONS.md              ← ADR log
+│   ├── ROADMAP.md                ← stage index
+│   ├── ARCHITECTURE.md
+│   ├── DATA_MODEL.md
+│   ├── API_STANDARDS.md
+│   ├── SYNC_AND_BACKUP.md
+│   ├── IMPORT_PIPELINE.md
+│   ├── SECURITY.md
+│   ├── TESTING.md
+│   ├── CONVENTIONS.md
+│   ├── HARDWARE.md
+│   ├── API_LOYALTY.md            ← public loyalty API contract
+│   ├── API_ECOMMERCE.md          ← public storefront API contract
+│   ├── GAP_ANALYSIS.md           ← what the first plan missed and where it now lives
+│   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
+│   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
+│   ├── AGENTS.md
+│   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
+├── src/
+│   ├── ZenithRetail.Domain/          entities, value objects, domain events, no dependencies
+│   ├── ZenithRetail.Application/     use cases (commands/queries), ports, validators
+│   ├── ZenithRetail.Infrastructure/  EF Core, repositories, outbox, integrations
+│   ├── ZenithRetail.Contracts/       DTOs shared by API, desktop, Android
+│   ├── ZenithRetail.StoreServer/     ASP.NET Core API + Windows Service (in-store)
+│   ├── ZenithRetail.CloudApi/        ASP.NET Core API (cloud tier)
+│   ├── ZenithRetail.Sync/            sync protocol, HLC clock, conflict resolution
+│   ├── ZenithRetail.Desktop/         WPF shell: POS + Back Office modules
+│   ├── ZenithRetail.Imports/         Excel/CSV/PDF ingestion engine
+│   ├── ZenithRetail.Reporting/       QuestPDF documents + report queries
+│   └── ZenithRetail.Hardware/        printers, drawers, scanners, scales, payment terminals
+├── android/                          Zenith Admin (Kotlin/Compose)
+├── samples/storefront/               minimal reference storefront proving the public API works
+├── tests/
+│   ├── ZenithRetail.UnitTests/
+│   ├── ZenithRetail.IntegrationTests/
+│   ├── ZenithRetail.SyncTests/
+│   └── ZenithRetail.UiTests/
+├── deploy/                           docker-compose (dev), WiX, Velopack, DR scripts
+└── scripts/                          dev bootstrap, seed, backup/restore, drill
+```
+
+---
+
+## 6. Module map → stage map
+
+| Module | Built in stage |
+|---|---|
+| POS system | 09 (core), 10 (promotions/tenders), 09 addendum (lay-by, self-checkout) |
+| Sales management | 10 |
+| Inventory management | 08 (ledger), 13 (bin-level) |
+| **Finance / accounting (GL, AR, AP, banking, tax)** | **07** |
+| HR management | 25 |
+| Warehouse management | 13 |
+| Procurement | 12 |
+| Manufacturing | 17 |
+| BOM setup | 16 |
+| Order management | 14 |
+| CRM | 19 |
+| Service management | 23 |
+| Logistics management | 24 |
+| Workforce management | 26 |
+| Marketing automation | 22 |
+| **Loyalty programme + public API** | **20** (`docs/API_LOYALTY.md`) |
+| **Ecommerce / storefront API + channels** | **21** (`docs/API_ECOMMERCE.md`) |
+| **Merchandise planning, forecasting, MRP/DRP** | **15** |
+| **Quality management** | **18** |
+| **Fixed assets, maintenance, store operations** | **27** |
+| **Projects, contracts, job costing** | **28** |
+| **Workflow, approvals, notifications, documents** | **05** |
+| API access | 03 (platform) + every module stage |
+| Cloud backup / restore | 04, hardened in 31 |
+| **Licensing, activation, entitlements** | **04b** (`docs/LICENSING.md`) |
+| **Vendor control plane, usage analytics, SaaS billing** | **30b** (`docs/API_CONTROL_PLANE.md`) |
+| Android admin app | 29 (API), 30 (app) |
+| Excel/PDF ingest | 11 |
+
+---
+
+## 7. Hard rules for code
+
+1. **Layering:** `Domain` ← `Application` ← `Infrastructure` ← host projects. Domain references
+   nothing. A compile error caused by a wrong-direction reference is the correct outcome — fix the
+   design, don't add the reference.
+2. **Every write goes through a command handler.** No EF `SaveChanges` from a controller/endpoint.
+3. **Every table gets:** `id uuid`, `tenant_id uuid`, `store_id uuid?`, `created_at`, `created_by`,
+   `updated_at`, `updated_by`, `row_version bytea`, `sync_state`. Enforced by an EF base entity.
+4. **Money is `decimal(18,4)`** stored with an explicit currency code. Never `double`. Never a bare
+   decimal without currency.
+5. **Quantities are `decimal(18,6)`** with a unit-of-measure reference.
+6. **Stock levels are never a mutable column.** They are the projection of an append-only
+   `inventory.stock_ledger`. Correcting stock means writing a new adjustment entry.
+7. **Financial documents are immutable once posted.** Amend via credit note / reversal.
+8. **Nothing is hard-deleted.** `deleted_at` + `deleted_by`, filtered by a global query filter.
+9. **All timestamps are `timestamptz` in UTC.** Convert at the edge only.
+10. **Nullable reference types on**, warnings-as-errors on Domain/Application.
+11. Public API surface documented with XML doc comments; every endpoint appears in OpenAPI.
+12. **No module names a GL account.** Modules raise financial events; Stage 07's posting rules engine
+    decides the accounts. Enforced by an architecture test.
+13. **No module implements its own approval logic.** Everything goes through Stage 05's
+    `IApprovalService`. Also enforced by an architecture test.
+14. **The public API has its own DTOs.** `ZenithRetail.PublicApi` may not reference internal contracts;
+    cost, margin, supplier and other-customer data must be structurally unreachable, not merely filtered.
+15. **Read-only is deliberate or it is a bug.** A lapsed subscription drops a tenant to read-only —
+    that is the commercial model. But it may only ever be triggered by a *known* subscription state
+    after completed dunning. A vendor-side outage must never restrict anyone; stores run on their
+    existing lease to its natural expiry. Three things stay writable in read-only regardless: the
+    payment and card-update screens, the flush of already-captured offline data, and backup. Stage 04b
+    asserts all of it.
+16. **Telemetry is whitelisted aggregate counters only.** Building a metering payload from a business
+    table is a bug, and there is a test that catches it.
+17. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
+
+---
+
+## 8. Definition of Done (applies to every stage)
+
+- [ ] `dotnet build -c Release` — zero warnings in `Domain`/`Application`, zero errors anywhere
+- [ ] `dotnet test` — all green, stage's new code ≥ 80% line coverage on Domain + Application
+- [ ] EF migration generated, applied, and **reversible** (`Down` tested)
+- [ ] Endpoints appear in `/openapi/v1.json` with examples and error responses
+- [ ] Anything user-facing works offline or fails gracefully with a queued action
+- [ ] Sync contract updated in `docs/SYNC_AND_BACKUP.md` if new entities are replicated
+- [ ] Permissions for the new module registered in the RBAC catalogue
+- [ ] Financial posting rules registered with Stage 07's engine wherever the stage moves money or value
+- [ ] Approval policies registered with Stage 05's engine wherever the stage gates on a threshold
+- [ ] Module entitlement flag declared in the module manifest and gated through `IEntitlementService`
+- [ ] Usage counters for the module added to the daily metering rollup (counts only, no business data)
+- [ ] Seed/demo data added so the module is demonstrable with `scripts/seed.ps1`
+- [ ] `docs/PROGRESS.md` updated, ADRs appended, committed
+
+---
+
+## 9. Localisation defaults
+
+Defaults are set for a South African retail deployment and are **configuration, not hard-code**:
+locale `en-ZA`, currency `ZAR`, VAT `15%` inclusive pricing, timezone `Africa/Johannesburg`, date
+`yyyy-MM-dd`, paper `A4` + `80mm` receipts, and privacy handling aligned to POPIA (see
+`docs/SECURITY.md`). Every one of these must be changeable per tenant from the admin UI. Tax is a
+rules engine, not a constant.
