@@ -213,13 +213,19 @@ refusing to allow an OAuth App to create or update workflow
 ```
 
 The `gh` token holds `repo`, `read:org`, `gist` and `admin:public_key`, but not `workflow`. Granting
-it needs an interactive browser flow. To land the file:
+it needs an interactive browser flow.
+
+**The whole push is rejected, not just the file** — which is why Stage 01's commit was amended to
+drop `.github/workflows/ci.yml` so the rest of the stage could land. The file is not lost: it is on
+disk, and the original commit that contained it is preserved on the local branch
+`stage-01-ci-workflow`. To land it:
 
 ```bash
 gh auth refresh -s workflow      # interactive — approve in the browser
 git add .github/workflows/ci.yml
-git commit -m "ci(stage-00): build, test and architecture-test pipeline"
+git commit -m "ci(stage-01): PostgreSQL service container and a real migrate-check"
 git push
+git branch -D stage-01-ci-workflow   # only once the file is on the remote
 ```
 
 Until then **there is no CI**: the build/test/architecture-test gates that `docs/TESTING.md` §6 makes
