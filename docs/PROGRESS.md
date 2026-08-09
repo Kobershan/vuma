@@ -146,7 +146,30 @@ Docker is the next thing to install — Stage 01 introduces EF Core and migratio
 `DbContext`. A stage whose tests cannot run must not be marked DONE, so `stage-verifier` reports those
 boxes as `UNVERIFIED`, never as passing.
 
-### 4.4 GitHub remote name
+### 4.4 CI workflow is written but not pushed — needs a token scope
+
+`.github/workflows/ci.yml` exists on disk and is complete, but GitHub **rejected the push**:
+
+```
+refusing to allow an OAuth App to create or update workflow
+.github/workflows/ci.yml without `workflow` scope
+```
+
+The `gh` token holds `repo`, `read:org`, `gist` and `admin:public_key`, but not `workflow`. Granting
+it needs an interactive browser flow. To land the file:
+
+```bash
+gh auth refresh -s workflow      # interactive — approve in the browser
+git add .github/workflows/ci.yml
+git commit -m "ci(stage-00): build, test and architecture-test pipeline"
+git push
+```
+
+Until then **there is no CI**: the build/test/architecture-test gates that `docs/TESTING.md` §6 makes
+a precondition for marking a stage DONE only run locally. Stage 01 should not be marked DONE on a
+green local run alone once CI is meant to exist.
+
+### 4.5 GitHub remote name
 
 The remote is `github.com/Kobershan/zentih-retail` — the repository name contains a typo
 ("zentih"). The repo was empty at connection time, so `gh repo rename zenith-retail` is safe

@@ -98,7 +98,8 @@ None — this stage has no business behaviour. The rules it encodes are `CLAUDE.
 - [x] Architecture tests actually fail when the rule is violated — **proven**, see below
 - [x] `Directory.Packages.props` is the single source of package versions; no `Version=` on any
       `PackageReference`
-- [x] CI workflow runs build + test + architecture-tests on push and PR
+- [~] CI workflow written and complete, but **not pushed** — the token lacks the `workflow` scope.
+      See `docs/PROGRESS.md` §4.4 for the one command that fixes it
 - [x] `docs/CONVENTIONS.md` written
 - [x] ADRs appended — ADR-030 to ADR-034
 - [x] `docs/PROGRESS.md` updated with the handoff into Stage 01
