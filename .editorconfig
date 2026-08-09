@@ -86,3 +86,11 @@ dotnet_diagnostic.CS1591.severity = warning
 # Test method names read as sentences, and XML docs are not required on them.
 dotnet_diagnostic.CS1591.severity = none
 dotnet_naming_rule.public_members_pascal.severity = none
+
+[src/**/Migrations/*.cs]
+# EF Core scaffolds these from a fixed template. Holding generated code to the hand-written-code
+# rules produces a warning per migration, forever, that nobody can act on without editing a file
+# `dotnet ef` will overwrite — and a permanently noisy build is how a real warning gets missed.
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CS1591.severity = none

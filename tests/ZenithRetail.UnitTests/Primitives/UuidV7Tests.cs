@@ -21,7 +21,12 @@ public sealed class UuidV7Tests
     [Fact]
     public void Encodes_the_supplied_timestamp_and_reads_it_back()
     {
-        var when = new DateTimeOffset(2026, 8, 9, 14, 30, 15, TimeSpan.Zero);
+        // UuidV7 keeps a process-wide monotonic high-water mark so a backwards clock cannot issue an
+        // out-of-order key, which means the encoded timestamp is max(supplied, high-water). A fixed
+        // literal here would therefore pass or fail depending on whether some other test in the
+        // assembly had already issued an ID at the current time — which is exactly what it did.
+        DateTimeOffset highWater = UuidV7.GetTimestamp(UuidV7.NewGuid());
+        DateTimeOffset when = highWater.AddSeconds(1);
 
         Guid id = UuidV7.NewGuid(when);
 
