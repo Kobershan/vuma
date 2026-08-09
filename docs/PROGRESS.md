@@ -90,9 +90,12 @@ them in), and `docs/CONVENTIONS.md`.
 their stage · ADR-032 FluentAssertions pinned to the Apache-2.0 6.x line · ADR-033 money rounds
 midpoints away from zero · ADR-034 mandatory command side-effect classification.
 
-**Toolchain change:** the .NET 9 SDK (9.0.316) was installed to `~/.dotnet` on this machine. It is not
-on the default `PATH` — export `PATH="$HOME/.dotnet:$PATH"` before running `dotnet`, or add it to the
-shell profile.
+**Toolchain change:** the .NET 9 SDK (9.0.316) was installed to `~/.dotnet` on this machine and made
+discoverable three ways — a `~/.local/bin/dotnet` symlink (which `~/.profile` already puts on `PATH`),
+a `DOTNET_ROOT` + `PATH` export in `~/.bashrc`, and a git-ignored `.vscode/settings.json` pointing the
+.NET Install Tool at it. The last one matters because C# Dev Kit was otherwise acquiring a
+**runtime-only .NET 10** and reporting "No installed .NET SDK was found on the computer", which leaves
+the IDE with no build host. **A VS Code window reload is needed for it to take effect.**
 
 ---
 
@@ -137,7 +140,7 @@ This repository is being developed on Linux. The product targets Windows.
 
 | Need | Status | Consequence |
 |---|---|---|
-| .NET 9 SDK | **installed** 2026-08-09 — 9.0.316 in `~/.dotnet`, not on the default `PATH` | build and test verified locally |
+| .NET 9 SDK | **installed** 2026-08-09 — 9.0.316 in `~/.dotnet`, on `PATH` via `~/.local/bin` and `~/.bashrc` | build and test verified locally |
 | Docker | **not installed** | Testcontainers integration tests cannot run. **Blocks Stage 01's exit checklist**, which requires handler tests against real PostgreSQL and a reversible migration |
 | Windows | n/a — Linux | `ZenithRetail.Desktop` (WPF), `.Hardware` and the FlaUI UI tests cannot build or run here at all. Blocks Stage 09 onward (ADR-031) |
 
@@ -182,9 +185,8 @@ whenever the owner wants it; the remote URL then needs updating. Cosmetic, not b
 **Stage 01 — Persistence core.** Write `docs/stages/STAGE-01-persistence.md` first, using
 `STAGE-04b-licensing.md` as the template, then execute it.
 
-Before anything else: `export PATH="$HOME/.dotnet:$PATH"`, and **install Docker** — Stage 01's exit
-checklist needs Testcontainers, and without it the stage cannot be verified and so cannot be marked
-DONE.
+Before anything else: **install Docker** — Stage 01's exit checklist needs Testcontainers, and without
+it the stage cannot be verified and so cannot be marked DONE. (`dotnet` is already on `PATH`.)
 
 What Stage 01 owes the rest of the build:
 
