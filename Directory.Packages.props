@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Central package management: one version of every dependency across the whole
+    solution. Individual .csproj files carry <PackageReference Include="..." />
+    with NO Version attribute — the version lives here and only here.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!--
+      FluentAssertions is pinned to 6.x deliberately. Version 8 moved to a paid
+      commercial licence, and Zenith is proprietary commercial software. 6.12.2 is
+      the last Apache-2.0 line. Do not "upgrade" this without reading ADR-032.
+    -->
+    <PackageVersion Include="FluentAssertions" Version="6.12.2" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- CLAUDE.md §7 rule 1: Application references Domain and nothing else. -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZenithRetail.Domain\ZenithRetail.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

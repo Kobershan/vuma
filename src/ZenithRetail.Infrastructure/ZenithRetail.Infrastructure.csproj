@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- EF Core, repositories, outbox and integrations. Added in Stage 01. -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZenithRetail.Application\ZenithRetail.Application.csproj" />
+    <ProjectReference Include="..\ZenithRetail.Contracts\ZenithRetail.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

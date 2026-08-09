@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Sync protocol, HLC clock, conflict resolution (ADR-006, ADR-007). Stage 04. -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZenithRetail.Application\ZenithRetail.Application.csproj" />
+    <ProjectReference Include="..\ZenithRetail.Contracts\ZenithRetail.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

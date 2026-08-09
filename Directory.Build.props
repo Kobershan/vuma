@@ -1,0 +1,36 @@
+<Project>
+
+  <!-- Solution-wide build settings. See CLAUDE.md §4 (locked stack) and §7 rule 10. -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <Product>Zenith Retail</Product>
+    <Company>Zenith</Company>
+    <Copyright>Copyright © Zenith Retail</Copyright>
+  </PropertyGroup>
+
+  <!--
+    CLAUDE.md §7 rule 10: warnings are errors on Domain and Application only.
+    Host projects warn but are not blocked; the two layers that hold the business
+    rules are held to a stricter bar than the ones that host them.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ZenithRetail.Domain' OR '$(MSBuildProjectName)' == 'ZenithRetail.Application'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

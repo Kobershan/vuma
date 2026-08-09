@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DTOs shared by the internal API, the desktop app and the Android app.
+    Deliberately dependency-free so every client can take it cheaply.
+
+    NOT for the public storefront/loyalty API — that host has its own DTOs
+    (CLAUDE.md §7 rule 14, ADR-021) so internal fields are structurally
+    unreachable rather than filtered at runtime.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.Contracts</RootNamespace>
+  </PropertyGroup>
+
+</Project>

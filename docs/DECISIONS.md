@@ -108,10 +108,6 @@ is one click to roll back.
 
 ---
 
-## ADR-0NN — _(next session: append here)_
-
----
-
 # Revision — added modules
 
 ## ADR-016 — Full double-entry financial core, built at Stage 07 — **LOCKED**
@@ -301,3 +297,73 @@ product while read-only**. The dunning ladder pauses rather than advances if its
 recorded as delivered.
 **Consequences.** Most involuntary failures are resolved before a customer ever sees a banner, which
 protects both revenue and the relationship. Stage 30b owns the implementation.
+
+---
+
+# Revision 3 — Stage 00 foundation
+
+## ADR-030 — Central package management — **LOCKED**
+**Context.** The solution will reach roughly fifteen projects. Package versions declared per project
+drift, and the drift surfaces as a diamond-dependency failure at runtime in a store, not at build time
+on a developer's machine.
+**Decision.** `Directory.Packages.props` at the repository root holds every version.
+`PackageReference` elements in project files carry no `Version` attribute. Transitive pinning is on.
+**Consequences.** One place to audit for the vulnerability scan and one place to upgrade. A project
+that wants a different version of a package cannot quietly have one, which is the point.
+
+## ADR-031 — Windows-only projects are created by the stage that needs them — **LOCKED**
+**Context.** `CLAUDE.md` §5 lists `ZenithRetail.Desktop`, `.Hardware`, `.Imports`, `.Reporting`,
+`.ControlPlane` and `ZenithRetail.UiTests`. The desktop, hardware and UI-test projects target
+`net9.0-windows` (WPF, FlaUI) and **cannot build on Linux at all**. Creating them in Stage 00 would
+mean either a solution that no non-Windows machine can build, or a set of empty shells excluded from
+the build and therefore checked by nothing.
+**Decision.** Stage 00 creates only the cross-platform skeleton: `Domain`, `Application`, `Contracts`,
+`Infrastructure`, `Sync`, `StoreServer`, `CloudApi`, `PublicApi`, and the `UnitTests` and
+`ArchitectureTests` projects. The rest are created by the stages that first need them — `Imports` at
+11, `Desktop` and `Hardware` at 09, `Reporting` at 09, `ControlPlane` at 30b, `UiTests` alongside the
+desktop shell.
+**Consequences.** `dotnet build` and `dotnet test` stay green on any platform for as long as possible,
+so CI is cheap and the Definition of Done is genuinely checkable. The cost is that the repository
+layout in `CLAUDE.md` §5 describes the finished shape rather than the current one — stated here so it
+does not read as an omission. From Stage 09 onward a Windows machine or VM is mandatory, not optional.
+
+## ADR-032 — FluentAssertions pinned to the 6.x Apache-2.0 line — **LOCKED**
+**Context.** FluentAssertions moved to a paid commercial licence at version 8. Zenith is proprietary
+commercial software, so the free-for-open-source terms do not apply to it. `docs/TESTING.md` names
+FluentAssertions as the assertion library across every test project.
+**Decision.** Pin to `6.12.2`, the last Apache-2.0 release, in `Directory.Packages.props` with the
+reason written at the pin. Do not upgrade to 7.x or 8.x without either buying licences or migrating
+the assertion style.
+**Consequences.** No licence exposure and no per-seat cost. In exchange the test suite forgoes later
+FluentAssertions features, which is a small loss. If a migration is ever wanted, the alternatives are
+`Shouldly` (BSD) or plain xUnit assertions; that is a mechanical change and should be its own ADR
+rather than an incidental package bump.
+
+## ADR-033 — Money rounds midpoints away from zero — **LOCKED**
+**Context.** `Money` stores at `decimal(18,4)` and rounds to a currency's presentation scale when a
+line is finalised. .NET's default is banker's rounding (`MidpointRounding.ToEven`), which sends 2.005
+to 2.00.
+**Decision.** Midpoints round **away from zero**, so 2.005 becomes 2.01. Rounding happens once, when a
+document line is finalised, never in the middle of a calculation — which is why the stored scale is 4
+rather than 2.
+**Consequences.** Matches what a customer gets when they check a receipt with a calculator, and what
+South African retail practice expects. Banker's rounding is the better choice for large statistical
+aggregates and the worse one at a till; the till wins. The total-vs-line reconciliation required by
+`docs/TESTING.md` §3 is asserted in `MoneyTests`.
+
+## ADR-034 — Command side-effect classification is mandatory and enforced at build time — **LOCKED**
+**Context.** ADR-028 ends the enforcement ladder at read-only: no writes of any kind, including sales.
+Stage 04b implements that as a single interceptor in the command pipeline rather than as checks
+scattered across forty modules — but the interceptor can only refuse a write if it knows which
+commands write. A module author who forgets to say would ship either a write that stays permitted
+during a lapse (a hole in the commercial model) or a query that gets blocked (a broken promise that
+reporting keeps working).
+**Decision.** Every `ICommand<T>` carries `[CommandSideEffect(SideEffect.Write|ReadOnly)]`.
+`SideEffect.Unclassified` is the zero value, so a missing or default attribute is detectable rather
+than silently defaulting to either behaviour, and an architecture test fails the build on it. The
+three ADR-028 carve-outs that stay writable in read-only — payment and card update, offline flush,
+backup — are declared through `ReadOnlyExemption` on the same attribute, so the exemption set is a
+single reviewable list, and a second architecture test fails if it grows past three.
+**Consequences.** Built in Stage 00, before a single command exists, because retrofitting it across a
+finished system is expensive and easy to get incompletely right — and an incomplete retrofit is
+exactly the silent hole this prevents. Cost is one attribute per command.

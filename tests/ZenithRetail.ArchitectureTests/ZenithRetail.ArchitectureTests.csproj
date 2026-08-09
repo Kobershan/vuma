@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The tests that make CLAUDE.md §7 enforceable rather than aspirational.
+    This project references every layer on purpose — it is the one place that
+    is allowed to see all of them, because its job is to check what they see.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.ArchitectureTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ZenithRetail.Domain\ZenithRetail.Domain.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.Application\ZenithRetail.Application.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.Contracts\ZenithRetail.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.Infrastructure\ZenithRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.Sync\ZenithRetail.Sync.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.PublicApi\ZenithRetail.PublicApi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

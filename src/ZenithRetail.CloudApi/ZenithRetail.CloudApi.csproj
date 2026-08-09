@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    The cloud tier: replica of every store, tenant-keyed, plus the backup vault.
+    Source of truth for the tenant roll-up (R2). Container-deployable.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>ZenithRetail.CloudApi</RootNamespace>
+    <UserSecretsId>zenith-cloudapi</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZenithRetail.Infrastructure\ZenithRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\ZenithRetail.Sync\ZenithRetail.Sync.csproj" />
+  </ItemGroup>
+
+</Project>
