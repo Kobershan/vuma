@@ -10,7 +10,7 @@ using VumaRetail.Domain.Platform;
 namespace VumaRetail.Infrastructure.Persistence.Interceptors;
 
 /// <summary>
-/// Everything that must happen to a row on its way to the database, in one pass, in a fixed order.
+/// Writes the audit trail for everything on its way to the database, in the same transaction (R6).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,16 +19,16 @@ namespace VumaRetail.Infrastructure.Persistence.Interceptors;
 /// code (R6), and every change writes an audit entry in the same transaction as the change itself.
 /// </para>
 /// <para>
-/// They are one class rather than four interceptors because the order between them is load-bearing
-/// and easy to get wrong from a registration list: a delete must become a soft delete <em>before</em>
-/// the audit entry decides what happened, and the audit entry must be built <em>after</em> stamping
-/// so its own row carries the same principal and instant. Split across four registrations, that
-/// ordering is invisible at the point somebody reorders them.
+/// The first three moved into <see cref="AuditStamper"/> in Stage 04 so the outbox behaviour can ask
+/// for them <em>before</em> it serialises a row for replication. They still happen here for anything
+/// the behaviour did not stamp — a query-side save, a background job, the demo seeder — and calling
+/// the stamper twice in one save stamps once. What is left in this class is the trail itself, which
+/// must be built after stamping so each entry carries the same principal and instant as the change
+/// it describes.
 /// </para>
 /// </remarks>
-/// <param name="clock">The only source of time — never the wall clock, so ladders and expiries are testable.</param>
-/// <param name="principalAccessor">Who is acting.</param>
-public sealed class AuditInterceptor(IClock clock, IPrincipalAccessor principalAccessor) : SaveChangesInterceptor
+/// <param name="stamper">Applies the audit stamp and classifies each change.</param>
+public sealed class AuditInterceptor(AuditStamper stamper) : SaveChangesInterceptor
 {
     /// <summary>
     /// Audit columns are excluded from the recorded diff. Every update touches them, so including
@@ -42,6 +42,7 @@ public sealed class AuditInterceptor(IClock clock, IPrincipalAccessor principalA
         nameof(Entity.UpdatedBy),
         nameof(Entity.RowVersion),
         nameof(Entity.SyncState),
+        nameof(Entity.SyncStamp),
     };
 
     /// <inheritdoc />
@@ -72,25 +73,17 @@ public sealed class AuditInterceptor(IClock clock, IPrincipalAccessor principalA
             return;
         }
 
-        DateTimeOffset now = clock.UtcNow;
-        string principal = principalAccessor.Principal;
-        Guid? terminalId = principalAccessor.TerminalId;
-        bool isSystem = principalAccessor.IsSystem;
+        IReadOnlyList<StampedChange> changes = stamper.Stamp(context);
 
-        List<EntityEntry<Entity>> entries = context.ChangeTracker
-            .Entries<Entity>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .ToList();
+        DateTimeOffset now = stamper.Now;
+        string principal = stamper.Principal;
+        Guid? terminalId = stamper.TerminalId;
+        bool isSystem = stamper.IsSystem;
 
         List<AuditEntry> trail = [];
 
-        foreach (EntityEntry<Entity> entry in entries)
+        foreach ((EntityEntry<Entity> entry, AuditAction action) in changes)
         {
-            GuardImmutable(entry);
-            RewriteHardDeleteAsSoftDelete(entry, principal, now);
-
-            AuditAction action = ClassifyAndStamp(entry, principal, now);
-
             trail.Add(AuditEntry.Record(
                 entry.Entity.TenantId,
                 entry.Entity.StoreId,
@@ -98,6 +91,9 @@ public sealed class AuditInterceptor(IClock clock, IPrincipalAccessor principalA
                 DescribeTable(entry),
                 entry.Entity.Id,
                 action,
+                // This node's principal, even for a row applied from a peer whose own updated_by
+                // keeps the originating editor. The row says who changed the record; the trail says
+                // what this machine did about it, and both questions get asked in an investigation.
                 principal,
                 terminalId,
                 isSystem,
@@ -110,66 +106,12 @@ public sealed class AuditInterceptor(IClock clock, IPrincipalAccessor principalA
             // Stamped here rather than by a second pass: an audit entry is itself a row and needs its
             // §7 rule 3 columns, but it must not produce an audit entry of its own.
             auditEntry.MarkCreated(principal, now);
-            auditEntry.SetRowVersion(NewRowVersion());
+            auditEntry.SetRowVersion(AuditStamper.NewRowVersion());
             context.Add(auditEntry);
         }
+
+        stamper.Complete();
     }
-
-    private static void GuardImmutable(EntityEntry<Entity> entry)
-    {
-        if (entry.Entity is not IImmutableRecord || entry.State is EntityState.Added)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException(
-            $"{entry.Entity.GetType().Name} is an immutable record and cannot be "
-            + $"{(entry.State is EntityState.Deleted ? "deleted" : "modified")} once written. "
-            + "Correct it with a new reversing record instead (CLAUDE.md §7 rule 7, ADR-012).");
-    }
-
-    private static void RewriteHardDeleteAsSoftDelete(EntityEntry<Entity> entry, string principal, DateTimeOffset now)
-    {
-        if (entry.State is not EntityState.Deleted)
-        {
-            return;
-        }
-
-        // §7 rule 8. Rewritten rather than thrown on: a caller reaching for Remove means "make this go
-        // away", and the persistence layer is the thing that knows how that is done here. Throwing
-        // would only train modules to write the soft delete by hand, which is where it gets forgotten.
-        entry.State = EntityState.Modified;
-        entry.Entity.MarkDeleted(principal, now);
-    }
-
-    private static AuditAction ClassifyAndStamp(EntityEntry<Entity> entry, string principal, DateTimeOffset now)
-    {
-        if (entry.State is EntityState.Added)
-        {
-            entry.Entity.MarkCreated(principal, now);
-            entry.Entity.SetRowVersion(NewRowVersion());
-            return AuditAction.Created;
-        }
-
-        bool isSoftDelete = entry.Property(e => e.DeletedAt).IsModified && entry.Entity.DeletedAt is not null;
-
-        entry.Entity.MarkUpdated(principal, now);
-        entry.Entity.SetRowVersion(NewRowVersion());
-
-        // CreatedAt/CreatedBy are set once and never again. EF would happily write whatever is on the
-        // instance, so a materialised-then-detached entity could otherwise rewrite its own origin.
-        entry.Property(e => e.CreatedAt).IsModified = false;
-        entry.Property(e => e.CreatedBy).IsModified = false;
-
-        return isSoftDelete ? AuditAction.Deleted : AuditAction.Updated;
-    }
-
-    /// <summary>
-    /// A fresh concurrency token. See ADR-035 — an application-generated <c>bytea</c> rather than
-    /// PostgreSQL's <c>xmin</c>, because the same rows are cached in SQLite on every terminal and
-    /// SQLite has no <c>xmin</c> to compare against.
-    /// </summary>
-    private static byte[] NewRowVersion() => Guid.NewGuid().ToByteArray();
 
     private static string DescribeTable(EntityEntry<Entity> entry)
     {

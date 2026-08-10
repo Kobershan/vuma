@@ -17,6 +17,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <!--
+      Stage 04. The hybrid logical clock and the conflict resolver are pure protocol over Application
+      ports, so they belong at this level: no database, no host, and every case a table.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
   </ItemGroup>
 
   <ItemGroup>

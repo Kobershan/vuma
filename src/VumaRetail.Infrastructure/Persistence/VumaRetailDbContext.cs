@@ -64,6 +64,21 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Issued refresh tokens, stored as digests and rotated on use.</summary>
     public DbSet<Domain.Identity.RefreshToken> RefreshTokens => Set<Domain.Identity.RefreshToken>();
 
+    /// <summary>The transactional outbox — changes waiting to reach the next tier (Stage 04, ADR-006).</summary>
+    public DbSet<Domain.Sync.OutboxMessage> OutboxMessages => Set<Domain.Sync.OutboxMessage>();
+
+    /// <summary>The idempotent inbox — what this node has already processed (ADR-006).</summary>
+    public DbSet<Domain.Sync.InboxMessage> InboxMessages => Set<Domain.Sync.InboxMessage>();
+
+    /// <summary>How far each peer has got, per direction.</summary>
+    public DbSet<Domain.Sync.SyncCursor> SyncCursors => Set<Domain.Sync.SyncCursor>();
+
+    /// <summary>Divergences waiting for a person, with both versions kept (ADR-007).</summary>
+    public DbSet<Domain.Sync.ConflictEntry> ConflictEntries => Set<Domain.Sync.ConflictEntry>();
+
+    /// <summary>The snapshot ledger — requirement R4's evidence.</summary>
+    public DbSet<Domain.Backup.BackupSnapshot> BackupSnapshots => Set<Domain.Backup.BackupSnapshot>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

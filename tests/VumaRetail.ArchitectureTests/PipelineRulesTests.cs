@@ -60,13 +60,28 @@ public sealed class PipelineRulesTests
             // that creates either until Stage 06. Everything it does that a command covers goes
             // through the dispatcher — which this rule is what forced, the seed having otherwise
             // gone on resolving handlers directly and silently persisting nothing.
-            "src/VumaRetail.StoreServer/DemoSeed.cs");
+            "src/VumaRetail.StoreServer/DemoSeed.cs",
+            // Stage 04. Neither of these is a handler and neither can be, for the same reason
+            // AuthenticationService cannot (ADR-040): they are not requests, and the pipeline's
+            // one-transaction-per-message shape is wrong for both.
+            //
+            // The outbox dispatcher is a background pass, not a message. Its unit of work is "ship a
+            // batch and record what the peer said", which has to commit whether the peer accepted,
+            // refused or could not be reached — a rolled-back failure path would lose the backoff and
+            // the store would hammer an unreachable cloud for ever.
+            "src/VumaRetail.Sync/Dispatch/OutboxDispatcher.cs",
+            // The backup service commits the ledger row *before* the dump starts and again after it
+            // finishes, deliberately: a full dump is minutes of streaming I/O, and holding a write
+            // transaction open across it would block every till in the store. The two commits are
+            // also what makes a crashed backup visible at all (R4).
+            "src/VumaRetail.Infrastructure/Backup/BackupService.cs");
 
         Assert.True(violations.Count == 0, $"""
             Something outside the pipeline commits the unit of work. The exemptions are
             AuthenticationService (ADR-040 — sign-in is an edge service, not a command), the
-            transaction behaviour itself, the DbContext that implements the boundary, and the demo
-            seeder's two platform rows.
+            transaction behaviour itself, the DbContext that implements the boundary, the demo
+            seeder's two platform rows, and Stage 04's outbox dispatcher and backup service — neither
+            of which is a message, and both of which are commented above with why.
 
             {string.Join(Environment.NewLine, violations.Select(entry => $"  - {entry}"))}
             """);

@@ -9,6 +9,12 @@
   <ItemGroup>
     <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
     <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+    <!--
+      Stage 04. VumaRetail.Sync is the replication protocol expressed against Application ports and
+      nothing else — no EF, no HTTP, no S3 — so it sits below this project rather than beside it.
+      Infrastructure supplies its adapters: the EF replica writer, the HTTP transport, the vault.
+    -->
+    <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +37,13 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+    <!--
+      Stage 04: the store server's HTTP sync transport, and the S3-compatible backup vault
+      CLAUDE.md §4 names.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="AWSSDK.S3" />
     <!--
       Design-time only: `dotnet ef migrations add` needs it, the store server does not ship it.
       PrivateAssets keeps it out of the transitive graph of anything that references us.

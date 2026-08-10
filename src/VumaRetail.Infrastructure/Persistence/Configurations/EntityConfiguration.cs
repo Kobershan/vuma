@@ -78,6 +78,13 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
             .HasConversion<string>()
             .HasMaxLength(32);
 
+        // ADR-007: every replicated row carries a hybrid logical clock stamp. Stored in the sortable
+        // string form so an ordinal index sorts it the same way HlcStamp compares it — which is what
+        // lets a cursor be one indexed column instead of three.
+        builder.Property(entity => entity.SyncStamp)
+            .IsRequired()
+            .HasMaxLength(SyncStampMaxLength);
+
         builder.Property(entity => entity.DeletedAt);
 
         builder.Property(entity => entity.DeletedBy)
@@ -102,6 +109,11 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
 
     /// <summary>The maximum length of a principal string. Shaped <c>user:{uuid}</c> or <c>system:{component}</c>.</summary>
     private const int PrincipalMaxLength = 128;
+
+    /// <summary>
+    /// The maximum length of a stamp: 14 digits, 6 digits, two separators and a node id.
+    /// </summary>
+    private const int SyncStampMaxLength = 14 + 1 + 6 + 1 + Domain.Primitives.HlcStamp.NodeIdMaxLength;
 
     /// <summary>Configures the columns specific to this entity.</summary>
     /// <param name="builder">The entity type builder, with the base columns already mapped.</param>

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -147,6 +148,36 @@ public sealed class RedactingEnricher : ILogEventEnricher
     }
 }
 
+/// <summary>
+/// Where logs and traces go once they leave the machine (<c>CLAUDE.md</c> §4).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Off unless <see cref="Endpoint"/> is set. A store server on a shop's back-office PC must not start
+/// shipping its logs somewhere because a default said so — R10 caps what may ever leave a tenant's
+/// premises for vendor purposes at counts and health, and application logs are neither.
+/// </para>
+/// <para>
+/// The tenant's <em>own</em> collector is the intended destination, which is why this is
+/// configuration rather than a vendor endpoint baked in. Vendor telemetry is Stage 30b's metering
+/// payload, is a whitelist of aggregate counters, and does not travel this pipe.
+/// </para>
+/// </remarks>
+public sealed class OpenTelemetryOptions
+{
+    /// <summary>The configuration section this binds to.</summary>
+    public const string SectionName = "Vuma:Telemetry:Otlp";
+
+    /// <summary>The OTLP HTTP endpoint, or empty to send nothing anywhere.</summary>
+    public string Endpoint { get; set; } = string.Empty;
+
+    /// <summary>Headers the collector needs, typically an API key. A secret; never committed.</summary>
+    public Dictionary<string, string> Headers { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>True when an endpoint is configured, so the sink is added.</summary>
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Endpoint);
+}
+
 /// <summary>Configures Serilog the same way in every Vuma host.</summary>
 public static class VumaLogging
 {
@@ -164,9 +195,10 @@ public static class VumaLogging
     /// support call that starts "it stopped working" and ends in a full C: drive.
     /// </para>
     /// <para>
-    /// The OTLP sink <c>CLAUDE.md</c> §4 also names is deliberately absent: there is no cloud tier
-    /// to receive it until Stage 04 and no tenant to attribute a trace to until Stage 04b. It is one
-    /// more <c>WriteTo</c> when there is.
+    /// Stage 04 adds the OTLP sink <c>CLAUDE.md</c> §4 names, and it is off unless an endpoint is
+    /// configured. That default is not laziness: telemetry leaving a tenant's premises is a POPIA
+    /// question and R10 caps what may ever leave at counts and health, so it is an explicit act of
+    /// configuration rather than something a host does because it was built.
     /// </para>
     /// </remarks>
     public static IHostApplicationBuilder AddVumaLogging(
@@ -177,7 +209,11 @@ public static class VumaLogging
 
         builder.Logging.ClearProviders();
 
-        Log.Logger = new LoggerConfiguration()
+        OpenTelemetryOptions telemetry = builder.Configuration
+            .GetSection(OpenTelemetryOptions.SectionName)
+            .Get<OpenTelemetryOptions>() ?? new OpenTelemetryOptions();
+
+        LoggerConfiguration configuration = new LoggerConfiguration()
             .ReadFrom.Configuration(builder.Configuration)
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Application", applicationName)
@@ -193,8 +229,31 @@ public static class VumaLogging
                 Path.Combine(AppContext.BaseDirectory, "logs", "vuma-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 31,
-                shared: true)
-            .CreateLogger();
+                shared: true);
+
+        if (telemetry.IsConfigured)
+        {
+            // The same RedactingEnricher runs before this sink as before the file, so a secret is
+            // masked once, centrally, on its way to every destination — including the one that
+            // leaves the building.
+            configuration = configuration.WriteTo.OpenTelemetry(options =>
+            {
+                options.Endpoint = telemetry.Endpoint;
+                options.Protocol = Serilog.Sinks.OpenTelemetry.OtlpProtocol.HttpProtobuf;
+                options.ResourceAttributes = new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    ["service.name"] = applicationName,
+                    ["deployment.environment"] = builder.Environment.EnvironmentName,
+                };
+
+                foreach (KeyValuePair<string, string> header in telemetry.Headers)
+                {
+                    options.Headers[header.Key] = header.Value;
+                }
+            });
+        }
+
+        Log.Logger = configuration.CreateLogger();
 
         // Services, not Logging: this overload also registers Serilog's DiagnosticContext, which
         // UseSerilogRequestLogging needs. Registering only the logging provider builds fine and then

@@ -171,6 +171,24 @@ public interface IRoleRepository
     /// <summary>Adds an assignment.</summary>
     /// <param name="assignment">The assignment to add.</param>
     void Add(UserRoleAssignment assignment);
+
+    /// <summary>
+    /// Removes a role and its grants.
+    /// </summary>
+    /// <param name="role">The role to remove.</param>
+    /// <remarks>
+    /// A soft delete, not a hard one. <c>Remove</c> is rewritten into <c>deleted_at</c> by
+    /// <c>AuditInterceptor</c> (§7 rule 8), which is where the rule is enforced rather than here.
+    /// </remarks>
+    void Remove(Role role);
+
+    /// <summary>Removes a grant.</summary>
+    /// <param name="permission">The grant to remove.</param>
+    void Remove(RolePermission permission);
+
+    /// <summary>Removes an assignment.</summary>
+    /// <param name="assignment">The assignment to remove.</param>
+    void Remove(UserRoleAssignment assignment);
 }
 
 /// <summary>Reads and writes terminals.</summary>

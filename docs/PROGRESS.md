@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-10 · **Current stage:** 04 — Sync + cloud backup foundation (outbox/inbox, HLC, restore) · **Status:** NOT_STARTED
+**Last updated:** 2026-08-10 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** NOT_STARTED
 
 ---
 
@@ -15,7 +15,8 @@
 | 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** | 2026-08-09 |
 | 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
-| 04 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
+| 04b – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 ---
 
@@ -280,12 +281,91 @@ them; this stage's tests took the count past PostgreSQL's default `max_connectio
 began failing in whichever test ran hundredth. EF Core's statement logging is now capped at Warning
 — on a till doing ten sales a minute it *is* the log.
 
+### 2026-08-10 — Stage 04 complete: sync + cloud backup foundation
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh` → **420 passed, 0 failed**
+(189 unit, 25 architecture, 206 integration), identical across two consecutive runs. Domain +
+Application line coverage **96.4%**. `scripts/dr-drill.sh` run and passing. Full exit checklist in
+`docs/stages/STAGE-04-sync-and-backup.md`.
+
+**What this stage makes true.** Stage 01 put `sync_state` on every row and `[Replicated]` on every
+entity, and nothing read either. Stage 03 reserved pipeline slot 300 and left it empty. Both are now
+filled, and four things hold for the rest of the build:
+
+1. **A change and its replication commit together or not at all.** The outbox row is written from the
+   EF change tracker by a behaviour in slot 300, inside slot 200's transaction. No module writes one,
+   so no module can forget to.
+2. **Delivery is at-least-once; effect is exactly-once.** The guarantee is the unique index on
+   `(tenant_id, source_node, operation_id)`, not the pre-check — which is check-then-act and which two
+   concurrent deliveries both pass.
+3. **Divergence is settled by the entity's own declared policy, or escalated with both versions kept.**
+   The sender gets no say: one that could nominate a policy could overwrite any row on this node.
+4. **A store can be rebuilt from the cloud, and it has been.** `dr-drill.sh` restores a snapshot into
+   a database that has never had a schema and compares row counts, and `BackupTests` asserts the same
+   thing on every CI run.
+
+**Domain.** `HlcStamp` (ADR-007, totally ordered, string form sorts as it compares); `OutboxMessage`,
+`InboxMessage`, `SyncCursor`, `ConflictEntry` in a new `sync` schema; `BackupSnapshot` in a new
+`backup` schema. `Entity` gained `SyncStamp` — ADR-007 requires it and nothing carried it (ADR-049).
+
+**`VumaRetail.Sync`** is now the protocol and nothing else — no EF, no HTTP, no S3 — and
+`Infrastructure` references it rather than the other way round (ADR-048). It holds
+`HybridLogicalClock`, `ConflictResolver`, `SyncReceiver`, `OutboxDispatcher`, the sync and backup
+commands and queries, and the two permission declarations.
+
+**Infrastructure.** `OutboxBehaviour` in slot 300; `ReplicaWriter` (the one place that handles an
+entity without knowing what it is); `ReplicationRegistry`; `HttpSyncTransport` and
+`InProcessSyncTransport`; `PostgresBackupEngine` over `pg_dump`/`pg_restore`; `AesGcmSnapshotCipher`
+(1 MiB framed chunks, chunk index authenticated so chunks cannot be reordered or dropped);
+`FileSystemBackupVault` and `S3BackupVault`; `BackupService`. The `SyncAndBackup` migration is
+reversible, verified up → down → up.
+
+**Hosts.** `VumaRetail.CloudApi` is a real host at last, and refuses to start with a pinned host
+tenant — it serves every tenant and a batch for the wrong one is refused outright. The store server
+gained `--backup`, `--verify-backup` and `--restore`, because a restore has to be runnable when the
+application is not. The OTLP sink `CLAUDE.md` §4 names ships, off unless configured (R10).
+
+**Two real defects the review agents found, both confirmed before fixing:**
+
+- **The outbox serialised each row before the audit stamp was applied.** `AuditInterceptor` runs at
+  `SaveChanges`, which is after slot 300 — so every replicated row left its origin with
+  `created_by = ""` and `created_at = 0001-01-01`, and since those columns are written once and never
+  again, every other tier stored the blanks permanently. R6 held only on the machine where the change
+  was made. Fixed by `AuditStamper`, shared and idempotent per save (ADR-046).
+- **One malformed operation took down a whole batch, permanently.** No per-operation fault isolation,
+  and the dispatcher re-reads the same oldest rows every pass — so one bad payload would stop a store
+  replicating for ever. Fixed per operation (ADR-047).
+
+**The test that should have caught the first one was passing**, because both harness nodes acted as
+the same principal and it compared two blanks. The harness now gives each node a distinct principal.
+
+**Also corrected:** no command in the system soft-deleted anything, so §7 rule 8's rewrite had no path
+through a command and the replicated-delete path had no source to test. `DeleteRoleCommand` was added
+to Stage 02's identity module — extending it, per `CLAUDE.md` §1, rather than working around it.
+
+**Two new architecture rules**, each proven by a deliberate violation: an `IImmutableRecord` may not
+declare a conflict policy that overwrites it, and `BypassTenantFilter` call sites are a closed list.
+The second found four pre-existing legitimate callers on its first run and they are now named with
+reasons.
+
+**ADRs appended:** ADR-046 audit stamp precedes outbox serialisation · ADR-047 a bad operation is
+rejected alone · ADR-048 `VumaRetail.Sync` sits below `Infrastructure` · ADR-049 the HLC stamp is a
+base-entity column.
+
+**Docs:** `docs/SYNC_AND_BACKUP.md` written — the chain, the clock, the replication registry, the
+conflict matrix, capture, delivery, receipt, the review queue, backup and restore, and what a later
+stage owes the document.
+
 ---
 
 ## 3. Deferred — needs real credentials
 
-Nothing yet. Stage 04b (licence signing key / KMS) and Stage 30b (payment gateway) will be the
-first entries.
+| Item | Why it is deferred | Where it is |
+|---|---|---|
+| **S3 backup vault** (Stage 04) | Nothing in this repository has a bucket or a credential. `S3BackupVault` is written against the AWS SDK and works with AWS S3, Backblaze B2, Wasabi and MinIO via `ServiceUrl` + path-style addressing, but it has never been run against a real endpoint. `FileSystemBackupVault` is the tested default and is what the DR drill exercises — and is itself a working target for a single-store customer with a NAS. | `src/VumaRetail.Infrastructure/Backup/BackupVaults.cs` |
+| **Snapshot encryption key custody** (Stage 04) | The key is configuration today, and the floor that matters holds: it is *not* the vendor's storage credential, so a compromise of the bucket is not a compromise of the data. Real custody (KMS/HSM) is the same problem as Stage 04b's licence signing key and should get the same answer once. | `Vuma:Backup:Encryption:Key` |
+
+Stage 04b (licence signing key / KMS) and Stage 30b (payment gateway) will be the next entries.
 
 ---
 
@@ -296,14 +376,13 @@ first entries.
 These are cited as reference reading by stages that will need them. Each should be written by the
 stage that first depends on it, not all up front:
 
-`ARCHITECTURE.md` · `SYNC_AND_BACKUP.md` (Stage 04) · `IMPORT_PIPELINE.md` (Stage 11) ·
-`HARDWARE.md` (Stage 09) · `API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) ·
-`GAP_ANALYSIS.md`.
+`ARCHITECTURE.md` · `IMPORT_PIPELINE.md` (Stage 11) · `HARDWARE.md` (Stage 09) ·
+`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
 
 Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
-`API_STANDARDS.md` (Stage 03).
+`API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04).
 
-Stage documents exist for **00**, **01**, **02**, **03**, **04b** and **30b**. Every other stage
+Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b** and **30b**. Every other stage
 document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
 template.
 
@@ -384,9 +463,10 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 
 ## 5. Next session starts here
 
-**Stage 04 — Sync + cloud backup foundation: outbox/inbox, HLC, restore.** Write
-`docs/stages/STAGE-04-sync-and-backup.md` first, using `STAGE-03-api-platform.md` as the template,
-then execute it. `docs/SYNC_AND_BACKUP.md` is Stage 04's to write as well.
+**Stage 04b — Licensing, activation & entitlement.** Its stage document already exists at
+`docs/stages/STAGE-04b-licensing.md`, so read that and `docs/LICENSING.md` and execute. Note §4.2
+below: TESTING.md §7's licensing suite is still written in the superseded lockout language of
+ADR-027, and resolving that drift is explicitly Stage 04b's job.
 
 ### Running the build on this machine
 
@@ -400,39 +480,32 @@ scripts/seed.sh                 # demo tenant; needs VUMA_CONNECTION or a config
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
 deliberately fail rather than skip without one (ADR-036).
 
-### What Stage 03 leaves you
+### What Stage 04 leaves you
 
-- **Slot 300 in the pipeline is yours and it is empty.** `PipelineOrder.Outbox = 300` sits *inside*
-  `Transaction = 200`, which is exactly what ADR-006 requires: the outbox row lands in the same
-  transaction as the change that produced it. Register one `IPipelineBehaviour` with that `Order` and
-  the chain is correct by construction. `DispatcherTests` already asserts the ordering with a probe
-  behaviour in that slot, so a mistake here fails a test that exists today.
-- **Handlers do not commit and must not start** (ADR-044). Two architecture rules enforce it. If a
-  sync receiver needs to write outside a command, it needs an exemption in `PipelineRulesTests` and a
-  sentence saying why — not a `CommitAsync` in a handler.
-- **`MessageEnvelope` already carries the classification** Stage 04b's read-only guard needs, read
-  once from `[CommandSideEffect]`. Slot 50 is reserved for it.
-- **The error contract is fixed.** Throw a `DomainException` with a stable code and the right
-  `DomainProblemKind`; `VumaExceptionHandler` turns it into the right status. Do not add a
-  `try/catch` to an endpoint. `docs/API_STANDARDS.md` §5 is the contract.
-- **Every route goes under `/api/v1`** via `endpoints.MapVumaApi()`. An API test walks the live
-  endpoint table and fails on anything else that is not `/health` or `/openapi/*`.
-- **`ApiHarness` boots the real store server over real PostgreSQL.** New endpoints get their
-  API-level tests there — `docs/TESTING.md` §1 asks for happy path plus 401, 403, 422 and the
-  module's own conflicts.
-- **`VumaRetail.CloudApi` is still a scaffold.** Stage 04 is the stage that gives it something to do;
-  it needs the same `AddVumaWeb` / `UseVumaWeb` / `AddVumaPersistence` lines the store server has,
-  with `Vuma:Host:TenantId` left empty so every request must carry its own tenant.
-
-### What Stage 04 owes the rest of the build
-
-1. The transactional outbox and idempotent inbox of ADR-006, in pipeline slot 300, with the
-   `(source_node, operation_id)` deduplication the receiver needs.
-2. The HLC clock and the per-entity conflict policies of ADR-007 — the `[Replicated(scope, policy)]`
-   attribute Stage 01 built already declares them and nothing reads it yet.
-3. Cloud backup and a *verified* restore path (R4), and `docs/SYNC_AND_BACKUP.md`.
-4. The OTLP sink `CLAUDE.md` §4 names. `VumaLogging` writes to console and a rolling file today;
-   the cloud tier is what it has been waiting for. One more `WriteTo`.
+- **Slot 50 in the pipeline is yours and it is empty.** `PipelineOrder.ReadOnlyGuard = 50` sits
+  outside `Validation = 100`, so a refusal costs nothing — no validator runs, no transaction opens, no
+  database round trip per rejected sale. Register one `IPipelineBehaviour` with that `Order`.
+- **`MessageEnvelope` already carries what you need**, read once from `[CommandSideEffect]`:
+  `Effect` and `Exemption`. You do not have to reflect per request.
+- **The three carve-outs are all claimed now, and the set has not grown.**
+  `ReadOnlyExemption.OfflineFlush` is claimed by `ReceiveSyncBatchCommand` — an inbound batch is data
+  that has *already happened*, and refusing it would destroy a tenant's books to make a billing point
+  (ADR-028's third rule). `Backup` is claimed by the two backup commands. `Payment` is still unclaimed
+  and is yours. `CommandClassificationTests` caps the set at three; a fourth needs an ADR.
+- **Do not wire anything in Stage 04 to an enforcement ladder.** `/api/v1/sync/status` reports
+  `LastContactAt` and a queue depth, and both are exactly the signals a nervous implementation would
+  reach for. ADR-028's fourth rule is that a vendor-side outage never restricts anyone. There is a
+  comment saying so on `SyncCursor.LastContactAt` and on `SyncStatusResponse`; keep it true.
+- **Sign-in must keep working under read-only** and that is a property of the design rather than a
+  carve-out somebody remembered — `AuthenticationService` is not a command and never enters the
+  pipeline (ADR-040). Assert it anyway; the licence-safety suite is the right place.
+- **Backup must keep working under read-only**, and the DR drill is what proves it did not silently
+  stop. `scripts/dr-drill.sh` is one command.
+- **`licensing` is already a declared schema** in `Schemas`, and `AddVumaSync` shows the shape a
+  module's DI registration takes.
+- **A `SyncHarness` exists** at `tests/VumaRetail.IntegrationTests/Sync/SyncHarness.cs` that wires a
+  whole node — dispatcher, pipeline, repositories, real database — with a clock the test moves by
+  hand. The licensing ladders run over days; that is how you test them without waiting.
 
 ### Known small debts carried forward
 

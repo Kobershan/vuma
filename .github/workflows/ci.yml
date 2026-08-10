@@ -76,6 +76,25 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Stage 04's backup tests are R4's evidence: they take a real snapshot with pg_dump and
+      # restore it into an empty database. pg_dump refuses to dump from a server newer than itself,
+      # so a client/server major mismatch would surface as a puzzling backup-test failure rather
+      # than as the environment problem it is. Fail here instead, with the versions in the log.
+      - name: PostgreSQL client tools are present and not older than the server
+        run: |
+          set -euo pipefail
+          if ! command -v pg_dump >/dev/null; then
+            echo "::error::pg_dump is not installed. Stage 04's DR drill (R4) cannot run without it."
+            exit 1
+          fi
+          client="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
+          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d postgres -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
+          echo "pg_dump major $client, server major $server"
+          if [ "$client" -lt "$server" ]; then
+            echo "::error::pg_dump $client cannot dump a PostgreSQL $server server."
+            exit 1
+          fi
+
       - name: Test
         run: >
           dotnet test -c Release

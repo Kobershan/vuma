@@ -574,3 +574,82 @@ permission-gated endpoint answered `403` for a user who genuinely held the permi
 tests all ran at the service level and none of them went through the JWT bearer handler, so nothing
 caught it. Stage 03's `WebApplicationFactory` tests did, on the first run — which is the argument for
 `docs/TESTING.md` §1's API level existing at all, made concrete.
+
+---
+
+# Revision 7 — Stage 04 sync and cloud backup
+
+## ADR-046 — The audit stamp is applied before the outbox serialises, not at SaveChanges — **LOCKED**
+**Context.** Stage 01 put audit stamping in `AuditInterceptor`, which runs at `SavingChanges`. Stage
+04 put outbox capture in pipeline slot 300, which runs after the handler and *before* the commit.
+Both were individually right and the combination was wrong: the payload was serialised before the
+stamp existed, so every replicated row left its origin node carrying `created_by = ""` and
+`created_at = 0001-01-01`. Because those two columns are written once and never again, the receiving
+tier stored the blanks permanently. R6 — "who changed what, when" — was satisfied only on the machine
+where the change was made, which is the one place nobody has to ask. It was found by the
+`sync-and-offline` agent and confirmed by dumping a real payload.
+**Decision.** The stamping moves into `AuditStamper`, a scoped service shared by the outbox behaviour
+and the interceptor. The behaviour stamps before it serialises; the interceptor stamps whatever the
+behaviour did not reach — a background job, the seeder, a query-side save — and stamping the same
+entity twice in one save stamps it once. A row applied from a peer is **not** re-stamped: it arrives
+with the originating node's principal and instant, and `IReplicationScope.AppliedRowIds` is how the
+stamper knows. The audit *entry* written for that same save still records this node's own principal.
+**Consequences.** The row says who changed the record; the trail says what this machine did about it.
+Both questions get asked in an investigation and they now have different, correct answers. The cost
+is that stamping is no longer in exactly one place — it is in one class called from two, which is the
+smallest arrangement that can be correct given where the two components sit in the pipeline. The
+hard-delete rewrite moved with it, which is a bonus: the outbox's delete detection and the audit
+trail's now agree by construction rather than by two implementations matching.
+
+## ADR-047 — A bad operation is rejected alone, never with its batch — **LOCKED**
+**Context.** The sync receiver applied a batch with no per-operation error handling, inside one
+transaction. A single unparseable payload therefore rolled back every operation in the batch. That
+would be survivable if the batch were retried differently next time — but `ListDueAsync` re-selects
+the same oldest-stamped rows every pass, so the poisoned operation is in every subsequent batch too.
+One bad row would stop a store replicating for ever, and the only symptom would be a queue depth that
+climbs and never falls.
+**Decision.** `DomainException` is caught per operation and recorded as a `Rejected` outcome for that
+operation, with its code and message on the inbox row. Nothing else is caught: a dropped connection,
+a deadlock or a timeout is a statement about the batch rather than about one operation, and must roll
+the whole thing back so the sender retries — swallowing it would acknowledge operations this node
+never applied.
+**Consequences.** A peer with a bug gets told which operation is wrong and why, and everything else
+keeps flowing. The distinction the catch relies on is the one `DomainException` already draws
+(`CONVENTIONS.md` §5): expected refusals carry a stable code, infrastructure failures propagate.
+Stage 04 leaves one related case ungraceful and documented rather than fixed — two genuinely
+concurrent deliveries of one operation fail the racing batch on the inbox unique index instead of
+answering `Duplicate`. It is self-healing and cannot double-apply, and making it graceful needs a
+savepoint per operation, which is a real per-batch cost to smooth a rare path.
+
+## ADR-048 — `VumaRetail.Sync` sits below `Infrastructure`, not beside it — **LOCKED**
+**Context.** `CLAUDE.md` §5 lists `VumaRetail.Sync` alongside `Infrastructure`, and `LayeringTests`
+treats them as peers. Stage 04 had to put the replication protocol — the hybrid logical clock, the
+conflict resolver, the receiver, the dispatcher — somewhere. Beside Infrastructure it would need its
+own adapters or a sibling reference; inside Infrastructure it would be indistinguishable from the EF
+code it is supposed to be independent of.
+**Decision.** `VumaRetail.Sync` references `Application` and `Contracts` only — no EF, no HTTP, no
+S3 — and `Infrastructure` references *it*. Infrastructure supplies the adapters: the EF replica
+writer, the HTTP transport, the vaults, the DI wiring.
+**Consequences.** The whole protocol is testable against an in-process transport with no second host
+in the room, which is what made the conflict matrix and the dispatcher's backoff assertable at all.
+The same protocol runs on a terminal, a store server and the cloud with only `NodeKind` differing.
+The cost is one more layer than §5 describes, in the same spirit as ADR-031 and ADR-039 — the layout
+there is the finished shape, and this is how it is reached.
+
+## ADR-049 — The hybrid logical clock stamp is a base-entity column — **LOCKED**
+**Context.** ADR-007 says "every replicated row carries an HLC stamp". Nothing did. `CLAUDE.md` §7
+rule 3's mandatory column list does not name one, so the obvious reading was that the stamp lives on
+the outbox row only. That does not work: the receiver has to compare an inbound change against *the
+row it already has*, and a stamp that exists only on the sender's outbox is not available to it. Every
+conflict policy that depends on order — which is most of them — would degenerate into "whatever
+arrived last", which is the behaviour ADR-007 exists to prevent.
+**Decision.** `Entity.SyncStamp` joins the mandatory columns, mapped once in `EntityConfiguration<T>`
+as the sortable string form. It is written by the outbox behaviour on a local change and by the
+replica writer on a remote one — in the second case with the *sender's* stamp, never a fresh local
+one, because a receiver that re-stamped would make every applied change look newer than the original
+and the next comparison in the other direction would undo it.
+**Consequences.** One migration touching every existing table, which is cheap now and would not be
+later. The stamp is excluded from the audit diff alongside `row_version` and `sync_state` — it changes
+on every write and would bury the column that actually changed. It is deliberately **not** a
+timestamp and no business rule may read it as one: when something happened is `occurred_at`, from
+`IClock`.

@@ -126,6 +126,15 @@ public sealed class RoleRepository(VumaRetailDbContext context) : IRoleRepositor
 
     /// <inheritdoc />
     public void Add(UserRoleAssignment assignment) => context.UserRoleAssignments.Add(assignment);
+
+    /// <inheritdoc />
+    public void Remove(Role role) => context.Roles.Remove(role);
+
+    /// <inheritdoc />
+    public void Remove(RolePermission permission) => context.RolePermissions.Remove(permission);
+
+    /// <inheritdoc />
+    public void Remove(UserRoleAssignment assignment) => context.UserRoleAssignments.Remove(assignment);
 }
 
 /// <summary>Terminals.</summary>

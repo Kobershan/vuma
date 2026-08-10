@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Sync protocol, HLC clock, conflict resolution (ADR-006, ADR-007). Stage 04. -->
+  <!--
+    Sync protocol, HLC clock, conflict resolution (ADR-006, ADR-007). Stage 04.
+
+    The protocol and nothing else: no EF, no HTTP, no S3. It sits above Application and below
+    Infrastructure, and everything it needs from the outside is an Application port. That is what
+    lets the whole receiver be tested against an in-process transport with no second host in the
+    room, and it is why Infrastructure references this project rather than the other way round.
+  -->
 
   <PropertyGroup>
     <RootNamespace>VumaRetail.Sync</RootNamespace>
@@ -9,6 +16,15 @@
   <ItemGroup>
     <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
     <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Validators for the sync and backup commands, run by the Stage 03 pipeline. -->
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- The outbox dispatcher is an IHostedService (CLAUDE.md §4, background work). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
 </Project>

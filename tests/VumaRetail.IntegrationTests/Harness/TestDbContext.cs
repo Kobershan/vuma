@@ -24,13 +24,18 @@ public static class TestDbContextFactory
     /// <param name="clock">The clock the audit interceptor stamps from. Defaults to a fixed instant.</param>
     /// <param name="principal">Who is acting. Defaults to the test principal.</param>
     /// <param name="tenant">The tenant the query filter scopes to. Defaults to bypassed.</param>
+    /// <param name="stamper">
+    /// The audit stamper the interceptor uses. Supply the one the outbox behaviour holds so both
+    /// see the same per-save marks.
+    /// </param>
     public static VumaRetailDbContext For(
         string connectionString,
         IClock? clock = null,
         IPrincipalAccessor? principal = null,
-        ITenantContext? tenant = null)
+        ITenantContext? tenant = null,
+        AuditStamper? stamper = null)
         => new(
-            BuildOptions<VumaRetailDbContext>(connectionString, clock, principal),
+            BuildOptions<VumaRetailDbContext>(connectionString, clock, principal, stamper),
             tenant ?? TestTenantContext.Unfiltered());
 
     /// <summary>Builds the options every test context shares.</summary>
@@ -41,7 +46,8 @@ public static class TestDbContextFactory
     internal static DbContextOptions BuildOptions<TContext>(
         string connectionString,
         IClock? clock = null,
-        IPrincipalAccessor? principal = null)
+        IPrincipalAccessor? principal = null,
+        AuditStamper? stamper = null)
         where TContext : DbContext
     {
         DbContextOptionsBuilder<TContext> options = new();
@@ -52,9 +58,15 @@ public static class TestDbContextFactory
             npgsql.MigrationsAssembly(typeof(VumaRetailDbContext).Assembly.FullName);
         });
         options.UseSnakeCaseNamingConvention();
+
+        // The stamper may be supplied so a test can share the one instance the outbox behaviour
+        // uses. Sharing matters: stamping is idempotent per save only because both callers see the
+        // same set of already-stamped entities.
         options.AddInterceptors(new AuditInterceptor(
-            clock ?? new TestClock(),
-            principal ?? new TestPrincipalAccessor()));
+            stamper ?? new AuditStamper(
+                clock ?? new TestClock(),
+                principal ?? new TestPrincipalAccessor(),
+                new VumaRetail.Infrastructure.Sync.ReplicationScope())));
 
         return options.Options;
     }

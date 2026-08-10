@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Interceptors;
 using VumaRetail.Infrastructure.Security;
@@ -32,6 +33,8 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ITenantContext, AmbientTenantContext>();
         services.TryAddPrincipalAccessor();
 
+        services.TryAddReplicationScope();
+        services.AddScoped<AuditStamper>();
         services.AddScoped<AuditInterceptor>();
 
         services.AddDbContext<VumaRetailDbContext>((provider, options) =>
@@ -50,6 +53,27 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRetailDbContext>());
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers the replication scope, which the audit stamper reads to tell a locally-made change
+    /// from one applied on a peer's instruction.
+    /// </summary>
+    /// <remarks>
+    /// Registered here, with try-add semantics, rather than only in <c>AddVumaSync</c>: a host that
+    /// wires persistence without sync — a migration run, a test that only touches the database —
+    /// still constructs the stamper, and a missing registration would be a startup failure in the
+    /// one code path nobody exercises before shipping. Where sync <em>is</em> wired, that call
+    /// registers the same implementation first and this is a no-op.
+    /// </remarks>
+    private static void TryAddReplicationScope(this IServiceCollection services)
+    {
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(IReplicationScope)))
+        {
+            return;
+        }
+
+        services.AddScoped<IReplicationScope, Sync.ReplicationScope>();
     }
 
     private static void TryAddPrincipalAccessor(this IServiceCollection services)

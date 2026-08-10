@@ -28,6 +28,19 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <!-- Stage 04: the outbox dispatcher is an IHostedService (CLAUDE.md §4, background work). -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
+    <!-- Stage 04: the store server's HTTP sync transport to the cloud. -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Sync and backup">
+    <!--
+      CLAUDE.md §4: S3-compatible object storage via the AWS SDK, which also drives Backblaze B2,
+      Wasabi and MinIO through a ServiceURL plus path-style addressing. Nothing in CI has a bucket,
+      so FileSystemBackupVault is the tested default and this is the production adapter.
+    -->
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.102" />
   </ItemGroup>
 
   <ItemGroup Label="Validation">
@@ -54,6 +67,11 @@
       carries the console, file and compact-JSON pieces, so one reference covers the sinks.
     -->
     <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <!--
+      Stage 04 completes the CLAUDE.md §4 logging row: Serilog → rolling file AND OTLP → cloud. Off
+      unless Vuma:Telemetry:Otlp:Endpoint is configured — R10 caps what may leave a tenant's premises.
+    -->
+    <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
   </ItemGroup>
 
   <ItemGroup Label="Identity and tokens">

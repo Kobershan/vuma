@@ -25,6 +25,17 @@ public static class Schemas
     /// <summary>Outbox, inbox, sync cursors, conflict review queue. Stage 04.</summary>
     public const string Sync = "sync";
 
+    /// <summary>
+    /// Snapshot ledger for the cloud backup vault (R4). Stage 04.
+    /// </summary>
+    /// <remarks>
+    /// Its own schema rather than a table in <see cref="Sync"/>. Replication and backup answer
+    /// different questions — "is head office up to date" and "can this store be rebuilt" — and a
+    /// store with no cloud peer still takes backups. Sharing a schema would tie the two together in
+    /// the one place where being able to separate them matters: a disaster recovery.
+    /// </remarks>
+    public const string Backup = "backup";
+
     /// <summary>Licences, leases, activations, entitlements, metering. Stage 04b.</summary>
     public const string Licensing = "licensing";
 }

@@ -62,6 +62,22 @@ public abstract class Entity
     /// <summary>Where the row stands in replication (ADR-006).</summary>
     public SyncState SyncState { get; protected set; } = SyncState.Local;
 
+    /// <summary>
+    /// The hybrid logical clock stamp of the change that produced this version of the row (ADR-007),
+    /// in <see cref="Primitives.HlcStamp"/>'s sortable string form. Empty until the row is first
+    /// captured for replication.
+    /// </summary>
+    /// <remarks>
+    /// ADR-007 says every replicated row carries an HLC stamp, and this is it. Without it the
+    /// receiver has nothing to compare an inbound change against, and every conflict policy that
+    /// depends on order — <c>LastWriterWins</c>, which is most of them — degenerates into "whatever
+    /// arrived last", which is the behaviour the ADR exists to avoid.
+    /// </remarks>
+    public string SyncStamp { get; protected set; } = string.Empty;
+
+    /// <summary>The row's ordering stamp, parsed. <c>HlcStamp.MinValue</c> for a row never replicated.</summary>
+    public HlcStamp Stamp => HlcStamp.Parse(SyncStamp);
+
     /// <summary>When the row was soft-deleted, or <c>null</c> if it is live (rule 8).</summary>
     public DateTimeOffset? DeletedAt { get; protected set; }
 
@@ -111,6 +127,18 @@ public abstract class Entity
     /// <summary>Records progress through the replication chain.</summary>
     /// <param name="state">The new replication state.</param>
     public void MarkSyncState(SyncState state) => SyncState = state;
+
+    /// <summary>
+    /// Stamps the row with the hybrid logical clock reading of the change that produced it.
+    /// </summary>
+    /// <param name="stamp">The stamp.</param>
+    /// <remarks>
+    /// Written by the outbox behaviour when it captures a local change, and by the sync receiver when
+    /// it applies a remote one — in the second case with the <em>sender's</em> stamp, not a fresh
+    /// local one. A receiver that re-stamped would make every applied change look newer than the
+    /// original, and the next comparison in the other direction would undo it.
+    /// </remarks>
+    public void MarkSyncStamp(HlcStamp stamp) => SyncStamp = stamp.ToString();
 
     /// <summary>
     /// Replaces the optimistic concurrency token. Called by the persistence layer on every insert and

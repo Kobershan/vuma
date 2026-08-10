@@ -62,6 +62,54 @@ public sealed class CreateRoleCommandHandler(
     }
 }
 
+/// <summary>
+/// Removes a role, its grants and every assignment of it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A soft delete — nothing is ever hard-deleted (§7 rule 8), and <c>AuditInterceptor</c> rewrites the
+/// <c>Remove</c> into <c>deleted_at</c> so the trail records a deletion rather than an update.
+/// </para>
+/// <para>
+/// The assignments go with it, deliberately. Leaving them behind would produce rows pointing at a
+/// role that no longer resolves, and <c>ListEffectivePermissionsAsync</c> joins through both — so an
+/// orphaned assignment is a user who silently loses permissions with no row saying why.
+/// </para>
+/// </remarks>
+/// <param name="RoleId">The role to remove.</param>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record DeleteRoleCommand(Guid RoleId) : ICommand<Unit>;
+
+/// <summary>Rejects a delete-role command before it reaches the handler.</summary>
+public sealed class DeleteRoleCommandValidator : AbstractValidator<DeleteRoleCommand>
+{
+    /// <summary>Builds the rules.</summary>
+    public DeleteRoleCommandValidator() => RuleFor(command => command.RoleId).NotEmpty();
+}
+
+/// <summary>Removes a role along with everything that points at it.</summary>
+/// <param name="roles">Role lookup and removal.</param>
+public sealed class DeleteRoleCommandHandler(IRoleRepository roles) : ICommandHandler<DeleteRoleCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(DeleteRoleCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        Role role = await roles.FindAsync(command.RoleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityNotFoundException("role", command.RoleId);
+
+        foreach (RolePermission grant in await roles.ListPermissionsAsync(role.Id, cancellationToken).ConfigureAwait(false))
+        {
+            roles.Remove(grant);
+        }
+
+        roles.Remove(role);
+
+        return Unit.Value;
+    }
+}
+
 /// <summary>Gives a user a role, tenant-wide or in one store.</summary>
 /// <param name="UserId">The user.</param>
 /// <param name="RoleId">The role.</param>
