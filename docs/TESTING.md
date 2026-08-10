@@ -1,4 +1,4 @@
-# TESTING — Zenith Retail
+# TESTING — Vuma Retail
 
 No stage is DONE without tests. "It compiles" is not evidence.
 

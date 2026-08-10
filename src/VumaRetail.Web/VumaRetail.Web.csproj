@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared ASP.NET Core wiring for the hosted APIs: the authenticated IPrincipalAccessor, tenant
+    resolution at the request edge, permission-based authorisation and the auth endpoints.
+
+    A separate project rather than a folder in Infrastructure. Infrastructure is referenced by the
+    WPF desktop app from Stage 09, and a FrameworkReference to Microsoft.AspNetCore.App there would
+    put the ASP.NET Core shared framework on every till. ADR-039.
+
+    VumaRetail.PublicApi deliberately does NOT reference this project: it has its own auth model
+    and its own DTOs (ADR-021, CLAUDE.md §7 rule 14), and this one carries internal contracts.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Web</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+</Project>

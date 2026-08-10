@@ -39,7 +39,7 @@
     <!--
       ASP.NET Core Identity's core, for PasswordHasher only — the PBKDF2-HMAC-SHA512 implementation
       that CLAUDE.md §4 names. The EF stores, UserManager and IdentityDbContext are deliberately not
-      used; see ADR-038 for why users are Zenith entities instead.
+      used; see ADR-038 for why users are Vuma entities instead.
     -->
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="9.0.0" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.3.0" />
@@ -53,7 +53,7 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
     <!--
       FluentAssertions is pinned to 6.x deliberately. Version 8 moved to a paid
-      commercial licence, and Zenith is proprietary commercial software. 6.12.2 is
+      commercial licence, and Vuma is proprietary commercial software. 6.12.2 is
       the last Apache-2.0 line. Do not "upgrade" this without reading ADR-032.
     -->
     <PackageVersion Include="FluentAssertions" Version="6.12.2" />
@@ -62,7 +62,7 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <!--
       Testcontainers is the documented path (TESTING.md §2) and is used whenever Docker is present.
-      ZENITH_TEST_POSTGRES overrides it for CI service containers and for developer machines with a
+      VUMA_TEST_POSTGRES overrides it for CI service containers and for developer machines with a
       local PostgreSQL but no Docker. See ADR-036.
     -->
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />

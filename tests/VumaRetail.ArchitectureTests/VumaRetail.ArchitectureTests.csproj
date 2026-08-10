@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The tests that make CLAUDE.md §7 enforceable rather than aspirational.
+    This project references every layer on purpose — it is the one place that
+    is allowed to see all of them, because its job is to check what they see.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.ArchitectureTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.PublicApi\VumaRetail.PublicApi.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

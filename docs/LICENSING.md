@@ -1,6 +1,6 @@
-# LICENSING & ANTI-PIRACY — Zenith Retail
+# LICENSING & ANTI-PIRACY — Vuma Retail
 
-Zenith is sold as SaaS: a monthly subscription per tenant, with the software installed on the
+Vuma is sold as SaaS: a monthly subscription per tenant, with the software installed on the
 customer's own Windows hardware. That combination — recurring revenue, customer-controlled hardware —
 is what this document exists to handle. Built in Stage 04b (client and tenant side) and Stage 30b
 (vendor control plane).
@@ -8,7 +8,7 @@ is what this document exists to handle. Built in Stage 04b (client and tenant si
 ## 1. The rules that govern this area
 
 > **Rule 1 — Lapsed subscription means read-only.**
-> Zenith is a subscription product billed on a recurring mandate. When the subscription is not current,
+> Vuma is a subscription product billed on a recurring mandate. When the subscription is not current,
 > the tenant keeps **full read access** — every screen, every record, every report, every export, every
 > reprint — and loses **all write access**. They can see and print their data. They cannot trade,
 > capture, edit, import or configure. Selling is a write; the till stops.
@@ -271,7 +271,7 @@ own tenants. Partner-billed tenants have their dunning routed to the partner.
 
 **Keep the vendor's books separate.** The vendor's subscription revenue is not a tenant's business
 data and does not belong in any tenant's Stage 07 ledger. The control plane keeps its own billing
-records and exports them to the vendor's own accounting (which may well be a Zenith instance — that's
+records and exports them to the vendor's own accounting (which may well be a Vuma instance — that's
 fine, but it's a separate tenant, connected through the normal integration, not a back door).
 
 ## 9. Telemetry and privacy — what the vendor may and may not collect

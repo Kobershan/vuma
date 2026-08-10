@@ -1,8 +1,8 @@
-# SECURITY — Zenith Retail
+# SECURITY — Vuma Retail
 
 Written in Stage 02, which built identity, and extended by every stage that adds a trust boundary.
 
-Zenith runs on hardware the customer owns, in a shop, on a LAN a technician set up. That shapes every
+Vuma runs on hardware the customer owns, in a shop, on a LAN a technician set up. That shapes every
 decision here: the threat is rarely a sophisticated remote attacker and usually a shared password, a
 till left logged in, a laptop plugged into the store switch, or a backup on an unencrypted disk.
 
@@ -10,7 +10,7 @@ till left logged in, a laptop plugged into the store switch, or a backup on an u
 
 ## 1. Principals
 
-Four kinds of thing act in Zenith, and they authenticate differently because they are different.
+Four kinds of thing act in Vuma, and they authenticate differently because they are different.
 
 | Principal | Credential | Audit form | Lives |
 |---|---|---|---|
@@ -137,8 +137,8 @@ data.
 ## 5. POPIA
 
 South Africa's Protection of Personal Information Act is the default legal frame (`CLAUDE.md` §9),
-and the design position is that Zenith holds personal information **on the tenant's behalf** — the
-tenant is the responsible party, Zenith the operator.
+and the design position is that Vuma holds personal information **on the tenant's behalf** — the
+tenant is the responsible party, Vuma the operator.
 
 | POPIA condition | How it is met |
 |---|---|

@@ -1,4 +1,4 @@
-# ROADMAP — Zenith Retail
+# ROADMAP — Vuma Retail
 
 The stage index. Stages are ordered by **dependency**, not by importance — do not skip ahead
 (`CLAUDE.md` §1). Stage numbers here are authoritative; the module → stage mapping in `CLAUDE.md` §6
@@ -56,6 +56,6 @@ truth. If they disagree, `PROGRESS.md` wins and this table gets corrected.
   later stages configure rather than build (ADR-019).
 - **04b before 06.** Every module stage from 06 onward gates on entitlements and reports usage, so
   the entitlement choke point must already exist.
-- **20 and 21 late but together.** Both sit on `ZenithRetail.PublicApi` with its own DTOs and auth
+- **20 and 21 late but together.** Both sit on `VumaRetail.PublicApi` with its own DTOs and auth
   model (ADR-021), and 21 depends on 20's member identity.
 - **31 last.** The DR drill (R4) must exercise a system that is actually complete.

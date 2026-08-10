@@ -1,4 +1,4 @@
-# Zenith Retail
+# Vuma Retail
 
 A modular retail ERP with POS at its centre — a Windows-installed application running against an
 in-store physical server, replicating to a cloud tier for backup, multi-store roll-up and mobile
@@ -11,10 +11,10 @@ The store keeps trading when the internet does not. That constraint drives most 
 ```
 Store premises            Cloud                       Mobile
 ─────────────────         ─────────────────           ─────────────────
-POS terminals (WPF)   →   Zenith Cloud API        →   Zenith Admin
+POS terminals (WPF)   →   Vuma Cloud API        →   Vuma Admin
 + SQLite offline cache    PostgreSQL replica          (Kotlin/Compose)
         ↓                 S3 backup vault
-Zenith Store Server
+Vuma Store Server
 ASP.NET Core + PostgreSQL
 (Windows Service)
 ```
@@ -41,14 +41,14 @@ docs/                PROGRESS (state), DECISIONS (ADRs), ROADMAP, LICENSING, TES
 docs/stages/         one document per stage, 00 → 31
 .claude/agents/      specialist review subagents (see docs/AGENTS.md)
 src/                 Domain ← Application ← Infrastructure ← hosts
-android/             Zenith Admin
+android/             Vuma Admin
 tests/               unit, integration, sync, UI
 deploy/ scripts/     docker-compose, WiX, Velopack, DR and seed scripts
 ```
 
 ## How this repo is built
 
-Zenith is built stage-by-stage by autonomous Claude Code sessions. Each session reads `CLAUDE.md`
+Vuma is built stage-by-stage by autonomous Claude Code sessions. Each session reads `CLAUDE.md`
 and `docs/PROGRESS.md`, executes the next incomplete stage to completion, runs its exit checklist,
 and writes a handoff for the next session. Stages are dependency-ordered — Finance (07) precedes
 Inventory (08) precedes POS (09), because those modules post to the ledger.

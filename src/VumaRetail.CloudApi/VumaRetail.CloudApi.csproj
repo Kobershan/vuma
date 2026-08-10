@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    The cloud tier: replica of every store, tenant-keyed, plus the backup vault.
+    Source of truth for the tenant roll-up (R2). Container-deployable.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.CloudApi</RootNamespace>
+    <UserSecretsId>vuma-cloudapi</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+  </ItemGroup>
+
+</Project>

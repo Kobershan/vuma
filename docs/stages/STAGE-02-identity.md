@@ -56,11 +56,11 @@ terminal with a pinned client certificate.
 - `IdentityPasswordHasher` over ASP.NET Core Identity's `PasswordHasher<T>` (PBKDF2-HMAC-SHA512,
   100 000 iterations, per-secret salt) — used for passwords, PINs and enrolment codes alike.
 - `JwtTokenIssuer` — 15-minute access tokens, 30-day rotating refresh tokens (`CLAUDE.md` §4).
-- `AddZenithIdentity(...)` DI extension.
+- `AddVumaIdentity(...)` DI extension.
 
-**`src/ZenithRetail.Web` (new project)**
+**`src/VumaRetail.Web` (new project)**
 - `HttpContextPrincipalAccessor` — the real `IPrincipalAccessor`, registered **before**
-  `AddZenithPersistence` so Stage 01's try-add registration steps aside without being edited.
+  `AddVumaPersistence` so Stage 01's try-add registration steps aside without being edited.
 - `TenantResolutionMiddleware` — sets `ITenantContext` from the authenticated principal at the
   request edge.
 - `PermissionAuthorizationHandler` + policy provider — `RequirePermission("identity.user.create")`
@@ -70,7 +70,7 @@ terminal with a pinned client certificate.
   `POST /api/v1/auth/sign-out`, `GET /api/v1/me/permissions`.
 
 **Host and tooling**
-- `ZenithRetail.StoreServer` wired end to end, and `scripts/seed.sh` / `scripts/seed.ps1` building a
+- `VumaRetail.StoreServer` wired end to end, and `scripts/seed.sh` / `scripts/seed.ps1` building a
   demonstrable tenant: two stores, three roles, an owner, a manager and a cashier with PINs, and an
   enrolled terminal.
 
@@ -173,9 +173,9 @@ because a rule that cries wolf on the model gets suppressed, and then it guards 
 
 - **ASP.NET Core Identity contributes its `PasswordHasher` and nothing else.** `IdentityUser` cannot
   carry the §7 rule 3 columns, cannot be `[Replicated]`, and `UserManager` commits for itself in
-  breach of §7 rule 2. Identity's persistence model and Zenith's could not both be obeyed, and the
+  breach of §7 rule 2. Identity's persistence model and Vuma's could not both be obeyed, and the
   persistence contract wins. ADR-038.
-- **A new project, `src/ZenithRetail.Web`.** `CLAUDE.md` §5 does not list it. The ASP.NET-specific
+- **A new project, `src/VumaRetail.Web`.** `CLAUDE.md` §5 does not list it. The ASP.NET-specific
   wiring had to live somewhere the store server and cloud API share but the Stage 09 WPF desktop does
   not inherit. ADR-039, in the same spirit as ADR-031.
 - **Sign-in is a service, not a command.** Making it a `Write` command would refuse it while a tenant
@@ -196,7 +196,7 @@ because a rule that cries wolf on the model gets suppressed, and then it guards 
 - **Signing-key management.** The JWT signing key comes from configuration, with a development
   placeholder and a startup refusal to run on it outside Development. Real key custody (KMS/HSM) is
   Stage 04b's, alongside the licence signing key.
-- **Cloud-tier identity.** `ZenithRetail.CloudApi` gets the same wiring when Stage 04 gives it
+- **Cloud-tier identity.** `VumaRetail.CloudApi` gets the same wiring when Stage 04 gives it
   something to authorise. Nothing here is store-specific.
 - **SSO / MFA.** Neither is in `CLAUDE.md` §4. The security stamp and the credential abstraction leave
   room for both; adding them now would be inventing requirements.

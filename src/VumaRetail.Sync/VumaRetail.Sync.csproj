@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Sync protocol, HLC clock, conflict resolution (ADR-006, ADR-007). Stage 04. -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -5,18 +5,18 @@
 #
 # Testcontainers is the documented path (docs/TESTING.md §2) and the fixture prefers it when
 # Docker is available. This exists for machines where it is not — which, per
-# docs/PROGRESS.md §4.3, is the machine Zenith is currently being built on. See ADR-036.
+# docs/PROGRESS.md §4.3, is the machine Vuma is currently being built on. See ADR-036.
 #
 #   scripts/pg-test.sh start     start the cluster and print the export line
 #   scripts/pg-test.sh stop      stop it and delete the data directory
 #   scripts/pg-test.sh status    is it up?
-#   eval "$(scripts/pg-test.sh start)"   start it and set ZENITH_TEST_POSTGRES in this shell
+#   eval "$(scripts/pg-test.sh start)"   start it and set VUMA_TEST_POSTGRES in this shell
 #
 set -euo pipefail
 
-PORT="${ZENITH_TEST_PG_PORT:-55432}"
-DATA_DIR="${ZENITH_TEST_PG_DATA:-${TMPDIR:-/tmp}/zenith-test-pg}"
-USER_NAME="zenith"
+PORT="${VUMA_TEST_PG_PORT:-55432}"
+DATA_DIR="${VUMA_TEST_PG_DATA:-${TMPDIR:-/tmp}/vuma-test-pg}"
+USER_NAME="vuma"
 
 find_pg_bin() {
   # Debian and Ubuntu keep the server binaries off PATH, one directory per major version.
@@ -40,13 +40,13 @@ find_pg_bin() {
 PG_BIN="$(find_pg_bin)"
 
 conn_string() {
-  echo "Host=127.0.0.1;Port=${PORT};Database=postgres;Username=${USER_NAME};Password=zenith"
+  echo "Host=127.0.0.1;Port=${PORT};Database=postgres;Username=${USER_NAME};Password=vuma"
 }
 
 case "${1:-start}" in
   start)
     if "${PG_BIN}/pg_isready" -h 127.0.0.1 -p "${PORT}" >/dev/null 2>&1; then
-      echo "export ZENITH_TEST_POSTGRES='$(conn_string)'"
+      echo "export VUMA_TEST_POSTGRES='$(conn_string)'"
       exit 0
     fi
 
@@ -68,7 +68,7 @@ case "${1:-start}" in
       sleep 0.5
     done
 
-    echo "export ZENITH_TEST_POSTGRES='$(conn_string)'"
+    echo "export VUMA_TEST_POSTGRES='$(conn_string)'"
     ;;
 
   stop)

@@ -14,9 +14,9 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <InvariantGlobalization>true</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <Product>Zenith Retail</Product>
-    <Company>Zenith</Company>
-    <Copyright>Copyright © Zenith Retail</Copyright>
+    <Product>Vuma Retail</Product>
+    <Company>Vuma</Company>
+    <Copyright>Copyright © Vuma Retail</Copyright>
   </PropertyGroup>
 
   <!--
@@ -24,7 +24,7 @@
     Host projects warn but are not blocked; the two layers that hold the business
     rules are held to a stricter bar than the ones that host them.
   -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ZenithRetail.Domain' OR '$(MSBuildProjectName)' == 'ZenithRetail.Application'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'VumaRetail.Domain' OR '$(MSBuildProjectName)' == 'VumaRetail.Application'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 

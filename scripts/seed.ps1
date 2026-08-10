@@ -8,7 +8,7 @@
     This is the Windows entry point CLAUDE.md §8 names. scripts/seed.sh is the same thing for the
     Linux build machine.
 .PARAMETER ConnectionString
-    Overrides ConnectionStrings:Zenith from appsettings.
+    Overrides ConnectionStrings:Vuma from appsettings.
 #>
 [CmdletBinding()]
 param(
@@ -19,7 +19,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
 if ($ConnectionString) {
-    $env:ConnectionStrings__Zenith = $ConnectionString
+    $env:ConnectionStrings__Vuma = $ConnectionString
 }
 
 # The demo seed runs as a development tool by default. The host refuses to start on the placeholder
@@ -29,4 +29,4 @@ if (-not $env:ASPNETCORE_ENVIRONMENT) {
     $env:ASPNETCORE_ENVIRONMENT = 'Development'
 }
 
-dotnet run --project (Join-Path $root 'src/ZenithRetail.StoreServer') -c Release -- --seed
+dotnet run --project (Join-Path $root 'src/VumaRetail.StoreServer') -c Release -- --seed

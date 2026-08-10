@@ -5,14 +5,14 @@
 ## Objective
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
-Zenith team one screen answering "who is using this, how much, and is anyone abusing it?"
+Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"
 
 Placed after the module stages because it aggregates their usage, and before release because the
 installer ships activation.
 
 ## Deliverables
 
-**`ZenithRetail.ControlPlane` — a separate deployable**
+**`VumaRetail.ControlPlane` — a separate deployable**
 - Its own database, its own credentials, its own immutable audit log, deployed independently of the
   tenant cloud (ADR-024)
 - Licence signing through a cloud KMS/HSM: the service requests signatures and can never read the
@@ -151,7 +151,7 @@ installer ships activation.
 
 ## Exit checklist
 - [ ] Device API live: activation, lease, heartbeat, metering all working against real installs
-- [ ] Vendor console answers "who is using Zenith and how much" at fleet and tenant level
+- [ ] Vendor console answers "who is using Vuma and how much" at fleet and tenant level
 - [ ] Monthly licence issuance, billing, dunning, lockout and instant reactivation working end to end
 - [ ] Emergency write code, write unlock and fleet-wide enforcement suspension all working and audited
 - [ ] Pre-emptive card-expiry and mandate notifications proven; dunning pauses on undelivered notice

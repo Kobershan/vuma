@@ -18,7 +18,7 @@ depends on — the tenant, the store, and the immutable audit trail (R6).
 
 ## Deliverables
 
-**Application ports** (`ZenithRetail.Application.Abstractions`)
+**Application ports** (`VumaRetail.Application.Abstractions`)
 - `IClock` — the only source of time in the solution. `DateTime.Now` and `DateTimeOffset.UtcNow` are
   banned outside its implementation, so a licensing ladder, a lease expiry or a period close can be
   tested on a virtual clock (`CONVENTIONS.md` §6).
@@ -40,7 +40,7 @@ depends on — the tenant, the store, and the immutable audit trail (R6).
   it; declaring it here means the registry cannot be retrofitted onto entities built in between.
 
 **Infrastructure — persistence**
-- `ZenithRetailDbContext`: schema-per-module (ADR-010), `snake_case` naming applied by convention
+- `VumaRetailDbContext`: schema-per-module (ADR-010), `snake_case` naming applied by convention
   rather than per-property, and configuration discovered from the assembly.
 - `EntityConfiguration<T>` base: maps the `CLAUDE.md` §7 rule 3 columns exactly once — `id uuid` PK,
   `tenant_id`, `store_id`, `created_at/by`, `updated_at/by`, `row_version` mapped to PostgreSQL
@@ -55,16 +55,16 @@ depends on — the tenant, the store, and the immutable audit trail (R6).
 - `AuditTrailInterceptor` — writes the `platform.audit_entries` row for every insert, update and soft
   delete in the same transaction as the change itself.
 - `SystemClock`, `SystemPrincipalAccessor`, `AsyncLocalTenantContext` and the
-  `AddZenithPersistence(...)` DI extension.
+  `AddVumaPersistence(...)` DI extension.
 
 **Migrations**
-- `InitialCreate` in `src/ZenithRetail.Infrastructure/Migrations`, creating the `platform` schema and
+- `InitialCreate` in `src/VumaRetail.Infrastructure/Migrations`, creating the `platform` schema and
   its three tables. `Down` is written and **tested to actually reverse**, not assumed.
 - `scripts/pg-dev.sh` — an ephemeral PostgreSQL cluster on a spare port for tests and migrations,
   using the locally installed server binaries. No Docker, no sudo, no shared state.
 
 **Tests**
-- `tests/ZenithRetail.IntegrationTests` — a real PostgreSQL through a fixture, real migrations, per-test
+- `tests/VumaRetail.IntegrationTests` — a real PostgreSQL through a fixture, real migrations, per-test
   template-database cloning so tests are isolated and fast (`docs/TESTING.md` §2 and `CONVENTIONS.md` §7).
 - Two new architecture rules, added now because both become unenforceable once forty modules exist:
   **no `SaveChanges` outside the persistence layer** (§7 rule 2) and **no cross-schema foreign keys**
@@ -143,7 +143,7 @@ Each new rule was broken on purpose and the break confirmed before reverting:
 | No wall clock outside `SystemClock` | `DateTimeOffset.UtcNow` in Infrastructure | `DeliberateViolation.cs:5 — public static DateTimeOffset Now() => DateTimeOffset.UtcNow;` |
 | No `SaveChanges` outside persistence | `context.SaveChanges()` in Infrastructure | `DeliberateViolation.cs:6 — public static void Save(DbContext context) => context.SaveChanges();` |
 | No cross-schema foreign key | an `identity` entity with an FK to `platform.stores` | `identity.deliberate_terminals → platform.stores` |
-| Every entity declares replication | that entity, with no `[Replicated]` | `ZenithRetail.Domain.Identity.DeliberateTerminal` |
+| Every entity declares replication | that entity, with no `[Replicated]` | `VumaRetail.Domain.Identity.DeliberateTerminal` |
 
 The wall-clock rule also caught a genuine read on its first run — `UuidV7.NewGuid()`. That one is
 exempted with the reason stated at the exemption: a UUID v7 is time-ordered by construction (ADR-004)

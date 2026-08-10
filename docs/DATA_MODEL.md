@@ -1,6 +1,6 @@
-# DATA MODEL — Zenith Retail
+# DATA MODEL — Vuma Retail
 
-The rules every table in Zenith obeys, and the register of what exists so far. Written in Stage 01
+The rules every table in Vuma obeys, and the register of what exists so far. Written in Stage 01
 and extended by every stage that adds a schema.
 
 `CONVENTIONS.md` §2 covers naming. This file covers shape, and the reasons.
@@ -11,7 +11,7 @@ and extended by every stage that adds a schema.
 
 `CLAUDE.md` §7 rule 3. Every table carries these, and no module declares them — they come from
 `Entity` in the domain and are mapped once by `EntityConfiguration<T>` in
-`src/ZenithRetail.Infrastructure/Persistence/Configurations/`.
+`src/VumaRetail.Infrastructure/Persistence/Configurations/`.
 
 | Column | Type | Why |
 |---|---|---|
@@ -72,7 +72,7 @@ Map money and quantity with `builder.HasMoney(...)` / `builder.HasQuantity(...)`
 ## 3. Schemas
 
 Schema name = module name (ADR-010). Declared as constants on
-`ZenithRetail.Infrastructure.Persistence.Schemas`, and an architecture test fails the build if a
+`VumaRetail.Infrastructure.Persistence.Schemas`, and an architecture test fails the build if a
 table lands anywhere else — including `public`, which belongs to no module and therefore to everyone.
 
 | Schema | Owns | Stage |
@@ -231,7 +231,7 @@ Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_B
 
 ## 6. Migrations
 
-`src/ZenithRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`.
+`src/VumaRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`.
 
 Every migration is reversible and its `Down` is **run** in the test suite, not assumed —
 `MigrationTests` applies the chain to an empty database, reverses it to nothing, and re-applies it.
@@ -244,7 +244,7 @@ change without a scaffolded migration fails here rather than on a customer's dat
 Scaffold with:
 
 ```bash
-dotnet ef migrations add <Name> --project src/ZenithRetail.Infrastructure --context ZenithRetailDbContext
+dotnet ef migrations add <Name> --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 ```
 
 `Down` does not drop the schema. EF's own history table lives in `platform`, and dropping the schema

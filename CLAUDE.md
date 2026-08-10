@@ -1,7 +1,7 @@
-# CLAUDE.md — Zenith Retail
+# CLAUDE.md — Vuma Retail
 
 > **This file is the contract.** Read it fully at the start of every session, before touching any code.
-> Zenith Retail is a Windows-installed retail ERP + POS platform with an in-store server, a cloud
+> Vuma Retail is a Windows-installed retail ERP + POS platform with an in-store server, a cloud
 > replica/backup tier, and an Android admin app. It is built stage-by-stage by autonomous Claude Code
 > sessions. Each session picks up where the last one stopped by reading `docs/PROGRESS.md`.
 
@@ -76,7 +76,7 @@ refactor anything you built in an earlier stage.
 
 ## 3. What we are building
 
-**Zenith Retail** — a modular retail ERP with POS at its centre, deployed as a Windows application
+**Vuma Retail** — a modular retail ERP with POS at its centre, deployed as a Windows application
 against an in-store physical server, replicating to a cloud tier for backup, multi-store roll-up and
 mobile access.
 
@@ -86,13 +86,13 @@ mobile access.
 ┌──────────────────────── STORE (physical premises) ────────────────────────┐
 │                                                                            │
 │   POS Terminal (Win)     POS Terminal (Win)     Back-Office (Win)          │
-│   Zenith Desktop         Zenith Desktop         Zenith Desktop             │
+│   Vuma Desktop         Vuma Desktop         Vuma Desktop             │
 │   + SQLite offline cache + SQLite offline cache + SQLite offline cache     │
 │          │                      │                      │                   │
 │          └──────────────────────┴──────────────────────┘                   │
 │                                 │  HTTPS/LAN + SignalR                     │
 │                    ┌────────────▼─────────────┐                            │
-│                    │  ZENITH STORE SERVER     │  Windows Service           │
+│                    │  VUMA STORE SERVER     │  Windows Service           │
 │                    │  ASP.NET Core API        │  (the store keeps trading  │
 │                    │  PostgreSQL 16           │   even if internet is down)│
 │                    │  Sync agent + Outbox     │                            │
@@ -100,7 +100,7 @@ mobile access.
 └─────────────────────────────────┼──────────────────────────────────────────┘
                                   │  mTLS + JWT, batched, resumable
                     ┌─────────────▼──────────────┐
-                    │  ZENITH CLOUD              │
+                    │  VUMA CLOUD              │
                     │  ASP.NET Core API          │
                     │  PostgreSQL (replica of    │
                     │   all stores, tenant-keyed)│
@@ -109,7 +109,7 @@ mobile access.
                     └─────────────┬──────────────┘
                                   │  HTTPS REST + push
                     ┌─────────────▼──────────────┐
-                    │  ZENITH ADMIN (Android)    │
+                    │  VUMA ADMIN (Android)    │
                     │  Dashboards, approvals,    │
                     │  stock lookup, alerts      │
                     └────────────────────────────┘
@@ -141,12 +141,12 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 |---|---|
 | Language / runtime | C# 13 on .NET 9 (LTS-track), `net9.0-windows` for desktop |
 | Desktop app | WPF + MVVM via `CommunityToolkit.Mvvm`, `Microsoft.Extensions.Hosting` generic host |
-| Desktop UI kit | WPF-UI (Fluent) + custom Zenith theme; touch-first POS layouts |
+| Desktop UI kit | WPF-UI (Fluent) + custom Vuma theme; touch-first POS layouts |
 | Store server | ASP.NET Core 9 Minimal APIs + Windows Service host |
 | Cloud API | ASP.NET Core 9, container-deployable (Docker) |
 | Database | PostgreSQL 16 (store + cloud), schema-per-module |
 | Terminal-local store | SQLite (`Microsoft.Data.Sqlite`) — offline cache + outbound queue |
-| ORM | EF Core 9 + Npgsql; migrations checked into `src/ZenithRetail.Infrastructure/Migrations` |
+| ORM | EF Core 9 + Npgsql; migrations checked into `src/VumaRetail.Infrastructure/Migrations` |
 | IDs | **UUID v7** everywhere (sortable, offline-safe generation) |
 | Auth | ASP.NET Core Identity + JWT (15 min access / 30 day rotating refresh), device certs for terminals, 4–8 digit PIN for POS operators |
 | Realtime | SignalR (store LAN + cloud push) |
@@ -171,7 +171,7 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 ## 5. Repository layout
 
 ```
-zenith-retail/
+vuma/
 ├── CLAUDE.md                     ← you are here
 ├── README.md
 ├── .claude/
@@ -198,24 +198,24 @@ zenith-retail/
 │   ├── AGENTS.md
 │   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
 ├── src/
-│   ├── ZenithRetail.Domain/          entities, value objects, domain events, no dependencies
-│   ├── ZenithRetail.Application/     use cases (commands/queries), ports, validators
-│   ├── ZenithRetail.Infrastructure/  EF Core, repositories, outbox, integrations
-│   ├── ZenithRetail.Contracts/       DTOs shared by API, desktop, Android
-│   ├── ZenithRetail.StoreServer/     ASP.NET Core API + Windows Service (in-store)
-│   ├── ZenithRetail.CloudApi/        ASP.NET Core API (cloud tier)
-│   ├── ZenithRetail.Sync/            sync protocol, HLC clock, conflict resolution
-│   ├── ZenithRetail.Desktop/         WPF shell: POS + Back Office modules
-│   ├── ZenithRetail.Imports/         Excel/CSV/PDF ingestion engine
-│   ├── ZenithRetail.Reporting/       QuestPDF documents + report queries
-│   └── ZenithRetail.Hardware/        printers, drawers, scanners, scales, payment terminals
-├── android/                          Zenith Admin (Kotlin/Compose)
+│   ├── VumaRetail.Domain/          entities, value objects, domain events, no dependencies
+│   ├── VumaRetail.Application/     use cases (commands/queries), ports, validators
+│   ├── VumaRetail.Infrastructure/  EF Core, repositories, outbox, integrations
+│   ├── VumaRetail.Contracts/       DTOs shared by API, desktop, Android
+│   ├── VumaRetail.StoreServer/     ASP.NET Core API + Windows Service (in-store)
+│   ├── VumaRetail.CloudApi/        ASP.NET Core API (cloud tier)
+│   ├── VumaRetail.Sync/            sync protocol, HLC clock, conflict resolution
+│   ├── VumaRetail.Desktop/         WPF shell: POS + Back Office modules
+│   ├── VumaRetail.Imports/         Excel/CSV/PDF ingestion engine
+│   ├── VumaRetail.Reporting/       QuestPDF documents + report queries
+│   └── VumaRetail.Hardware/        printers, drawers, scanners, scales, payment terminals
+├── android/                          Vuma Admin (Kotlin/Compose)
 ├── samples/storefront/               minimal reference storefront proving the public API works
 ├── tests/
-│   ├── ZenithRetail.UnitTests/
-│   ├── ZenithRetail.IntegrationTests/
-│   ├── ZenithRetail.SyncTests/
-│   └── ZenithRetail.UiTests/
+│   ├── VumaRetail.UnitTests/
+│   ├── VumaRetail.IntegrationTests/
+│   ├── VumaRetail.SyncTests/
+│   └── VumaRetail.UiTests/
 ├── deploy/                           docker-compose (dev), WiX, Velopack, DR scripts
 └── scripts/                          dev bootstrap, seed, backup/restore, drill
 ```
@@ -279,7 +279,7 @@ zenith-retail/
     decides the accounts. Enforced by an architecture test.
 13. **No module implements its own approval logic.** Everything goes through Stage 05's
     `IApprovalService`. Also enforced by an architecture test.
-14. **The public API has its own DTOs.** `ZenithRetail.PublicApi` may not reference internal contracts;
+14. **The public API has its own DTOs.** `VumaRetail.PublicApi` may not reference internal contracts;
     cost, margin, supplier and other-customer data must be structurally unreachable, not merely filtered.
 15. **Read-only is deliberate or it is a bug.** A lapsed subscription drops a tenant to read-only —
     that is the commercial model. But it may only ever be triggered by a *known* subscription state

@@ -1,4 +1,4 @@
-# AGENTS — Zenith Retail
+# AGENTS — Vuma Retail
 
 Subagent definitions live in `.claude/agents/`. Each one is a specialist reviewer with a narrow
 brief and its own context window. They exist so that the session building a stage is not also the

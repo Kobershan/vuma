@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- CLAUDE.md §7 rule 1: Application references Domain and nothing else. -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      FluentValidation is the one framework Application takes (CLAUDE.md §4). Validators are the
+      Application layer's own vocabulary rather than an infrastructure concern, and the architecture
+      test only forbids depending on the layers below and the hosts above.
+    -->
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+
+</Project>

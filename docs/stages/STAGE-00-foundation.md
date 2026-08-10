@@ -18,7 +18,7 @@ Windows-only projects to the stages that need them.
 ## Deliverables
 
 **Build configuration**
-- `ZenithRetail.sln` containing every project below.
+- `VumaRetail.sln` containing every project below.
 - `global.json` pinning the SDK band (`9.0.100`, `rollForward: latestFeature`) so CI and every
   developer resolve the same compiler.
 - `Directory.Build.props` — `net9.0`, C# 13, `ImplicitUsings`, `Nullable` enabled solution-wide,
@@ -33,14 +33,14 @@ have something to bind to:
 
 | Project | TFM | References |
 |---|---|---|
-| `ZenithRetail.Domain` | net9.0 | **nothing** |
-| `ZenithRetail.Application` | net9.0 | Domain |
-| `ZenithRetail.Contracts` | net9.0 | nothing |
-| `ZenithRetail.Infrastructure` | net9.0 | Application, Domain, Contracts |
-| `ZenithRetail.Sync` | net9.0 | Application, Domain, Contracts |
-| `ZenithRetail.StoreServer` | net9.0 | Infrastructure, Sync, Contracts |
-| `ZenithRetail.CloudApi` | net9.0 | Infrastructure, Sync, Contracts |
-| `ZenithRetail.PublicApi` | net9.0 | **its own DTOs only** — not Contracts (§7 rule 14) |
+| `VumaRetail.Domain` | net9.0 | **nothing** |
+| `VumaRetail.Application` | net9.0 | Domain |
+| `VumaRetail.Contracts` | net9.0 | nothing |
+| `VumaRetail.Infrastructure` | net9.0 | Application, Domain, Contracts |
+| `VumaRetail.Sync` | net9.0 | Application, Domain, Contracts |
+| `VumaRetail.StoreServer` | net9.0 | Infrastructure, Sync, Contracts |
+| `VumaRetail.CloudApi` | net9.0 | Infrastructure, Sync, Contracts |
+| `VumaRetail.PublicApi` | net9.0 | **its own DTOs only** — not Contracts (§7 rule 14) |
 
 **Domain primitives**
 - `Entity` — the mandatory columns from §7 rule 3: `Id`, `TenantId`, `StoreId?`, `CreatedAt/By`,
@@ -60,12 +60,12 @@ have something to bind to:
   across forty modules later costs a great deal.
 
 **Tests** (`tests/`)
-- `ZenithRetail.ArchitectureTests` — NetArchTest, enforcing:
+- `VumaRetail.ArchitectureTests` — NetArchTest, enforcing:
   - Domain depends on nothing outside the BCL (§7 rule 1)
   - Application depends only on Domain
   - `PublicApi` does not reference `Contracts` (§7 rule 14)
   - every `ICommand` implementation carries a `SideEffect` classification (§7 rule 15)
-- `ZenithRetail.UnitTests` — xUnit + FluentAssertions covering the domain primitives: UUID v7
+- `VumaRetail.UnitTests` — xUnit + FluentAssertions covering the domain primitives: UUID v7
   ordering and version/variant bits, `Money` currency mismatch and precision, `Quantity` precision.
 
 **CI** — `.github/workflows/ci.yml`: `build` → `test` → `architecture-tests`, on push and PR.
@@ -111,7 +111,7 @@ Both mechanisms were broken on purpose and the break was confirmed before being 
 
 1. **Unclassified command.** Adding an `ICommand<Unit>` with no `[CommandSideEffect]` to
    `Infrastructure` failed `Every_command_declares_a_side_effect` with the offending type named:
-   `ZenithRetail.Infrastructure.DeliberatelyUnclassifiedCommand — no [CommandSideEffect] attribute`.
+   `VumaRetail.Infrastructure.DeliberatelyUnclassifiedCommand — no [CommandSideEffect] attribute`.
 2. **Wrong-direction reference.** Adding a `Domain → Application` project reference failed the build
    outright (`MSB4006: circular dependency`), before any test ran. Layering is a compile error, as
    §7 rule 1 intends; the NetArchTest rules then cover the acyclic cases a reference cannot catch,
@@ -126,8 +126,8 @@ means something and where the gate should start blocking.
 
 ## Explicitly deferred
 
-`ZenithRetail.Desktop` (WPF), `ZenithRetail.Hardware` and `ZenithRetail.UiTests` (FlaUI) target
+`VumaRetail.Desktop` (WPF), `VumaRetail.Hardware` and `VumaRetail.UiTests` (FlaUI) target
 `net9.0-windows` and **cannot build on Linux at all**. They are created by the stages that need them
-(09 and 30 respectively), on a Windows machine. `ZenithRetail.Imports`, `.Reporting` and
+(09 and 30 respectively), on a Windows machine. `VumaRetail.Imports`, `.Reporting` and
 `.ControlPlane` are created by Stages 11, and 30b. Creating empty shells now would only add
 projects that no test exercises. See ADR-031.

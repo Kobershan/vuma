@@ -1,12 +1,12 @@
-# CONVENTIONS — Zenith Retail
+# CONVENTIONS — Vuma Retail
 
 Formatting is settled by `.editorconfig` and is not worth discussing. This file covers the decisions
 an analyzer cannot make for you.
 
 ## 1. Projects and namespaces
 
-Namespace matches folder path from the project root: `src/ZenithRetail.Domain/Sales/Pricing/` →
-`ZenithRetail.Domain.Sales.Pricing`. File-scoped namespaces. One public type per file, named after
+Namespace matches folder path from the project root: `src/VumaRetail.Domain/Sales/Pricing/` →
+`VumaRetail.Domain.Sales.Pricing`. File-scoped namespaces. One public type per file, named after
 the file.
 
 Module code is grouped by **module first, then layer within it** — `Domain/Inventory/StockLedger.cs`,

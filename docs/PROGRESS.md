@@ -1,4 +1,4 @@
-# PROGRESS — Zenith Retail
+# PROGRESS — Vuma Retail
 
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
@@ -61,13 +61,13 @@ GitHub.
 `dotnet build -c Release` → **0 warnings, 0 errors**. `dotnet test` → **55 passed, 0 failed**
 (46 unit, 9 architecture). Full exit checklist in `docs/stages/STAGE-00-foundation.md`.
 
-**Build configuration.** `ZenithRetail.sln`; `global.json` pinning the 9.0.100 SDK band;
+**Build configuration.** `VumaRetail.sln`; `global.json` pinning the 9.0.100 SDK band;
 `Directory.Build.props` (net9.0, C# 13, nullable, deterministic, `TreatWarningsAsErrors` on Domain and
 Application only); `Directory.Packages.props` (central package management, ADR-030); `.editorconfig`.
 
 **Projects created** — cross-platform only, per ADR-031:
 `Domain`, `Application`, `Contracts`, `Infrastructure`, `Sync`, `StoreServer`, `CloudApi`,
-`PublicApi`, plus `tests/ZenithRetail.UnitTests` and `tests/ZenithRetail.ArchitectureTests`.
+`PublicApi`, plus `tests/VumaRetail.UnitTests` and `tests/VumaRetail.ArchitectureTests`.
 Project references encode the layering, so a wrong-direction reference is a compile error.
 
 **Domain primitives.** `Entity` (the §7 rule 3 mandatory columns, soft delete, audit stamping);
@@ -120,14 +120,14 @@ query filter needs no special case), `Store` (R8 from the first migration), `Aud
 (append-only, R6). Plus `IImmutableRecord` and `[Replicated(scope, policy)]` — both markers the
 persistence layer enforces centrally.
 
-**Infrastructure.** `ZenithRetailDbContext` with schema-per-module and `snake_case` by convention;
+**Infrastructure.** `VumaRetailDbContext` with schema-per-module and `snake_case` by convention;
 `EntityConfiguration<T>` mapping the §7 rule 3 columns exactly once; both global query filters
 applied to every entity by reflection so none can opt out; `ValueObjectMapping` fixing the shape of
 money and quantity columns before Stage 07 needs them; a single `AuditInterceptor` doing soft-delete
 rewriting, the immutability guard, audit stamping and the trail write in one pass with an explicit
 order. `InitialCreate` migration, `Down` genuinely exercised.
 
-**Tests.** New `tests/ZenithRetail.IntegrationTests` against real PostgreSQL with real migrations,
+**Tests.** New `tests/VumaRetail.IntegrationTests` against real PostgreSQL with real migrations,
 isolated per test by cloning a migrated template database. Four new architecture rules, each proven
 by a deliberate violation before being reverted.
 
@@ -173,12 +173,12 @@ that is deliberately **not** a command — see ADR-040.
 CI does it), four repositories, `IdentityPasswordHasher` over ASP.NET Core Identity's
 `PasswordHasher<T>`, `Sha256TokenHasher`, and `JwtTokenIssuer` at 15 minutes / 30 days.
 
-**New project: `src/ZenithRetail.Web`.** The ASP.NET-specific wiring — `HttpContextPrincipalAccessor`,
+**New project: `src/VumaRetail.Web`.** The ASP.NET-specific wiring — `HttpContextPrincipalAccessor`,
 `TenantResolutionMiddleware`, the permission policy provider and handler, the terminal certificate
 scheme, and the auth endpoints. Not in `CLAUDE.md` §5's layout; ADR-039 explains why it is not in
 `Infrastructure` (the Stage 09 WPF desktop would inherit the ASP.NET Core shared framework).
 
-**Host and seed.** `ZenithRetail.StoreServer` is wired end to end and refuses to start on the
+**Host and seed.** `VumaRetail.StoreServer` is wired end to end and refuses to start on the
 placeholder JWT signing key outside Development. `scripts/seed.sh` / `scripts/seed.ps1` build a demo
 tenant — 2 stores, 3 roles, 3 users with PINs, 22 grants, 1 enrolled terminal — and are idempotent.
 
@@ -186,11 +186,37 @@ tenant — 2 stores, 3 roles, 3 users with PINs, 22 grants, 1 enrolled terminal 
 role, and a module declares only its own well-formed permissions.
 
 **ADRs appended:** ADR-038 Identity contributes its hasher, not its stores · ADR-039 ASP.NET host
-wiring lives in `ZenithRetail.Web` · ADR-040 authentication is an edge service, not a command ·
+wiring lives in `VumaRetail.Web` · ADR-040 authentication is an edge service, not a command ·
 ADR-041 POS PINs are unique tenant-wide and resolved per store.
 
 **Docs:** `docs/SECURITY.md` written (credential model, authorisation, transport, POPIA, vendor
 access); `docs/DATA_MODEL.md` gained §4b and six replication-registry entries.
+
+### 2026-08-10 — Product renamed: Zenith Retail → Vuma Retail
+
+Owner-directed rename, no functional change. `dotnet build -c Release` → **0 warnings, 0 errors**;
+`scripts/test.sh` → **253 passed, 0 failed** (130 unit, 19 architecture, 104 integration). Recorded
+as ADR-042.
+
+**What moved.** Every occurrence, in all three casings, across all 145 tracked files that contained
+it; 25 project/test directories and `VumaRetail.sln` renamed; the working folder is now
+`~/Documents/vuma` and the GitHub repository `Kobershan/vuma` (which also disposed of the "zentih"
+typo in §4.5). Assemblies and namespaces keep the two-word form `VumaRetail.*`; the repo and folder
+are the bare `vuma`. No occurrence of the old name survives anywhere in the tree.
+
+**Breaking for any future deployment, free today because nothing is deployed.** The configuration
+section is now `Vuma__*` and the connection string is `ConnectionStrings__Vuma`, so a host started
+against old environment variables silently gets defaults rather than an error; and JWT claim types
+moved from `zenith:*` to `vuma:*`, so any token minted before today no longer resolves a tenant. Also
+renamed: `VUMA_TEST_POSTGRES`, `VUMA_MIGRATIONS_CONNECTION`, `VUMA_CONNECTION`, the JWT issuer
+`vuma-store-server`, the authorisation policy prefix `vuma:perm:`, and the `UserSecretsId` of the
+three host projects — a local `dotnet user-secrets` store from before the rename will not be found
+and must be re-entered.
+
+**Deliberately untouched.** PostgreSQL schema names (`platform`, `identity`, `sync`, `licensing`) are
+module names, never the product, so no database migration was required — the existing migrations
+still apply unchanged. The three git-ignored `appsettings.Development.json` files were carried across
+to the renamed project folders with their keys rewritten, so local dev connection strings survive.
 
 ---
 
@@ -240,7 +266,7 @@ This repository is being developed on Linux. The product targets Windows.
 | `dotnet-ef` | **installed** 2026-08-09 — 9.0.0 global tool, `~/.dotnet/tools` | migrations scaffold and apply |
 | PostgreSQL | **installed** — server 18.4, `/usr/lib/postgresql/18/bin` | `scripts/pg-test.sh` starts a throwaway cluster on port 55432 for the integration tests. **No longer blocking** |
 | Docker | **not installed** | Testcontainers is the preferred supplier when present but is no longer required (ADR-036). Worth installing eventually so CI and local use the identical path |
-| Windows | n/a — Linux | `ZenithRetail.Desktop` (WPF), `.Hardware` and the FlaUI UI tests cannot build or run here at all. Blocks Stage 09 onward (ADR-031) |
+| Windows | n/a — Linux | `VumaRetail.Desktop` (WPF), `.Hardware` and the FlaUI UI tests cannot build or run here at all. Blocks Stage 09 onward (ADR-031) |
 
 **Resolved during Stage 01.** Docker was expected to block this stage's exit checklist. It did not:
 the machine already had a full PostgreSQL server install, and `scripts/pg-test.sh` uses those
@@ -253,7 +279,7 @@ The next real toolchain blocker is **Windows**, at Stage 09.
 ### 4.4 CI is live and green — **RESOLVED 2026-08-09**
 
 `.github/workflows/ci.yml` is on the remote and the full pipeline has run. Run
-[31335071395](https://github.com/Kobershan/zentih-retail/actions/runs/31335071395) — all six jobs
+[31335071395](https://github.com/Kobershan/vuma/actions/runs/31335071395) — all six jobs
 green: `build`, `test`, `migrate-check`, `architecture-tests`, `vulnerability-scan`, `package`.
 127 tests ran, **0 skipped**, including all 34 integration tests against the PostgreSQL service
 container, and `migrate-check` performed a real up → down → up.
@@ -264,7 +290,7 @@ complete. The restriction is specific to **OAuth apps pushing over HTTPS**, so t
 switched from HTTPS to SSH:
 
 ```bash
-git remote set-url origin git@github.com:Kobershan/zentih-retail.git
+git remote set-url origin git@github.com:Kobershan/vuma.git
 ```
 
 The machine already had a working `id_ed25519` key authenticating as `Kobershan`. This is the normal
@@ -283,11 +309,12 @@ Two consequences worth carrying forward:
 Stages 00 and 01 were both marked DONE on verified local runs before CI existed. CI has since
 confirmed both.
 
-### 4.5 GitHub remote name
+### 4.5 GitHub remote name — **RESOLVED 2026-08-10**
 
-The remote is `github.com/Kobershan/zentih-retail` — the repository name contains a typo
-("zentih"). The repo was empty at connection time, so `gh repo rename zenith-retail` is safe
-whenever the owner wants it; the remote URL then needs updating. Cosmetic, not blocking.
+The remote used to be `github.com/Kobershan/vuma`, which carried a typo ("zentih"). The
+product rename to **Vuma Retail** cleared both at once: the repository was renamed with
+`gh repo rename vuma` and the remote re-pointed to `git@github.com:Kobershan/vuma.git`. GitHub keeps
+a redirect from the old name, so any stale clone still fetches, but it should be re-pointed.
 
 ---
 
@@ -303,7 +330,7 @@ execute it. `docs/API_STANDARDS.md` is Stage 03's to write as well.
 export DOTNET_ROOT=$HOME/.dotnet && export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
 dotnet build -c Release
 scripts/test.sh                 # starts a throwaway PostgreSQL, runs everything, tears it down
-scripts/seed.sh                 # demo tenant; needs ZENITH_CONNECTION or a configured connection string
+scripts/seed.sh                 # demo tenant; needs VUMA_CONNECTION or a configured connection string
 ```
 
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
@@ -311,16 +338,16 @@ deliberately fail rather than skip without one (ADR-036).
 
 ### What Stage 02 leaves you
 
-- **`ZenithRetail.Web` exists and is where host wiring goes** (ADR-039). `AddZenithWeb` /
-  `UseZenithWeb` already order authentication → tenant resolution → authorisation, and that order is
+- **`VumaRetail.Web` exists and is where host wiring goes** (ADR-039). `AddVumaWeb` /
+  `UseVumaWeb` already order authentication → tenant resolution → authorisation, and that order is
   not a style choice: tenant resolution reads the authenticated principal. Stage 03's versioning,
   `ProblemDetails` and OpenAPI belong here, not in each host.
 - **`RequirePermission("module.entity.action")` works today.** Use it on every endpoint you add.
   Never a role name — there is an architecture test.
 - **The permission catalogue is the closed set.** Declare your module's permissions in an
-  `IModulePermissions` and register it in `AddZenithPermissionCatalogue`. Add the class to
+  `IModulePermissions` and register it in `AddVumaPermissionCatalogue`. Add the class to
   `IdentityRulesTests.DeclaredModules()` and both catalogue rules cover it for free.
-- **The command handlers are registered one by one** in `AddZenithIdentity`. That is deliberate:
+- **The command handlers are registered one by one** in `AddVumaIdentity`. That is deliberate:
   ADR-009's Scrutor scan and the dispatcher are Stage 03's deliverable. When you build them, replace
   those eight registrations with the scan.
 - **Handlers currently call `IUnitOfWork.CommitAsync` themselves**, because there is no pipeline yet.
@@ -347,8 +374,8 @@ deliberately fail rather than skip without one (ADR-036).
 
 ### Known small debts from Stage 02
 
-- **The cloud API is not wired.** `ZenithRetail.CloudApi` still has its scaffold `Program.cs`. Nothing
-  in `ZenithRetail.Web` is store-specific; it gets the same three lines when Stage 04 gives it
+- **The cloud API is not wired.** `VumaRetail.CloudApi` still has its scaffold `Program.cs`. Nothing
+  in `VumaRetail.Web` is store-specific; it gets the same three lines when Stage 04 gives it
   something to authorise.
 - **mTLS transport is not configured.** `TerminalCertificateAuthenticationHandler` resolves a
   thumbprint into a `Terminal` and is tested at the service level, but which Kestrel port demands a
@@ -356,5 +383,5 @@ deliberately fail rather than skip without one (ADR-036).
 - **JWT signing-key custody is configuration only.** The host refuses to start on the shipped
   placeholder outside Development, which is the floor rather than the answer. Real custody (KMS/HSM)
   belongs with Stage 04b's licence signing key.
-- **`ZenithRetail.Web` is not in `CLAUDE.md` §5's layout.** ADR-039 states why; §5 describes the
+- **`VumaRetail.Web` is not in `CLAUDE.md` §5's layout.** ADR-039 states why; §5 describes the
   finished shape, as ADR-031 already established.

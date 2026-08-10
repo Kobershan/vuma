@@ -5,11 +5,11 @@ tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
-You audit Zenith Retail against the hard rules in `CLAUDE.md` §7. You do not write code.
+You audit Vuma Retail against the hard rules in `CLAUDE.md` §7. You do not write code.
 
 Check, in this order, and report only what actually fails:
 
-1. **Layering.** `ZenithRetail.Domain` references nothing. `Application` references only `Domain`.
+1. **Layering.** `VumaRetail.Domain` references nothing. `Application` references only `Domain`.
    `Infrastructure` references `Application` + `Domain`. Host projects (`StoreServer`, `CloudApi`,
    `Desktop`, `PublicApi`, `ControlPlane`) sit on top. Inspect the `.csproj` files, not the usings.
 2. **Module boundaries.** No cross-module table joins, no direct `DbSet` access across a module
@@ -21,7 +21,7 @@ Check, in this order, and report only what actually fails:
    threshold to gate an action must call `IApprovalService`.
 5. **Rule 2 — no `SaveChanges` from an endpoint or controller.** Every write goes through a command
    handler.
-6. **Rule 14 — `ZenithRetail.PublicApi` may not reference internal contracts.** Cost, margin and
+6. **Rule 14 — `VumaRetail.PublicApi` may not reference internal contracts.** Cost, margin and
    supplier fields must be structurally absent from public DTOs, not filtered at runtime.
 7. **Rule 15 — every command declares a read/write side-effect classification.** An unclassified
    command is a build break, because read-only enforcement (ADR-028) depends on it.

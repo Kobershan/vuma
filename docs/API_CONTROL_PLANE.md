@@ -1,16 +1,16 @@
-# CONTROL PLANE API — Zenith Retail
+# CONTROL PLANE API — Vuma Retail
 
-Two audiences, one host (`ZenithRetail.ControlPlane`), strictly separated:
+Two audiences, one host (`VumaRetail.ControlPlane`), strictly separated:
 
-1. **Device API** — what an installed Zenith store server calls: activation, licence lease refresh,
+1. **Device API** — what an installed Vuma store server calls: activation, licence lease refresh,
    heartbeat, metering. Machine-to-machine, mTLS.
-2. **Vendor API** — what the vendor's own console and mobile app call: who is using Zenith, how much,
+2. **Vendor API** — what the vendor's own console and mobile app call: who is using Vuma, how much,
    licence and billing administration, fleet health, abuse queue. Human, MFA-mandatory.
 
 Read `docs/LICENSING.md` first — the rules there govern what these endpoints are allowed to do.
 
 Base paths:
-`https://control.zenithretail.app/device/v1` · `https://control.zenithretail.app/vendor/v1`
+`https://control.vumaretail.app/device/v1` · `https://control.vumaretail.app/vendor/v1`
 
 ## 1. Isolation
 

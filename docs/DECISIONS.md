@@ -1,4 +1,4 @@
-# DECISIONS (ADR log) — Zenith Retail
+# DECISIONS (ADR log) — Vuma Retail
 
 Every architectural choice lives here. **Decisions marked LOCKED are settled — do not re-open them,
 do not "improve" them mid-stage.** New decisions get appended with the next number.
@@ -134,11 +134,11 @@ from a separate host for storefronts, apps and partners.
 rather than an accident. Points liability posts to the GL and reconciles. Partners get scoped access to
 one member without any other customer data.
 
-## ADR-018 — Headless commerce: Zenith is the backend of record — **LOCKED**
-**Context.** "Connect an ecommerce website" can mean Zenith owns commerce, or Zenith syncs with an
+## ADR-018 — Headless commerce: Vuma is the backend of record — **LOCKED**
+**Context.** "Connect an ecommerce website" can mean Vuma owns commerce, or Vuma syncs with an
 existing storefront platform. Both are legitimate and tenants will want both.
 **Decision.** Do both through one design. A public Storefront API (catalogue, cart, checkout, account)
-makes Zenith the commerce backend for any frontend; an `IChannelConnector` abstraction covers existing
+makes Vuma the commerce backend for any frontend; an `IChannelConnector` abstraction covers existing
 storefronts, marketplaces and EDI partners. In both cases **web orders enter the same Stage 14 order
 pipeline** and **web prices come from the same Stage 10 pricing engine as the till**.
 **Consequences.** No divergent order model, no second price list that drifts. A price-parity test
@@ -168,7 +168,7 @@ continuously (MAPE, bias) so a degrading model is visible rather than quietly wr
 ## ADR-021 — A separate public API host — **LOCKED**
 **Context.** The storefront and loyalty APIs face the open internet and untrusted partners. The
 internal API assumes an authenticated staff user and returns cost, margin and supplier data.
-**Decision.** `ZenithRetail.PublicApi` is a separate deployable host with its own auth model
+**Decision.** `VumaRetail.PublicApi` is a separate deployable host with its own auth model
 (publishable/secret/partner keys plus member and customer tokens), its own rate limits, its own caching
 posture, and — critically — **its own DTOs**. Internal fields are not properties on any type this host
 can serialise.
@@ -182,7 +182,7 @@ calculations and payment gateways all vary by country and change on political ti
 **Decision.** Each is an interface — `IEInvoiceProvider`, `IFiscalDevice`, `IPaymentGateway`,
 `IAccountingConnector`, `IBankFileFormat`, `IEdiTransport`, `IChannelConnector` — with a fake
 implementation shipped so the system is fully testable, and real implementations added as
-configuration when a market requires them. Zenith prepares payroll data; it is not a statutory payroll
+configuration when a market requires them. Vuma prepares payroll data; it is not a statutory payroll
 engine, and that boundary is stated in the product documentation.
 **Consequences.** Entering a new country is a provider implementation, not a redesign. Anything needing
 real credentials is logged in `PROGRESS.md` under "Deferred" rather than blocking a stage.
@@ -192,7 +192,7 @@ real credentials is logged in `PROGRESS.md` under "Deferred" rather than blockin
 # Revision 2 — SaaS licensing and control plane
 
 ## ADR-023 — Licensing enforces on capability, never on trade or data — **SUPERSEDED by ADR-027**
-**Context.** Zenith is sold as a monthly SaaS subscription but runs on the customer's own Windows
+**Context.** Vuma is sold as a monthly SaaS subscription but runs on the customer's own Windows
 hardware, frequently offline. Aggressive licence enforcement in that setting means a shop's till
 refuses to sell because their fibre is cut on a Saturday.
 **Decision.** Enforcement escalates through *capability* — notices, then restricted back-office writes,
@@ -200,18 +200,18 @@ then read-only — and **never** blocks the sale flow, exports, reporting, backu
 A monthly signed licence is refreshed by a 72-hour lease; the offline grace ladder runs 45 days, and
 any successful heartbeat resets it instantly. Subscription-suspended (we know they can reach us) is a
 separate, faster ladder from offline (we cannot tell).
-**Consequences.** Zenith can never brick a customer's business, at the cost of a determined non-payer
+**Consequences.** Vuma can never brick a customer's business, at the cost of a determined non-payer
 trading for weeks.
-**Superseded.** The vendor's commercial position is that Zenith is a subscription product and an unpaid
+**Superseded.** The vendor's commercial position is that Vuma is a subscription product and an unpaid
 subscription means no product. See ADR-027, which replaces this decision. The engineering safeguards
 that prevented *accidental* lockout survive into ADR-027 and are, if anything, more important there.
 
 ## ADR-024 — The control plane is a separate deployment with minimised telemetry — **LOCKED**
-**Context.** The vendor needs to see who is using Zenith and how much. That service can also mint
+**Context.** The vendor needs to see who is using Vuma and how much. That service can also mint
 licences and disable stores, and its database describes every customer's operations — it is the single
 highest-value target in the system. Meanwhile the vendor's customers must be able to answer their own
 regulators about what leaves their premises.
-**Decision.** `ZenithRetail.ControlPlane` is a separate deployable with its own database, credentials
+**Decision.** `VumaRetail.ControlPlane` is a separate deployable with its own database, credentials
 and audit log, with the licence signing key in a KMS/HSM. Telemetry is **counts and health only** —
 never customer names, sales line detail, employee data or any document content — enforced by a
 whitelist in code and asserted by test. Vendor staff have **no path to tenant business data** without a
@@ -225,7 +225,7 @@ requested — accepted, and it is the correct default.
 for their own customers. It is tempting to reuse those for the vendor's own subscription revenue.
 **Decision.** The control plane keeps its own subscription, invoice and revenue records. No vendor
 revenue appears in any tenant's ledger, and no tenant's ledger is readable by the control plane. The
-vendor's own accounting is fed by a normal export (and may itself be a Zenith tenant, connected through
+vendor's own accounting is fed by a normal export (and may itself be a Vuma tenant, connected through
 the ordinary integration — never a back door).
 **Consequences.** Clean separation of books, no risk of a tenant seeing vendor pricing data or vice
 versa, and the vendor's finance function is not coupled to a customer's data model.
@@ -244,7 +244,7 @@ addressable commercially rather than being fought in an unwinnable client-side a
 
 
 ## ADR-027 — No current licence, no software — **SUPERSEDED by ADR-028** *(superseded ADR-023)*
-**Context.** Zenith is sold as a monthly SaaS subscription running on the customer's own Windows
+**Context.** Vuma is sold as a monthly SaaS subscription running on the customer's own Windows
 hardware. ADR-023 enforced only on capability, leaving a non-paying customer trading indefinitely. The
 vendor's commercial position is that an unpaid subscription means no product, and that position is the
 vendor's to set.
@@ -269,7 +269,7 @@ terms so it is contractual rather than improvised during a dispute.
 
 
 ## ADR-028 — Lapsed subscription means read-only, not lockout — **LOCKED** *(supersedes ADR-027)*
-**Context.** Zenith is billed on a recurring subscription mandate. ADR-027 closed the application
+**Context.** Vuma is billed on a recurring subscription mandate. ADR-027 closed the application
 entirely on lapse. The vendor's settled position is that a lapsed tenant keeps sight of their data and
 loses the ability to act on it.
 **Decision.** The enforcement ladder ends at **read-only**: full read, report, reprint and export
@@ -312,8 +312,8 @@ on a developer's machine.
 that wants a different version of a package cannot quietly have one, which is the point.
 
 ## ADR-031 — Windows-only projects are created by the stage that needs them — **LOCKED**
-**Context.** `CLAUDE.md` §5 lists `ZenithRetail.Desktop`, `.Hardware`, `.Imports`, `.Reporting`,
-`.ControlPlane` and `ZenithRetail.UiTests`. The desktop, hardware and UI-test projects target
+**Context.** `CLAUDE.md` §5 lists `VumaRetail.Desktop`, `.Hardware`, `.Imports`, `.Reporting`,
+`.ControlPlane` and `VumaRetail.UiTests`. The desktop, hardware and UI-test projects target
 `net9.0-windows` (WPF, FlaUI) and **cannot build on Linux at all**. Creating them in Stage 00 would
 mean either a solution that no non-Windows machine can build, or a set of empty shells excluded from
 the build and therefore checked by nothing.
@@ -328,7 +328,7 @@ layout in `CLAUDE.md` §5 describes the finished shape rather than the current o
 does not read as an omission. From Stage 09 onward a Windows machine or VM is mandatory, not optional.
 
 ## ADR-032 — FluentAssertions pinned to the 6.x Apache-2.0 line — **LOCKED**
-**Context.** FluentAssertions moved to a paid commercial licence at version 8. Zenith is proprietary
+**Context.** FluentAssertions moved to a paid commercial licence at version 8. Vuma is proprietary
 commercial software, so the free-for-open-source terms do not apply to it. `docs/TESTING.md` names
 FluentAssertions as the assertion library across every test project.
 **Decision.** Pin to `6.12.2`, the last Apache-2.0 release, in `Directory.Packages.props` with the
@@ -387,10 +387,10 @@ cost is one `Guid.NewGuid()` per write and eight bytes per row, which is not a c
 
 ## ADR-036 — Integration tests bind to a connection string, with Testcontainers as one supplier — **LOCKED**
 **Context.** `docs/TESTING.md` §2 and `CONVENTIONS.md` §7 name Testcontainers as the way handler
-tests reach real PostgreSQL. Docker is not installed on the machine Zenith is currently being built
+tests reach real PostgreSQL. Docker is not installed on the machine Vuma is currently being built
 on (`PROGRESS.md` §4.3), and `CLAUDE.md` §1 forbids marking a stage DONE whose tests cannot run.
 Skipping the database tests when no Docker is present would report green while proving nothing.
-**Decision.** `PostgresFixture` resolves a server in this order: `ZENITH_TEST_POSTGRES` if it is set
+**Decision.** `PostgresFixture` resolves a server in this order: `VUMA_TEST_POSTGRES` if it is set
 and reachable, then Testcontainers, then a hard failure carrying the command that fixes it. It never
 skips. `scripts/pg-test.sh` starts a throwaway cluster from the locally installed PostgreSQL server
 binaries — no Docker, no sudo, no shared state — and prints the export line.
@@ -432,7 +432,7 @@ that reading unworkable here, and none of them is a matter of taste:
    pipeline's unit of work — a user created inside a larger transaction would commit on its own.
 **Decision.** Take ASP.NET Core Identity's **`PasswordHasher<T>`** — PBKDF2-HMAC-SHA512, 100 000
 iterations, versioned output — and nothing else. `User`, `Role`, `RolePermission`,
-`UserRoleAssignment`, `Terminal` and `RefreshToken` are Zenith domain entities derived from `Entity`,
+`UserRoleAssignment`, `Terminal` and `RefreshToken` are Vuma domain entities derived from `Entity`,
 driven by command handlers like every other write in the system. Lockout counting, the security
 stamp and normalisation are domain behaviour with tests, rather than framework behaviour without any.
 **Consequences.** Identity obeys every persistence rule the rest of the system obeys: tenant
@@ -442,7 +442,7 @@ roughly 200 lines of lockout and stamp logic that `UserManager` would have suppl
 ever added, Identity's token providers can be adopted then on the same terms: take the primitive,
 not the persistence model.
 
-## ADR-039 — ASP.NET Core host wiring lives in `ZenithRetail.Web` — **LOCKED**
+## ADR-039 — ASP.NET Core host wiring lives in `VumaRetail.Web` — **LOCKED**
 **Context.** Stage 02 produces code that only makes sense inside an ASP.NET Core host — the
 `HttpContext`-backed `IPrincipalAccessor`, tenant resolution middleware, the permission authorisation
 handler and policy provider, the terminal certificate scheme, and the auth endpoints. The store
@@ -450,8 +450,8 @@ server, the cloud API and eventually the Android-facing API all need the same wi
 `Infrastructure` would mean a `FrameworkReference` to `Microsoft.AspNetCore.App` there — and
 `Infrastructure` is referenced by the WPF desktop app from Stage 09, so every till would carry the
 ASP.NET Core shared framework for code it never runs.
-**Decision.** A new project, `src/ZenithRetail.Web`, sitting above `Infrastructure` and below the
-hosts. It holds the ASP.NET-specific wiring and nothing else. `ZenithRetail.PublicApi` deliberately
+**Decision.** A new project, `src/VumaRetail.Web`, sitting above `Infrastructure` and below the
+hosts. It holds the ASP.NET-specific wiring and nothing else. `VumaRetail.PublicApi` deliberately
 does **not** reference it: that host has its own auth model and its own DTOs (ADR-021, §7 rule 14),
 and `Web` carries internal contracts. An architecture test asserts both directions.
 **Consequences.** `CLAUDE.md` §5's repository layout gains a project it does not list, in the same
@@ -460,7 +460,7 @@ Stage 03 inherits a home for versioning, `ProblemDetails` and OpenAPI instead of
 or scatter them across three hosts.
 
 ## ADR-040 — Authentication is an edge service, not a command — **LOCKED**
-**Context.** Every write in Zenith is an `ICommand` carrying `[CommandSideEffect]`, so Stage 04b's
+**Context.** Every write in Vuma is an `ICommand` carrying `[CommandSideEffect]`, so Stage 04b's
 read-only interceptor can refuse it during a subscription lapse (ADR-028, ADR-034). Signing in writes:
 a refresh token row, a failure counter, a last-seen stamp. Classified as a `Write` it would be
 refused while a tenant is read-only — and ADR-028 promises a lapsed tenant keeps full read, report,
@@ -495,3 +495,27 @@ which runs when a manager sets a PIN rather than on any sale path. The ceiling i
 4-digit operators per tenant before PINs must lengthen — well beyond any realistic estate, and the
 PIN is 4–8 digits so lengthening is configuration. A soft-deleted or deactivated operator frees their
 PIN, which is what "live" is doing in the rule.
+
+## ADR-042 — The product is Vuma Retail; code is `VumaRetail.*`, repo and folder are `vuma` — **LOCKED**
+**Context.** The product was renamed from Zenith Retail to **Vuma Retail** on 2026-08-10. "Zenith"
+was woven through three layers that do not have to agree: the .NET identity (assemblies, root
+namespaces, `VumaRetailDbContext`), the runtime identity (configuration section, connection-string
+name, JWT issuer/audience, claim-type URIs, environment variables) and the hosting identity (the git
+repository, the working folder). Leaving any of them behind would have meant a codebase that says one
+name and a config file that answers to another.
+**Decision.** All three move together, but not to the same string. The **code** keeps the two-word
+form — `VumaRetail.Domain`, `VumaRetail.Web`, `Vuma__Jwt__Issuer`, `vuma:tenant`, `VUMA_TEST_POSTGRES`
+— because the assembly names are the product name and shortening them would leave the namespace
+saying less than the product does. The **repository and the working folder** are the bare `vuma`, as
+the owner asked; they are addresses, not the product name, and short addresses are easier to type.
+**Consequences.** The rename was mechanical and total: 145 files changed content, 25 directories and
+the solution file were renamed, and no occurrence of the old name survives anywhere in the tree. It
+was safe to do wholesale precisely because "zenith" never appeared as an English word in this
+codebase — every hit was the product. Two things changed behaviour rather than just spelling and are
+**breaking for any existing deployment**: the configuration section is now `Vuma__*` (a store server
+started against an old `Zenith__*` environment gets defaults, not an error), and JWT claim types moved
+from `zenith:*` to `vuma:*`, so tokens minted before the rename no longer resolve a tenant. Nothing is
+deployed yet, so both cost nothing today; after Stage 09 either would need a migration note. The
+PostgreSQL schema names were untouched — they are module names (`platform`, `identity`, `sync`,
+`licensing`), never the product — so no database migration was needed. GitHub redirects the old
+repository name, so a stale clone still fetches, but its remote should be re-pointed.

@@ -50,24 +50,24 @@ jobs:
 
     # docs/TESTING.md §2 and CONVENTIONS.md §7: handler tests run against real PostgreSQL with real
     # migrations. A service container rather than Testcontainers-in-CI — same engine, one less
-    # daemon in the loop, and the fixture takes ZENITH_TEST_POSTGRES ahead of Docker (ADR-036).
+    # daemon in the loop, and the fixture takes VUMA_TEST_POSTGRES ahead of Docker (ADR-036).
     services:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: zenith
-          POSTGRES_PASSWORD: zenith
+          POSTGRES_USER: vuma
+          POSTGRES_PASSWORD: vuma
           POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U zenith"
+          --health-cmd "pg_isready -U vuma"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      ZENITH_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=zenith;Password=zenith
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
       # transitive dependencies, the PublicApi isolation (rule 14), and the command
       # side-effect classification read-only enforcement depends on (rule 15).
       - name: Run architecture tests
-        run: dotnet test tests/ZenithRetail.ArchitectureTests -c Release
+        run: dotnet test tests/VumaRetail.ArchitectureTests -c Release
 
   migrate-check:
     name: Migration check
@@ -117,19 +117,19 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: zenith
-          POSTGRES_PASSWORD: zenith
-          POSTGRES_DB: zenith_migrate_check
+          POSTGRES_USER: vuma
+          POSTGRES_PASSWORD: vuma
+          POSTGRES_DB: vuma_migrate_check
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U zenith"
+          --health-cmd "pg_isready -U vuma"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      ZENITH_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=zenith_migrate_check;Username=zenith;Password=zenith
+      VUMA_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_migrate_check;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -146,24 +146,24 @@ jobs:
       - name: Model and migrations agree
         run: >
           dotnet ef migrations has-pending-model-changes
-          --project src/ZenithRetail.Infrastructure --context ZenithRetailDbContext
+          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       - name: Apply to an empty database
         run: >
           dotnet ef database update
-          --project src/ZenithRetail.Infrastructure --context ZenithRetailDbContext
+          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       # CLAUDE.md §8 requires Down to be reversible, and a Down that was never run is a Down that
       # does not work. "0" is EF's name for the state before the first migration.
       - name: Reverse every migration
         run: >
           dotnet ef database update 0
-          --project src/ZenithRetail.Infrastructure --context ZenithRetailDbContext
+          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       - name: Re-apply
         run: >
           dotnet ef database update
-          --project src/ZenithRetail.Infrastructure --context ZenithRetailDbContext
+          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
   vulnerability-scan:
     name: Vulnerability scan
