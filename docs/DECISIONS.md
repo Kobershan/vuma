@@ -519,3 +519,58 @@ deployed yet, so both cost nothing today; after Stage 09 either would need a mig
 PostgreSQL schema names were untouched — they are module names (`platform`, `identity`, `sync`,
 `licensing`), never the product — so no database migration was needed. GitHub redirects the old
 repository name, so a stale clone still fetches, but its remote should be re-pointed.
+
+---
+
+# Revision 6 — Stage 03 API platform
+
+## ADR-043 — API versioning is URL-segment and hand-rolled — **LOCKED**
+**Context.** `CLAUDE.md` §4 locks a stack but names no versioning library, and R3 makes the versioned
+REST API the product's real surface — everything the desktop shell, the Android app and any future
+integration ever sees. The obvious choice is `Asp.Versioning.Http`, which brings media-type and
+query-string versioning, deprecation and sunset policies, version sets and a version-aware OpenAPI
+provider.
+**Decision.** URL-segment versioning only — `/api/v1/...` — implemented by `VumaApi.MapVumaApi()` in
+about fifty lines, plus an `X-Vuma-Api-Version` response header. Un-versioned routes are a closed,
+named list (`/health`, `/openapi/*`) enforced at runtime against the endpoint table.
+**Consequences.** The same reasoning as ADR-009: a library's model of versioning would become the
+shape of the API for the next thirty stages, and Vuma has not decided it wants media-type versioning
+or a deprecation policy. The path is legible in a log, in a proxy rule and in a support call, which
+matters when the person reading it is a shop's IT contractor. The header exists because a store with
+a reverse proxy in front of the server may see a rewritten path. Cost: if Vuma ever wants
+header-based versioning it is a new decision and a rewrite of this file, which is the right price
+for not having guessed.
+
+## ADR-044 — The pipeline owns the transaction; handlers do not commit — **LOCKED**
+**Context.** Stage 01's `IUnitOfWork` XML doc has always said "the Stage 03 command pipeline opens
+and commits it; handlers do not". Stage 02 shipped eight handlers that each took `IUnitOfWork` and
+called `CommitAsync`, because no pipeline existed yet. `PROGRESS.md` left the choice open: let
+handlers keep committing and wrap them in a transaction that no-ops when nested, or take the commit
+away from them.
+**Decision.** Take it away. A handler mutates tracked entities and returns; `TransactionBehaviour`
+opens the transaction and commits once around it. Handlers do not take `IUnitOfWork` at all, and two
+architecture tests enforce it — one on the constructor dependency, one on the `CommitAsync` call
+itself. `AuthenticationService` is the single exemption and is deliberately not a handler (ADR-040);
+the demo seeder is exempted for the two platform rows it writes directly, because no command creates
+a tenant or a store until Stage 06.
+**Consequences.** ADR-006 becomes implementable: the outbox row a change produces lands in the same
+transaction as the change, which is impossible if the change may already have committed. A command
+that does two things can no longer half-apply. Queries never open a transaction at all, which keeps
+ADR-028's promise that reporting stays cheap while a tenant is read-only.
+The rule paid for itself the day it was written: it found that `DemoSeed` resolved command handlers
+directly, so with the commit removed the seed would have run to completion, printed an activation
+code, and persisted nothing. It now goes through the dispatcher.
+
+## ADR-045 — JWT inbound claim mapping is off — **LOCKED**
+**Context.** `JwtBearerOptions.MapInboundClaims` defaults to `true`, which rewrites standard JWT
+claim names into the WS-Federation URIs of the .NET 4.5 era — `sub` becomes
+`http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier`. Stage 02 issues `sub` and
+reads `sub`, in the endpoints and in `PermissionAuthorizationHandler`.
+**Decision.** `MapInboundClaims = false`. Claims are read under the names they were issued with,
+which are the JWT registered names and Vuma's own `vuma:*` types.
+**Consequences.** This was not a preference; it was a live bug. Every `FindFirstValue("sub")`
+returned null, so `GET /api/v1/me/permissions` answered `401` on a perfectly valid token and every
+permission-gated endpoint answered `403` for a user who genuinely held the permission. Stage 02's
+tests all ran at the service level and none of them went through the JWT bearer handler, so nothing
+caught it. Stage 03's `WebApplicationFactory` tests did, on the first run — which is the argument for
+`docs/TESTING.md` §1's API level existing at all, made concrete.

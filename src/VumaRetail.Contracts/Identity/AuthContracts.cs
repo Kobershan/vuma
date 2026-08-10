@@ -54,3 +54,14 @@ public sealed record TerminalActivationResponse(Guid TerminalId);
 /// <param name="StoreId">The store the answer is scoped to, or <c>null</c> for tenant-wide.</param>
 /// <param name="Permissions">The <c>module.entity.action</c> strings they hold there.</param>
 public sealed record PermissionsResponse(Guid UserId, Guid? StoreId, IReadOnlyCollection<string> Permissions);
+
+/// <summary>One entry in the permission catalogue (ADR-013).</summary>
+/// <param name="Permission">The <c>module.entity.action</c> string.</param>
+/// <param name="Module">The module that declares it and owns its meaning.</param>
+/// <param name="Description">What it lets somebody do, in words a shop owner would recognise.</param>
+/// <param name="IsHighRisk">Whether granting it deserves a second look.</param>
+public sealed record PermissionDescriptorResponse(
+    string Permission,
+    string Module,
+    string Description,
+    bool IsHighRisk);

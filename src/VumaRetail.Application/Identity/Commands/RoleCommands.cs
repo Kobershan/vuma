@@ -29,12 +29,10 @@ public sealed class CreateRoleCommandValidator : AbstractValidator<CreateRoleCom
 /// <param name="roles">Role lookup and insertion.</param>
 /// <param name="catalogue">The closed set of permissions this installation understands.</param>
 /// <param name="tenant">The tenant the role belongs to.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class CreateRoleCommandHandler(
     IRoleRepository roles,
     IPermissionCatalogue catalogue,
-    ITenantContext tenant,
-    IUnitOfWork unitOfWork) : ICommandHandler<CreateRoleCommand, Guid>
+    ITenantContext tenant) : ICommandHandler<CreateRoleCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateRoleCommand command, CancellationToken cancellationToken = default)
@@ -59,7 +57,6 @@ public sealed class CreateRoleCommandHandler(
             roles.Add(RolePermission.Grant(tenant.TenantId, role.Id, key));
         }
 
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return role.Id;
     }
@@ -87,12 +84,10 @@ public sealed class AssignRoleCommandValidator : AbstractValidator<AssignRoleCom
 /// <param name="users">User lookup.</param>
 /// <param name="roles">Role lookup and insertion.</param>
 /// <param name="tenant">The tenant the assignment belongs to.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class AssignRoleCommandHandler(
     IUserRepository users,
     IRoleRepository roles,
-    ITenantContext tenant,
-    IUnitOfWork unitOfWork) : ICommandHandler<AssignRoleCommand, Guid>
+    ITenantContext tenant) : ICommandHandler<AssignRoleCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(AssignRoleCommand command, CancellationToken cancellationToken = default)
@@ -121,7 +116,6 @@ public sealed class AssignRoleCommandHandler(
             command.StoreId);
 
         roles.Add(created);
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return created.Id;
     }

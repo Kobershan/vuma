@@ -4,9 +4,13 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Security.Identity;
 using VumaRetail.StoreServer;
 using VumaRetail.Web;
+using VumaRetail.Web.Api;
+using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.AddVumaLogging("VumaRetail.StoreServer");
 
 JwtOptions jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 HostTenantOptions host = builder.Configuration.GetSection(HostTenantOptions.SectionName).Get<HostTenantOptions>()
@@ -45,9 +49,15 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
 }
 
 app.UseVumaWeb();
+app.UseVumaOpenApi();
 app.MapVumaIdentity();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+// Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
+// infrastructure, not API surface, and a load balancer should never have to be reconfigured because
+// the business API moved to v2.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
+    .AllowAnonymous()
+    .WithTags("Infrastructure");
 
 await app.RunAsync().ConfigureAwait(false);
 

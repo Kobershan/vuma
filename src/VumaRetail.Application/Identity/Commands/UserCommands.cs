@@ -30,12 +30,10 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
 /// <param name="users">User lookup and insertion.</param>
 /// <param name="hasher">Hashes the password.</param>
 /// <param name="tenant">The tenant the user belongs to.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class CreateUserCommandHandler(
     IUserRepository users,
     IPasswordHasher hasher,
-    ITenantContext tenant,
-    IUnitOfWork unitOfWork) : ICommandHandler<CreateUserCommand, Guid>
+    ITenantContext tenant) : ICommandHandler<CreateUserCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateUserCommand command, CancellationToken cancellationToken = default)
@@ -57,7 +55,6 @@ public sealed class CreateUserCommandHandler(
         user.SetPasswordHash(hasher.Hash(command.Password));
 
         users.Add(user);
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return user.Id;
     }
@@ -97,11 +94,9 @@ public sealed class SetUserPinCommandValidator : AbstractValidator<SetUserPinCom
 /// </remarks>
 /// <param name="users">User lookup.</param>
 /// <param name="hasher">Hashes and verifies the PIN.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class SetUserPinCommandHandler(
     IUserRepository users,
-    IPasswordHasher hasher,
-    IUnitOfWork unitOfWork) : ICommandHandler<SetUserPinCommand, Unit>
+    IPasswordHasher hasher) : ICommandHandler<SetUserPinCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(SetUserPinCommand command, CancellationToken cancellationToken = default)
@@ -127,7 +122,6 @@ public sealed class SetUserPinCommandHandler(
         }
 
         user.SetPinHash(hasher.Hash(command.Pin));
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
     }
@@ -160,13 +154,11 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
 /// <param name="tokens">Refresh token store.</param>
 /// <param name="hasher">Hashes the password.</param>
 /// <param name="clock">The only source of time.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class ChangePasswordCommandHandler(
     IUserRepository users,
     IRefreshTokenRepository tokens,
     IPasswordHasher hasher,
-    IClock clock,
-    IUnitOfWork unitOfWork) : ICommandHandler<ChangePasswordCommand, Unit>
+    IClock clock) : ICommandHandler<ChangePasswordCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(ChangePasswordCommand command, CancellationToken cancellationToken = default)
@@ -193,7 +185,6 @@ public sealed class ChangePasswordCommandHandler(
             token.Revoke(RefreshTokenRevocation.CredentialChanged, clock.UtcNow);
         }
 
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
     }

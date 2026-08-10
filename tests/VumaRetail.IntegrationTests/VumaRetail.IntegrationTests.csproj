@@ -22,6 +22,8 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <!-- docs/TESTING.md §1's API level: routing, auth, ProblemDetails and OpenAPI over a real host. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +32,11 @@
     <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
     <!-- Stage 02: the authenticated IPrincipalAccessor is what makes R6's audit trail name a person. -->
     <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
+    <!--
+      Stage 03: the API-level tests run the store server itself through WebApplicationFactory, so
+      what is asserted is the wiring a store actually gets rather than a re-creation of it here.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.StoreServer\VumaRetail.StoreServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

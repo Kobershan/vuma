@@ -158,8 +158,8 @@ public static class DemoSeed
         }
 
         return await provider
-            .GetRequiredService<ICommandHandler<CreateRoleCommand, Guid>>()
-            .HandleAsync(new CreateRoleCommand(name, permissions), cancellationToken)
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateRoleCommand(name, permissions), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -180,21 +180,20 @@ public static class DemoSeed
             return;
         }
 
-        Guid userId = await provider
-            .GetRequiredService<ICommandHandler<CreateUserCommand, Guid>>()
-            .HandleAsync(new CreateUserCommand(userName, displayName, password), cancellationToken)
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        Guid userId = await dispatcher
+            .SendAsync(new CreateUserCommand(userName, displayName, password), cancellationToken)
             .ConfigureAwait(false);
 
-        await provider
-            .GetRequiredService<ICommandHandler<AssignRoleCommand, Guid>>()
-            .HandleAsync(new AssignRoleCommand(userId, roleId, storeId), cancellationToken)
+        await dispatcher
+            .SendAsync(new AssignRoleCommand(userId, roleId, storeId), cancellationToken)
             .ConfigureAwait(false);
 
         if (pin is not null)
         {
-            await provider
-                .GetRequiredService<ICommandHandler<SetUserPinCommand, Unit>>()
-                .HandleAsync(new SetUserPinCommand(userId, pin), cancellationToken)
+            await dispatcher
+                .SendAsync(new SetUserPinCommand(userId, pin), cancellationToken)
                 .ConfigureAwait(false);
         }
     }
@@ -215,8 +214,8 @@ public static class DemoSeed
         }
 
         TerminalEnrolment enrolment = await provider
-            .GetRequiredService<ICommandHandler<EnrolTerminalCommand, TerminalEnrolment>>()
-            .HandleAsync(new EnrolTerminalCommand(storeId, code, name), cancellationToken)
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new EnrolTerminalCommand(storeId, code, name), cancellationToken)
             .ConfigureAwait(false);
 
         // Printed rather than stored: an activation code is shown once and never persisted in

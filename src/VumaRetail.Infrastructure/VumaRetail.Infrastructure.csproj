@@ -19,6 +19,12 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!--
+      Stage 03's pipeline: FluentValidation is run by ValidationBehaviour over the validators
+      Application declares, and Scrutor is the assembly scan ADR-009 names.
+    -->
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Scrutor" />
+    <!--
       ASP.NET Core Identity's PasswordHasher only — not the EF stores, not UserManager, not
       IdentityDbContext. ADR-038 explains why Vuma's users are Vuma entities.
     -->

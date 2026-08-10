@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-10 · **Current stage:** 03 — API platform (versioning, ProblemDetails, OpenAPI, CQRS pipeline) · **Status:** NOT_STARTED
+**Last updated:** 2026-08-10 · **Current stage:** 04 — Sync + cloud backup foundation (outbox/inbox, HLC, restore) · **Status:** NOT_STARTED
 
 ---
 
@@ -14,7 +14,8 @@
 | 00 | Foundation — solution skeleton, conventions, CI | **DONE** | 2026-08-09 |
 | 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** | 2026-08-09 |
 | 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
-| 03 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
+| 04 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 ---
 
@@ -218,6 +219,67 @@ module names, never the product, so no database migration was required — the e
 still apply unchanged. The three git-ignored `appsettings.Development.json` files were carried across
 to the renamed project folders with their keys rewritten, so local dev connection strings survive.
 
+### 2026-08-10 — Stage 03 complete: API platform
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh` → **295 passed, 0 failed**
+(130 unit, 22 architecture, 143 integration), identical across three consecutive runs. Domain +
+Application line coverage **95.0%**. Full exit checklist in `docs/stages/STAGE-03-api-platform.md`.
+
+**What this stage makes true, and keeps true.** Three things that every module stage from 06 onward
+now inherits rather than invents:
+
+1. **A command's transaction belongs to the pipeline.** Stage 01's `IUnitOfWork` doc comment has said
+   so since the beginning; there was no pipeline to make it true until today. Handlers no longer take
+   `IUnitOfWork` at all, and two architecture tests keep it that way (ADR-044).
+2. **Every error is a `ProblemDetails` with a stable machine-readable code.** Mapped in one place,
+   from `DomainProblemKind` rather than from a table of strings that would grow with every module.
+3. **The pipeline has numbered slots.** `Logging(0) → ReadOnlyGuard(50) → Validation(100) →
+   Transaction(200) → Outbox(300) → handler`. Slots 50 and 300 are reserved and empty; Stage 04 and
+   Stage 04b each add one registration instead of renumbering a chain forty modules depend on. A test
+   asserts the order today, before either behaviour exists.
+
+**Application — abstractions only.** `IPipelineBehaviour`, `MessageEnvelope` (which reads
+`[CommandSideEffect]` once so Stage 04b's interceptor need not reflect per request), `PipelineOrder`,
+`ValidationFailedException`, `ICorrelationContext`.
+
+**Infrastructure — the pipeline.** `Dispatcher` resolving handlers through a cached closed-generic
+executor rather than `MethodInfo.Invoke`; `LoggingBehaviour`, `ValidationBehaviour`,
+`TransactionBehaviour`; `CorrelationContext`; and `AddVumaMessaging()` with the Scrutor scan ADR-009
+named, which replaced Stage 02's eight hand-written handler registrations.
+
+**`VumaRetail.Web` — the edge.** `VumaExceptionHandler` and `AddVumaProblemDetails`;
+`CorrelationIdMiddleware`; `VumaApi` (URL-segment versioning, ADR-043); `VumaOpenApi` serving
+`/openapi/v1.json` off ASP.NET Core 9's built-in generator, with request examples and the seven
+standard error responses attached by transformer; `VumaLogging` — Serilog to console and a 31-day
+rolling file with `password`, `pin`, `token`, `secret` and `certificate` redacted at any depth in a
+log event.
+
+**Two live bugs the stage's own tests found**, both latent since Stage 02 and neither reachable by a
+service-level test:
+
+- **`MapInboundClaims` was rewriting `sub`** to a WS-Federation URI, so every `FindFirstValue("sub")`
+  returned null. `GET /api/v1/me/permissions` answered `401` on a valid token, and every
+  permission-gated endpoint answered `403` for a user who genuinely held the permission. ADR-045.
+- **`DemoSeed` resolved command handlers directly.** With the commit moved to the pipeline it would
+  have run to completion, printed an activation code and persisted nothing. Caught by the new
+  `CommitAsync` architecture rule rather than by any test of the seed.
+
+**Two new architecture rules**, each proven by a deliberate violation before reverting: a handler
+may not take `IUnitOfWork`, and nothing outside the pipeline may call `CommitAsync`.
+
+**ADRs appended:** ADR-043 URL-segment versioning, hand-rolled · ADR-044 the pipeline owns the
+transaction · ADR-045 JWT inbound claim mapping off.
+
+**Docs:** `docs/API_STANDARDS.md` written — versioning, resource shapes, status codes, the error
+contract, pagination and idempotency (both specified now, built later), and the checklist of what a
+module stage owes the API.
+
+**Also fixed:** `PostgresFixture` now disables connection pooling for per-test databases. Each test
+gets its own database and so its own pool, and pools hold connections open past the test that made
+them; this stage's tests took the count past PostgreSQL's default `max_connections` and the suite
+began failing in whichever test ran hundredth. EF Core's statement logging is now capped at Warning
+— on a till doing ten sales a minute it *is* the log.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -234,14 +296,16 @@ first entries.
 These are cited as reference reading by stages that will need them. Each should be written by the
 stage that first depends on it, not all up front:
 
-`ARCHITECTURE.md` · `API_STANDARDS.md` (Stage 03) · `SYNC_AND_BACKUP.md` (Stage 04) ·
-`IMPORT_PIPELINE.md` (Stage 11) · `HARDWARE.md` (Stage 09) · `API_LOYALTY.md` (Stage 20) ·
-`API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
+`ARCHITECTURE.md` · `SYNC_AND_BACKUP.md` (Stage 04) · `IMPORT_PIPELINE.md` (Stage 11) ·
+`HARDWARE.md` (Stage 09) · `API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) ·
+`GAP_ANALYSIS.md`.
 
-Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02).
+Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
+`API_STANDARDS.md` (Stage 03).
 
-Stage documents exist for **00**, **01**, **02**, **04b** and **30b**. Every other stage document
-must be written by the session that executes it, using `STAGE-04b-licensing.md` as the template.
+Stage documents exist for **00**, **01**, **02**, **03**, **04b** and **30b**. Every other stage
+document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
+template.
 
 ### 4.2 Unresolved contradiction in `docs/TESTING.md` §7 — resolve during Stage 04b
 
@@ -320,9 +384,9 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 
 ## 5. Next session starts here
 
-**Stage 03 — API platform: versioning, `ProblemDetails`, OpenAPI, the CQRS pipeline.** Write
-`docs/stages/STAGE-03-api-platform.md` first, using `STAGE-02-identity.md` as the template, then
-execute it. `docs/API_STANDARDS.md` is Stage 03's to write as well.
+**Stage 04 — Sync + cloud backup foundation: outbox/inbox, HLC, restore.** Write
+`docs/stages/STAGE-04-sync-and-backup.md` first, using `STAGE-03-api-platform.md` as the template,
+then execute it. `docs/SYNC_AND_BACKUP.md` is Stage 04's to write as well.
 
 ### Running the build on this machine
 
@@ -336,52 +400,52 @@ scripts/seed.sh                 # demo tenant; needs VUMA_CONNECTION or a config
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
 deliberately fail rather than skip without one (ADR-036).
 
-### What Stage 02 leaves you
+### What Stage 03 leaves you
 
-- **`VumaRetail.Web` exists and is where host wiring goes** (ADR-039). `AddVumaWeb` /
-  `UseVumaWeb` already order authentication → tenant resolution → authorisation, and that order is
-  not a style choice: tenant resolution reads the authenticated principal. Stage 03's versioning,
-  `ProblemDetails` and OpenAPI belong here, not in each host.
-- **`RequirePermission("module.entity.action")` works today.** Use it on every endpoint you add.
-  Never a role name — there is an architecture test.
-- **The permission catalogue is the closed set.** Declare your module's permissions in an
-  `IModulePermissions` and register it in `AddVumaPermissionCatalogue`. Add the class to
-  `IdentityRulesTests.DeclaredModules()` and both catalogue rules cover it for free.
-- **The command handlers are registered one by one** in `AddVumaIdentity`. That is deliberate:
-  ADR-009's Scrutor scan and the dispatcher are Stage 03's deliverable. When you build them, replace
-  those eight registrations with the scan.
-- **Handlers currently call `IUnitOfWork.CommitAsync` themselves**, because there is no pipeline yet.
-  `ExecuteInTransactionAsync` already no-ops a nested transaction, so wrapping them in the Stage 03
-  pipeline transaction is safe — but decide deliberately whether handlers keep committing or the
-  pipeline takes it over, and make it uniform.
-- **`AuthenticationService` is not a command and must stay that way** (ADR-040). Stage 04b's
-  licence-safety suite should assert sign-in still works while a tenant is read-only.
-- **Endpoints return bare `401`/`200` for now.** Stage 03 owns giving them `ProblemDetails` bodies
-  with the stable codes `CONVENTIONS.md` §5 requires. The domain exceptions already carry those codes
-  — `DomainException.Code` — so the mapping is `422` for `DomainException` and nothing needs inventing.
-- **Sign-in deliberately gives one answer for every failure.** Do not let `ProblemDetails` reintroduce
-  the distinction between "no such user", "wrong password" and "locked out".
+- **Slot 300 in the pipeline is yours and it is empty.** `PipelineOrder.Outbox = 300` sits *inside*
+  `Transaction = 200`, which is exactly what ADR-006 requires: the outbox row lands in the same
+  transaction as the change that produced it. Register one `IPipelineBehaviour` with that `Order` and
+  the chain is correct by construction. `DispatcherTests` already asserts the ordering with a probe
+  behaviour in that slot, so a mistake here fails a test that exists today.
+- **Handlers do not commit and must not start** (ADR-044). Two architecture rules enforce it. If a
+  sync receiver needs to write outside a command, it needs an exemption in `PipelineRulesTests` and a
+  sentence saying why — not a `CommitAsync` in a handler.
+- **`MessageEnvelope` already carries the classification** Stage 04b's read-only guard needs, read
+  once from `[CommandSideEffect]`. Slot 50 is reserved for it.
+- **The error contract is fixed.** Throw a `DomainException` with a stable code and the right
+  `DomainProblemKind`; `VumaExceptionHandler` turns it into the right status. Do not add a
+  `try/catch` to an endpoint. `docs/API_STANDARDS.md` §5 is the contract.
+- **Every route goes under `/api/v1`** via `endpoints.MapVumaApi()`. An API test walks the live
+  endpoint table and fails on anything else that is not `/health` or `/openapi/*`.
+- **`ApiHarness` boots the real store server over real PostgreSQL.** New endpoints get their
+  API-level tests there — `docs/TESTING.md` §1 asks for happy path plus 401, 403, 422 and the
+  module's own conflicts.
+- **`VumaRetail.CloudApi` is still a scaffold.** Stage 04 is the stage that gives it something to do;
+  it needs the same `AddVumaWeb` / `UseVumaWeb` / `AddVumaPersistence` lines the store server has,
+  with `Vuma:Host:TenantId` left empty so every request must carry its own tenant.
 
-### What Stage 03 owes the rest of the build
+### What Stage 04 owes the rest of the build
 
-1. `IDispatcher` and the pipeline ADR-009 describes — validation → transaction → audit → outbox →
-   logging — with the FluentValidation validators Stage 02 already wrote being run by it.
-2. API versioning and `ProblemDetails` with stable machine-readable codes, plus OpenAPI with examples
-   and error responses, so the §8 Definition of Done line stops being unmeetable.
-3. Serilog, configured to redact `password`, `pin`, `token`, `secret` and `certificate`
-   (`docs/SECURITY.md` §4 records this as owed).
-4. `docs/API_STANDARDS.md`.
+1. The transactional outbox and idempotent inbox of ADR-006, in pipeline slot 300, with the
+   `(source_node, operation_id)` deduplication the receiver needs.
+2. The HLC clock and the per-entity conflict policies of ADR-007 — the `[Replicated(scope, policy)]`
+   attribute Stage 01 built already declares them and nothing reads it yet.
+3. Cloud backup and a *verified* restore path (R4), and `docs/SYNC_AND_BACKUP.md`.
+4. The OTLP sink `CLAUDE.md` §4 names. `VumaLogging` writes to console and a rolling file today;
+   the cloud tier is what it has been waiting for. One more `WriteTo`.
 
-### Known small debts from Stage 02
+### Known small debts carried forward
 
-- **The cloud API is not wired.** `VumaRetail.CloudApi` still has its scaffold `Program.cs`. Nothing
-  in `VumaRetail.Web` is store-specific; it gets the same three lines when Stage 04 gives it
-  something to authorise.
 - **mTLS transport is not configured.** `TerminalCertificateAuthenticationHandler` resolves a
   thumbprint into a `Terminal` and is tested at the service level, but which Kestrel port demands a
   client certificate — and how one survives a reverse proxy — is Stage 31 installer work.
 - **JWT signing-key custody is configuration only.** The host refuses to start on the shipped
   placeholder outside Development, which is the floor rather than the answer. Real custody (KMS/HSM)
   belongs with Stage 04b's licence signing key.
+- **Rate limiting and idempotency keys are specified, not built.** `docs/API_STANDARDS.md` §8–§9 fix
+  the contract so nobody has to decide it twice; enforcement belongs to Stage 04's sync receiver and
+  the Stage 20/21 public hosts, which are the surfaces that need it.
+- **Pagination is specified, not built.** Keyset, not offset, and built by Stage 06 — the first stage
+  with a collection long enough to page.
 - **`VumaRetail.Web` is not in `CLAUDE.md` §5's layout.** ADR-039 states why; §5 describes the
   finished shape, as ADR-031 already established.

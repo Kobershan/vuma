@@ -35,6 +35,27 @@
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
   </ItemGroup>
 
+  <ItemGroup Label="API platform">
+    <!--
+      ADR-009 names Scrutor by name: the dispatcher is ours, the assembly scan that finds handlers
+      for it is not worth writing twice.
+    -->
+    <PackageVersion Include="Scrutor" Version="6.1.0" />
+    <!--
+      The OpenAPI document generator built into ASP.NET Core 9 — no Swashbuckle, no NSwag. It serves
+      /openapi/v1.json, which is the path CLAUDE.md §8's Definition of Done names.
+    -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Logging">
+    <!--
+      CLAUDE.md §4: Serilog to a rolling file, and later OTLP to the cloud. Serilog.AspNetCore
+      carries the console, file and compact-JSON pieces, so one reference covers the sinks.
+    -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Identity and tokens">
     <!--
       ASP.NET Core Identity's core, for PasswordHasher only — the PBKDF2-HMAC-SHA512 implementation
@@ -66,6 +87,8 @@
       local PostgreSQL but no Docker. See ADR-036.
     -->
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />
+    <!-- docs/TESTING.md §1's API level: routing, auth, validation, ProblemDetails and OpenAPI. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <PackageVersion Include="Npgsql" Version="9.0.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />

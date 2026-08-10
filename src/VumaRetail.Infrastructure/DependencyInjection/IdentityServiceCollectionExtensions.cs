@@ -2,9 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Identity;
-using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
-using VumaRetail.Application.Identity.Queries;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Security.Identity;
@@ -29,9 +27,9 @@ public static class IdentityServiceCollectionExtensions
     /// 01's code. The web host registers the HTTP-backed accessor; this method leaves it alone.
     /// </para>
     /// <para>
-    /// Handlers are registered one by one rather than by assembly scanning. Stage 03 introduces the
-    /// dispatcher and the Scrutor scan that ADR-009 describes; doing it here would be building half of
-    /// that stage's deliverable in a way it then has to unpick.
+    /// Stage 03 replaced this method's eight hand-written handler registrations with the Scrutor scan
+    /// in <see cref="MessagingServiceCollectionExtensions.AddVumaMessaging"/> (ADR-009). What is left
+    /// here is what a scan cannot infer: which adapter implements which port.
     /// </para>
     /// </remarks>
     public static IServiceCollection AddVumaIdentity(this IServiceCollection services, JwtOptions jwt)
@@ -46,6 +44,7 @@ public static class IdentityServiceCollectionExtensions
         services.AddSingleton(CredentialPolicy.Default);
 
         services.AddVumaPermissionCatalogue();
+        services.AddVumaMessaging();
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
@@ -53,19 +52,6 @@ public static class IdentityServiceCollectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
         services.AddScoped<AuthenticationService>();
-
-        services.AddScoped<ICommandHandler<CreateUserCommand, Guid>, CreateUserCommandHandler>();
-        services.AddScoped<ICommandHandler<SetUserPinCommand, Unit>, SetUserPinCommandHandler>();
-        services.AddScoped<ICommandHandler<ChangePasswordCommand, Unit>, ChangePasswordCommandHandler>();
-        services.AddScoped<ICommandHandler<CreateRoleCommand, Guid>, CreateRoleCommandHandler>();
-        services.AddScoped<ICommandHandler<AssignRoleCommand, Guid>, AssignRoleCommandHandler>();
-        services.AddScoped<ICommandHandler<EnrolTerminalCommand, TerminalEnrolment>, EnrolTerminalCommandHandler>();
-        services.AddScoped<ICommandHandler<ActivateTerminalCommand, Guid>, ActivateTerminalCommandHandler>();
-        services.AddScoped<ICommandHandler<RevokeTerminalCommand, Unit>, RevokeTerminalCommandHandler>();
-
-        services
-            .AddScoped<IQueryHandler<GetEffectivePermissionsQuery, IReadOnlyCollection<string>>,
-                GetEffectivePermissionsQueryHandler>();
 
         return services;
     }

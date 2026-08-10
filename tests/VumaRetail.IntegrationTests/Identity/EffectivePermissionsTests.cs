@@ -21,8 +21,7 @@ public sealed class EffectivePermissionsTests(PostgresFixture fixture)
         Guid hereOnly = await harness.CreateRoleAsync("Here only", IdentityPermissions.TerminalEnrol);
 
         Guid userId = await harness.CreateUserAsync("supervisor", roleId: everywhere);
-        await new AssignRoleCommandHandler(harness.Users, harness.Roles, harness.TenantContext, harness.Context)
-            .HandleAsync(new AssignRoleCommand(userId, hereOnly, harness.StoreId));
+        await harness.SendAsync(new AssignRoleCommand(userId, hereOnly, harness.StoreId));
 
         IReadOnlyCollection<string> here = await harness.PermissionsAsync(userId, harness.StoreId);
 
@@ -66,8 +65,7 @@ public sealed class EffectivePermissionsTests(PostgresFixture fixture)
         Guid second = await harness.CreateRoleAsync("Second", PlatformPermissions.StoreView, IdentityPermissions.UserView);
 
         Guid userId = await harness.CreateUserAsync("supervisor", roleId: first);
-        await new AssignRoleCommandHandler(harness.Users, harness.Roles, harness.TenantContext, harness.Context)
-            .HandleAsync(new AssignRoleCommand(userId, second));
+        await harness.SendAsync(new AssignRoleCommand(userId, second));
 
         IReadOnlyCollection<string> held = await harness.PermissionsAsync(userId, harness.StoreId);
 

@@ -9,6 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Security.Identity;
+using VumaRetail.Web.Api;
+using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
 
 namespace VumaRetail.Web;
@@ -44,6 +46,12 @@ public static class VumaWebExtensions
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                // Leave the claim types alone. The default rewrites `sub` to the WS-Federation
+                // ClaimTypes.NameIdentifier URI, so every `FindFirstValue("sub")` in the codebase
+                // silently returns null — which reads as "this token has no subject" and answers 401
+                // on a perfectly good token. Found by the Stage 03 API tests; see ADR-045.
+                options.MapInboundClaims = false;
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -67,6 +75,11 @@ public static class VumaWebExtensions
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IAuthorizationHandler, PermissionAuthorizationHandler>());
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 
+        // Stage 03: the error contract and the OpenAPI document, registered once for every host
+        // rather than per host, so the store server and the cloud API cannot drift apart.
+        services.AddVumaProblemDetails();
+        services.AddVumaOpenApi();
+
         return services;
     }
 
@@ -76,13 +89,30 @@ public static class VumaWebExtensions
     /// <param name="app">The application builder.</param>
     /// <returns>The builder, for chaining.</returns>
     /// <remarks>
+    /// <para>
     /// Order matters and is not a style choice: tenant resolution reads the authenticated principal,
     /// so it has to run after authentication. Put it before and every request resolves no tenant and
     /// every query returns nothing — which looks like a data problem, not a wiring one.
+    /// </para>
+    /// <para>
+    /// The exception handler and the correlation id go first, outside everything. A request that
+    /// fails to authenticate is exactly the sort support gets called about, so it needs an id and a
+    /// <c>ProblemDetails</c> body too — and a failure inside authentication itself must still come
+    /// back as a problem document rather than as an empty 500.
+    /// </para>
     /// </remarks>
     public static IApplicationBuilder UseVumaWeb(this IApplicationBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
+
+        app.UseExceptionHandler();
+
+        // Gives 401, 403 and 404 a body. They are produced by middleware that short-circuits before
+        // the exception handler, so without this they are the only errors in the system with no code.
+        app.UseStatusCodePages();
+
+        app.UseMiddleware<CorrelationIdMiddleware>();
+        app.UseVumaRequestLogging();
 
         app.UseAuthentication();
         app.UseMiddleware<TenantResolutionMiddleware>();

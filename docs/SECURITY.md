@@ -124,11 +124,20 @@ data.
   object store never holds plaintext.
 - **Secrets in configuration.** `appsettings.Development.json` is git-ignored; `.env.example` carries
   placeholders. No real credential is ever committed (`CLAUDE.md` §1).
-- **Logs.** Nothing in Stage 02 logs a credential: the plaintext of a password, a PIN, a refresh token
-  or an enrolment code never leaves the method it arrives in. Serilog is not wired yet — when Stage 03
-  brings it in, it must be configured to redact `password`, `pin`, `token`, `secret` and
-  `certificate` properties, because a credential in a log file is a credential in every backup of that
-  log file. Recorded here so the requirement lands on the stage that can meet it.
+- **Logs.** Two independent controls, because a credential in a log file is a credential in every
+  backup of that log file.
+  1. **Nothing logs a credential in the first place.** The plaintext of a password, a PIN, a refresh
+     token or an enrolment code never leaves the method it arrives in, and the command pipeline logs
+     a message's *type name* only — never its payload, which for `CreateUserCommand` is a password.
+  2. **The sink refuses to write one anyway.** `RedactingEnricher` (Stage 03) masks any property
+     whose name contains `password`, `pin`, `token`, `secret` or `certificate`, case-insensitively,
+     at any depth in a log event — inside captured objects, dictionaries and sequences alike. It
+     over-redacts by design: a property called `TokenCount` becomes `***`, and that is the correct
+     direction for the trade.
+
+  The second control exists because the first is a discipline and disciplines lapse on a Friday
+  afternoon. EF Core's statement logging is capped at `Warning` so a busy till does not bury the one
+  line anybody wants; parameter values were never logged, sensitive-data logging being off.
 - **Nothing is hard-deleted** (§7 rule 8), which is a security property as much as an audit one: a
   deleted user's history remains attributable.
 

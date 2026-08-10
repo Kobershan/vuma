@@ -40,14 +40,12 @@ public sealed class EnrolTerminalCommandValidator : AbstractValidator<EnrolTermi
 /// <param name="tokens">Generates the code.</param>
 /// <param name="tenant">The tenant the terminal belongs to.</param>
 /// <param name="clock">The only source of time.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class EnrolTerminalCommandHandler(
     ITerminalRepository terminals,
     IPasswordHasher hasher,
     ITokenHasher tokens,
     ITenantContext tenant,
-    IClock clock,
-    IUnitOfWork unitOfWork) : ICommandHandler<EnrolTerminalCommand, TerminalEnrolment>
+    IClock clock) : ICommandHandler<EnrolTerminalCommand, TerminalEnrolment>
 {
     /// <summary>How long an activation code lives if the caller does not say.</summary>
     /// <remarks>
@@ -82,7 +80,6 @@ public sealed class EnrolTerminalCommandHandler(
             expiresAt);
 
         terminals.Add(terminal);
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return new TerminalEnrolment(terminal.Id, plaintext, expiresAt);
     }
@@ -123,12 +120,10 @@ public sealed class ActivateTerminalCommandValidator : AbstractValidator<Activat
 /// <param name="terminals">Terminal lookup.</param>
 /// <param name="hasher">Verifies the enrolment code.</param>
 /// <param name="clock">The only source of time.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class ActivateTerminalCommandHandler(
     ITerminalRepository terminals,
     IPasswordHasher hasher,
-    IClock clock,
-    IUnitOfWork unitOfWork) : ICommandHandler<ActivateTerminalCommand, Guid>
+    IClock clock) : ICommandHandler<ActivateTerminalCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(ActivateTerminalCommand command, CancellationToken cancellationToken = default)
@@ -151,7 +146,6 @@ public sealed class ActivateTerminalCommandHandler(
         }
 
         matched.Activate(command.CertificateThumbprint, command.DeviceFingerprint, clock.UtcNow);
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return matched.Id;
     }
@@ -176,10 +170,8 @@ public sealed class RevokeTerminalCommandValidator : AbstractValidator<RevokeTer
 
 /// <summary>Revokes a terminal.</summary>
 /// <param name="terminals">Terminal lookup.</param>
-/// <param name="unitOfWork">Commits the write.</param>
 public sealed class RevokeTerminalCommandHandler(
-    ITerminalRepository terminals,
-    IUnitOfWork unitOfWork) : ICommandHandler<RevokeTerminalCommand, Unit>
+    ITerminalRepository terminals) : ICommandHandler<RevokeTerminalCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(RevokeTerminalCommand command, CancellationToken cancellationToken = default)
@@ -190,7 +182,6 @@ public sealed class RevokeTerminalCommandHandler(
             ?? throw new IdentityNotFoundException("terminal", command.TerminalId);
 
         terminal.Revoke(command.Reason);
-        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
     }

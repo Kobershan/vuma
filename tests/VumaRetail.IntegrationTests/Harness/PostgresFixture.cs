@@ -123,8 +123,25 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     /// <summary>Builds a connection string for a named database on the fixture's server.</summary>
     /// <param name="database">The database name.</param>
+    /// <remarks>
+    /// <para>
+    /// Pooling is off. Every test gets its own database, so every test gets its own pool, and a
+    /// pool keeps its connections open long after the test that opened them has finished. At around
+    /// a hundred tests that reaches PostgreSQL's default <c>max_connections</c> and the suite starts
+    /// failing with <c>53300: sorry, too many clients already</c> — a failure that looks like a bug
+    /// in whatever test happened to run hundredth, and moves every time a test is added.
+    /// </para>
+    /// <para>
+    /// Un-pooled connections cost a few milliseconds each and are closed on dispose, so the open
+    /// count is bounded by how many tests are running at once rather than by how many have ever run.
+    /// </para>
+    /// </remarks>
     public string ConnectionStringFor(string database)
-        => new NpgsqlConnectionStringBuilder(_adminConnectionString) { Database = database }.ConnectionString;
+        => new NpgsqlConnectionStringBuilder(_adminConnectionString)
+        {
+            Database = database,
+            Pooling = false,
+        }.ConnectionString;
 
     private async Task<string> ResolveServerAsync()
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
@@ -42,9 +43,26 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
     [Fact]
     public async Task Refuses_a_password_shorter_than_the_policy()
     {
+        // Through the pipeline the validator answers first, which is the point of having one: the
+        // caller is told which property is wrong before a database round trip happens.
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
 
         Func<Task> create = () => harness.CreateUserAsync("shorty", "short");
+
+        (await create.Should().ThrowAsync<ValidationFailedException>())
+            .Which.Errors.Should().ContainKey(nameof(CreateUserCommand.Password));
+    }
+
+    [Fact]
+    public async Task The_handler_refuses_a_short_password_even_with_no_validator_in_front_of_it()
+    {
+        // Defence in depth, and the reason CONVENTIONS.md §4 keeps both: the validator is the
+        // contract at the edge, the guard is what makes the rule true for every caller — including
+        // the sync receiver and a seed script, neither of which goes through the pipeline.
+        await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
+
+        CreateUserCommandHandler handler = new(harness.Users, harness.PasswordHasher, harness.TenantContext);
+        Func<Task> create = () => handler.HandleAsync(new CreateUserCommand("shorty", "Shorty", "short"));
 
         (await create.Should().ThrowAsync<WeakCredentialException>())
             .Which.Code.Should().Be("IDENTITY_PASSWORD_TOO_SHORT");
@@ -56,15 +74,26 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
         Guid userId = await harness.CreateUserAsync("cashier");
 
-        SetUserPinCommandHandler handler = new(harness.Users, harness.PasswordHasher, harness.Context);
-
         foreach (string bad in new[] { "123", "123456789", "12a4" })
         {
-            Func<Task> set = () => handler.HandleAsync(new SetUserPinCommand(userId, bad));
+            Func<Task> set = () => harness.SendAsync(new SetUserPinCommand(userId, bad));
 
-            (await set.Should().ThrowAsync<WeakCredentialException>())
-                .Which.Code.Should().Be("IDENTITY_PIN_MALFORMED");
+            (await set.Should().ThrowAsync<ValidationFailedException>())
+                .Which.Errors.Should().ContainKey(nameof(SetUserPinCommand.Pin));
         }
+    }
+
+    [Fact]
+    public async Task The_handler_refuses_a_malformed_pin_even_with_no_validator_in_front_of_it()
+    {
+        await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
+        Guid userId = await harness.CreateUserAsync("cashier");
+
+        SetUserPinCommandHandler handler = new(harness.Users, harness.PasswordHasher);
+        Func<Task> set = () => handler.HandleAsync(new SetUserPinCommand(userId, "12a4"));
+
+        (await set.Should().ThrowAsync<WeakCredentialException>())
+            .Which.Code.Should().Be("IDENTITY_PIN_MALFORMED");
     }
 
     [Fact]
@@ -76,8 +105,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await harness.CreateUserAsync("cashier1", pin: "1174");
         Guid second = await harness.CreateUserAsync("cashier2");
 
-        SetUserPinCommandHandler handler = new(harness.Users, harness.PasswordHasher, harness.Context);
-        Func<Task> collide = () => handler.HandleAsync(new SetUserPinCommand(second, "1174"));
+        Func<Task> collide = () => harness.SendAsync(new SetUserPinCommand(second, "1174"));
 
         (await collide.Should().ThrowAsync<IdentityConflictException>())
             .Which.Code.Should().Be("IDENTITY_PIN_TAKEN");
@@ -89,8 +117,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
         Guid userId = await harness.CreateUserAsync("cashier1", pin: "1174");
 
-        SetUserPinCommandHandler handler = new(harness.Users, harness.PasswordHasher, harness.Context);
-        Func<Task> same = () => handler.HandleAsync(new SetUserPinCommand(userId, "1174"));
+        Func<Task> same = () => harness.SendAsync(new SetUserPinCommand(userId, "1174"));
 
         await same.Should().NotThrowAsync();
     }
@@ -141,8 +168,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         Guid roleId = await harness.CreateRoleAsync("Cashier", PlatformPermissions.StoreView);
         Guid userId = await harness.CreateUserAsync("cashier1", roleId: roleId, storeId: harness.StoreId);
 
-        AssignRoleCommandHandler handler = new(harness.Users, harness.Roles, harness.TenantContext, harness.Context);
-        Func<Task> again = () => handler.HandleAsync(new AssignRoleCommand(userId, roleId, harness.StoreId));
+        Func<Task> again = () => harness.SendAsync(new AssignRoleCommand(userId, roleId, harness.StoreId));
 
         (await again.Should().ThrowAsync<IdentityConflictException>())
             .Which.Code.Should().Be("IDENTITY_ROLE_ALREADY_ASSIGNED");
@@ -156,9 +182,8 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         Guid userId = await harness.CreateUserAsync("supervisor", roleId: roleId, storeId: harness.StoreId);
 
         Guid otherStore = Guid.Parse("01900000-0000-7000-8000-0000000000aa");
-        AssignRoleCommandHandler handler = new(harness.Users, harness.Roles, harness.TenantContext, harness.Context);
 
-        await handler.HandleAsync(new AssignRoleCommand(userId, roleId, otherStore));
+        await harness.SendAsync(new AssignRoleCommand(userId, roleId, otherStore));
 
         (await harness.Roles.ListAssignmentsAsync(userId)).Should().HaveCount(2);
     }
@@ -169,8 +194,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
         Guid roleId = await harness.CreateRoleAsync("Cashier", PlatformPermissions.StoreView);
 
-        AssignRoleCommandHandler handler = new(harness.Users, harness.Roles, harness.TenantContext, harness.Context);
-        Func<Task> assign = () => handler.HandleAsync(new AssignRoleCommand(Guid.NewGuid(), roleId));
+        Func<Task> assign = () => harness.SendAsync(new AssignRoleCommand(Guid.NewGuid(), roleId));
 
         (await assign.Should().ThrowAsync<IdentityNotFoundException>())
             .Which.Code.Should().Be("IDENTITY_NOT_FOUND");
@@ -208,17 +232,14 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         TerminalEnrolment enrolment = await harness.EnrolTerminalAsync("T01");
         string thumbprint = IdentityHarness.Thumbprint("T01");
 
-        ActivateTerminalCommandHandler handler = new(
-            harness.Terminals, harness.PasswordHasher, harness.Clock, harness.Context);
-
-        Guid terminalId = await handler.HandleAsync(new ActivateTerminalCommand(
+        Guid terminalId = await harness.SendAsync(new ActivateTerminalCommand(
             harness.StoreId, enrolment.EnrolmentCode, thumbprint, "board-serial-1"));
 
         Terminal terminal = (await harness.Terminals.FindAsync(terminalId))!;
         terminal.Status.Should().Be(TerminalStatus.Active);
         terminal.CertificateThumbprint.Should().Be(thumbprint);
 
-        Func<Task> reuse = () => handler.HandleAsync(new ActivateTerminalCommand(
+        Func<Task> reuse = () => harness.SendAsync(new ActivateTerminalCommand(
             harness.StoreId, enrolment.EnrolmentCode, thumbprint, "board-serial-1"));
 
         await reuse.Should().ThrowAsync<TerminalActivationException>();
@@ -232,10 +253,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
 
         harness.Clock.Advance(TimeSpan.FromMinutes(11));
 
-        ActivateTerminalCommandHandler handler = new(
-            harness.Terminals, harness.PasswordHasher, harness.Clock, harness.Context);
-
-        Func<Task> activate = () => handler.HandleAsync(new ActivateTerminalCommand(
+        Func<Task> activate = () => harness.SendAsync(new ActivateTerminalCommand(
             harness.StoreId, enrolment.EnrolmentCode, IdentityHarness.Thumbprint("T01"), "board-serial-1"));
 
         await activate.Should().ThrowAsync<TerminalActivationException>();
@@ -247,10 +265,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
         TerminalEnrolment enrolment = await harness.EnrolTerminalAsync("T01");
 
-        ActivateTerminalCommandHandler handler = new(
-            harness.Terminals, harness.PasswordHasher, harness.Clock, harness.Context);
-
-        Func<Task> activate = () => handler.HandleAsync(new ActivateTerminalCommand(
+        Func<Task> activate = () => harness.SendAsync(new ActivateTerminalCommand(
             Guid.Parse("01900000-0000-7000-8000-0000000000bb"),
             enrolment.EnrolmentCode,
             IdentityHarness.Thumbprint("T01"),
@@ -265,8 +280,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
         Guid terminalId = await harness.CreateActiveTerminalAsync();
 
-        await new RevokeTerminalCommandHandler(harness.Terminals, harness.Context)
-            .HandleAsync(new RevokeTerminalCommand(terminalId, "Till decommissioned"));
+        await harness.SendAsync(new RevokeTerminalCommand(terminalId, "Till decommissioned"));
 
         TerminalAuthenticationResult result = await harness.Authentication
             .AuthenticateTerminalAsync(IdentityHarness.Thumbprint("T01"));
@@ -285,9 +299,7 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
             .SignInWithPasswordAsync("nmokoena", "CorrectHorseBattery1");
         signedIn.Succeeded.Should().BeTrue();
 
-        await new ChangePasswordCommandHandler(
-                harness.Users, harness.Tokens, harness.PasswordHasher, harness.Clock, harness.Context)
-            .HandleAsync(new ChangePasswordCommand(userId, "AnEntirelyNewSecret1"));
+        await harness.SendAsync(new ChangePasswordCommand(userId, "AnEntirelyNewSecret1"));
 
         AuthenticationResult refreshed = await harness.Authentication.RefreshAsync(signedIn.RefreshToken!);
 

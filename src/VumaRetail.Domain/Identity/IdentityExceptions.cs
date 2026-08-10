@@ -13,13 +13,13 @@ namespace VumaRetail.Domain.Identity;
 /// <param name="what">What was being looked for, for example <c>user</c>.</param>
 /// <param name="id">The identifier that found nothing.</param>
 public sealed class IdentityNotFoundException(string what, Guid id)
-    : DomainException("IDENTITY_NOT_FOUND", $"No {what} with id {id}.");
+    : DomainException("IDENTITY_NOT_FOUND", $"No {what} with id {id}.", DomainProblemKind.NotFound);
 
 /// <summary>Something must be unique and is not.</summary>
 /// <param name="code">The stable machine-readable code for the specific collision.</param>
 /// <param name="message">What collided, in words.</param>
 public sealed class IdentityConflictException(string code, string message)
-    : DomainException(code, message)
+    : DomainException(code, message, DomainProblemKind.Conflict)
 {
     /// <summary>A sign-in name already in use in this tenant.</summary>
     /// <param name="userName">The name.</param>
