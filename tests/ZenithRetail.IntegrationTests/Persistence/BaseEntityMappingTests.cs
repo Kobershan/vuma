@@ -24,6 +24,12 @@ public sealed class BaseEntityMappingTests(PostgresFixture fixture)
         { "platform", "tenants" },
         { "platform", "stores" },
         { "platform", "audit_entries" },
+        { "identity", "users" },
+        { "identity", "roles" },
+        { "identity", "role_permissions" },
+        { "identity", "user_role_assignments" },
+        { "identity", "terminals" },
+        { "identity", "refresh_tokens" },
     };
 
     [Theory]

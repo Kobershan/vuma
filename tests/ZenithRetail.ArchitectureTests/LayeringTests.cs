@@ -19,6 +19,7 @@ public sealed class LayeringTests
     private static readonly Assembly Infrastructure = typeof(ZenithRetail.Infrastructure.AssemblyMarker).Assembly;
     private static readonly Assembly Sync = typeof(ZenithRetail.Sync.AssemblyMarker).Assembly;
     private static readonly Assembly PublicApi = typeof(ZenithRetail.PublicApi.AssemblyMarker).Assembly;
+    private static readonly Assembly Web = typeof(ZenithRetail.Web.ZenithWebExtensions).Assembly;
 
     [Fact]
     public void Domain_depends_on_nothing_in_the_solution()
@@ -104,6 +105,19 @@ public sealed class LayeringTests
     }
 
     [Fact]
+    public void Web_is_hosted_and_does_not_know_its_host()
+    {
+        // ZenithRetail.Web holds the ASP.NET Core wiring the StoreServer and the CloudApi share
+        // (ADR-039). It sits above Infrastructure and below the hosts; a reference to either host
+        // would make it that host's code with extra steps.
+        Types.InAssembly(Web)
+            .Should()
+            .NotHaveDependencyOnAny("ZenithRetail.StoreServer", "ZenithRetail.CloudApi", "ZenithRetail.PublicApi")
+            .GetResult()
+            .ShouldPass("The same web wiring runs in the store server and in the cloud.");
+    }
+
+    [Fact]
     public void PublicApi_cannot_reach_internal_contracts_or_the_domain_model()
     {
         // CLAUDE.md §7 rule 14 / ADR-021. This host faces the open internet. Cost, margin, supplier and
@@ -114,7 +128,8 @@ public sealed class LayeringTests
             .NotHaveDependencyOnAny(
                 "ZenithRetail.Contracts",
                 "ZenithRetail.Domain",
-                "ZenithRetail.Infrastructure")
+                "ZenithRetail.Infrastructure",
+                "ZenithRetail.Web")
             .GetResult()
             .ShouldPass("The public API has its own DTOs. Map into them through the Application layer.");
     }

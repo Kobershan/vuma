@@ -19,6 +19,13 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!--
+      ASP.NET Core Identity's PasswordHasher only — not the EF stores, not UserManager, not
+      IdentityDbContext. ADR-038 explains why Zenith's users are Zenith entities.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+    <!--
       Design-time only: `dotnet ef migrations add` needs it, the store server does not ship it.
       PrivateAssets keeps it out of the transitive graph of anything that references us.
     -->

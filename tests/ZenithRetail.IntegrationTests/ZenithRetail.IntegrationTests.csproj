@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\ZenithRetail.Domain\ZenithRetail.Domain.csproj" />
     <ProjectReference Include="..\..\src\ZenithRetail.Application\ZenithRetail.Application.csproj" />
     <ProjectReference Include="..\..\src\ZenithRetail.Infrastructure\ZenithRetail.Infrastructure.csproj" />
+    <!-- Stage 02: the authenticated IPrincipalAccessor is what makes R6's audit trail name a person. -->
+    <ProjectReference Include="..\..\src\ZenithRetail.Web\ZenithRetail.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

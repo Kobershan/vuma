@@ -46,6 +46,24 @@ public class ZenithRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The immutable audit trail (R6). Written by the interceptor, never by business code.</summary>
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    /// <summary>People who sign in — back office, till, or both (Stage 02).</summary>
+    public DbSet<Domain.Identity.User> Users => Set<Domain.Identity.User>();
+
+    /// <summary>Named bags of permissions (ADR-013).</summary>
+    public DbSet<Domain.Identity.Role> Roles => Set<Domain.Identity.Role>();
+
+    /// <summary>One permission granted to one role.</summary>
+    public DbSet<Domain.Identity.RolePermission> RolePermissions => Set<Domain.Identity.RolePermission>();
+
+    /// <summary>A user holding a role, tenant-wide or in one store.</summary>
+    public DbSet<Domain.Identity.UserRoleAssignment> UserRoleAssignments => Set<Domain.Identity.UserRoleAssignment>();
+
+    /// <summary>Enrolled tills and back-office machines.</summary>
+    public DbSet<Domain.Identity.Terminal> Terminals => Set<Domain.Identity.Terminal>();
+
+    /// <summary>Issued refresh tokens, stored as digests and rotated on use.</summary>
+    public DbSet<Domain.Identity.RefreshToken> RefreshTokens => Set<Domain.Identity.RefreshToken>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-09 · **Current stage:** 02 — Identity, RBAC, permission catalogue · **Status:** NOT_STARTED
+**Last updated:** 2026-08-10 · **Current stage:** 03 — API platform (versioning, ProblemDetails, OpenAPI, CQRS pipeline) · **Status:** NOT_STARTED
 
 ---
 
@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 00 | Foundation — solution skeleton, conventions, CI | **DONE** | 2026-08-09 |
 | 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** | 2026-08-09 |
-| 02 | Identity, RBAC, permission catalogue | NOT_STARTED | — |
+| 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
 | 03 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 ---
@@ -145,6 +145,53 @@ The production behaviour is correct; the test now derives its instant from the c
 machine (PostgreSQL 18), on port 55432, with no Docker and no sudo. `scripts/test.sh` wraps the whole
 suite in it. `dotnet-ef` 9.0.0 installed as a global tool.
 
+### 2026-08-10 — Stage 02 complete: identity, RBAC, permission catalogue
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh` → **253 passed, 0 failed**
+(130 unit, 19 architecture, 104 integration), identical across two consecutive runs. Domain +
+Application line coverage **89.5%**. Full exit checklist in `docs/stages/STAGE-02-identity.md`.
+
+**What this stage makes possible, and what it closes.** The audit trail now names a person. Stage 01
+stamped `system:host` on every row; an authenticated request now lands `created_by = user:{id}` with
+a matching audit entry, and that is asserted against real PostgreSQL rather than against the
+accessor. Stage 03 has something to authorise against, and every module stage from 06 has a place to
+declare its permissions.
+
+**Domain — `identity`.** `PermissionKey` (validated `module.entity.action`), `User` (two independent
+credentials with separate lockout ladders and a security stamp), `Role` + `RolePermission` (a row per
+grant), `UserRoleAssignment` (scoped on the base entity's own `store_id`), `Terminal` (trust on first
+enrolment, thumbprint pinned thereafter), `RefreshToken` (digest only, rotating). Plus
+`DomainException` — the base `CONVENTIONS.md` §5 required and nothing had yet provided, carrying the
+stable machine-readable code that is the contract.
+
+**Application.** The permission catalogue (ADR-013): modules declare, the catalogue is assembled at
+startup and frozen, and granting a permission no module declares is refused rather than silently
+useless. Seven `Write` commands, one query, four repository ports, and an `AuthenticationService`
+that is deliberately **not** a command — see ADR-040.
+
+**Infrastructure.** Six EF configurations, the `Identity` migration (up → down → up verified the way
+CI does it), four repositories, `IdentityPasswordHasher` over ASP.NET Core Identity's
+`PasswordHasher<T>`, `Sha256TokenHasher`, and `JwtTokenIssuer` at 15 minutes / 30 days.
+
+**New project: `src/ZenithRetail.Web`.** The ASP.NET-specific wiring — `HttpContextPrincipalAccessor`,
+`TenantResolutionMiddleware`, the permission policy provider and handler, the terminal certificate
+scheme, and the auth endpoints. Not in `CLAUDE.md` §5's layout; ADR-039 explains why it is not in
+`Infrastructure` (the Stage 09 WPF desktop would inherit the ASP.NET Core shared framework).
+
+**Host and seed.** `ZenithRetail.StoreServer` is wired end to end and refuses to start on the
+placeholder JWT signing key outside Development. `scripts/seed.sh` / `scripts/seed.ps1` build a demo
+tenant — 2 stores, 3 roles, 3 users with PINs, 22 grants, 1 enrolled terminal — and are idempotent.
+
+**Two new architecture rules**, each proven by a deliberate violation: authorisation never names a
+role, and a module declares only its own well-formed permissions.
+
+**ADRs appended:** ADR-038 Identity contributes its hasher, not its stores · ADR-039 ASP.NET host
+wiring lives in `ZenithRetail.Web` · ADR-040 authentication is an edge service, not a command ·
+ADR-041 POS PINs are unique tenant-wide and resolved per store.
+
+**Docs:** `docs/SECURITY.md` written (credential model, authorisation, transport, POPIA, vendor
+access); `docs/DATA_MODEL.md` gained §4b and six replication-registry entries.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -162,13 +209,13 @@ These are cited as reference reading by stages that will need them. Each should 
 stage that first depends on it, not all up front:
 
 `ARCHITECTURE.md` · `API_STANDARDS.md` (Stage 03) · `SYNC_AND_BACKUP.md` (Stage 04) ·
-`IMPORT_PIPELINE.md` (Stage 11) · `SECURITY.md` (Stage 02) · `HARDWARE.md` (Stage 09) ·
-`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
+`IMPORT_PIPELINE.md` (Stage 11) · `HARDWARE.md` (Stage 09) · `API_LOYALTY.md` (Stage 20) ·
+`API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
 
-Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01).
+Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02).
 
-Stage documents exist for **00**, **01**, **04b** and **30b**. Every other stage document must be
-written by the session that executes it, using `STAGE-04b-licensing.md` as the template.
+Stage documents exist for **00**, **01**, **02**, **04b** and **30b**. Every other stage document
+must be written by the session that executes it, using `STAGE-04b-licensing.md` as the template.
 
 ### 4.2 Unresolved contradiction in `docs/TESTING.md` §7 — resolve during Stage 04b
 
@@ -246,9 +293,9 @@ whenever the owner wants it; the remote URL then needs updating. Cosmetic, not b
 
 ## 5. Next session starts here
 
-**Stage 02 — Identity, RBAC, permission catalogue.** Write `docs/stages/STAGE-02-identity.md` first,
-using `STAGE-04b-licensing.md` as the template, then execute it. `docs/SECURITY.md` is Stage 02's to
-write as well.
+**Stage 03 — API platform: versioning, `ProblemDetails`, OpenAPI, the CQRS pipeline.** Write
+`docs/stages/STAGE-03-api-platform.md` first, using `STAGE-02-identity.md` as the template, then
+execute it. `docs/API_STANDARDS.md` is Stage 03's to write as well.
 
 ### Running the build on this machine
 
@@ -256,49 +303,58 @@ write as well.
 export DOTNET_ROOT=$HOME/.dotnet && export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
 dotnet build -c Release
 scripts/test.sh                 # starts a throwaway PostgreSQL, runs everything, tears it down
+scripts/seed.sh                 # demo tenant; needs ZENITH_CONNECTION or a configured connection string
 ```
 
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
 deliberately fail rather than skip without one (ADR-036).
 
-### What Stage 01 leaves you
+### What Stage 02 leaves you
 
-- `EntityConfiguration<T>` maps every §7 rule 3 column. **Derive from it and describe only your own
-  columns.** If you find yourself re-declaring a base column, the base is wrong, not your entity.
-- Both global query filters are automatic. Do not add `Where(x => !x.IsDeleted)` or a tenant
-  predicate to a query — they are already there, and a second one hides a bug in the first.
-- `AuditInterceptor` stamps audit fields, rewrites `Remove` into a soft delete, guards
-  `IImmutableRecord`, replaces `row_version` and writes the audit trail. **Never set an audit field
-  in business code.**
-- `Schemas` holds the schema-name constants; add `identity` usage there. An architecture test fails
-  the build if a table lands outside a declared schema, or if a foreign key crosses one.
-- Every new entity needs `[Replicated(scope, conflictPolicy)]` or the build fails (ADR-007).
-  `NodeLocal` is a valid answer for a device-local table; silence is not.
-- Take `IClock` — `DateTimeOffset.UtcNow` anywhere in `src/` fails the build.
-- Add the new tables to `BaseEntityMappingTests.AllTables` so they get the `information_schema`
-  conformance sweep for free.
+- **`ZenithRetail.Web` exists and is where host wiring goes** (ADR-039). `AddZenithWeb` /
+  `UseZenithWeb` already order authentication → tenant resolution → authorisation, and that order is
+  not a style choice: tenant resolution reads the authenticated principal. Stage 03's versioning,
+  `ProblemDetails` and OpenAPI belong here, not in each host.
+- **`RequirePermission("module.entity.action")` works today.** Use it on every endpoint you add.
+  Never a role name — there is an architecture test.
+- **The permission catalogue is the closed set.** Declare your module's permissions in an
+  `IModulePermissions` and register it in `AddZenithPermissionCatalogue`. Add the class to
+  `IdentityRulesTests.DeclaredModules()` and both catalogue rules cover it for free.
+- **The command handlers are registered one by one** in `AddZenithIdentity`. That is deliberate:
+  ADR-009's Scrutor scan and the dispatcher are Stage 03's deliverable. When you build them, replace
+  those eight registrations with the scan.
+- **Handlers currently call `IUnitOfWork.CommitAsync` themselves**, because there is no pipeline yet.
+  `ExecuteInTransactionAsync` already no-ops a nested transaction, so wrapping them in the Stage 03
+  pipeline transaction is safe — but decide deliberately whether handlers keep committing or the
+  pipeline takes it over, and make it uniform.
+- **`AuthenticationService` is not a command and must stay that way** (ADR-040). Stage 04b's
+  licence-safety suite should assert sign-in still works while a tenant is read-only.
+- **Endpoints return bare `401`/`200` for now.** Stage 03 owns giving them `ProblemDetails` bodies
+  with the stable codes `CONVENTIONS.md` §5 requires. The domain exceptions already carry those codes
+  — `DomainException.Code` — so the mapping is `422` for `DomainException` and nothing needs inventing.
+- **Sign-in deliberately gives one answer for every failure.** Do not let `ProblemDetails` reintroduce
+  the distinction between "no such user", "wrong password" and "locked out".
 
-### What Stage 02 owes the rest of the build
+### What Stage 03 owes the rest of the build
 
-1. ASP.NET Core Identity over the existing `ZenithRetailDbContext`, in the `identity` schema, with
-   users, roles and the `module.entity.action` permission catalogue (ADR-013).
-2. **A real `IPrincipalAccessor`**, backed by the authenticated identity and carrying the terminal id.
-   Register it before `AddZenithPersistence` — that registration is try-add precisely so this is a
-   registration rather than an edit to Stage 01's code. R6's audit trail is currently recording
-   `system:host` for everything.
-3. Setting `ITenantContext` at the request edge from the authenticated principal. Nothing does this
-   yet, which is why every test constructs it by hand.
-4. JWT issuance (15 min access / 30 day rotating refresh), device certificates for terminals, and the
-   4–8 digit POS operator PIN (`CLAUDE.md` §4).
-5. `docs/SECURITY.md`, including the POPIA handling `CLAUDE.md` §9 points at.
+1. `IDispatcher` and the pipeline ADR-009 describes — validation → transaction → audit → outbox →
+   logging — with the FluentValidation validators Stage 02 already wrote being run by it.
+2. API versioning and `ProblemDetails` with stable machine-readable codes, plus OpenAPI with examples
+   and error responses, so the §8 Definition of Done line stops being unmeetable.
+3. Serilog, configured to redact `password`, `pin`, `token`, `secret` and `certificate`
+   (`docs/SECURITY.md` §4 records this as owed).
+4. `docs/API_STANDARDS.md`.
 
-One thing to watch: `Terminal` will want a foreign key to `platform.stores`, and **it cannot have
-one** — that is a cross-schema foreign key and the architecture test will fail the build. Hold the
-store id as a plain `uuid` and resolve through the platform module's contract (ADR-010).
+### Known small debts from Stage 02
 
-### CI has never run
-
-`.github/workflows/ci.yml` still has not been pushed (§4.4), so neither Stage 00 nor Stage 01 has
-been verified by CI — both are green on a local run only. The workflow now includes a PostgreSQL
-service container for the test job and a real `migrate-check` (up → down → up), so its first run will
-exercise considerably more than it would have. **Land it before Stage 02 is marked DONE.**
+- **The cloud API is not wired.** `ZenithRetail.CloudApi` still has its scaffold `Program.cs`. Nothing
+  in `ZenithRetail.Web` is store-specific; it gets the same three lines when Stage 04 gives it
+  something to authorise.
+- **mTLS transport is not configured.** `TerminalCertificateAuthenticationHandler` resolves a
+  thumbprint into a `Terminal` and is tested at the service level, but which Kestrel port demands a
+  client certificate — and how one survives a reverse proxy — is Stage 31 installer work.
+- **JWT signing-key custody is configuration only.** The host refuses to start on the shipped
+  placeholder outside Development, which is the floor rather than the answer. Real custody (KMS/HSM)
+  belongs with Stage 04b's licence signing key.
+- **`ZenithRetail.Web` is not in `CLAUDE.md` §5's layout.** ADR-039 states why; §5 describes the
+  finished shape, as ADR-031 already established.

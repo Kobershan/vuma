@@ -30,6 +30,23 @@
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Validation">
+    <!-- CLAUDE.md §4. Validators are declared in Stage 02; Stage 03 runs them in the pipeline. -->
+    <PackageVersion Include="FluentValidation" Version="11.11.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Identity and tokens">
+    <!--
+      ASP.NET Core Identity's core, for PasswordHasher only — the PBKDF2-HMAC-SHA512 implementation
+      that CLAUDE.md §4 names. The EF stores, UserManager and IdentityDbContext are deliberately not
+      used; see ADR-038 for why users are Zenith entities instead.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.3.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />

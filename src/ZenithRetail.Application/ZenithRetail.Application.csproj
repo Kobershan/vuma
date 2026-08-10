@@ -10,4 +10,13 @@
     <ProjectReference Include="..\ZenithRetail.Domain\ZenithRetail.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      FluentValidation is the one framework Application takes (CLAUDE.md §4). Validators are the
+      Application layer's own vocabulary rather than an infrastructure concern, and the architecture
+      test only forbids depending on the layers below and the hosts above.
+    -->
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+
 </Project>

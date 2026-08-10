@@ -412,3 +412,86 @@ in Stage 07.
 which is the only affordable time to do it — retrofitting a store dimension into a year of trading
 data is a migration nobody wants to write. The risk is scope creep into Stage 06; the boundary is
 that `Store` gets a structured address when Stage 06 builds structured addresses, not before.
+
+---
+
+# Revision 5 — Stage 02 identity
+
+## ADR-038 — ASP.NET Core Identity contributes its hasher, not its stores — **LOCKED**
+**Context.** `CLAUDE.md` §4 locks the auth stack to "ASP.NET Core Identity + JWT". The obvious
+reading is `IdentityDbContext`, `IdentityUser`, `UserManager` and the EF stores. Three things make
+that reading unworkable here, and none of them is a matter of taste:
+1. `IdentityUser` cannot carry the `CLAUDE.md` §7 rule 3 columns. It has no `tenant_id`, no
+   `store_id`, no `row_version`, no `sync_state`, no soft delete — so it cannot derive from `Entity`,
+   cannot be mapped by `EntityConfiguration<T>`, and would sit outside both global query filters. A
+   users table with no tenant filter is the exact failure R8 exists to prevent.
+2. It cannot carry `[Replicated]`, so Stage 04's registry would have a hole in it on the one table
+   that decides who may do anything.
+3. `UserManager` owns its own persistence lifecycle and calls `SaveChanges` per operation. That
+   conflicts with §7 rule 2 (every write goes through a command handler) and with the Stage 03
+   pipeline's unit of work — a user created inside a larger transaction would commit on its own.
+**Decision.** Take ASP.NET Core Identity's **`PasswordHasher<T>`** — PBKDF2-HMAC-SHA512, 100 000
+iterations, versioned output — and nothing else. `User`, `Role`, `RolePermission`,
+`UserRoleAssignment`, `Terminal` and `RefreshToken` are Zenith domain entities derived from `Entity`,
+driven by command handlers like every other write in the system. Lockout counting, the security
+stamp and normalisation are domain behaviour with tests, rather than framework behaviour without any.
+**Consequences.** Identity obeys every persistence rule the rest of the system obeys: tenant
+filtered, soft deletable, audited, replication-declared, committed by the pipeline. The cost is
+roughly 200 lines of lockout and stamp logic that `UserManager` would have supplied — which is also
+200 lines that are now testable on a virtual clock, which the lockout ladder needs. If SSO or MFA is
+ever added, Identity's token providers can be adopted then on the same terms: take the primitive,
+not the persistence model.
+
+## ADR-039 — ASP.NET Core host wiring lives in `ZenithRetail.Web` — **LOCKED**
+**Context.** Stage 02 produces code that only makes sense inside an ASP.NET Core host — the
+`HttpContext`-backed `IPrincipalAccessor`, tenant resolution middleware, the permission authorisation
+handler and policy provider, the terminal certificate scheme, and the auth endpoints. The store
+server, the cloud API and eventually the Android-facing API all need the same wiring. Putting it in
+`Infrastructure` would mean a `FrameworkReference` to `Microsoft.AspNetCore.App` there — and
+`Infrastructure` is referenced by the WPF desktop app from Stage 09, so every till would carry the
+ASP.NET Core shared framework for code it never runs.
+**Decision.** A new project, `src/ZenithRetail.Web`, sitting above `Infrastructure` and below the
+hosts. It holds the ASP.NET-specific wiring and nothing else. `ZenithRetail.PublicApi` deliberately
+does **not** reference it: that host has its own auth model and its own DTOs (ADR-021, §7 rule 14),
+and `Web` carries internal contracts. An architecture test asserts both directions.
+**Consequences.** `CLAUDE.md` §5's repository layout gains a project it does not list, in the same
+spirit as ADR-031 — the layout describes the finished shape and this is how the shape is reached.
+Stage 03 inherits a home for versioning, `ProblemDetails` and OpenAPI instead of having to invent one
+or scatter them across three hosts.
+
+## ADR-040 — Authentication is an edge service, not a command — **LOCKED**
+**Context.** Every write in Zenith is an `ICommand` carrying `[CommandSideEffect]`, so Stage 04b's
+read-only interceptor can refuse it during a subscription lapse (ADR-028, ADR-034). Signing in writes:
+a refresh token row, a failure counter, a last-seen stamp. Classified as a `Write` it would be
+refused while a tenant is read-only — and ADR-028 promises a lapsed tenant keeps full read, report,
+reprint and export access, all of which is unreachable by somebody who cannot log in. Classified as
+`ReadOnly` it would be a lie the architecture test cannot catch. Exempting it would spend one of the
+three carve-outs the test caps at three, on something that is not a business write.
+**Decision.** Sign-in, PIN sign-in, refresh rotation, sign-out and terminal authentication are an
+`AuthenticationService` in the Application layer, invoked directly by the endpoint and committing
+through `IUnitOfWork`. They never enter the command pipeline. Administrative identity changes —
+creating a user, granting a role, setting a PIN, enrolling a terminal — are ordinary `Write` commands
+and are refused while read-only, which is correct: a lapsed tenant should not be provisioning staff.
+**Consequences.** The read-only guarantee holds without widening the exemption set, and the boundary
+is stated rather than discovered: the pipeline governs what an authenticated caller may do, not
+whether they may authenticate. Stage 04b's licence-safety suite should assert sign-in still works
+under read-only, and that is now a property of the design rather than of a carve-out somebody
+remembered to add.
+
+## ADR-041 — POS PINs are unique tenant-wide and resolved per store — **LOCKED**
+**Context.** A till takes a PIN and nothing else; making a cashier type an operator code first is the
+difference between a two-second and a six-second sign-on, thirty times an hour. That only works if a
+PIN identifies exactly one operator. Per-store uniqueness is the narrower constraint and was the
+first design, but staff move between branches and cover shifts — a PIN that was unique when it was
+set becomes ambiguous the week somebody is rostered elsewhere, and the collision surfaces as a sale
+attributed to the wrong person.
+**Decision.** A PIN is unique among the tenant's **live** operators, checked when it is set by
+verifying the candidate against every stored PIN hash. Sign-in candidates are then narrowed to the
+operators holding a role in the terminal's store, so a cashier at one branch cannot sign in at
+another's till even with a valid PIN. A PIN is only ever accepted on an already terminal-authenticated
+session: the certificate proves which till, the PIN says who is standing at it.
+**Consequences.** Sign-on stays one gesture. The uniqueness check is O(staff) salted verifications,
+which runs when a manager sets a PIN rather than on any sale path. The ceiling is 10 000 concurrent
+4-digit operators per tenant before PINs must lengthen — well beyond any realistic estate, and the
+PIN is 4–8 digits so lengthening is configuration. A soft-deleted or deactivated operator frees their
+PIN, which is what "live" is doing in the rule.

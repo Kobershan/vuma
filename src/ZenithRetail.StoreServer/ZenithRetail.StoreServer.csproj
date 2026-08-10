@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ZenithRetail.Infrastructure\ZenithRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\ZenithRetail.Web\ZenithRetail.Web.csproj" />
     <ProjectReference Include="..\ZenithRetail.Sync\ZenithRetail.Sync.csproj" />
   </ItemGroup>
 

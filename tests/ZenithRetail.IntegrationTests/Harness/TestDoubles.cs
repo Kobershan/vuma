@@ -88,6 +88,12 @@ public sealed class TestTenantContext : ITenantContext
         return new Scope(this);
     }
 
+    /// <summary>
+    /// Closes a bypass opened by <see cref="Unfiltered"/>, so a test can arrange data across tenants
+    /// and then exercise the code under the filter it actually runs under in production.
+    /// </summary>
+    public void EndBypass() => _bypassDepth = 0;
+
     private sealed class Scope(TestTenantContext owner) : IDisposable
     {
         public void Dispose() => owner._bypassDepth--;

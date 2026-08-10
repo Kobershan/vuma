@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\ZenithRetail.Infrastructure\ZenithRetail.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\ZenithRetail.Sync\ZenithRetail.Sync.csproj" />
     <ProjectReference Include="..\..\src\ZenithRetail.PublicApi\ZenithRetail.PublicApi.csproj" />
+    <ProjectReference Include="..\..\src\ZenithRetail.Web\ZenithRetail.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

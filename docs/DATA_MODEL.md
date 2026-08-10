@@ -78,7 +78,7 @@ table lands anywhere else — including `public`, which belongs to no module and
 | Schema | Owns | Stage |
 |---|---|---|
 | `platform` | tenants, stores, the audit trail | 01 |
-| `identity` | users, roles, permissions, terminals | 02 |
+| `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
 | `licensing` | licences, leases, activations, entitlements, metering | 04b |
 
@@ -130,6 +130,83 @@ question anybody asks during an investigation.
 
 ---
 
+## 4b. Tables in `identity`
+
+Built in Stage 02. Permissions themselves are **not** a table: they are declared in code by the
+module that owns them and assembled into a catalogue at startup (ADR-013). What is stored is which
+role was granted which permission string, and granting one no module declares is refused.
+
+No foreign key leaves this schema. `Terminal.StoreId` points at `platform.stores` by ID only, because
+a foreign key there would cross a module boundary (§3).
+
+### `identity.users`
+
+`user_name`, `normalized_user_name`, `display_name`, `email`, `normalized_email`, `password_hash`,
+`security_stamp`, `pin_hash`, `failed_password_attempts`, `password_locked_until`,
+`failed_pin_attempts`, `pin_locked_until`, `last_signed_in_at`, `is_active`.
+
+Two credentials, locking independently. The password is for the back office and the API; the 4–8
+digit PIN identifies an operator at a till that has already authenticated with its certificate. They
+lock separately so a shift of mistyped PINs cannot lock a manager out of the reports, and a
+password-guessing attempt cannot stop the till trading — which would breach R1 through the back door.
+
+`ux_users_tenant_id_normalized_user_name` is unique and filtered to `deleted_at IS NULL`, so a
+cashier who leaves and returns keeps their own name. `ix_users_tenant_id_pin` is partial on
+`pin_hash IS NOT NULL AND deleted_at IS NULL` — the predicate the PIN sign-in query actually uses.
+
+The security stamp changes whenever a credential changes, which retires every token issued before it
+without having to find them (ADR-038).
+
+### `identity.roles` and `identity.role_permissions`
+
+`name`, `normalized_name`, `description`, `is_system_role`; and `role_id` + `permission`.
+
+A row per grant rather than a collection on the role: adding one permission to a role with forty
+writes one row, syncs one row, and audits as one change naming the permission that changed — which is
+the question asked afterwards. `is_system_role` marks the roles the seed owns; they may be renamed
+but not removed, because deleting the one role holding `identity.role.assign` locks a tenant out of
+their own installation with no way back in.
+
+### `identity.user_role_assignments`
+
+`user_id`, `role_id`, and the base entity's own `store_id` as the scope — `null` means tenant-wide.
+A second scope column would be a column that can disagree with the one every other table already
+uses.
+
+`ux_user_role_assignments_user_id_role_id_store_id` is unique with **`NULLS NOT DISTINCT`**
+(PostgreSQL 15+). Under the SQL default two nulls are distinct, so the same tenant-wide role could
+otherwise be assigned to one user any number of times.
+
+### `identity.terminals`
+
+`code`, `name`, `status`, `enrolment_code_hash`, `enrolment_code_expires_at`,
+`certificate_thumbprint`, `device_fingerprint`, `has_fingerprint_drift`, `activated_at`,
+`last_seen_at`, `revocation_reason`.
+
+Trust on first enrolment, pinned thereafter. Activation binds the SHA-256 thumbprint and **spends**
+the enrolment code — a code that is still comparable after use is a second credential for a terminal
+that already has a certificate. `ux_terminals_certificate_thumbprint` is unique across the whole
+installation, because a thumbprint is resolved before any tenant is known and a collision would be one
+store's till authenticating as another's.
+
+`has_fingerprint_drift` is observed, never enforced (ADR-026): a replaced motherboard on a Saturday
+must not close a till.
+
+### `identity.refresh_tokens`
+
+`user_id`, `token_hash`, `security_stamp`, `issued_at`, `expires_at`, `revoked_at`,
+`revocation_reason`, `replaced_by_token_id`.
+
+Only the SHA-256 digest is stored — a database dump holding 30-day bearer credentials in plaintext is
+a month of unrestricted access to every account in it. Unsalted and deterministic here on purpose: the
+token is 256 bits this system generated rather than something a person chose, and the refresh path has
+to *find* the row by digest.
+
+Rotation marks the old row replaced rather than deleting it, so a token presented twice is visible.
+Both a replay and a theft get the same answer — every live token for that user is revoked.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -141,6 +218,12 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `Tenant` | CloudToStore | CloudWins | The cloud owns tenant configuration and licensing (R2). A store editing its own tenant record and winning would let a lapsed tenant edit its way out of read-only. |
 | `Store` | Bidirectional | CloudWins | Head office creates and configures stores; a store manager legitimately edits trading hours and address. When both edit, head office reconciles. |
 | `AuditEntry` | StoreToCloud | AppendOnly | Two nodes writing history must merge, never overwrite. |
+| `User` | Bidirectional | CloudWins | Head office creates staff, but a store manager legitimately resets a cashier's PIN on a Saturday with the line down. When both edited, head office reconciles. |
+| `Role` | CloudToStore | CloudWins | A permission grant is a security decision. A store server compromised on a shop floor must not be able to grant itself a permission and have that replicate upwards. |
+| `RolePermission` | CloudToStore | CloudWins | As `Role`, and for the same reason. |
+| `UserRoleAssignment` | CloudToStore | CloudWins | As `Role`. Who holds what is decided centrally. |
+| `Terminal` | StoreToCloud | StoreWins | The store enrols its own tills; the cloud observes them, and counts them for licensing. |
+| `RefreshToken` | NodeLocal | LastWriterWins | A session credential has no business leaving the node that issued it. Shipping these to the cloud would put every store's live sessions in one place for no operational gain. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`.
 

@@ -12,7 +12,7 @@ business rules, tests/acceptance, exit checklist — using `STAGE-04b-licensing.
 |---|---|---|---|---|
 | 00 | Foundation — solution skeleton, conventions, CI | — | ✅ | DONE |
 | 01 | Persistence core — EF Core, base entity, migrations, audit | 00 | ✅ | DONE |
-| 02 | Identity, RBAC, permission catalogue | 01 | — | NOT_STARTED |
+| 02 | Identity, RBAC, permission catalogue | 01 | ✅ | DONE |
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | 02 | — | NOT_STARTED |
 | 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | 03 | — | NOT_STARTED |
 | 04b | Licensing, activation & entitlement | 04 | ✅ | NOT_STARTED |
