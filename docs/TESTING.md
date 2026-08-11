@@ -74,19 +74,22 @@ A red pipeline blocks the stage from being marked DONE.
 Two suites are mandatory and must be run in CI on every build, not just during Stage 04b:
 
 **No-accidental-lockout.** This is the suite that protects the business from its own licensing, and it
-must be green on every build (the guarantees survive from ADR-027 into the live ADR-028):
+must be green on every build (the guarantees survive from ADR-027 into the live ADR-028, restated
+against **read-only** rather than a hard lock — see `docs/LICENSING.md` §4):
 - Control plane unreachable for the full tolerance window: the store trades normally throughout, and
-  locks only at the configured boundary — **never earlier**
+  drops to read-only only at the configured boundary — **never earlier**
 - Control plane returning 500s, timeouts, or garbage: treated as unreachable, never as unlicensed
-- A single failed charge, and a second, and a third: **no lockout** until dunning completes and
-  notifications are recorded as delivered
-- Clock moved backwards, forwards, or into next year: reported as a tamper flag, never a lockout and
+- A single failed charge, and a second, and a third: **no read-only restriction** until dunning
+  completes and notifications are recorded as delivered
+- Clock moved backwards, forwards, or into next year: reported as a tamper flag, never a restriction and
   never an extension
-- Hardware fingerprint change within tolerance: no lockout
-- Payment received while locked: unlocked at the next heartbeat, under 60 seconds, with no manual step
-- Emergency access code: unlocks fully **with no internet at all**, expires exactly on time, cannot be
-  reused, and cannot be forged without the signing key
-- Export unlock: exports and reports work, trading and configuration do not
+- Hardware fingerprint change within tolerance: no restriction
+- Payment received while read-only: full write access restored at the next heartbeat, under 60 seconds,
+  with no manual step
+- Emergency write code: restores full write access **with no internet at all**, expires exactly on
+  time, cannot be reused, and cannot be forged without the signing key
+- Write unlock: a vendor-granted, time-limited restoration of write access to a read-only tenant; read
+  access never needed unlocking because it was never blocked
 - Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start
 
 **Read-only correctness.** The other mandatory suite (ADR-028). In read-only, assert that:

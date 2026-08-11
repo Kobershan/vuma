@@ -719,3 +719,29 @@ is the exact failure the tolerance exists to prevent.
 which is the correct way for this to fail — a false rebind demand stops a paying customer trading, and
 ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
 never reads as agreement, and no value is ever fabricated to fill a gap.
+
+## ADR-054 — `CurrentLevel` moves off `IEntitlementService` onto `IEnforcementStatusReader` — **LOCKED**
+**Context.** `IEntitlementService`'s own remarks promised an architecture test asserting that no query
+handler consults the enforcement level (ADR-028 rule 4: a lapsed tenant keeps full read, report,
+reprint and export access, so a read path has no correct use for the gate). Writing that test exposed
+that the promise did not hold: `GetLicenceStatusQueryHandler` and `GetSubLeaseQueryHandler` — the
+licence screen and the till's sub-lease, both queries — already depended on `IEntitlementService` and
+called `CurrentLevel` to display it. Both uses are legitimate; the licence screen exists to show the
+level. A named-exception list (Stage 04's `BypassTenantFilter` call-site pattern) would have made the
+rule true in the same reviewed-list sense ADR-052 already uses for exemption kinds, but this codebase's stronger
+habit — layering, `CommitAsync`, the pipeline's `IUnitOfWork` ban — is to make an invariant a type
+cannot violate rather than a list a reviewer must remember to check.
+**Decision.** `CurrentLevel` moves onto a new interface, `IEnforcementStatusReader`, implemented by the
+same `EntitlementService` instance and resolved to it within a scope so the gate and the status reader
+never disagree about where a request's tenant stood. `IEntitlementService` keeps only
+`IsModuleEnabledAsync` and `CheckLimitAsync` — the gate proper. Everything that only needs to *report*
+the level (the read-only guard, `RefreshLeaseCommand`, `SendHeartbeatCommand`, the two query handlers)
+now depends on `IEnforcementStatusReader` instead. "No query handler depends on `IEntitlementService`"
+is therefore enforceable with no exemption list at all: there is no `CurrentLevel` on that interface for
+a query handler to plausibly justify calling.
+**Consequences.** The architecture test in `LicensingRulesTests.cs` needs no named exceptions and cannot
+go stale the way a hand-maintained list can. The split cost five call sites their parameter type and
+nothing else — no behavioural change, since both interfaces are the same object within a scope. A
+future query handler that wants the enforcement level for display depends on
+`IEnforcementStatusReader`, which is safe by construction; one that wants to gate a read on it has no
+interface that lets it, which is the point.

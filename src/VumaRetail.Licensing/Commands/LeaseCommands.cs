@@ -43,7 +43,7 @@ public sealed record RefreshLeaseCommand : ICommand<LeaseRefreshResult>;
 /// <param name="state">Emergency unlocks, the clock watermark and tamper flags.</param>
 /// <param name="controlPlane">The vendor's device API.</param>
 /// <param name="verifier">The pinned public key.</param>
-/// <param name="entitlements">The single choke point, for the level afterwards.</param>
+/// <param name="entitlements">Where the tenant sits on the ladder, for the level afterwards.</param>
 /// <param name="install">This installation's ids and version.</param>
 /// <param name="shadow">The out-of-database copy and its shadow.</param>
 /// <param name="node">This node's identity.</param>
@@ -55,7 +55,7 @@ public sealed class RefreshLeaseCommandHandler(
     ILicenceStateRepository state,
     IControlPlaneClient controlPlane,
     ILicenceVerifier verifier,
-    IEntitlementService entitlements,
+    IEnforcementStatusReader entitlements,
     IInstallIdentity install,
     ILicenceShadowStore shadow,
     INodeIdentity node,
@@ -242,7 +242,7 @@ public sealed record SendHeartbeatCommand : ICommand<HeartbeatResult>;
 /// <param name="counters">The whitelisted aggregate counters.</param>
 /// <param name="controlPlane">The vendor's device API.</param>
 /// <param name="integrity">The assembly self-check.</param>
-/// <param name="entitlements">The single choke point, for the level afterwards.</param>
+/// <param name="entitlements">Where the tenant sits on the ladder, for the level afterwards.</param>
 /// <param name="install">This installation's ids and version.</param>
 /// <param name="node">This node's identity.</param>
 /// <param name="clock">The only source of time.</param>
@@ -254,7 +254,7 @@ public sealed class SendHeartbeatCommandHandler(
     IUsageCounterSource counters,
     IControlPlaneClient controlPlane,
     IIntegrityChecker integrity,
-    IEntitlementService entitlements,
+    IEnforcementStatusReader entitlements,
     IInstallIdentity install,
     INodeIdentity node,
     IClock clock) : ICommandHandler<SendHeartbeatCommand, HeartbeatResult>

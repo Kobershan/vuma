@@ -77,6 +77,7 @@ public sealed class IdentityHarness : IAsyncDisposable
         services.AddSingleton(TokenHasher);
         services.AddSingleton(Catalogue);
         services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IEntitlementService>(Entitlements);
+        services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IEnforcementStatusReader>(Entitlements);
         services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IUsageCounterSource>(Usage);
         services.AddVumaMessaging();
 

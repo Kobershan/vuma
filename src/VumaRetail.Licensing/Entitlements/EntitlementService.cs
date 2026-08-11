@@ -36,7 +36,7 @@ public sealed class EntitlementService(
     IEnforcementPolicy policy,
     IEnumerable<IModuleManifest> manifests,
     IClock clock,
-    INodeIdentity node) : IEntitlementService
+    INodeIdentity node) : IEntitlementService, IEnforcementStatusReader
 {
     private EnforcementDecision? _decision;
     private IReadOnlySet<string>? _entitlements;

@@ -328,5 +328,5 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
 
     private static Task<EnforcementDecision> CurrentAsync(ApiHarness harness)
         => harness.InScopeAsync(provider =>
-            provider.GetRequiredService<IEntitlementService>().CurrentLevel());
+            provider.GetRequiredService<IEnforcementStatusReader>().CurrentLevel());
 }

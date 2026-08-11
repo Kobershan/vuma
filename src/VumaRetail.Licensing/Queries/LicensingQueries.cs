@@ -22,7 +22,11 @@ public sealed record GetLicenceStatusQuery : IQuery<LicenceStatusResponse>;
 /// <param name="licences">The licences it has been issued.</param>
 /// <param name="leases">The leases it has held.</param>
 /// <param name="state">Emergency unlocks and the clock watermark.</param>
-/// <param name="entitlements">The single choke point.</param>
+/// <param name="entitlements">
+/// Where the tenant sits on the ladder — <see cref="IEnforcementStatusReader"/>, not
+/// <see cref="IEntitlementService"/>, because this handler's whole job is to report the level rather
+/// than gate on it (ADR-054).
+/// </param>
 /// <param name="manifests">Every declared module.</param>
 /// <param name="counters">Current usage, for the limit rows.</param>
 /// <param name="node">This node's identity.</param>
@@ -32,7 +36,7 @@ public sealed class GetLicenceStatusQueryHandler(
     ILicenceRepository licences,
     ILeaseRepository leases,
     ILicenceStateRepository state,
-    IEntitlementService entitlements,
+    IEnforcementStatusReader entitlements,
     IEnumerable<IModuleManifest> manifests,
     IUsageCounterSource counters,
     INodeIdentity node,
@@ -139,12 +143,12 @@ public sealed record GetSubLeaseQuery(Guid TerminalId) : IQuery<SubLeaseResponse
 
 /// <summary>Issues a sub-lease from the store server's own lease.</summary>
 /// <param name="leases">The leases this store server has held.</param>
-/// <param name="entitlements">The single choke point.</param>
+/// <param name="entitlements">Where the tenant sits on the ladder (ADR-054).</param>
 /// <param name="options">How long a lease lives.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class GetSubLeaseQueryHandler(
     ILeaseRepository leases,
-    IEntitlementService entitlements,
+    IEnforcementStatusReader entitlements,
     LicensingOptions options,
     IClock clock) : IQueryHandler<GetSubLeaseQuery, SubLeaseResponse>
 {

@@ -101,7 +101,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04)
+### The registry as built (Stage 04, extended Stage 04b)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -119,6 +119,14 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SyncCursor` | `sync` | `NodeLocal` | — | Per-node bookkeeping |
 | `ConflictEntry` | `sync` | `StoreToCloud` | `LastWriterWins` | A queue one machine can see is a queue nobody reviews |
 | `BackupSnapshot` | `backup` | `StoreToCloud` | `LastWriterWins` | Backup health is what a multi-store operator needs |
+| `Activation` | `licensing` | `NodeLocal` | `LastWriterWins` | A hardware binding belongs to the one machine it was captured on |
+| `Lease` | `licensing` | `NodeLocal` | `AppendOnly` | The signed token this node is currently running on; each node holds its own |
+| `Licence` | `licensing` | `NodeLocal` | `AppendOnly` | The store server holds the licence; terminals take sub-leases over the LAN rather than a replica (`LICENSING.md` §2) |
+| `EmergencyUnlock` | `licensing` | `NodeLocal` | `LastWriterWins` | Issued by the vendor to one installation's licence screen |
+| `TamperFlag` | `licensing` | `NodeLocal` | `LastWriterWins` | Reported to the vendor over the heartbeat channel (`API_CONTROL_PLANE.md` §2), not the tenant's own store↔cloud replication |
+| `ClockWatermark` | `licensing` | `NodeLocal` | `LastWriterWins` | The highest wall clock *this* installation has seen |
+| `MeteringRecord` | `licensing` | `NodeLocal` | `LastWriterWins` | Delivered to the vendor over the heartbeat channel, not synced to the tenant's own cloud replica |
+| `SupportGrant` | `licensing` | `Bidirectional` | `LastWriterWins` | Consent can be granted or revoked from the store back office or the cloud-facing admin app; both must converge |
 
 **An immutable record may not declare a policy that overwrites it.** `AuditInterceptor` throws on any
 update to an `IImmutableRecord` (§7 rule 7, ADR-012), so an immutable entity declaring

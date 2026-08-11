@@ -177,17 +177,23 @@ public sealed class UsageCounterSource(VumaRetailDbContext context, IClock clock
     /// </remarks>
     private async Task<long> StorageBytesAsync(CancellationToken cancellationToken)
     {
+        // context.Database.GetDbConnection() returns the DbContext's own live connection, not a new
+        // one — wrapping it in `await using` disposes that connection object outright, not merely
+        // closes it, and poisons every query the DbContext runs for the rest of the scope. Close it
+        // again only if this method is the one that opened it, and never dispose it; the DbContext
+        // owns its lifetime.
+        System.Data.Common.DbConnection connection = context.Database.GetDbConnection();
+        bool openedHere = connection.State is not System.Data.ConnectionState.Open;
+
         try
         {
-            await using System.Data.Common.DbConnection connection = context.Database.GetDbConnection();
-            await using System.Data.Common.DbCommand command = connection.CreateCommand();
-
-            command.CommandText = "SELECT pg_database_size(current_database())";
-
-            if (connection.State is not System.Data.ConnectionState.Open)
+            if (openedHere)
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             }
+
+            await using System.Data.Common.DbCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT pg_database_size(current_database())";
 
             object? result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
 
@@ -198,6 +204,13 @@ public sealed class UsageCounterSource(VumaRetailDbContext context, IClock clock
             // A permission the database role does not have is not worth failing a metering rollup
             // over. Zero is reported, the rest of the day's counts still go out.
             return 0;
+        }
+        finally
+        {
+            if (openedHere)
+            {
+                await connection.CloseAsync().ConfigureAwait(false);
+            }
         }
     }
 

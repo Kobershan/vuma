@@ -53,7 +53,7 @@ public sealed class TestPrincipalAccessor(
 /// against this double would assert the double — and every other harness uses this so that adding
 /// licensing to the pipeline did not change what those tests are about.
 /// </remarks>
-public sealed class TestEntitlementService : IEntitlementService
+public sealed class TestEntitlementService : IEntitlementService, IEnforcementStatusReader
 {
     /// <summary>Where the tenant sits. Tests move this to exercise the read-only guard.</summary>
     public EnforcementDecision Decision { get; set; } =

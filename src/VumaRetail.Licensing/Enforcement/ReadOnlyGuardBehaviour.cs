@@ -27,11 +27,11 @@ namespace VumaRetail.Licensing.Enforcement;
 /// promises those keep working and this is the shape of that promise.
 /// </para>
 /// </remarks>
-/// <param name="entitlements">The single choke point.</param>
+/// <param name="entitlements">Where the tenant sits on the ladder.</param>
 /// <param name="sessions">Which till sessions were open when the restriction fell due.</param>
 /// <param name="options">Whether the open-session carve-out is on.</param>
 public sealed class ReadOnlyGuardBehaviour(
-    IEntitlementService entitlements,
+    IEnforcementStatusReader entitlements,
     IOpenSessionRegistry sessions,
     LicensingOptions options) : IPipelineBehaviour
 {

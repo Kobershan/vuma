@@ -78,8 +78,12 @@ public static class LicensingServiceCollectionExtensions
         services.AddScoped<IUsageCounterSource, UsageCounterSource>();
 
         // Scoped and memoised per scope: a request may ask the choke point three times and must get
-        // one answer, without paying for three lease reads.
-        services.AddScoped<IEntitlementService, EntitlementService>();
+        // one answer, without paying for three lease reads. Both interfaces resolve to the same
+        // instance within a scope (ADR-054), so the gate and the status reader never disagree about
+        // where the request's tenant stood when it was memoised.
+        services.AddScoped<EntitlementService>();
+        services.AddScoped<IEntitlementService>(provider => provider.GetRequiredService<EntitlementService>());
+        services.AddScoped<IEnforcementStatusReader>(provider => provider.GetRequiredService<EntitlementService>());
         services.AddScoped<MeteringCollector>();
 
         services.TryAddEnumerable(

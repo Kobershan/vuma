@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-11 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** IN_PROGRESS (code and tests complete and green; documentation tasks outstanding — see §5)
+**Last updated:** 2026-08-11 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** DONE. Next stage: 05 — Workflow, approvals, notifications, documents.
 
 ---
 
@@ -16,7 +16,7 @@
 | 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
 | 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
-| 04b | Licensing, activation & entitlement | **IN_PROGRESS** | 2026-08-11 |
+| 04b | Licensing, activation & entitlement | **DONE** | 2026-08-11 |
 | 05 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 ---
@@ -416,6 +416,79 @@ See ADR-052.
 `Infrastructure`, with a development key pair · ADR-052 three exemption *kinds*, closed membership ·
 ADR-053 fingerprint tolerance scales with what the machine can report.
 
+### 2026-08-11 — Stage 04b complete: licensing, activation & entitlement
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh`-equivalent → **528 passed, 0
+failed** (261 unit, 27 architecture — 2 new this session — 240 integration — 2 new this session).
+Verified twice: once against a manually-started local PostgreSQL (Docker Desktop's backend would not
+come up on this machine; see toolchain note below), and again after the `UsageCounterSource` fix
+below, to confirm no regression. Full exit checklist in
+`docs/stages/STAGE-04b-licensing.md` now ticked. This closes the debt the Stage 00 filing session
+deferred and the previous session left open: TESTING.md and LICENSING.md now speak read-only
+throughout, the two outstanding metering tests exist, and the two outstanding architecture rules are
+in place.
+
+**Documentation.** `docs/TESTING.md` §7 restated against read-only (ADR-028) rather than the
+superseded ADR-027 lockout language — "drops to read-only", "restores full write access", "write
+unlock" — and its "export unlock" bullet replaced with the real "write unlock" mechanism
+(`LICENSING.md` §5), since read-only already grants export and a separate unlock for it was never
+built. `docs/LICENSING.md` §2's licence key example corrected from the pre-rename `ZNTH-` prefix to
+`VUMA-`, matching what `LicenceKey` actually issues and what `LicenceKeyTests` actually asserts.
+
+**Two tests the stage brief named, now in
+`tests/VumaRetail.IntegrationTests/Licensing/MeteringTests.cs`.** Metering payload privacy, run
+against a tenant seeded with real names, a real email and a real store address, asserting by string
+search that none of it appears in the serialised payload and structurally that every property is on
+the whitelist schema. Offline for forty-five days then reconnected: modelled as forty-five days of
+undelivered backlog with a daily heartbeat keeping the lease current (not as forty-five days of an
+unreachable control plane, which would itself cross the Path A read-only boundary at its default of
+fifteen days partway through — that boundary is `NoAccidentalLockoutTests`' job, not this one's), then
+one delivery pass that sends all forty-five exactly once, asserted against
+`InProcessControlPlane.Metering`'s `(node, period)` keys and `MeteringDeliveries`.
+
+**Two architecture rules the stage brief named, now in
+`tests/VumaRetail.ArchitectureTests/LicensingRulesTests.cs`.** Every module declaring
+`IModulePermissions` also declares an `IModuleManifest` (all five already did; the rule makes it stay
+true). No query handler depends on `IEntitlementService`. Writing the second exposed that it did not
+hold: `GetLicenceStatusQueryHandler` and `GetSubLeaseQueryHandler` — both queries, both legitimate —
+already depended on it for `CurrentLevel`. Rather than a named-exception list in the same shape as
+Stage 04's `BypassTenantFilter` call sites, `CurrentLevel` moved onto a new interface,
+`IEnforcementStatusReader`, leaving `IEntitlementService` as the gate alone (`IsModuleEnabledAsync`,
+`CheckLimitAsync`). Both interfaces resolve to the same `EntitlementService` instance within a scope,
+so the gate and the status reader never disagree about where a request's tenant stood. Five call sites
+(`ReadOnlyGuardBehaviour`, both `LeaseCommands` handlers, both query handlers) changed their
+constructor's parameter type and nothing else. **ADR-054.**
+
+**One correction to a correction.** The previous session's log claimed `CommandClassificationTests`'
+exemption cap had already been moved from counting *commands* to counting *kinds* (ADR-052). It had
+not — the code still read `exempt.Count <= 3` on raw commands. The bug stayed invisible only because
+`CommandClassificationTests` never scanned the `VumaRetail.Licensing` assembly at all (also fixed this
+session), so none of Stage 04b's six licence-screen commands sharing `ReadOnlyExemption.Payment` were
+ever counted. Both are fixed now: the assembly is scanned, and the cap is asserted on the *set* of
+kinds in use against the closed list `{Payment, OfflineFlush, Backup}`, matching what ADR-052 always
+said and what `ReadOnlyExemption.Payment`'s own doc comment already described.
+
+**One real defect the new tests found, confirmed before fixing.** `UsageCounterSource.StorageBytesAsync`
+wrapped `context.Database.GetDbConnection()` — the `DbContext`'s own live connection, not a new one —
+in `await using`, which disposes the connection object outright rather than merely closing it. Every
+query the same `DbContext` ran afterward in that scope threw `ObjectDisposedException`. Latent since
+Stage 04b's metering code was written, because no integration test had exercised
+`RollUpMeteringCommand` against a real database until this session's two did — both failed identically
+on their first run, which is what surfaced it. Fixed by closing the connection again only when this
+method is the one that opened it, and never disposing it; the `DbContext` owns its lifetime. Confirmed
+by re-running the two new tests (green) and then the full suite (green, no regressions elsewhere —
+`CountActivityAsync` is on the heartbeat and metering paths only, so the blast radius was already
+known to be small).
+
+**Replication registry.** `docs/SYNC_AND_BACKUP.md` §3's registry table was missing all eight
+`licensing`-schema entities, despite each one declaring a `[Replicated(...)]` attribute and the Stage
+04b migration having shipped them. Added, all `NodeLocal` except `SupportGrant` (`Bidirectional` —
+consent can be granted or revoked from the store back office or the cloud-facing admin app, and both
+must converge).
+
+**ADRs appended:** ADR-054 `CurrentLevel` moves off `IEntitlementService` onto
+`IEnforcementStatusReader`.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -448,22 +521,21 @@ Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b** and **
 document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
 template.
 
-### 4.2 Unresolved contradiction in `docs/TESTING.md` §7 — **still open, and now the only thing between Stage 04b and DONE**
+### 4.2 Contradiction in `docs/TESTING.md` §7 — **RESOLVED 2026-08-11**
 
-The licensing test suite in TESTING.md §7 is still written in the **lockout** language of the
+The licensing test suite in TESTING.md §7 was still written in the **lockout** language of the
 superseded ADR-027: "the store trades normally throughout, and locks only at the configured
 boundary", "Emergency access code: unlocks fully", "Open-session carve-out ... then the terminal
 locks". ADR-028 is the live decision and it ends the ladder at **read-only**, with hard lockout
 surviving only as a manual, two-person, audited vendor action for confirmed abuse.
 
-The *intent* of every listed test survives — they all assert that restriction cannot happen by
-accident — but the assertions need restating against read-only rather than lockout. This was left
-for Stage 04b rather than rewritten here, because it is a test-design decision, not a filing error.
-`docs/LICENSING.md` §4 should be re-read at the same time for the same drift.
-
-**As of 2026-08-11 the tests those paragraphs describe all exist and are green, stated against
-read-only** — `EnforcementPolicyTests`, `NoAccidentalLockoutTests` and `ReadOnlyCorrectnessTests`. What
-has not happened is the document catching up with them. See §5 item 1.
+The *intent* of every listed test survived — they all assert that restriction cannot happen by
+accident — the assertions just needed restating against read-only rather than lockout. TESTING.md §7
+now speaks read-only throughout: "drops to read-only", "restores full write access", "write unlock"
+in place of "unlocks", and the "export unlock" bullet (a mechanism ADR-028 folded into read-only
+itself, since read-only already grants export) is replaced with the actual "write unlock" mechanism
+`LICENSING.md` §5 describes. `LICENSING.md` §2's licence key example was also corrected from the
+pre-rename `ZNTH-` prefix to `VUMA-`, matching what `LicenceKey` actually issues.
 
 ### 4.3 Toolchain not available on the current development machine
 
@@ -484,6 +556,26 @@ migration chain against it, so the handler-test requirement in `docs/TESTING.md`
 rather than waived. See ADR-036 for why the fixture never skips.
 
 The next real toolchain blocker is **Windows**, at Stage 09.
+
+**2026-08-11 — this Stage 04b completion session ran on an actual Windows machine**, not the Linux
+machine the rest of this section describes. Notes for whoever next runs on Windows directly:
+
+- .NET 9 SDK installed via `winget install Microsoft.DotNet.SDK.9` — clean, no issues.
+- PostgreSQL 16 installed via `winget install PostgreSQL.PostgreSQL.16`. **`scripts/pg-test.sh` does
+  not work as shipped**: it passes `-k <data dir>` to `pg_ctl` to set `unix_socket_directories`, and
+  the Windows build of PostgreSQL does not support Unix sockets at all — `pg_ctl` fails outright
+  ("could not create lock file"). Started manually instead, TCP-only, no `-k`:
+  `initdb -D <dir> -U vuma --auth=trust -E UTF8` then
+  `pg_ctl -D <dir> -l <dir>/server.log -o "-p 55432 -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" start`,
+  then `VUMA_TEST_POSTGRES="Host=127.0.0.1;Port=55432;Database=postgres;Username=vuma;Password=vuma"`.
+  `scripts/pg-test.sh` is still correct for Linux; it is simply not the Windows path, and nobody has
+  written one yet. Worth a `scripts/pg-test.ps1` or a Windows branch in the existing script if Windows
+  becomes a regular dev target before Stage 31.
+- Docker Desktop was installed and its processes were running (`docker context ls` succeeded, the
+  `dockerDesktopLinuxEngine` named pipe existed), but `docker ps` hung indefinitely regardless of
+  client (git-bash, PowerShell) — the WSL2 backend never became responsive in this session. Not
+  investigated further since the manual PostgreSQL path worked. If Testcontainers is wanted, whatever
+  is wrong with this Docker Desktop install needs diagnosing first.
 
 ### 4.4 CI is live and green — **RESOLVED 2026-08-09**
 
@@ -529,39 +621,27 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 
 ## 5. Next session starts here
 
-**Finish Stage 04b.** The code and the tests are done and green — 524 passing, 0 warnings, migration
-reversible. What is left is documentation, and none of it is large:
+**Start Stage 05 — Workflow, approvals, notifications, documents.** Stage 04b is DONE: 528 tests
+green (261 unit, 27 architecture, 240 integration), 0 warnings, exit checklist ticked in
+`docs/stages/STAGE-04b-licensing.md`. Read `docs/stages/STAGE-05-*.md` and its reference reading, then
+execute per the session protocol.
 
-1. **`docs/TESTING.md` §7 still speaks the superseded lockout language of ADR-027** — "the store trades
-   normally throughout, and locks only at the configured boundary", "Emergency access code: unlocks
-   fully", "the terminal locks". Restate every assertion against **read-only** (ADR-028). The intent of
-   each listed test survives and each one now exists, so this is a rewording against the suites that
-   are already there: `EnforcementPolicyTests`, `NoAccidentalLockoutTests`, `ReadOnlyCorrectnessTests`,
-   `ActivationTests`. This was explicitly deferred to Stage 04b by the Stage 00 filing session (§4.2)
-   and is the last piece of that debt.
-2. **`docs/LICENSING.md` §4 needs the same read.** It is already ADR-028-shaped, but §2's licence key
-   example still shows the pre-rename `ZNTH-` prefix; the code issues `VUMA-` and
-   `LicenceKeyTests` asserts a `ZNTH-` key is refused. Correct the document.
-3. **`docs/stages/STAGE-04b-licensing.md`** — walk its Exit Checklist against the repo and set the
-   status line. Every box is believed to pass; the two worth checking by hand are the metering-privacy
-   assertion and the "offline for 45 days then reconnect" catch-up, because **those two tests are the
-   ones not yet written** (see below).
-4. **Two tests from the stage brief are still outstanding**, both in the metering area and neither
-   blocking anything else:
-   - metering payload privacy against a fully seeded tenant (schema whitelist; no free text, name,
-     address or document content in the serialised payload);
-   - offline for 45 days then reconnect — metering for every missed day arrives exactly once.
-   `InProcessControlPlane.Metering` is keyed on `(node, period)` precisely so the second is a loop and
-   an assertion on `MeteringDeliveries` versus distinct keys. Put them in
-   `tests/VumaRetail.IntegrationTests/Licensing/MeteringTests.cs`.
-5. **Two architecture rules from the stage brief are still outstanding**, and both should be proven by
-   a deliberate violation before being committed, as every other rule in this repo was:
-   - every module that declares `IModulePermissions` also declares an `IModuleManifest`;
-   - no query handler depends on `IEntitlementService` — a read path that consults the enforcement
-     level is a bug by construction (ADR-028).
-   The closed-list exemption rule already exists, but it lives in `ReadOnlyCorrectnessTests` rather
-   than in `VumaRetail.ArchitectureTests`; moving it there would put all three together.
-6. Then update this file's stage table to **DONE**, and commit.
+**One thing Stage 05 (and every later stage) inherits and should know about:** `IEntitlementService`
+no longer has a `CurrentLevel` method. If a handler only needs to *report* the enforcement level for
+display (a status screen, a banner), depend on `IEnforcementStatusReader` instead — it is registered
+to resolve to the same instance within a scope. If a handler needs to *gate* on a module flag or a
+plan limit, `IEntitlementService`'s `IsModuleEnabledAsync` / `CheckLimitAsync` are unchanged. See
+ADR-054 and `docs/LICENSING.md` §6.
+
+**If Stage 05 is running in a separate worktree/session from this one** (several stages were being run
+in tandem as of 2026-08-11), it started from a copy of `main` that may predate this commit. Rebase or
+merge Stage 04b's commit before that session's own commit, not after — `IEntitlementService`'s
+`CurrentLevel` removal is a compile break for anything written against the old shape, better caught by
+a merge than discovered mid-stage.
+
+**On Windows, `scripts/pg-test.sh` does not work as shipped** — see §4.3's 2026-08-11 note for the
+manual TCP-only PostgreSQL startup this session used instead, and for Docker Desktop's WSL2 backend
+not responding on this machine. Worth checking before assuming a stage is blocked on Postgres.
 
 ### Known gaps carried into later stages
 
