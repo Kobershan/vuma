@@ -61,7 +61,12 @@ public sealed class IdentityCommandTests(PostgresFixture fixture)
         // the sync receiver and a seed script, neither of which goes through the pipeline.
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
 
-        CreateUserCommandHandler handler = new(harness.Users, harness.PasswordHasher, harness.TenantContext);
+        CreateUserCommandHandler handler = new(
+            harness.Users,
+            harness.PasswordHasher,
+            harness.TenantContext,
+            harness.Entitlements,
+            harness.Usage);
         Func<Task> create = () => handler.HandleAsync(new CreateUserCommand("shorty", "Shorty", "short"));
 
         (await create.Should().ThrowAsync<WeakCredentialException>())

@@ -653,3 +653,69 @@ later. The stamp is excluded from the audit diff alongside `row_version` and `sy
 on every write and would bury the column that actually changed. It is deliberately **not** a
 timestamp and no business rule may read it as one: when something happened is `occurred_at`, from
 `IClock`.
+
+---
+
+# Revision 8 — Stage 04b licensing, activation and entitlement
+
+## ADR-050 — Ed25519 comes from BouncyCastle — **LOCKED**
+**Context.** `docs/LICENSING.md` §2 and ADR-026 both name Ed25519 for licence, lease and emergency-code
+signatures, verified against a public key pinned into the binaries. .NET 9's
+`System.Security.Cryptography` has no Ed25519 primitive, so it has to come from somewhere.
+**Decision.** `BouncyCastle.Cryptography` — MIT-licensed, pure managed, no native dependency.
+**Consequences.** The alternatives were worse for this product rather than merely different. NSec is
+faster and wraps libsodium, which means a native binary per architecture inside a WPF till and a WiX
+bundle — a deployment problem on the one platform that matters. Substituting ECDSA P-256 would avoid
+the dependency and would also mean overturning a written decision to save one package, which is the
+wrong trade for the component that decides whether a customer's software runs. The signing half
+(`LicenceSigner`) exists for the control plane, the in-process fake and the tests; a store server only
+ever verifies, and in production the private key lives in a KMS and is never in a process at all
+(ADR-024).
+
+## ADR-051 — `VumaRetail.Licensing` sits below `Infrastructure`, and ships a development key pair — **LOCKED**
+**Context.** Stage 04b needed a home for the enforcement ladder, the signed-document format, the
+entitlement choke point and the read-only guard. Putting it in `Infrastructure` would tie the ladder to
+EF Core; putting it in `Application` would put a crypto dependency in the layer every module compiles
+against.
+**Decision.** A new project on ADR-048's pattern: `VumaRetail.Licensing` references `Application` and
+`Contracts` only — no EF, no HTTP, no file system — and `Infrastructure` references *it* and supplies
+the adapters. It also carries `InProcessControlPlane`, a working control plane (ADR-022's shape), and a
+**development Ed25519 key pair derived from a seed compiled into the assembly**. The store server
+refuses to start on that key outside Development, exactly as it does for the placeholder JWT signing
+key.
+**Consequences.** Both ladders, every boundary, the counter checks and the whole no-accidental-lockout
+suite are testable as arithmetic on a clock the test moves by hand, with no vendor service in the room
+and — for the ladder itself — no database. The shipped key pair is the thing that makes a demo work on
+a laptop on a plane and CI work with no secrets; it is also a master key for anybody who uses it in
+production, which is why the refusal to start is a refusal rather than a warning.
+
+## ADR-052 — The read-only exemption set stays three kinds; membership is a closed list — **LOCKED**
+**Context.** ADR-034 capped the ADR-028 carve-outs at three — payment, offline flush, backup — and the
+Stage 00 architecture test enforced that by counting *commands*, not kinds. Stage 04 had already used
+all three (two backup commands and one sync receive), so the next legitimate carve-out would have
+failed the build. Stage 04b then needed several: every button on the licence screen is a write, and a
+screen that stops working during a lapse is a screen nobody can use to end one.
+**Decision.** The cap is on **kinds**, which stays at three, and membership is a **closed list asserted
+by name** — the same shape as Stage 04's `BypassTenantFilter` call-site list. `ReadOnlyExemption.Payment`
+is read as "the commercial relationship itself": the payment page, the card-update flow, the licence
+screen and everything on it (activate, rebind, retry now, redeem an emergency code, heartbeat), and
+**withdrawal of a vendor support-access grant**. Granting a *new* support grant stays an ordinary write.
+**Consequences.** The exemption stays reviewable in one place and a new member costs a test edit and a
+sentence saying why, rather than a code review nobody remembers. Consent moves only in the direction of
+less access while a tenant is restricted: they cannot let the vendor in, and they can always put them
+out. The counting test was wrong the moment Stage 04 shipped and would have failed on the fourth
+carve-out whatever it was; correcting it here is a correction, not a widening.
+
+## ADR-053 — Fingerprint tolerance scales with what the machine can report — **LOCKED**
+**Context.** `docs/LICENSING.md` §3 fixes the hardware match at 7 of 11 weighted points, so that
+replacing a network card and a data disk leaves a licence bound. Two of the five components — the
+motherboard UUID and the Windows machine GUID — come from WMI and the registry, which this
+cross-platform build cannot read (ADR-031) and which Stage 31 supplies. Held to an absolute seven, a
+machine that can only report six or eight points would demand a rebind for a single replaced NIC, which
+is the exact failure the tolerance exists to prevent.
+**Decision.** The threshold is 7 of 11 when all five components were captured, and the same
+*proportion* of whatever was captured when they were not. The documented case is unchanged and exact.
+**Consequences.** A weaker binding is weaker in the tolerant direction rather than the brittle one,
+which is the correct way for this to fail — a false rebind demand stops a paying customer trading, and
+ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
+never reads as agreement, and no value is ever fabricated to fill a gap.

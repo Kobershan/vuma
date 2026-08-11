@@ -1,6 +1,8 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Domain.Identity;
+using VumaRetail.Domain.Licensing;
 
 namespace VumaRetail.Application.Identity.Commands;
 
@@ -30,10 +32,14 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
 /// <param name="users">User lookup and insertion.</param>
 /// <param name="hasher">Hashes the password.</param>
 /// <param name="tenant">The tenant the user belongs to.</param>
+/// <param name="entitlements">The plan's named-user ceiling (<c>LICENSING.md</c> §6).</param>
+/// <param name="counters">How many users there already are.</param>
 public sealed class CreateUserCommandHandler(
     IUserRepository users,
     IPasswordHasher hasher,
-    ITenantContext tenant) : ICommandHandler<CreateUserCommand, Guid>
+    ITenantContext tenant,
+    IEntitlementService entitlements,
+    IUsageCounterSource counters) : ICommandHandler<CreateUserCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateUserCommand command, CancellationToken cancellationToken = default)
@@ -49,6 +55,18 @@ public sealed class CreateUserCommandHandler(
         {
             throw IdentityConflictException.UserName(command.UserName);
         }
+
+        // A hard limit, checked at configuration time (LICENSING.md §6). Creating a user is an
+        // administrator with the plan in front of them, not anything on a trading path.
+        ConfigurationCounts counts = await counters
+            .CountConfigurationAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        LimitCheck limit = await entitlements
+            .CheckLimitAsync(LimitKind.NamedUsers, counts.NamedUsers + 1, cancellationToken)
+            .ConfigureAwait(false);
+
+        limit.ThrowIfExceeded();
 
         User user = User.Create(tenant.TenantId, command.UserName, command.DisplayName);
         user.SetEmail(command.Email);

@@ -1,5 +1,7 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Identity;
 
 namespace VumaRetail.Application.Identity.Commands;
@@ -39,12 +41,16 @@ public sealed class EnrolTerminalCommandValidator : AbstractValidator<EnrolTermi
 /// <param name="hasher">Hashes the enrolment code.</param>
 /// <param name="tokens">Generates the code.</param>
 /// <param name="tenant">The tenant the terminal belongs to.</param>
+/// <param name="entitlements">The plan's terminal ceiling (<c>LICENSING.md</c> §6).</param>
+/// <param name="counters">How many terminals there already are.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class EnrolTerminalCommandHandler(
     ITerminalRepository terminals,
     IPasswordHasher hasher,
     ITokenHasher tokens,
     ITenantContext tenant,
+    IEntitlementService entitlements,
+    IUsageCounterSource counters,
     IClock clock) : ICommandHandler<EnrolTerminalCommand, TerminalEnrolment>
 {
     /// <summary>How long an activation code lives if the caller does not say.</summary>
@@ -67,6 +73,20 @@ public sealed class EnrolTerminalCommandHandler(
         {
             throw IdentityConflictException.TerminalCode(code);
         }
+
+        // A hard limit, checked at configuration time and never in a transaction path
+        // (LICENSING.md §6). Enrolling a terminal is somebody at a desk with a plan in front of them;
+        // the eleventh terminal on a ten-terminal plan is refused here, clearly, naming the ceiling —
+        // and nothing a cashier does mid-sale can ever reach this code.
+        ConfigurationCounts counts = await counters
+            .CountConfigurationAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        LimitCheck limit = await entitlements
+            .CheckLimitAsync(LimitKind.Terminals, counts.Terminals + 1, cancellationToken)
+            .ConfigureAwait(false);
+
+        limit.ThrowIfExceeded();
 
         string plaintext = tokens.Generate();
         DateTimeOffset expiresAt = clock.UtcNow + (command.CodeLifetime ?? DefaultCodeLifetime);

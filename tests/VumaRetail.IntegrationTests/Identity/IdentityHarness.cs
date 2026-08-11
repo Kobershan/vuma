@@ -43,6 +43,11 @@ public sealed class IdentityHarness : IAsyncDisposable
         PasswordHasher = new IdentityPasswordHasher();
         TokenHasher = new Sha256TokenHasher();
         Catalogue = new PermissionCatalogue([new PlatformPermissions(), new IdentityPermissions()]);
+
+        // Permissive by default. These tests are about identity, not licensing; a test that wants to
+        // exercise a hard limit sets Entitlements.Limits and Usage.Configuration for itself.
+        Entitlements = new TestEntitlementService();
+        Usage = new TestUsageCounterSource();
         Issuer = new JwtTokenIssuer(
             new JwtOptions { SigningKey = new string('k', 64) },
             clock);
@@ -71,11 +76,19 @@ public sealed class IdentityHarness : IAsyncDisposable
         services.AddSingleton(PasswordHasher);
         services.AddSingleton(TokenHasher);
         services.AddSingleton(Catalogue);
+        services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IEntitlementService>(Entitlements);
+        services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IUsageCounterSource>(Usage);
         services.AddVumaMessaging();
 
         _services = services.BuildServiceProvider();
         Dispatcher = _services.GetRequiredService<IDispatcher>();
     }
+
+    /// <summary>The plan, as this harness pretends it is. Permissive unless a test narrows it.</summary>
+    public TestEntitlementService Entitlements { get; }
+
+    /// <summary>Current usage, as this harness pretends it is. Zero unless a test sets it.</summary>
+    public TestUsageCounterSource Usage { get; }
 
     /// <summary>The Stage 03 dispatcher, with validation, transaction and logging in the chain.</summary>
     public IDispatcher Dispatcher { get; }

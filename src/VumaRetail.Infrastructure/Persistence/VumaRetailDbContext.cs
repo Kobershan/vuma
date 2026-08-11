@@ -79,6 +79,30 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The snapshot ledger — requirement R4's evidence.</summary>
     public DbSet<Domain.Backup.BackupSnapshot> BackupSnapshots => Set<Domain.Backup.BackupSnapshot>();
 
+    /// <summary>This installation's binding to a licence key and a machine (Stage 04b).</summary>
+    public DbSet<Domain.Licensing.Activation> Activations => Set<Domain.Licensing.Activation>();
+
+    /// <summary>The signed monthly licences, newest by issuance counter.</summary>
+    public DbSet<Domain.Licensing.Licence> Licences => Set<Domain.Licensing.Licence>();
+
+    /// <summary>The 72-hour leases the software actually runs on.</summary>
+    public DbSet<Domain.Licensing.Lease> Leases => Set<Domain.Licensing.Lease>();
+
+    /// <summary>Vendor emergency access codes redeemed here, single-use by unique index.</summary>
+    public DbSet<Domain.Licensing.EmergencyUnlock> EmergencyUnlocks => Set<Domain.Licensing.EmergencyUnlock>();
+
+    /// <summary>What the client-side hardening noticed. Reported to the vendor; restricts nobody.</summary>
+    public DbSet<Domain.Licensing.TamperFlag> TamperFlags => Set<Domain.Licensing.TamperFlag>();
+
+    /// <summary>The highest wall-clock instant this installation has ever seen.</summary>
+    public DbSet<Domain.Licensing.ClockWatermark> ClockWatermarks => Set<Domain.Licensing.ClockWatermark>();
+
+    /// <summary>Daily usage rollups — counts and health only (R10).</summary>
+    public DbSet<Domain.Licensing.MeteringRecord> MeteringRecords => Set<Domain.Licensing.MeteringRecord>();
+
+    /// <summary>Tenant-granted, time-boxed vendor support access.</summary>
+    public DbSet<Domain.Licensing.SupportGrant> SupportGrants => Set<Domain.Licensing.SupportGrant>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

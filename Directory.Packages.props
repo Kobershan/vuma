@@ -43,6 +43,16 @@
     <PackageVersion Include="AWSSDK.S3" Version="4.0.102" />
   </ItemGroup>
 
+  <ItemGroup Label="Licensing">
+    <!--
+      Ed25519 licence and lease signatures (docs/LICENSING.md §2, ADR-026). .NET 9's
+      System.Security.Cryptography has no Ed25519 primitive, and this is the one dependency that
+      supplies it without a native library: MIT-licensed, pure managed, and therefore fine inside a
+      WPF till and a WiX bundle. See ADR-050 for why not NSec and why not a substitute curve.
+    -->
+    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.5.1" />
+  </ItemGroup>
+
   <ItemGroup Label="Validation">
     <!-- CLAUDE.md §4. Validators are declared in Stage 02; Stage 03 runs them in the pipeline. -->
     <PackageVersion Include="FluentValidation" Version="11.11.0" />

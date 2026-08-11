@@ -4,12 +4,16 @@ using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Security.Identity;
 using VumaRetail.Infrastructure.Sync;
+using VumaRetail.Licensing;
+using VumaRetail.Licensing.Hosting;
+using VumaRetail.Licensing.Signing;
 using VumaRetail.StoreServer;
 using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Sync;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -51,6 +55,25 @@ SnapshotEncryptionOptions encryption = builder.Configuration
 PostgresBackupOptions postgres = builder.Configuration.GetSection(PostgresBackupOptions.SectionName)
     .Get<PostgresBackupOptions>() ?? new PostgresBackupOptions();
 
+LicensingOptions licensing = builder.Configuration.GetSection(LicensingOptions.SectionName)
+    .Get<LicensingOptions>() ?? new LicensingOptions();
+
+// The same refusal the JWT signing key gets, for the same reason. The development licence key pair is
+// derived from a seed compiled into the binaries, so anybody can mint a licence with it — which is
+// exactly what makes it useful in Development and unacceptable anywhere else (ADR-050).
+if (licensing.UsesDevelopmentKey && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        $"{LicensingOptions.SectionName}:PublicKey is still the development licence key. Pin the "
+        + "production public key before running outside Development.");
+}
+
+// Beside the database rather than in it: the install id and the licence shadow copies have to survive
+// a restore into a fresh database, because a rebuilt store is the same installation and telling the
+// vendor otherwise on the first heartbeat after a disaster would look exactly like a clone.
+string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
+    ?? Path.Combine(AppContext.BaseDirectory, "licensing-state");
+
 // Order matters: AddVumaWeb registers the authenticated IPrincipalAccessor, and
 // AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
 builder.Services.AddVumaWeb(jwt, host);
@@ -64,6 +87,28 @@ builder.Services.AddVumaOutboxDispatcher(
     peer,
     dispatcher,
     new HostTenantResolver(host.TenantId, host.StoreId));
+
+// Stage 04b. After AddVumaSync: the activation repository resolves the current node, and the read-only
+// guard goes into pipeline slot 50 — outside validation and outside the transaction, so a refused
+// write costs no database round trip.
+builder.Services.AddVumaLicensing(
+    licensing,
+    licensingState,
+    builder.Configuration["Vuma:Licensing:IntegrityHash"] ?? string.Empty);
+
+if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(licensing.ControlPlaneBaseAddress))
+{
+    // No vendor service on a developer's machine and none in CI. The in-process control plane signs
+    // real documents with the development key, so the verification path under test is the production
+    // one — ADR-022's shape, and the reason the whole enforcement ladder is exercisable at all.
+    builder.Services.AddVumaInProcessControlPlane(LicenceSigner.Development);
+}
+else
+{
+    builder.Services.AddVumaControlPlaneClient(
+        licensing,
+        new LicensingHostTenant(host.TenantId, host.StoreId));
+}
 
 WebApplication app = builder.Build();
 
@@ -112,6 +157,7 @@ app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
 app.MapVumaSync();
+app.MapVumaLicensing();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

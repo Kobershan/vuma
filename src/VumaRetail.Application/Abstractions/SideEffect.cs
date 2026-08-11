@@ -70,10 +70,25 @@ public enum ReadOnlyExemption
     None = 0,
 
     /// <summary>
-    /// Taking a payment or updating a stored payment method. A customer must always be able to pay from
-    /// inside the product — locking the payment screen behind the lapse it is meant to cure is the
-    /// failure mode ADR-029 exists to prevent.
+    /// The commercial relationship itself: taking a payment, updating a stored payment method, and the
+    /// licence screen that carries both. A customer must always be able to pay from inside the product
+    /// — locking the payment screen behind the lapse it is meant to cure is the failure mode ADR-029
+    /// exists to prevent.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Stage 04b widened this from "payment" to "the licence screen and everything on it", because
+    /// <c>LICENSING.md</c> Rule 3 names the licence screen alongside the payment page and every one of
+    /// its buttons is a write: activate, rebind, retry now, redeem an emergency code, refresh the
+    /// lease. A carve-out that covered the payment button and not the "retry now" button beside it
+    /// would leave a customer who <em>has</em> paid unable to tell the software so.
+    /// </para>
+    /// <para>
+    /// It also covers withdrawal of a vendor support-access grant. Consent is not a business write and
+    /// must not be held hostage by billing: a tenant who wants the vendor out of their system must be
+    /// able to say so whatever they owe (ADR-052).
+    /// </para>
+    /// </remarks>
     Payment = 1,
 
     /// <summary>

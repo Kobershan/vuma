@@ -15,6 +15,7 @@
       Infrastructure supplies its adapters: the EF replica writer, the HTTP transport, the vault.
     -->
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+    <ProjectReference Include="..\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

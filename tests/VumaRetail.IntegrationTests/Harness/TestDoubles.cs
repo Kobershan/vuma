@@ -1,4 +1,6 @@
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Domain.Licensing;
 
 namespace VumaRetail.IntegrationTests.Harness;
 
@@ -40,6 +42,92 @@ public sealed class TestPrincipalAccessor(
 
     /// <inheritdoc />
     public bool IsSystem { get; } = isSystem;
+}
+
+/// <summary>
+/// An entitlement service a test sets by hand, for the harnesses that are not about licensing.
+/// </summary>
+/// <remarks>
+/// Everything is enabled, every limit is unlimited and the tenant is Normal, unless a test says
+/// otherwise. Stage 04b's own tests use the <em>real</em> service over a real lease — a licensing test
+/// against this double would assert the double — and every other harness uses this so that adding
+/// licensing to the pipeline did not change what those tests are about.
+/// </remarks>
+public sealed class TestEntitlementService : IEntitlementService
+{
+    /// <summary>Where the tenant sits. Tests move this to exercise the read-only guard.</summary>
+    public EnforcementDecision Decision { get; set; } =
+        EnforcementDecision.Normal(TestClock.DefaultStart);
+
+    /// <summary>The plan's quantities.</summary>
+    public LicenceLimits Limits { get; set; } = LicenceLimits.Unlimited;
+
+    /// <summary>Modules that are switched off. Empty means everything is on.</summary>
+    public HashSet<string> DisabledModules { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
+    public Task<bool> IsModuleEnabledAsync(string module, CancellationToken cancellationToken = default)
+        => Task.FromResult(!DisabledModules.Contains(module));
+
+    /// <inheritdoc />
+    public Task<LimitCheck> CheckLimitAsync(
+        LimitKind kind,
+        long proposedValue,
+        CancellationToken cancellationToken = default)
+    {
+        long ceiling = Limits.Ceiling(kind);
+
+        return Task.FromResult(new LimitCheck(
+            kind,
+            ceiling,
+            proposedValue,
+            LicenceLimits.IsHard(kind),
+            proposedValue > ceiling));
+    }
+
+    /// <inheritdoc />
+    public Task<EnforcementDecision> CurrentLevel(CancellationToken cancellationToken = default)
+        => Task.FromResult(Decision);
+}
+
+/// <summary>Usage counters a test sets by hand.</summary>
+/// <remarks>
+/// Zero everywhere by default. The counts only matter to the two hard-limit checks, and a test that
+/// cares about those sets them.
+/// </remarks>
+public sealed class TestUsageCounterSource : IUsageCounterSource
+{
+    /// <summary>What the configuration counts should say.</summary>
+    public ConfigurationCounts Configuration { get; set; }
+
+    /// <summary>What a day's activity should say.</summary>
+    public ActivityCounts Activity { get; set; } = new(
+        0,
+        0,
+        new Dictionary<string, long>(StringComparer.Ordinal),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0);
+
+    /// <summary>What the health counts should say.</summary>
+    public HealthCounts Health { get; set; }
+
+    /// <inheritdoc />
+    public Task<ConfigurationCounts> CountConfigurationAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Configuration);
+
+    /// <inheritdoc />
+    public Task<ActivityCounts> CountActivityAsync(
+        DateOnly period,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(Activity);
+
+    /// <inheritdoc />
+    public Task<HealthCounts> CountHealthAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Health);
 }
 
 /// <summary>A tenant context the test sets directly, with no request pipeline in the way.</summary>

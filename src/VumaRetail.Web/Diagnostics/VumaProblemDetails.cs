@@ -81,29 +81,51 @@ public sealed class VumaExceptionHandler(
         return problem;
     }
 
-    private static ProblemDetails Domain(DomainException exception) => exception.Kind switch
+    private static ProblemDetails Domain(DomainException exception)
     {
-        DomainProblemKind.NotFound => Build(
-            StatusCodes.Status404NotFound,
-            "Not found",
-            exception.Message,
-            exception.Code),
-        DomainProblemKind.Conflict => Build(
-            StatusCodes.Status409Conflict,
-            "Conflict",
-            exception.Message,
-            exception.Code),
-        DomainProblemKind.Malformed => Build(
-            StatusCodes.Status400BadRequest,
-            "Bad request",
-            exception.Message,
-            exception.Code),
-        _ => Build(
-            StatusCodes.Status422UnprocessableEntity,
-            "Rule violation",
-            exception.Message,
-            exception.Code),
-    };
+        ProblemDetails problem = exception.Kind switch
+        {
+            DomainProblemKind.NotFound => Build(
+                StatusCodes.Status404NotFound,
+                "Not found",
+                exception.Message,
+                exception.Code),
+            DomainProblemKind.Conflict => Build(
+                StatusCodes.Status409Conflict,
+                "Conflict",
+                exception.Message,
+                exception.Code),
+            DomainProblemKind.Malformed => Build(
+                StatusCodes.Status400BadRequest,
+                "Bad request",
+                exception.Message,
+                exception.Code),
+            DomainProblemKind.Forbidden => Build(
+                StatusCodes.Status403Forbidden,
+                "Not permitted",
+                exception.Message,
+                exception.Code),
+            _ => Build(
+                StatusCodes.Status422UnprocessableEntity,
+                "Rule violation",
+                exception.Message,
+                exception.Code),
+        };
+
+        // Structured fields the caller needs in order to act — the amount due and a working payment
+        // link on a read-only refusal, the upgrade reference on an unlicensed module. Merged here,
+        // generically, rather than through a table mapping error codes to extra fields: the mapping
+        // stays in one place and each module still decides what it has to say (Stage 04b).
+        if (exception is IProblemExtensions extended)
+        {
+            foreach ((string name, object? value) in extended.ProblemExtensions)
+            {
+                problem.Extensions[name] = value;
+            }
+        }
+
+        return problem;
+    }
 
     private ProblemDetails Unhandled(Exception exception, HttpContext httpContext)
     {

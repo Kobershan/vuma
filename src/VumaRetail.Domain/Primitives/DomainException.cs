@@ -58,4 +58,41 @@ public enum DomainProblemKind
 
     /// <summary>The request was malformed and the caller can fix it from the response. Becomes <c>400</c>.</summary>
     Malformed = 3,
+
+    /// <summary>
+    /// The caller is known and the request is well formed, and they may not do it anyway. Becomes
+    /// <c>403</c>.
+    /// </summary>
+    /// <remarks>
+    /// Added in Stage 04b for the two licensing refusals — <c>LICENCE_READ_ONLY</c> and
+    /// <c>LICENCE_MODULE_NOT_ENABLED</c> — which <c>LICENSING.md</c> §4 and §6 both specify as 403.
+    /// Neither is a rule violation (422 would tell a till its sale was malformed) and neither is an
+    /// authorisation failure in the ADR-013 sense, so the domain needed a fourth word for it.
+    /// </remarks>
+    Forbidden = 4,
+}
+
+/// <summary>
+/// A domain exception that carries structured fields the API edge should put on the problem document.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The error <em>code</em> is the contract and the message is for humans — but a read-only refusal has
+/// to hand the UI an amount due and a working payment link, or the licence screen can only show a dead
+/// end (<c>LICENSING.md</c> Rule 3). Those are neither a code nor a message.
+/// </para>
+/// <para>
+/// Deliberately generic. The alternative is a table in the exception handler mapping error codes to
+/// extra fields, which is exactly the growing central list <see cref="DomainException"/>'s own doc
+/// comment argues against — one interface keeps the mapping in one place while letting each module
+/// decide what it needs to say.
+/// </para>
+/// </remarks>
+public interface IProblemExtensions
+{
+    /// <summary>
+    /// Fields to merge into the <c>ProblemDetails</c> extensions. Must contain nothing a caller is not
+    /// entitled to see: this is serialised into the response body.
+    /// </summary>
+    IReadOnlyDictionary<string, object?> ProblemExtensions { get; }
 }

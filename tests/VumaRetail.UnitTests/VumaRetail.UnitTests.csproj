@@ -22,6 +22,8 @@
       ports, so they belong at this level: no database, no host, and every case a table.
     -->
     <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+    <!-- Stage 04b: the enforcement ladder, the fingerprint matcher and the signed documents. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

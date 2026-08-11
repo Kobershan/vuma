@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Domain.Identity;
+using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Licensing.Commands;
+using VumaRetail.Licensing.Control;
 
 namespace VumaRetail.StoreServer;
 
@@ -52,6 +56,12 @@ public static class DemoSeed
         await EnsureStoreAsync(context, unitOfWork, tenant.Id, "CPT02", "Vuma Claremont", cancellationToken)
             .ConfigureAwait(false);
 
+        // Before anything else goes through the pipeline. Stage 04b's read-only guard refuses every
+        // business write on an unactivated installation, which is correct in production and would
+        // otherwise mean the demo seeder produced a tenant with no users in it.
+        await EnsureActivationAsync(provider, tenant.Id, johannesburg.Id, cancellationToken)
+            .ConfigureAwait(false);
+
         Guid ownerRole = await EnsureRoleAsync(provider, "Owner", AllPermissions(provider), cancellationToken)
             .ConfigureAwait(false);
 
@@ -86,6 +96,62 @@ public static class DemoSeed
 
         await EnsureTerminalAsync(provider, context, johannesburg.Id, "T01", "Front counter 1", cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Activates the demo installation against whichever control plane is wired.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// In Development that is the in-process one, which signs real documents with the development key
+    /// — so a demonstration is a fully licensed store with no vendor service anywhere, which is the
+    /// difference between a demo that works on a laptop on a plane and one that does not.
+    /// </para>
+    /// <para>
+    /// Against a real control plane there is nothing to register, and the seeder leaves activation to
+    /// whoever holds the licence key. It says so rather than failing: a seeded demo against a
+    /// production control plane is not a scenario anybody should be in by accident.
+    /// </para>
+    /// </remarks>
+    private static async Task EnsureActivationAsync(
+        IServiceProvider provider,
+        Guid tenantId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        IActivationRepository activations = provider.GetRequiredService<IActivationRepository>();
+
+        if (await activations.FindCurrentAsync(cancellationToken).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        if (provider.GetService<InProcessControlPlane>() is not { } controlPlane)
+        {
+            Console.WriteLine(
+                "Not activated: no in-process control plane is wired. Activate with a real licence "
+                + "key through POST /api/v1/licence/activations.");
+
+            return;
+        }
+
+        LicenceKey key = controlPlane.Register(new ControlPlaneTenant
+        {
+            TenantId = tenantId,
+            StoreId = storeId,
+            PlanCode = "demo",
+            Entitlements = [.. provider.GetServices<IModuleManifest>().Select(manifest => manifest.LicenceFlag)],
+            Limits = new LicenceLimits(2, 10, 25, 500_000, 50L * 1024 * 1024 * 1024, 1_000_000),
+        });
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(
+                new ActivateInstallationCommand(key.Value, "Vuma Sandton", "owner@vuma.example"),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        Console.WriteLine($"Activated the demo installation. Licence key: {key}");
     }
 
     private static IReadOnlyCollection<string> AllPermissions(IServiceProvider provider)

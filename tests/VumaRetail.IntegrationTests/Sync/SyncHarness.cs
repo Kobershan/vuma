@@ -86,6 +86,13 @@ public sealed class SyncHarness : IAsyncDisposable
                 new VumaRetail.Sync.Permissions.BackupPermissions(),
             ]));
 
+        // Permissive by default: these tests are about replication, not about licensing, and Stage
+        // 04b's read-only guard would otherwise refuse every command they send.
+        services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IEntitlementService>(
+            new TestEntitlementService());
+        services.AddSingleton<VumaRetail.Application.Abstractions.Licensing.IUsageCounterSource>(
+            new TestUsageCounterSource());
+
         services.AddSingleton(node);
         services.AddSingleton<INodeIdentity, NodeIdentity>();
         services.AddSingleton<IHybridClock, HybridLogicalClock>();
