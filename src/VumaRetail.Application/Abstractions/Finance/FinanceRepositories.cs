@@ -21,6 +21,14 @@ public interface IAccountRepository
     Task<Account?> FindControlAccountAsync(
         ControlAccountType controlAccountType, CancellationToken cancellationToken = default);
 
+    /// <summary>Every account marked as a control account — what the daily variance check walks.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<Account>> ListControlAccountsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Every account in the chart of accounts, for a trial balance.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<Account>> ListAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Records a new account.</summary>
     /// <param name="account">The account.</param>
     void Add(Account account);
@@ -64,6 +72,11 @@ public interface IJournalRepository
     /// <param name="asOf">Only journals posted on or before this date are included.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<decimal> GetAccountBalanceAsync(Guid accountId, DateOnly asOf, CancellationToken cancellationToken = default);
+
+    /// <summary>The most recently posted journals, newest first — the journal listing screen.</summary>
+    /// <param name="limit">The maximum number to return.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<Journal>> ListRecentAsync(int limit, CancellationToken cancellationToken = default);
 
     /// <summary>Records a new posted journal.</summary>
     /// <param name="journal">The journal.</param>
@@ -150,6 +163,11 @@ public interface IBankAccountRepository
     /// <param name="bankAccountId">The bank account.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<BankAccount?> FindByIdAsync(Guid bankAccountId, CancellationToken cancellationToken = default);
+
+    /// <summary>The bank account paired with a given GL control account, if one exists.</summary>
+    /// <param name="glAccountId">The GL account.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<BankAccount?> FindByGlAccountIdAsync(Guid glAccountId, CancellationToken cancellationToken = default);
 
     /// <summary>Records a new bank account.</summary>
     /// <param name="account">The bank account.</param>

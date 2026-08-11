@@ -100,6 +100,24 @@ public sealed class UnknownFinancialEventAmountException(string eventType, strin
         "FINANCE_UNKNOWN_EVENT_AMOUNT",
         $"Posting rule for '{eventType}' references amount '{amountKey}', which the event does not carry.");
 
+/// <summary>Raised when an account code that must be unique per tenant is already in use.</summary>
+/// <param name="code">The code already in use.</param>
+public sealed class AccountCodeAlreadyInUseException(string code)
+    : DomainException(
+        "FINANCE_ACCOUNT_CODE_IN_USE", $"Account code '{code}' is already in use.", DomainProblemKind.Conflict);
+
+/// <summary>Raised when a command references an account that does not exist.</summary>
+/// <param name="accountId">The missing account.</param>
+public sealed class AccountNotFoundException(Guid accountId)
+    : DomainException("FINANCE_ACCOUNT_NOT_FOUND", $"Account {accountId} does not exist.", DomainProblemKind.NotFound);
+
+/// <summary>Raised when a command references a document that does not exist.</summary>
+/// <param name="documentType">The document's kind.</param>
+/// <param name="documentId">The missing document.</param>
+public sealed class FinanceDocumentNotFoundException(string documentType, Guid documentId)
+    : DomainException(
+        "FINANCE_DOCUMENT_NOT_FOUND", $"{documentType} {documentId} does not exist.", DomainProblemKind.NotFound);
+
 /// <summary>Raised when no active tax rule matches a code as of a given date.</summary>
 /// <param name="taxCode">The tax code.</param>
 /// <param name="asOf">The date it was needed for.</param>
