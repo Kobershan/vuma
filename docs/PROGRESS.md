@@ -3,7 +3,10 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-11 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** IN_PROGRESS (code and tests complete and green; documentation tasks outstanding — see §5)
+**Last updated:** 2026-08-12 · **Current stage:** 05 — Workflow, approvals, notifications, documents ·
+**Status:** DONE (code, migration and full test suite green; see the session log below).
+**04b** remains **IN_PROGRESS** on documentation only — see §5's carried-forward item — which did not
+block this stage (see `docs/stages/STAGE-05-workflow.md`'s own note on the dependency).
 
 ---
 
@@ -16,8 +19,9 @@
 | 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
 | 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
-| 04b | Licensing, activation & entitlement | **IN_PROGRESS** | 2026-08-11 |
-| 05 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 04b | Licensing, activation & entitlement | **IN_PROGRESS** (docs only) | 2026-08-11 |
+| 05 | Workflow, approvals, notifications, documents | **DONE** | 2026-08-12 |
+| 06 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 ---
 
@@ -416,6 +420,123 @@ See ADR-052.
 `Infrastructure`, with a development key pair · ADR-052 three exemption *kinds*, closed membership ·
 ADR-053 fingerprint tolerance scales with what the machine can report.
 
+### 2026-08-12 — Stage 05 complete: workflow, approvals, notifications, documents
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh` → **600 passed, 0 failed, 0
+skipped** (313 unit, 28 architecture, 259 integration), run twice against a fresh throwaway PostgreSQL
+cluster with the same result. Domain + Application new-code (the `workflow` module) line coverage
+**94.4%** (336/356 — every Domain entity file 100%, `WorkflowPorts.cs` 82.3%, the shortfall being
+DTO/record boilerplate no test has reason to touch). Migration `Workflow` applied → reversed to `0` →
+re-applied against a real database by hand, and the same chain is asserted in `MigrationTests` on every
+run. Full exit checklist in `docs/stages/STAGE-05-workflow.md`.
+
+**What this stage makes true.** `CLAUDE.md` §7 rule 13 has said "no module implements its own approval
+logic" since Stage 00; there was nothing to enforce it against until today. Four things hold from here:
+
+1. **One choke point, proven to be the only one.** `ApprovalEngine` is the sole implementation of
+   `IApprovalService`; a second implementation anywhere in the solution fails the build
+   (`WorkflowRulesTests`), proven the way every enforced rule in this repo is — a throwaway second
+   implementation was added to `Infrastructure`, the test was confirmed red, and it was removed.
+2. **A gate exists only where a policy says it does.** No configured policy for a
+   `module.entityType.action` key is `AutoApproved` immediately — a module calls `EvaluateAsync`
+   unconditionally on every occurrence of an action it wants gated, without knowing in advance whether
+   this tenant has actually configured approval for it.
+3. **Separation of duties is the engine's job, not the caller's.** The requester may not decide their
+   own request unless the policy explicitly says so, and a decider must independently hold the policy's
+   own `RequiredPermission` in the request's store — the same `IRoleRepository.ListEffectivePermissionsAsync`
+   lookup Stage 02 built for `/me/permissions`. Both are asserted twice: as arithmetic with NSubstitute
+   (`ApprovalEngineTests`, no database) and over real HTTP with a real bearer token proving the identity
+   (`ApprovalWorkflowTests`).
+4. **Nothing here claims an ADR-028 exemption.** Every workflow command is an ordinary write; a lapsed
+   tenant cannot approve a purchase order any more than it can raise one, asserted by the generated
+   read-only sweep (`ReadOnlyCorrectnessTests`, extended to scan `VumaRetail.Workflow` too) and by a
+   dedicated 403 `LICENCE_READ_ONLY` test.
+
+**Domain — `workflow` module.** `ApprovalPolicy` (threshold arithmetic — below/at/above, and the
+no-threshold "always gate" case), `ApprovalRequest` (the pending → approved/rejected/cancelled state
+machine, N-of-M approval counting, the veto model for rejection), `ApprovalDecisionEntry` (append-only,
+independent of the request's own mutable status), `Notification` (sent/failed/read, truncation rather
+than refusal on an over-length title or body), `Document` and `DocumentVersion` (version numbering,
+never overwritten). All six carry `[Replicated]`, all six are new rows in `docs/SYNC_AND_BACKUP.md` §3.
+
+**New project: `VumaRetail.Workflow`** (ADR-054), on the `Sync`/`Licensing` pattern — no EF, no HTTP, no
+filesystem. `ApprovalEngine`; the approval, notification and document commands, queries, validators and
+permissions; `InAppNotificationChannel` (real, persisted) and `LogEmailNotificationChannel` /
+`LogPushNotificationChannel` (the `InProcessControlPlane` working-log pattern — logs what would have
+been sent rather than a silent no-op); `PassthroughDocumentRenderer` (a working `IDocumentRenderer` that
+stores the model as formatted text, until Stage 09's `VumaRetail.Reporting` wants QuestPDF).
+
+**Infrastructure.** Six EF configurations, six repositories, `FileSystemDocumentBlobStore` (staged
+write then atomic move, content-addressed by SHA-256 — the `FileSystemBackupVault` pattern), and
+`AddVumaWorkflow`. The `Workflow` migration is reversible, six tables up and down.
+
+**API (`VumaRetail.Web`).** `/api/v1/workflow/approval-policies`, `/approvals`, `/notifications`,
+`/documents` — every one appears in `/openapi/v1.json`.
+
+**One real defect found and fixed, in code already in the worktree before this session started.**
+`AttachDocumentCommandHandler` and `AttachDocumentVersionCommandHandler` both returned the document
+service's `Task` from inside a `using` block without awaiting it:
+
+```csharp
+using MemoryStream content = new(command.Content, writable: false);
+return documentService.AttachVersionAsync(command.DocumentId, command.ContentType, content, cancellationToken);
+```
+
+`AttachAsync`'s first await (writing a `MemoryStream` to a `MemoryStream`) completes synchronously, so
+the bug was invisible there — the whole method ran to completion before the `using` block's `Dispose()`
+ever got a turn. `AttachVersionAsync` awaits a real database lookup first, which does not complete
+synchronously; control yielded back to the `using` block, which disposed the stream, and the resumed
+continuation threw `ObjectDisposedException` reading it. Found by
+`DocumentWorkflowTests.Attaching_a_new_version_never_overwrites_the_prior_one...` against a real
+database — a test double for `IDocumentService` would not have caught it, because the bug is entirely
+about *when* a real async method's first await actually suspends. Both handlers now `await` the call
+before the `using` block's implicit `finally` runs.
+
+**A second, pre-existing defect blocked the migration from being generated at all.**
+`ValueObjectMapping.HasMoney`'s nullable overload — added for `ApprovalPolicy.ThresholdAmount` and
+`ApprovalRequest.Amount`, both legitimately optional — used EF Core's `ComplexProperty` marked
+`IsRequired(false)`. Every shape tried failed at model-build time: EF Core 9's relational providers do
+not support an optional complex property at all (dotnet/efcore#31376), which nothing in this repository
+had reason to know until `dotnet ef migrations add Workflow` was run for the first time. Fixed by
+mapping a nullable `Money` as two ordinary nullable properties (`{Name}Value`, `{Name}Currency`),
+private to keep the public `Money?` API every consumer already expects, reassembled by a computed
+property. See ADR-055.
+
+**A third defect, in the test harness itself.** `scripts/pg-test.sh`'s throwaway cluster passed `-k
+${DATA_DIR}` (a unix socket directory) inside `pg_ctl`'s single `-o` options string. On Linux this
+path-translates fine; under git-bash on Windows, MSYS only path-translates a standalone argv entry, not
+a POSIX path embedded inside a larger quoted string — so `postgres.exe` received the literal string
+`/tmp/vuma-test-pg` and failed to create its lock file there. The flag was never needed: every caller
+connects over TCP (`Host=127.0.0.1`), never a unix socket. Fixed by making `-k` conditional on the host
+OS (`uname -s`), which changes nothing for the Linux machine this script was written on.
+
+**Also changed.** `ApiHarness.CreateAsync` gained an optional `configureServices` hook so a test can add
+test-only DI registrations (a throwaway command handler, an `IStartupFilter`) without touching
+`VumaRetail.StoreServer.Program`. `WorkflowTestEndpointsStartupFilter` (test-project-only) adds `POST
+/test/workflow/raise`, which is what let the self-approval rule be proven over a genuine HTTP request
+with a genuine bearer identity rather than the ambient `system:host` principal `InScopeAsync` resolves
+to outside a real request — raising a gated action is deliberately not a public workflow endpoint
+(modules call `IApprovalService` in-process), so nothing else in the API surface could stand in for it.
+
+**Demo seed.** `DemoSeed` now defines an approval policy gating `inventory.stock-adjustment.post` at
+ZAR 1,000 (inventory itself is Stage 08 — a policy is data, and needs no module built yet to be
+demonstrable) and raises one in-app notification to the seeded manager, both idempotent like everything
+else in the seeder. `scripts/seed.ps1` / `scripts/seed.sh` needed no changes — both are thin launchers
+over `VumaRetail.StoreServer --seed`, and `DemoSeed.cs` is where every stage's seed extension has always
+lived.
+
+**Two new architecture rules**, each proven by a deliberate violation before being committed: only
+`VumaRetail.Workflow` implements `IApprovalService` (a second implementation added to `Infrastructure`,
+confirmed to fail the build, then removed), and `VumaRetail.Sync`/`Licensing`/`Workflow` carry no EF
+Core or ASP.NET Core dependency (verified by temporarily adding one — the same layering promise ADR-048
+and ADR-051 already made for the other two, now actually checked rather than merely stated).
+
+**ADRs appended:** ADR-054 `VumaRetail.Workflow` below `Infrastructure`, on the `Sync`/`Licensing`
+pattern · ADR-055 a nullable `Money` maps as two flat columns, not an optional complex type.
+
+**Docs:** `docs/DATA_MODEL.md` gained a `workflow` row in §3 and a new §4c describing all six tables;
+`docs/SYNC_AND_BACKUP.md` §3 gained all six entities' replication registry rows.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -426,6 +547,8 @@ ADR-053 fingerprint tolerance scales with what the machine can report.
 | **Control plane endpoint** (Stage 04b) | Nothing in this repository has a vendor service to talk to. `HttpControlPlaneClient` is written against `docs/API_CONTROL_PLANE.md` §2 and has never been run against a real endpoint; `InProcessControlPlane` is the tested default and is what the whole enforcement suite and `scripts/seed.sh` run on. Stage 30b builds the real one. | `src/VumaRetail.Infrastructure/Licensing/HttpControlPlaneClient.cs` |
 | **S3 backup vault** (Stage 04) | Nothing in this repository has a bucket or a credential. `S3BackupVault` is written against the AWS SDK and works with AWS S3, Backblaze B2, Wasabi and MinIO via `ServiceUrl` + path-style addressing, but it has never been run against a real endpoint. `FileSystemBackupVault` is the tested default and is what the DR drill exercises — and is itself a working target for a single-store customer with a NAS. | `src/VumaRetail.Infrastructure/Backup/BackupVaults.cs` |
 | **Snapshot encryption key custody** (Stage 04) | The key is configuration today, and the floor that matters holds: it is *not* the vendor's storage credential, so a compromise of the bucket is not a compromise of the data. Real custody (KMS/HSM) is the same problem as Stage 04b's licence signing key and should get the same answer once. | `Vuma:Backup:Encryption:Key` |
+| **Real email/push notification providers** (Stage 05) | `LogEmailNotificationChannel` / `LogPushNotificationChannel` log what would have been sent, at Information level, and mark the notification `Sent` — a working stand-in on the `InProcessControlPlane` pattern, not a silent no-op. `InAppNotificationChannel` is the real, persisted, working channel; it is the one channel this product ships without a vendor integration. A market and a budget choose the real providers (SendGrid/SES/FCM or similar) later; the seam is `INotificationChannel`, and `NotificationDispatcher` needs no change to pick up a real implementation. | `src/VumaRetail.Workflow/Notifications/NotificationChannels.cs` |
+| **Real templated document rendering** (Stage 05) | `PassthroughDocumentRenderer` stores the model as formatted plain text — a working `IDocumentRenderer` for this stage's infrastructure-light brief, not a placeholder that fails. QuestPDF receipts, statements and reports are Stage 09's `VumaRetail.Reporting`, which plugs into the same interface; nothing upstream (the document commands, the versioning, the blob store) changes when it arrives. | `src/VumaRetail.Workflow/Documents/DocumentService.cs` |
 
 Stage 30b (payment gateway) will be the next entry.
 
@@ -444,9 +567,9 @@ stage that first depends on it, not all up front:
 Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
 `API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04).
 
-Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b** and **30b**. Every other stage
-document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
-template.
+Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b**, **05** and **30b**. Every
+other stage document must be written by the session that executes it, using `STAGE-04b-licensing.md` as
+the template.
 
 ### 4.2 Unresolved contradiction in `docs/TESTING.md` §7 — **still open, and now the only thing between Stage 04b and DONE**
 
@@ -484,6 +607,24 @@ migration chain against it, so the handler-test requirement in `docs/TESTING.md`
 rather than waived. See ADR-036 for why the fixture never skips.
 
 The next real toolchain blocker is **Windows**, at Stage 09.
+
+**Stage 05 ran on Windows, in a separate worktree.** Not because Stage 09 arrived early — this was a
+genuinely different machine (`.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`),
+which happened to already have PostgreSQL 16 installed as a Windows service (unused directly; a
+throwaway cluster on port 55432 is still what the suite runs against, per ADR-036) and Docker Desktop
+installed but its daemon not running. Two consequences worth carrying forward for whichever session
+next runs on this machine or one like it:
+
+1. `scripts/pg-test.sh`'s `-k` (unix socket directory) flag is now conditional on `uname -s`, because a
+   POSIX path embedded inside `pg_ctl`'s single `-o` options string is not something MSYS
+   path-translates for a native `postgres.exe` under git-bash, and the flag was never load-bearing —
+   every caller connects over TCP. See the Stage 05 session log for the exact failure.
+2. `dotnet ef migrations add` and `dotnet ef database update` both work identically to the Linux
+   machine's experience once `dotnet-ef` is installed as a global tool; nothing else about the migration
+   workflow is Windows-specific.
+
+Everything else this file says about Stage 00's Linux machine is unchanged and still describes where
+most of this repository was built.
 
 ### 4.4 CI is live and green — **RESOLVED 2026-08-09**
 
@@ -528,6 +669,14 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 ---
 
 ## 5. Next session starts here
+
+**Stage 05 (workflow, approvals, notifications, documents) is DONE** — see its session log entry above.
+Per `CLAUDE.md` §0's protocol ("the FIRST stage whose status is NOT_STARTED or IN_PROGRESS"), the
+strictly next stage is still **04b**, which remains IN_PROGRESS on documentation only: its code and
+tests were already complete and green before Stage 05 started, and nothing Stage 05 needed depended on
+the outstanding docs (see `docs/stages/STAGE-05-workflow.md`'s own note on the dependency, and this
+file's Stage 05 session log). Finish 04b's documentation items 1–6 below, mark it **DONE**, and Stage
+06 (master data — items, variants, barcodes, UoM, partners) is next after that.
 
 **Finish Stage 04b.** The code and the tests are done and green — 524 passing, 0 warnings, migration
 reversible. What is left is documentation, and none of it is large:
@@ -616,6 +765,40 @@ deliberately fail rather than skip without one (ADR-036).
 - **A `SyncHarness` exists** at `tests/VumaRetail.IntegrationTests/Sync/SyncHarness.cs` that wires a
   whole node — dispatcher, pipeline, repositories, real database — with a clock the test moves by
   hand. The licensing ladders run over days; that is how you test them without waiting.
+
+### What Stage 05 leaves you
+
+- **`IApprovalService` is the only door.** Call `EvaluateAsync(new ApprovalContext(module, entityType,
+  action, subjectEntityId, amount, reason, storeId))` unconditionally on every occurrence of an action
+  you want gated — do not check whether a policy exists first, that is `ApprovalEngine`'s job. If it
+  returns `MayProceed`, carry on in the same transaction; if not, the `RequestId` is what your own
+  entity should be marked "awaiting approval" against. Writing your own approval field, your own
+  decision table, or your own separation-of-duties check is exactly what rule 13 and
+  `WorkflowRulesTests` exist to catch.
+- **A policy is data, defined once, usually by an admin screen you do not have to build.**
+  `DefineApprovalPolicyCommand` names `module.entityType.action`, an optional threshold, the permission
+  a decider must hold, how many approvals, and whether self-approval is allowed. Nothing stops a module
+  stage seeding its own default policy the way Stage 05's demo seed did for a fictitious
+  `inventory.stock-adjustment.post` — see `DemoSeed.EnsureApprovalPolicyAsync` for the shape.
+- **The unified inbox is already built and already yours.** `GET /api/v1/workflow/approvals` lists
+  every pending request tenant- or store-wide regardless of which module raised it; you do not build a
+  second "my module's approvals" screen.
+- **Notifications are one call.** `INotificationDispatcher.NotifyAsync(new NotificationRequest(...))`
+  with whichever channels you want; in-app is real today, email/push log what would have been sent
+  until a later stage wires a real provider (`docs/PROGRESS.md` §3) — your calling code does not change
+  when that happens.
+- **Documents attach to anything by `(module, entityType, entityId)`.** `IDocumentService` handles
+  upload, generation (through `IDocumentRenderer` — plain text today, QuestPDF once Stage 09's
+  `VumaRetail.Reporting` exists), versioning and content-hash-checked retrieval. A module wanting a
+  receipt, an attached supplier invoice scan, or a generated statement does not build its own blob
+  storage.
+- **A nullable `Money` property cannot use `ValueObjectMapping.HasMoney`.** EF Core 9's relational
+  providers do not support an optional complex property (dotnet/efcore#31376, ADR-055). Map it as two
+  flat nullable columns and a computed property instead — see `ApprovalPolicy.ThresholdAmount` for the
+  pattern — or you will get exactly the model-build-time failure this stage's migration hit first.
+- **None of workflow's writes claim a read-only exemption, and neither should yours for the same
+  reason.** Approving, deciding, attaching and notifying are all things a lapsed tenant should not be
+  doing any more than the underlying business write it gates.
 
 ### Known small debts carried forward
 

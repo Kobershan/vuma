@@ -81,6 +81,7 @@ table lands anywhere else — including `public`, which belongs to no module and
 | `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
 | `licensing` | licences, leases, activations, entitlements, metering | 04b |
+| `workflow` | approval policies and requests, notifications, document metadata and versions | 05 |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -204,6 +205,77 @@ to *find* the row by digest.
 
 Rotation marks the old row replaced rather than deleting it, so a token presented twice is visible.
 Both a replay and a theft get the same answer — every live token for that user is revoked.
+
+---
+
+## 4c. Tables in `workflow`
+
+Built in Stage 05 (ADR-019, ADR-054), before any module needs an approval chain, an in-app inbox or a
+file attachment — later modules configure against this schema rather than building their own. No
+foreign key leaves it; every business record a row here refers to (`SubjectEntityId`, `EntityId`) is an
+id into another module's own schema, resolved by convention rather than by constraint (§3).
+
+### `workflow.approval_policies`
+
+A gate a module has configured on one `module.entityType.action` key. `module`, `entity_type`,
+`action`, `threshold_amount` / `threshold_currency` (both nullable — absence means gate every
+occurrence, ADR-019), `required_permission`, `min_approvals`, `allow_self_approval`, `is_active`.
+
+The nullable threshold is **two flat nullable columns**, not `ValueObjectMapping.HasMoney`'s
+complex-type form: EF Core 9's relational providers do not yet support an optional complex property
+(dotnet/efcore#31376, hit and worked around while scaffolding this stage's migration). A module with a
+nullable `Money` maps it as `{Name}Value: decimal?` / `{Name}Currency: string?` and reassembles a
+computed `Money?` property from the pair — see `ApprovalPolicy.ThresholdAmount` and
+`ApprovalRequest.Amount` for the pattern, and revisit `ValueObjectMapping.HasMoney`'s note once the
+upstream issue ships.
+
+`ux_approval_policies_tenant_key` is unique on `(tenant_id, module, entity_type, action)`, **filtered to
+`is_active AND deleted_at IS NULL`** — the same shape `platform.stores`' code uniqueness takes, so a
+deactivated policy never blocks a replacement being defined for the same key.
+
+### `workflow.approval_requests`
+
+One pending or decided gate. Snapshots the policy's `required_permission`, `min_approvals` and
+`allow_self_approval` at the moment it was raised, so an edited or deactivated policy never
+retroactively changes what an in-flight request needs to clear. `policy_id`, `module`, `entity_type`,
+`action`, `subject_entity_id`, `amount_amount` / `amount_currency` (nullable, same shape as the
+policy's threshold), `requested_by`, `requested_at`, `reason`, `approval_count`, `rejection_count`,
+`status`, `decided_at`.
+
+`ix_approval_requests_pending` is a partial index on `(tenant_id, store_id, status)` filtered to
+`status = 'Pending'` — the unified inbox's hot query, and a decided request is never read by it again.
+
+### `workflow.approval_decision_entries`
+
+Append-only, one row per decision, independent of the request's own mutable `status` so the full
+history survives whatever the request currently says. `approval_request_id`, `decided_by`, `outcome`,
+`comment`, `decided_at`. `ux_approval_decision_entries_request_decider` is unique on
+`(approval_request_id, decided_by)` — the one-decision-per-person guard held at the database as well as
+in the engine, so two racing requests from the same principal cannot both land.
+
+### `workflow.notifications`
+
+One message to one recipient on one channel — a fan-out to three recipients on two channels is six
+rows, not one row with a list, the same reasoning `identity.role_permissions` uses (§4b).
+`recipient_user_id`, `category`, `title`, `body`, `severity`, `channel`, `related_module` /
+`related_entity_type` / `related_entity_id`, `action_url`, `delivery_status`, `sent_at`,
+`delivery_error`, `is_read`, `read_at`.
+
+`ix_notifications_recipient_unread` is partial on `channel = 'InApp' AND NOT is_read` — the inbox badge
+count is the hottest of the two queries this table answers, and it stays cheap as history grows.
+
+### `workflow.documents` and `workflow.document_versions`
+
+Attachment and generation metadata — never the bytes, which live behind `IDocumentBlobStore` and are
+addressed through a version's `storage_key`. `documents`: `module`, `entity_type`, `entity_id`, `kind`,
+`title`, `content_type`, `current_version_number`, `is_generated`. `document_versions`: `document_id`,
+`version_number`, `storage_key`, `content_hash` (SHA-256, lower-case hex), `size_bytes`, `content_type`,
+`source`, `generated_by`.
+
+A document is never overwritten in place — `RegisterNewVersion` only ever moves
+`current_version_number` forward, and the version it points away from stays retrievable, checked
+against its recorded hash on the way back out. `ux_document_versions_document_version` is unique on
+`(document_id, version_number)`.
 
 ---
 

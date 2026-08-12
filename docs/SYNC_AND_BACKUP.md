@@ -119,6 +119,12 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SyncCursor` | `sync` | `NodeLocal` | — | Per-node bookkeeping |
 | `ConflictEntry` | `sync` | `StoreToCloud` | `LastWriterWins` | A queue one machine can see is a queue nobody reviews |
 | `BackupSnapshot` | `backup` | `StoreToCloud` | `LastWriterWins` | Backup health is what a multi-store operator needs |
+| `ApprovalPolicy` | `workflow` | `CloudToStore` | `CloudWins` | What requires approval, and by whom, is a head-office decision (ADR-019) — the same authority shape as `Role` |
+| `ApprovalRequest` | `workflow` | `Bidirectional` | `ManualReview` | Raised at either tier (a store's own purchase order, a cloud-side bulk action) and decided at either; a genuine divergence — two nodes both deciding the same request differently — is exactly the case a person, not a policy, should settle |
+| `ApprovalDecisionEntry` | `workflow` | `StoreToCloud` | `AppendOnly` | The decision history, like the audit trail — two nodes recording decisions on the same request converge by accumulation |
+| `Notification` | `workflow` | `Bidirectional` | `LastWriterWins` | A read receipt from either tier is the freshest fact about whether somebody has seen it |
+| `Document` | `workflow` | `Bidirectional` | `LastWriterWins` | Metadata only; attached at either tier, and the latest version pointer is what matters after a merge |
+| `DocumentVersion` | `workflow` | `StoreToCloud` | `AppendOnly` | Never overwritten (ADR-019's non-destructive versioning) — the same posture as the stock ledger |
 
 **An immutable record may not declare a policy that overwrites it.** `AuditInterceptor` throws on any
 update to an `IImmutableRecord` (§7 rule 7, ADR-012), so an immutable entity declaring

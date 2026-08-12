@@ -719,3 +719,54 @@ is the exact failure the tolerance exists to prevent.
 which is the correct way for this to fail — a false rebind demand stops a paying customer trading, and
 ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
 never reads as agreement, and no value is ever fabricated to fill a gap.
+
+---
+
+# Revision 9 — Stage 05 workflow, approvals, notifications, documents
+
+## ADR-054 — `VumaRetail.Workflow` sits below `Infrastructure`, on the `Sync`/`Licensing` pattern — **LOCKED**
+**Context.** Stage 05 needed a home for `ApprovalEngine` (the sole implementation `IApprovalService`
+may have, rule 13), the notification dispatcher and channels, and the document versioning service —
+code every later module stage depends on, that has to be unit-testable with no database and no host in
+the room, and that must not tie every future module transitively to EF Core just by referencing the
+choke point.
+**Decision.** A new project on ADR-048's (`VumaRetail.Sync`) and ADR-051's (`VumaRetail.Licensing`)
+pattern: `VumaRetail.Workflow` references `Application` and `Contracts` only — no EF, no HTTP, no
+filesystem — and `Infrastructure` references *it*, supplying the EF configurations, the repositories
+and the filesystem blob store adapter (`FileSystemDocumentBlobStore`, the `FileSystemBackupVault`
+shape). It carries `ApprovalEngine`, the approval/notification/document commands and queries,
+`InAppNotificationChannel` (real, persisted) and `LogEmailNotificationChannel` /
+`LogPushNotificationChannel` (the `InProcessControlPlane` working-log pattern), and
+`PassthroughDocumentRenderer`.
+**Consequences.** The whole engine is testable against NSubstitute repositories with no database, which
+is what makes the separation-of-duties and N-of-M approval-counting suites assertable as arithmetic
+rather than as database fixtures. The layering rule — no EF Core, no ASP.NET Core dependency — is
+enforced by an architecture test alongside `Sync` and `Licensing`, and "only `VumaRetail.Workflow`
+implements `IApprovalService`" is enforced by a second, proven by a deliberate second implementation in
+`Infrastructure` that was confirmed to fail the build and then removed.
+
+## ADR-055 — A nullable `Money` property maps as two flat columns, not an optional complex type — **LOCKED**
+**Context.** `ApprovalPolicy.ThresholdAmount` and `ApprovalRequest.Amount` are both legitimately
+absent — not every gated action carries money, and "no threshold" is exactly what "gate every
+occurrence" means (ADR-019). The obvious mapping extends `ValueObjectMapping.HasMoney` with a nullable
+overload using EF Core's `ComplexProperty`. Every shape tried — the nested `Amount`/`Currency`
+properties marked optional, the complex property alone marked optional, both together — failed at
+model-build time with "Configuring the complex property 'ApprovalPolicy.ThresholdAmount' as optional is
+not supported, call 'IsRequired()'". EF Core 9's relational providers do not yet support an optional
+complex property at all (tracked upstream as dotnet/efcore#31376), which is not stated anywhere
+`docs/DATA_MODEL.md` §2 or `ValueObjectMapping`'s own doc comments had reason to anticipate, and which
+`dotnet ef migrations add Workflow` was the first thing in this repository to actually exercise.
+**Decision.** A nullable `Money` property is represented as two ordinary nullable properties —
+`{Name}Value: decimal?`, `{Name}Currency: string?` — private, since the entity's public API stays a
+single computed `Money?` reassembled from the pair, exactly as every other consumer (`ApprovalEngine`,
+the summaries, the endpoints) already expects. Mapped with two plain
+`builder.Property<T>("{Name}Value")` calls rather than through `ValueObjectMapping.HasMoney`, which
+keeps only its required-`Money` overload; a comment where the nullable overload used to be explains why
+there is none and points at this pattern.
+**Consequences.** One extra pair of columns and one computed property per nullable money field, instead
+of the single line the required case gets — a real but small cost, paid twice in this stage
+(`ApprovalPolicy.ThresholdAmount`, `ApprovalRequest.Amount`) and by whichever later module is the next
+to need an optional monetary field. Nothing downstream changed: the domain's public shape, the
+`Application`-layer contracts and every test written against `Money?` are unaffected, because this is
+an `Infrastructure`-mapping decision, not a domain one. Revisit `ValueObjectMapping.HasMoney` once EF
+Core ships optional complex type support and the workaround can be retired.
