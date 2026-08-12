@@ -56,8 +56,19 @@ case "${1:-start}" in
     # after the run. There is no credential here worth protecting and none is ever committed.
     "${PG_BIN}/initdb" -D "${DATA_DIR}" -U "${USER_NAME}" --auth=trust -E UTF8 >/dev/null
 
+    # The unix socket directory (-k) is only added on non-Windows. It buys nothing here — the
+    # fixture and every test connect over TCP (Host=127.0.0.1) — and on a native Windows
+    # postgres.exe under git-bash it actively breaks startup: the value is embedded inside the
+    # single -o option string, which MSYS does not path-translate the way it translates a
+    # standalone argv entry, so postgres.exe receives the literal POSIX path and fails to create
+    # the socket lock file there.
+    PG_EXTRA_OPTS=""
+    if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* && "$(uname -s)" != CYGWIN* ]]; then
+      PG_EXTRA_OPTS="-k ${DATA_DIR}"
+    fi
+
     "${PG_BIN}/pg_ctl" -D "${DATA_DIR}" -l "${DATA_DIR}/server.log" \
-      -o "-p ${PORT} -k ${DATA_DIR} -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
+      -o "-p ${PORT} ${PG_EXTRA_OPTS} -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
       start >/dev/null
 
     # fsync off is safe and much faster here: the entire cluster is disposable, so durability

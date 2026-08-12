@@ -7,6 +7,7 @@ using VumaRetail.Infrastructure.Sync;
 using VumaRetail.Licensing;
 using VumaRetail.Licensing.Hosting;
 using VumaRetail.Licensing.Signing;
+using VumaRetail.Infrastructure.Workflow;
 using VumaRetail.StoreServer;
 using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
@@ -15,6 +16,7 @@ using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.Workflow;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -96,6 +98,20 @@ builder.Services.AddVumaLicensing(
     licensingState,
     builder.Configuration["Vuma:Licensing:IntegrityHash"] ?? string.Empty);
 
+// Stage 05. After AddVumaLicensing/AddVumaWeb: ApprovalEngine reads Stage 02's IRoleRepository to
+// check a decider's own permissions, and none of workflow's writes claim the ADR-028 payment
+// exemption — a lapsed tenant should not be approving purchase orders any more than raising them.
+DocumentBlobStoreOptions documentStore = builder.Configuration
+    .GetSection(DocumentBlobStoreOptions.SectionName)
+    .Get<DocumentBlobStoreOptions>() ?? new DocumentBlobStoreOptions();
+
+if (string.IsNullOrWhiteSpace(documentStore.Directory))
+{
+    documentStore.Directory = Path.Combine(AppContext.BaseDirectory, "workflow-documents");
+}
+
+builder.Services.AddVumaWorkflow(documentStore);
+
 if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(licensing.ControlPlaneBaseAddress))
 {
     // No vendor service on a developer's machine and none in CI. The in-process control plane signs
@@ -158,6 +174,7 @@ app.UseVumaOpenApi();
 app.MapVumaIdentity();
 app.MapVumaSync();
 app.MapVumaLicensing();
+app.MapVumaWorkflow();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

@@ -62,6 +62,21 @@ public static class ValueObjectMapping
         });
     }
 
+    // There is deliberately no nullable overload of HasMoney above.
+    //
+    // A nullable Money property (an approval policy's optional threshold, Stage 05) was first mapped
+    // as an optional ComplexProperty here. EF Core 9's relational providers do not support that —
+    // every shape tried (nested properties marked optional, the complex property alone marked
+    // optional) fails at model-build time with "Configuring the complex property … as optional is not
+    // supported, call 'IsRequired()'" (dotnet/efcore#31376).
+    //
+    // A module with a nullable money property maps it as two ordinary nullable properties
+    // ({Name}Value: decimal?, {Name}Currency: string?) on the entity — private, if the public API
+    // should stay a single Money? computed from the pair — configured with two plain
+    // builder.Property<T>("{Name}Value") calls rather than this helper. See
+    // ApprovalPolicy.ThresholdAmount / ApprovalRequest.Amount for the pattern, and revisit once the
+    // upstream issue ships.
+
     /// <summary>
     /// Maps a <see cref="Quantity"/> property to <c>{name}_value</c> and <c>{name}_uom</c>.
     /// </summary>
