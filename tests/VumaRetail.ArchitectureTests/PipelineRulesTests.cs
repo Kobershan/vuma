@@ -19,6 +19,8 @@ public sealed class PipelineRulesTests
         typeof(VumaRetail.Application.AssemblyMarker).Assembly,
         typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
+        // Stage 05: the approval, notification and document command/query handlers.
+        typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
     ];
 
     [Fact]

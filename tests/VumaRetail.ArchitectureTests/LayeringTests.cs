@@ -18,6 +18,8 @@ public sealed class LayeringTests
     private static readonly Assembly Contracts = typeof(VumaRetail.Contracts.AssemblyMarker).Assembly;
     private static readonly Assembly Infrastructure = typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly;
     private static readonly Assembly Sync = typeof(VumaRetail.Sync.AssemblyMarker).Assembly;
+    private static readonly Assembly Licensing = typeof(VumaRetail.Licensing.AssemblyMarker).Assembly;
+    private static readonly Assembly Workflow = typeof(VumaRetail.Workflow.AssemblyMarker).Assembly;
     private static readonly Assembly PublicApi = typeof(VumaRetail.PublicApi.AssemblyMarker).Assembly;
     private static readonly Assembly Web = typeof(VumaRetail.Web.VumaWebExtensions).Assembly;
 
@@ -102,6 +104,25 @@ public sealed class LayeringTests
             .NotHaveDependencyOnAny("VumaRetail.StoreServer", "VumaRetail.CloudApi", "VumaRetail.PublicApi")
             .GetResult()
             .ShouldPass("The same sync protocol runs on the store server and in the cloud.");
+    }
+
+    [Fact]
+    public void Sync_Licensing_and_Workflow_carry_no_EF_Core_or_ASP_NET_Core_dependency()
+    {
+        // ADR-048 (Sync), ADR-051 (Licensing) and this stage's own project each promise "no EF, no
+        // HTTP, no filesystem" — the same reason Infrastructure supplies the adapters rather than
+        // these projects reaching for them directly. Framework-free is what lets ApprovalEngine (and
+        // the sync protocol, and the enforcement ladder before it) be unit-tested with no database in
+        // the room.
+        foreach (Assembly assembly in new[] { Sync, Licensing, Workflow })
+        {
+            Types.InAssembly(assembly)
+                .Should()
+                .NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
+                .GetResult()
+                .ShouldPass($"{assembly.GetName().Name} sits below Infrastructure and must stay free "
+                    + "of EF Core and ASP.NET Core — Infrastructure supplies the adapters.");
+        }
     }
 
     [Fact]

@@ -28,6 +28,8 @@ public sealed class CommandClassificationTests
         typeof(VumaRetail.Application.AssemblyMarker).Assembly,
         typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
+        // Stage 05: the approval, notification and document commands.
+        typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
     ];
 
     [Fact]

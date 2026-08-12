@@ -24,6 +24,8 @@
     <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <!-- Stage 04b: the enforcement ladder, the fingerprint matcher and the signed documents. -->
     <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
+    <!-- Stage 05: ApprovalEngine and the domain state machines it drives, tested with no database. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Workflow\VumaRetail.Workflow.csproj" />
   </ItemGroup>
 
   <ItemGroup>

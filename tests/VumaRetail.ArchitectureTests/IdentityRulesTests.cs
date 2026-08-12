@@ -1,5 +1,6 @@
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Domain.Identity;
+using VumaRetail.Workflow.Permissions;
 
 namespace VumaRetail.ArchitectureTests;
 
@@ -93,5 +94,6 @@ public sealed class IdentityRulesTests
     [
         new PlatformPermissions(),
         new IdentityPermissions(),
+        new WorkflowPermissions(),
     ];
 }

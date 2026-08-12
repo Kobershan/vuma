@@ -424,6 +424,10 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
         typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
         typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
+        // Stage 05: none of the approval, notification or document commands claim an ADR-028
+        // exemption — a lapsed tenant should not be approving a purchase order any more than
+        // raising one — so every one of them must show up refused in this sweep.
+        typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
     ];
 }
 
