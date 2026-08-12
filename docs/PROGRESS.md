@@ -3,21 +3,34 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-11 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** DONE. Next stage: 05 — Workflow, approvals, notifications, documents.
+**Last updated:** 2026-08-12 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** DONE on `main`. Stages 05, 06 and 07 have real work in progress on separate branches/worktrees (see below) but **nothing past 04b has landed on `main` yet**.
 
 ---
 
 ## 1. Stage status
 
+`main` is at 04b. Three later stages have genuine progress on unmerged branches — each was started in
+its own worktree so they could proceed in parallel without colliding on the same files; none of them
+has been reconciled with the others or merged back yet.
+
 | Stage | Title | Status | Changed |
 |---|---|---|---|
-| 00 | Foundation — solution skeleton, conventions, CI | **DONE** | 2026-08-09 |
-| 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** | 2026-08-09 |
-| 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
-| 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
-| 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
-| 04b | Licensing, activation & entitlement | **DONE** | 2026-08-11 |
-| 05 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 00 | Foundation — solution skeleton, conventions, CI | **DONE** (main) | 2026-08-09 |
+| 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** (main) | 2026-08-09 |
+| 02 | Identity, RBAC, permission catalogue | **DONE** (main) | 2026-08-10 |
+| 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** (main) | 2026-08-10 |
+| 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** (main) | 2026-08-10 |
+| 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
+| 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — uncommitted, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow` | — |
+| 06 | Master data — items, variants, barcodes, UoM, partners | **IN_PROGRESS** — uncommitted, worktree `.claude/worktrees/stage-06-master-data`, branch `worktree-stage-06-master-data` | — |
+| 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **IN_PROGRESS** — 3 commits on branch `stage-07-finance` (posting/tax engine; AR/AP/banking/tax commands; reporting queries), plus further uncommitted work in worktree `.claude/worktrees/stage-07-finance` | — |
+| 08 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+
+**None of 05/06/07's branch work has been verified** (no `stage-verifier` run recorded, no exit
+checklist ticked, no merge to `main`) — treat the statuses above as "a session started this and made
+real progress," not as "this is DONE." Whoever picks one of these branches up next should run the
+stage through to a green build, tick its Exit Checklist, `stage-verifier`, `doc-scribe`, then merge to
+`main` and update this table for real — do not just narrate progress here without the merge.
 
 ---
 
@@ -489,6 +502,71 @@ must converge).
 **ADRs appended:** ADR-054 `CurrentLevel` moves off `IEntitlementService` onto
 `IEnforcementStatusReader`.
 
+### 2026-08-12 — Documentation reconciled: roadmap, decisions, agents filed and corrected
+
+A batch of loose planning documents was dropped into the repo root again — the same pattern as the
+2026-08-09 filing session, and the reason it happens is the same: an update gets drafted against a
+stale copy of the docs and needs reconciling against what actually landed, not just moved into place.
+
+**Filed as genuine updates (moved, content unchanged except where noted):**
+
+| From (repo root) | To |
+|---|---|
+| `AUTONOMOUS_OPERATION.md` | `docs/AUTONOMOUS_OPERATION.md` |
+| `DESIGN_SYSTEM.md` | `docs/DESIGN_SYSTEM.md` |
+| `API_CONNECT.md` | `docs/API_CONNECT.md` |
+| `STAGE-08b-design-system.md` | `docs/stages/STAGE-08b-design-system.md` |
+| `STAGE-10b-accounts-layby-stokvel.md` | `docs/stages/STAGE-10b-accounts-layby-stokvel.md` (ADR-030 ref → ADR-055) |
+| `STAGE-21b-vuma-connect.md` | `docs/stages/STAGE-21b-vuma-connect.md` (ADR-031 ref → ADR-056) |
+| `claude-user-settings.json` | `deploy/claude-user-settings.json` (matches the path `docs/AUTONOMOUS_OPERATION.md` §2 already documents) |
+| `run-autonomous.ps1` | `scripts/run-autonomous.ps1` (matches the path `CLAUDE.md` and `docs/AUTONOMOUS_OPERATION.md` already reference) |
+
+**`docs/DECISIONS.md`** — the root copy's five new ADRs (customer-money liability, Vuma Connect
+tenancy, payment orchestration, one design system, unattended operation) were numbered ADR-030–034,
+colliding with the five *real* ADR-030–034 already on `main` (central package management, Windows-only
+projects, FluentAssertions pin, money rounding, command-side-effect classification — all from Stage
+00). The root document was drafted against an old copy of the ADR log and never saw ADR-030 onward. The
+five new ADRs were appended for real as **ADR-055–059**, and the two stage documents that cited the old
+numbers were corrected.
+
+**`docs/ROADMAP.md`** — the root copy's 37-stage plan (adding 08b/10b/21b) was a genuine improvement
+over the 31-stage table it replaced, so it became the new `docs/ROADMAP.md`. Corrections made filing
+it: stage-doc links pointed at filenames that don't exist (`STAGE-01-domain-kernel.md`,
+`STAGE-04-sync-backup.md` — the real files are `STAGE-01-persistence.md` and
+`STAGE-04-sync-and-backup.md`); the intro cited a `docs/GAP_ANALYSIS.md` that was never written and
+isn't needed (this entry, and the ADRs above, are the actual record of what changed and why); and
+stages 05/06/07 are linked as plain text, not markdown links, since their stage documents exist only on
+WIP branches, not on `main` (see §1, §5).
+
+**`docs/PROGRESS.md`** (this file) — **not** overwritten by the root copy. The root `PROGRESS.md` was a
+stale, unfilled-in template (stages 00–04 "reported complete by owner; verify before building on it",
+04b still `NOT_STARTED`, a stale product-rename handoff note) — clearly an earlier draft than this
+file's real session log, not an update to it. It was deleted rather than filed. What *was* real and
+missing from this file: stages 05, 06 and 07 have actual work in progress on three separate
+worktrees/branches that this file's stage table didn't mention at all. §1 and §5 above now reflect
+that honestly — in progress, unmerged, unverified — instead of the table's previous blanket
+`NOT_STARTED`.
+
+**`CLAUDE.md`** — the working copy had already been edited in place (it's a tracked file, so the edit
+showed as a diff rather than a new file) with a mix of real additions and a repeat of the exact
+"duplicated, stale module map" bug the 2026-08-09 session fixed once already: a second, conflicting
+module → stage table appended after the live one, with different stage numbers for the same modules.
+Reverted that block again. Also reverted a repository-layout edit that renamed the folder shown in §5's
+tree from `vuma/` to `vuma-retail/` — the actual folder, remote and package prefix are `vuma`
+(ADR-042, LOCKED); the tree diagram was simply wrong. Kept the genuine additions: the
+`docs/AUTONOMOUS_OPERATION.md` reference and rules in §1, the three new doc references and two new
+hard rules in §5/§7 (renumbered to fit after the existing 16, since the stale block had also knocked
+the numbering out), and the 08b/10b/21b rows in the §6 module map.
+
+**Not filed — left for a decision, not silently applied:** root `settings.json` looks like it's meant
+to replace `.claude/settings.json` (adds `AskUserQuestion` to the deny list, matching the new
+`AUTONOMOUS_OPERATION.md` and ADR-059) but also changes which secret-file patterns are denied. That's a
+permissions/security change, not a docs filing — flagged to the user rather than applied.
+
+**Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
+`stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
+three parallel branches is its own piece of work — see §5.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -512,12 +590,17 @@ These are cited as reference reading by stages that will need them. Each should 
 stage that first depends on it, not all up front:
 
 `ARCHITECTURE.md` · `IMPORT_PIPELINE.md` (Stage 11) · `HARDWARE.md` (Stage 09) ·
-`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
+`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21).
 
 Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
-`API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04).
+`API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04), `LICENSING.md` (Stage 04b),
+`API_CONTROL_PLANE.md` (Stage 30b), `DESIGN_SYSTEM.md` (Stage 08b), `API_CONNECT.md` (Stage 21b),
+`AUTONOMOUS_OPERATION.md` (unattended-run setup, ADR-059).
 
-Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b** and **30b**. Every other stage
+Stage documents exist on `main` for **00**, **01**, **02**, **03**, **04**, **04b**, **08b**, **10b**,
+**21b** and **30b**. Stage documents for **05**, **06** and **07** exist only on their WIP
+branches/worktrees (§1) and have not been filed to `main` yet — filing them without the code that
+implements them would be misleading, so they stay put until each branch merges. Every other stage
 document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
 template.
 
@@ -621,10 +704,17 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 
 ## 5. Next session starts here
 
-**Start Stage 05 — Workflow, approvals, notifications, documents.** Stage 04b is DONE: 528 tests
-green (261 unit, 27 architecture, 240 integration), 0 warnings, exit checklist ticked in
-`docs/stages/STAGE-04b-licensing.md`. Read `docs/stages/STAGE-05-*.md` and its reference reading, then
-execute per the session protocol.
+**Do not start a fourth parallel worktree.** Stage 04b is DONE on `main`: 528 tests green (261 unit,
+27 architecture, 240 integration), 0 warnings, exit checklist ticked in
+`docs/stages/STAGE-04b-licensing.md`. Since then, Stages 05, 06 and 07 were each started in their own
+worktree so they could proceed without colliding on shared files (see §1) — that succeeded at avoiding
+file collisions, but it means three branches now need to be taken to a real DONE and merged in
+dependency order (05 before 06 before 07) before anyone should touch 08. **The next session's job is
+to pick one of the three — 05 first, since 06 depends on it and 07 depends on 06 — finish it for real
+(build, tests, exit checklist, `stage-verifier`), merge it to `main`, and only then move to the next.**
+Read `docs/stages/STAGE-05-workflow.md` (on branch `stage-05-workflow` / worktree
+`.claude/worktrees/agent-a926fb8a2fe1f9a6d`, not yet on `main`) and its reference reading before
+resuming that work.
 
 **One thing Stage 05 (and every later stage) inherits and should know about:** `IEntitlementService`
 no longer has a `CurrentLevel` method. If a handler only needs to *report* the enforcement level for
