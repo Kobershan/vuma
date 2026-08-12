@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Licensing, activation, entitlement and metering (ADR-028, docs/LICENSING.md). Stage 04b.
+
+    The licence protocol and nothing else: no EF, no HTTP, no file system. It sits above Application
+    and below Infrastructure for the same reason VumaRetail.Sync does (ADR-048) — the whole
+    enforcement ladder, both paths, every boundary and the no-accidental-lockout suite are then
+    testable against an in-process control plane on a clock the test moves by hand, with no vendor
+    service in the room and no database to arrange.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Licensing</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Validators for the licensing commands, run by the Stage 03 pipeline. -->
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- Lease refresh, heartbeat and the daily metering rollup are IHostedServices. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!--
+      Ed25519, which docs/LICENSING.md §2 and ADR-026 both name. .NET 9 has no Ed25519 primitive in
+      System.Security.Cryptography, so it comes from somewhere; BouncyCastle is MIT-licensed, pure
+      managed and has no native dependency, which matters for a WPF till and a WiX installer. See
+      ADR-050.
+    -->
+    <PackageReference Include="BouncyCastle.Cryptography" />
+  </ItemGroup>
+
+</Project>
