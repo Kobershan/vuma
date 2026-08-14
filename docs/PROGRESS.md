@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-11 · **Current stage:** 04b — Licensing, activation & entitlement · **Status:** IN_PROGRESS (code and tests complete and green; documentation tasks outstanding — see §5)
+**Last updated:** 2026-08-14 · **Current stage:** 06 — Master data (items, variants, barcodes, UoM, partners) · **Status:** DONE on this branch (`worktree-stage-06-master-data`); reconciliation with `main` (which has since advanced through 04b-complete and a Stage 05 commit) is the next step before this can merge.
 
 ---
 
@@ -16,12 +16,100 @@
 | 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
 | 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
-| 04b | Licensing, activation & entitlement | **IN_PROGRESS** | 2026-08-11 |
-| 05 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 04b | Licensing, activation & entitlement | **DONE** | 2026-08-11 |
+| 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (this branch) | 2026-08-14 |
+| 05, 07 – 31 | see `ROADMAP.md` / `main`'s `docs/PROGRESS.md` for the authoritative cross-branch picture | — | — |
 
 ---
 
 ## 2. Session log
+
+### 2026-08-14 — Stage 06 complete: master data (items, variants, barcodes, UoM, partners)
+
+`dotnet build -c Release` → **0 warnings, 0 errors** (solution-wide; Domain/Application carry
+warnings-as-errors). `dotnet test` → **584 passed, 0 failed** (303 unit, 25 architecture, 256
+integration), run against real PostgreSQL 16 in Docker. Full exit checklist in
+`docs/stages/STAGE-06-master-data.md` ticked. This session picked up a partially-built worktree — the
+domain layer, application commands/queries, EF configurations, RBAC permission declarations and
+core module manifests were already well-formed and largely complete — and closed every remaining gap
+in the exit checklist.
+
+**What was already done when this session started.** `UnitOfMeasure`/`Item`/`ItemVariant`/`Barcode`
+(catalog) and `Partner` (partners) with the attachment/uniqueness rules enforced in the domain;
+`CatalogRuleException`/`CatalogConflictException`/`CatalogNotFoundException`/`PartnerRuleException` etc;
+every command carrying `[CommandSideEffect(SideEffect.Write)]` with a FluentValidation validator; keyset
+pagination types (`KeysetCursor`, `PageResult<T>`) and `ListItemsQuery`/`ListPartnersQuery` built on
+them (not offset paging); EF configurations for all five entities; `CatalogPermissions`/
+`PartnerPermissions` and `CatalogModuleManifest`/`PartnersModuleManifest` (`IsCore = true`), matching
+`CoreModuleManifests.cs`'s pattern.
+
+**What this session found and fixed.**
+
+1. **A real EF Core 9 bug in the shared `Address` value-object mapping.** `ValueObjectMapping.HasAddress`
+   mapped `Address` as a `ComplexProperty`, which EF Core 9 refuses to configure as optional ("Configuring
+   the complex property … as optional is not supported, call IsRequired()" —
+   github.com/dotnet/efcore/issues/31376). Both current users of the mapping (`Store.Address`,
+   `Partner.Address`) need it optional. Rewritten as an owned type (`OwnsOne`) with table splitting onto
+   the owner's own table — same column shape, genuinely supports null. Confirmed against real PostgreSQL:
+   an address with every field null now round-trips as `Address = null`, not a zeroed struct.
+2. **Missing wiring nobody had written yet:** `PartnerRepository` (EF implementation of
+   `IPartnerRepository` — did not exist), `AddVumaCatalog()` / `AddVumaPartners()` DI extensions
+   (self-registering the repositories, `IModulePermissions` and `IModuleManifest` — the same shape
+   `AddVumaLicensing` uses for its own module, so registration order relative to `AddVumaIdentity`/
+   `AddVumaLicensing` does not matter), and both wired into `VumaRetail.StoreServer/Program.cs` alongside
+   `AddVumaPlatform()` (which existed but was never called from any host — `CreateStoreCommand` would have
+   failed to resolve `IStoreRepository` at runtime).
+3. **No API surface existed for either module.** `CatalogEndpoints.MapVumaCatalog()` and
+   `PartnerEndpoints.MapVumaPartners()` added under `/api/v1/catalog/*` and `/api/v1/partners/*`
+   (units-of-measure, items, item variants, barcodes, partners — full CRUD-shaped surface matching the
+   command/query set), with `RequirePermission` on every route, `Produces`/`ProducesProblem` for OpenAPI,
+   and a small `ParseEnum`/`ParsePartnerType` helper that turns a bad enum string into a 400
+   `ValidationFailedException` rather than a 500. New `PageResponse<T>` and per-module `*IdResponse`
+   contracts added to `VumaRetail.Contracts` (desktop/Android reachable, per ADR-008).
+4. **No migration existed.** Generated `20260814112048_MasterData` (adds `catalog` and `partners`
+   schemas, four `catalog` tables, one `partners` table, and converts `platform.stores.address` from a
+   single `varchar(512)` to the structured `address_*` columns). Verified by hand against a throwaway
+   PostgreSQL 16 container: `Up` applied cleanly on top of the existing four migrations, `Down` reverted
+   `MasterData` alone back to a clean `Licensing`-only schema, and a second `Up` re-applied without error
+   — genuinely round-tripped, not merely generated.
+5. **RBAC and read-only enforcement were declared but not wired into the two closed lists that check
+   them.** `AddVumaPermissionCatalogue`/`AddVumaLicensing`'s hand-written module lists don't need editing
+   (both modules self-register — see point 2), but
+   `tests/VumaRetail.ArchitectureTests/IdentityRulesTests.cs`'s `DeclaredModules()` — a hardcoded list the
+   two permission-well-formedness tests iterate — was missing every module past `Identity`, including
+   this stage's two. Added `CatalogPermissions`/`PartnerPermissions`. The mandatory read-only suite
+   (`ReadOnlyCorrectnessTests.Every_write_command_in_the_system_is_refused_and_every_query_passes`) needed
+   no code change at all: it is generated by reflection over the Application/Infrastructure/Sync/Licensing
+   assemblies, so every new `[CommandSideEffect]`-carrying command in this stage was picked up
+   automatically and asserted refused-while-read-only, green on the first run.
+6. **No tests existed for any of it.** Added `UnitOfMeasureTests`, `ItemTests`, `ItemVariantTests`,
+   `BarcodeTests` (Domain/Catalog) and `PartnerTests` (Domain/Partners) — uniqueness, the barcode
+   attachment rule from both directions, UoM one-level conversion, `[Flags]` partner-type validation,
+   deactivate-not-delete. Added `CatalogHarness`/`PartnerHarness` (same shape as Stage 02's
+   `IdentityHarness` — real Postgres, real dispatcher pipeline, hand-constructed container) and
+   `CatalogCommandTests`/`PartnerCommandTests` covering every command handler's refusal paths plus **the
+   keyset-pagination acceptance test the stage brief calls out by name**: a row inserted between two page
+   reads never appears twice or is skipped, asserted against a real concurrent insert mid-page rather than
+   reasoned about.
+7. **`scripts/seed.ps1` (via `DemoSeed.cs`, which it invokes) gained no catalog/partner data.** Added two
+   base units (`EA`, `KG`), one derived (`BOX12` → 12×`EA`), an item with no variants and a barcode
+   (`MILK-2L`), an item with two variants each carrying its own barcode (`SHIRT` → `SHIRT-M-RED`,
+   `SHIRT-L-BLUE`), and two partners (one supplier, one customer) — demonstrating both of `Barcode`'s
+   attachment rules in one seed run. Verified idempotent (second run creates nothing) and the resulting
+   rows verified by hand against the seeded database.
+
+**Docs.** `docs/DATA_MODEL.md` gained §4c (`Tables in catalog`) and §4d (`Tables in partners`), plus five
+new rows in the §5 replication registry. `docs/SYNC_AND_BACKUP.md` §3 gained the same five rows with
+schema and rationale. **ADRs appended:** ADR-060 (variant attributes are one ordered `jsonb` column, not
+a child table) · ADR-061 (a barcode is the one entity in this stage that is hard-deleted, not
+deactivated) · ADR-062 (item and partner counts get no `LimitKind` — `docs/LICENSING.md` §6's list stays
+closed).
+
+**Toolchain note.** `pg_dump`/`pg_restore` were not on `PATH` on this machine, which made six pre-existing
+Stage 04 `BackupTests` fail — unrelated to this stage, but they block "`dotnet test` all green" if left
+unfixed. Installed via `winget install PostgreSQL.PostgreSQL.16` (client tools only needed; the server
+itself runs in Docker for the integration suite). Confirmed all six pass once `pg_dump.exe` is
+reachable.
 
 ### 2026-08-09 — Repository initialised, documentation set filed
 

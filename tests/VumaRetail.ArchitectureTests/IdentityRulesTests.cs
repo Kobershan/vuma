@@ -1,4 +1,6 @@
+using VumaRetail.Application.Catalog.Permissions;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Partners.Permissions;
 using VumaRetail.Domain.Identity;
 
 namespace VumaRetail.ArchitectureTests;
@@ -93,5 +95,7 @@ public sealed class IdentityRulesTests
     [
         new PlatformPermissions(),
         new IdentityPermissions(),
+        new CatalogPermissions(),
+        new PartnerPermissions(),
     ];
 }

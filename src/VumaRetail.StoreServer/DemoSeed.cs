@@ -1,12 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Partners.Commands;
+using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Licensing;
+using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
@@ -95,6 +100,42 @@ public static class DemoSeed
             .ConfigureAwait(false);
 
         await EnsureTerminalAsync(provider, context, johannesburg.Id, "T01", "Front counter 1", cancellationToken)
+            .ConfigureAwait(false);
+
+        // Stage 06: master data. Two base units, one derived; an item with no variants and one with
+        // two, so the demo shows both of Barcode's attachment rules; and two partners, one of each type.
+        Guid each = await EnsureUnitOfMeasureAsync(provider, context, "EA", "Each", UnitOfMeasureType.Count, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureUnitOfMeasureAsync(provider, context, "KG", "Kilogram", UnitOfMeasureType.Weight, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureDerivedUnitOfMeasureAsync(provider, context, "BOX12", "Box of 12", each, 12m, cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid milk = await EnsureItemAsync(
+            provider, context, "MILK-2L", "Full cream milk 2L", ItemType.Stock, each, "Fresh full cream milk, 2 litre bottle", "VAT-STD", cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureBarcodeAsync(provider, context, milk, null, "6009880123456", BarcodeSymbology.Ean13, cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid shirt = await EnsureItemAsync(
+            provider, context, "SHIRT", "Vuma branded T-shirt", ItemType.Stock, each, "Cotton crew-neck T-shirt", "VAT-STD", cancellationToken)
+            .ConfigureAwait(false);
+        Guid shirtMedRed = await EnsureVariantAsync(
+            provider, context, shirt, "SHIRT-M-RED", [new VariantAttribute("Size", "M"), new VariantAttribute("Colour", "Red")], cancellationToken)
+            .ConfigureAwait(false);
+        Guid shirtLgeBlue = await EnsureVariantAsync(
+            provider, context, shirt, "SHIRT-L-BLUE", [new VariantAttribute("Size", "L"), new VariantAttribute("Colour", "Blue")], cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureBarcodeAsync(provider, context, null, shirtMedRed, "6009880234561", BarcodeSymbology.Ean13, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureBarcodeAsync(provider, context, null, shirtLgeBlue, "6009880234578", BarcodeSymbology.Ean13, cancellationToken)
+            .ConfigureAwait(false);
+
+        await EnsurePartnerAsync(
+            provider, context, "FRESHFARM", "Fresh Farm Distributors", PartnerType.Supplier, "orders@freshfarm.example", cancellationToken)
+            .ConfigureAwait(false);
+        await EnsurePartnerAsync(
+            provider, context, "CORPCLIENT", "Corporate Client (Pty) Ltd", PartnerType.Customer, "accounts@corpclient.example", cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -290,6 +331,147 @@ public static class DemoSeed
         Console.WriteLine($"  expires {enrolment.ExpiresAt:u}");
 
         _ = context;
+    }
+
+    private static async Task<Guid> EnsureUnitOfMeasureAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        UnitOfMeasureType type,
+        CancellationToken cancellationToken)
+    {
+        if (await context.UnitsOfMeasure
+            .FirstOrDefaultAsync(unit => unit.Code == code, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateUnitOfMeasureCommand(code, name, type), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<Guid> EnsureDerivedUnitOfMeasureAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        Guid baseUnitOfMeasureId,
+        decimal conversionFactorToBase,
+        CancellationToken cancellationToken)
+    {
+        if (await context.UnitsOfMeasure
+            .FirstOrDefaultAsync(unit => unit.Code == code, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(
+                new CreateUnitOfMeasureCommand(
+                    code,
+                    name,
+                    UnitOfMeasureType.Count,
+                    baseUnitOfMeasureId,
+                    conversionFactorToBase),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<Guid> EnsureItemAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        ItemType itemType,
+        Guid unitOfMeasureId,
+        string description,
+        string taxClassCode,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Items
+            .FirstOrDefaultAsync(item => item.Code == code, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(
+                new CreateItemCommand(code, name, itemType, unitOfMeasureId, description, taxClassCode),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<Guid> EnsureVariantAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid itemId,
+        string sku,
+        IReadOnlyList<VariantAttribute> attributes,
+        CancellationToken cancellationToken)
+    {
+        if (await context.ItemVariants
+            .FirstOrDefaultAsync(variant => variant.Sku == sku, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateItemVariantCommand(itemId, sku, attributes), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsureBarcodeAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid? itemId,
+        Guid? itemVariantId,
+        string code,
+        BarcodeSymbology symbology,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Barcodes
+            .FirstOrDefaultAsync(barcode => barcode.Code == code, cancellationToken)
+            .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new AddBarcodeCommand(itemId, itemVariantId, code, symbology), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsurePartnerAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        PartnerType type,
+        string email,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Partners
+            .FirstOrDefaultAsync(partner => partner.Code == code, cancellationToken)
+            .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreatePartnerCommand(code, name, type, Email: email), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

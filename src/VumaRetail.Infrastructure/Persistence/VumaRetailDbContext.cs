@@ -103,6 +103,21 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Tenant-granted, time-boxed vendor support access.</summary>
     public DbSet<Domain.Licensing.SupportGrant> SupportGrants => Set<Domain.Licensing.SupportGrant>();
 
+    /// <summary>Units an item can be counted, weighed or measured in (Stage 06).</summary>
+    public DbSet<Domain.Catalog.UnitOfMeasure> UnitsOfMeasure => Set<Domain.Catalog.UnitOfMeasure>();
+
+    /// <summary>Products and services a tenant sells or stocks.</summary>
+    public DbSet<Domain.Catalog.Item> Items => Set<Domain.Catalog.Item>();
+
+    /// <summary>Sellable variations of an item.</summary>
+    public DbSet<Domain.Catalog.ItemVariant> ItemVariants => Set<Domain.Catalog.ItemVariant>();
+
+    /// <summary>Scannable codes identifying an item or a variant at the till.</summary>
+    public DbSet<Domain.Catalog.Barcode> Barcodes => Set<Domain.Catalog.Barcode>();
+
+    /// <summary>Suppliers, customers, and partners who are both (Stage 06).</summary>
+    public DbSet<Domain.Partners.Partner> Partners => Set<Domain.Partners.Partner>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

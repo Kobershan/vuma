@@ -93,4 +93,69 @@ public static class ValueObjectMapping
                 .IsRequired(isRequired);
         });
     }
+
+    /// <summary>
+    /// Maps an <see cref="Address"/> property to <c>{prefix}_line1</c>, <c>{prefix}_line2</c>,
+    /// <c>{prefix}_city</c>, <c>{prefix}_region</c>, <c>{prefix}_postal_code</c> and
+    /// <c>{prefix}_country_code</c> (Stage 06, ADR-037).
+    /// </summary>
+    /// <typeparam name="TEntity">The owning entity.</typeparam>
+    /// <param name="builder">The entity type builder.</param>
+    /// <param name="property">The address property, for example <c>store => store.Address</c>.</param>
+    /// <param name="columnPrefix">The column name prefix, <c>snake_case</c>.</param>
+    /// <param name="isRequired">
+    /// Whether every field is required. <c>false</c> leaves every column nullable, which is how an
+    /// entity with an optional address (a store that has not recorded one yet) represents "none" —
+    /// every <c>{prefix}_*</c> column is null on that row.
+    /// </param>
+    public static void HasAddress<TEntity>(
+        this EntityTypeBuilder<TEntity> builder,
+        System.Linq.Expressions.Expression<Func<TEntity, Address?>> property,
+        string columnPrefix,
+        bool isRequired = true)
+        where TEntity : class
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(columnPrefix);
+
+        // An owned type (table-split onto the same table) rather than a complex property. EF Core 9
+        // refuses to configure a complex property as optional ("call IsRequired()" —
+        // https://github.com/dotnet/efcore/issues/31376), and an optional address is exactly what
+        // Stage 06 needs: a store or a partner with no address recorded yet is a row with every
+        // {prefix}_* column null, not an empty address. OwnsOne with no separate ToTable call maps to
+        // the owner's own table by default, so the column shape is identical to what ComplexProperty
+        // would have produced.
+        builder.OwnsOne(property, address =>
+        {
+            address.Property(value => value.Line1)
+                .HasColumnName($"{columnPrefix}_line1")
+                .HasMaxLength(256)
+                .IsRequired(isRequired);
+
+            address.Property(value => value.Line2)
+                .HasColumnName($"{columnPrefix}_line2")
+                .HasMaxLength(256);
+
+            address.Property(value => value.City)
+                .HasColumnName($"{columnPrefix}_city")
+                .HasMaxLength(128)
+                .IsRequired(isRequired);
+
+            address.Property(value => value.Region)
+                .HasColumnName($"{columnPrefix}_region")
+                .HasMaxLength(128);
+
+            address.Property(value => value.PostalCode)
+                .HasColumnName($"{columnPrefix}_postal_code")
+                .HasMaxLength(16);
+
+            address.Property(value => value.CountryCode)
+                .HasColumnName($"{columnPrefix}_country_code")
+                .HasMaxLength(2)
+                .IsFixedLength()
+                .IsRequired(isRequired);
+        });
+
+        builder.Navigation(property).IsRequired(isRequired);
+    }
 }

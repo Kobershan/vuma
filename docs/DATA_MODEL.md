@@ -207,6 +207,73 @@ Both a replay and a theft get the same answer — every live token for that user
 
 ---
 
+## 4c. Tables in `catalog`
+
+Built in Stage 06. What a tenant sells: units of measure, items, variants and barcodes. No stock
+quantity, no price, no GL account — those are Stage 08, Stage 10 and Stage 07 respectively (Stage 06's
+own scope note). No foreign key leaves this schema; `Item.UnitOfMeasureId` and `Barcode.ItemId`/
+`ItemVariantId` are same-schema plain references, and `Item.TaxClassCode` is a string code rather than
+a reference into `finance`, per `CONVENTIONS.md` §2.
+
+### `catalog.units_of_measure`
+
+`code`, `name`, `type`, `base_unit_of_measure_id`, `conversion_factor_to_base`, `is_active`.
+
+A unit either *is* a base unit (`base_unit_of_measure_id` is `null`, factor `1`) or converts to one by
+multiplication — one level, never a graph, because no retailer's packaging needs a conversion chain and
+a chain needs a path-finding query on every stock movement. `ux_units_of_measure_tenant_id_code` is
+unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`.
+
+### `catalog.items`
+
+`code`, `name`, `description`, `item_type`, `unit_of_measure_id`, `tax_class_code`, `is_active`,
+`has_variants`.
+
+`has_variants` is the domain's own record of which of the two states — sells as itself, or sells only
+through a variant — the item is in; `Barcode.CreateForItem` reads it before attaching directly to an
+item. `ux_items_tenant_id_code` is unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`, the
+same shape as `platform.stores`.
+
+### `catalog.item_variants`
+
+`item_id`, `sku`, `attributes` (`jsonb`), `is_active`.
+
+`attributes` is an ordered list of name/value pairs — `Size: M`, `Colour: Red` — stored as one `jsonb`
+column rather than a child table (ADR-054). Created only through `Item.AddVariant`, never directly, so
+the parent item is always the one place that records it has gained its first variant.
+`ux_item_variants_tenant_id_sku` is unique on `(tenant_id, sku)`, filtered to `deleted_at IS NULL`.
+
+### `catalog.barcodes`
+
+`code`, `symbology`, `item_id`, `item_variant_id`, `is_primary`.
+
+Attaches to exactly one of an item (only while that item has no variants) or a variant — enforced both
+by the domain (`Barcode.CreateForItem`/`CreateForVariant`) and by a database check constraint,
+`ck_barcodes_exactly_one_owner`. `ux_barcodes_tenant_id_code` is unique **tenant-wide regardless of
+symbology** — a scanner reads a code, not a type. Two more unique, partial indexes
+(`ux_barcodes_item_id_primary`, `ux_barcodes_item_variant_id_primary`) back the "exactly one primary
+per owner" invariant at the database level, belt-and-braces alongside `Barcode.SetPrimary`'s own
+bookkeeping, against the one write two terminals could race on. `Barcode` is the one entity in this
+module that is hard-deleted rather than deactivated — see ADR-055 for why, and `docs/SYNC_AND_BACKUP.md`
+§3 for how that interacts with replication.
+
+## 4d. Tables in `partners`
+
+Built in Stage 06. Who a tenant trades with. No credit terms, no balance, no ledger account — Stage 07
+owns AR/AP against a `PartnerId` it doesn't need this schema to widen for.
+
+### `partners.partners`
+
+`code`, `name`, `type`, `address_*` (the same structured `Address` value object `platform.stores` uses,
+ADR-037), `email`, `phone`, `tax_number`, `is_active`.
+
+`type` is `PartnerType`, a `[Flags]` enum stored as text — `Customer`, `Supplier`, or both — and the
+domain refuses `None` (`PartnerRuleException.MustBeCustomerOrSupplier`): the flag is the reason the
+type exists. `ux_partners_tenant_id_code` is unique on `(tenant_id, code)`, filtered to
+`deleted_at IS NULL`.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -224,8 +291,15 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `UserRoleAssignment` | CloudToStore | CloudWins | As `Role`. Who holds what is decided centrally. |
 | `Terminal` | StoreToCloud | StoreWins | The store enrols its own tills; the cloud observes them, and counts them for licensing. |
 | `RefreshToken` | NodeLocal | LastWriterWins | A session credential has no business leaving the node that issued it. Shipping these to the cloud would put every store's live sessions in one place for no operational gain. |
+| `UnitOfMeasure` | Bidirectional | CloudWins | A store may add a unit locally; head office reconciles a collision the same way it does for `Store`. |
+| `Item` | Bidirectional | CloudWins | A new line may be raised at either tier; the cloud is where a multi-store catalogue stays consistent. |
+| `ItemVariant` | Bidirectional | CloudWins | Follows its item. |
+| `Barcode` | Bidirectional | CloudWins | Attaching a case-pack or legacy code locally is routine; the cloud settles a genuine collision. The one entity in this stage that is hard-deleted rather than deactivated (ADR-055), which the delete itself replicates like any other change. |
+| `Partner` | Bidirectional | CloudWins | Suppliers and customers are onboarded at either tier; head office reconciles a duplicate. |
 
-Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`.
+Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
+adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
+one-line rationale per entity.
 
 ---
 

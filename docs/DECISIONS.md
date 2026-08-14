@@ -719,3 +719,68 @@ is the exact failure the tolerance exists to prevent.
 which is the correct way for this to fail — a false rebind demand stops a paying customer trading, and
 ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
 never reads as agreement, and no value is ever fabricated to fill a gap.
+
+---
+
+# Revision 9 — Stage 06 master data
+
+## ADR-060 — A variant's attributes are one ordered `jsonb` column, not a child table — **LOCKED**
+**Context.** `ItemVariant` needs a small, ordered set of named attribute pairs — `Size: M`, `Colour:
+Red` — and the number of dimensions a retailer actually uses is almost always one or two, occasionally
+three, and essentially never open-ended. A child table (`item_variant_attributes`) is the conventional
+normalised shape and is also a join on every variant read, a migration to add an index the first time
+somebody asks "find every red thing", and a second sequence column to keep display order, which a
+relational table does not give for free.
+**Decision.** `ItemVariant.Attributes` is an ordered `IReadOnlyList<VariantAttribute>` value object,
+mapped to a single `jsonb` column (`CatalogConfigurations.ItemVariantConfiguration`). Order is
+preserved because it is display order and a JSON array keeps it without an extra column. A value
+comparer is registered so EF's change tracker treats two lists with the same elements in the same
+order as equal, which is what makes the column participate correctly in `SaveChanges` and in the
+mapping-conformance round-trip tests.
+**Consequences.** Reading a variant costs nothing beyond the row it already fetches, and adding a
+fourth attribute to the product line is a data edit, not a migration touching every existing variant
+row. The cost is paid on the other side: attributes are not individually indexable or queryable in SQL
+without a `jsonb` expression index, which nobody needs today — POS and catalogue search resolve a
+variant by SKU or barcode, never by filtering on `Colour = 'Red'` across the whole catalogue. If that
+requirement ever arrives, promoting the column to a child table is a self-contained migration, not a
+domain redesign, because `VariantAttribute` is already a named pair rather than a free-text blob.
+
+## ADR-061 — A barcode is the one entity in this stage that is genuinely hard-deleted — **LOCKED**
+**Context.** CLAUDE.md §7 rule 8 makes soft delete the default for every table, and `Item`,
+`ItemVariant`, `Partner` and `UnitOfMeasure` all follow it — each carries a `Deactivate()`/`Activate()`
+pair instead of a delete. A barcode is different in kind: it identifies a product to a scanner and
+carries no history of its own the way a sale line, a stock movement or a partner does. A shop
+relabelling a product with a new EAN has no use for the old code sitting in every future lookup,
+uniqueness check and keyset page forever.
+**Decision.** `RemoveBarcodeCommand` calls `IBarcodeRepository.Remove`, which is a real
+`DbSet.Remove` — the row is gone, not `deleted_at`-stamped. Removing a primary barcode promotes a
+remaining sibling atomically in the same handler (`RemoveBarcodeCommandHandler`), so the "exactly one
+primary" invariant survives the deletion.
+**Consequences.** A barcode value becomes reusable the instant it is removed, which is correct — the
+uniqueness index is filtered on `deleted_at IS NULL` for every other catalog table but a removed
+barcode leaves no row at all, so there is nothing to filter. The replication registry still declares
+`Bidirectional`/`CloudWins` for `Barcode` (`docs/SYNC_AND_BACKUP.md` §3): a delete is itself a change
+the outbox captures and ships like any other, and `CloudWins` decides which node's delete-or-recreate
+wins if both edit the same barcode's owner at once. The one thing this ADR rules out is ever adding a
+`deleted_at` column to `catalog.barcodes` to "make it consistent" with its siblings — that would be
+solving a problem (audit of a removed alias) nothing in this product asks for, at the cost of the
+uniqueness index every add-barcode call depends on.
+
+## ADR-062 — Item and partner counts get no `LimitKind`; they stay unlimited — **LOCKED**
+**Context.** `docs/LICENSING.md` §6 fixes the hard limits — stores, terminals, named users — and the
+soft limits — transactions/month, storage, API calls — as closed lists, and says plainly that a new
+kind is not to be added speculatively. Stage 06 is the first stage that could plausibly want one: a
+catalogue of items and a register of partners are exactly the kind of thing a SaaS pricing tier
+sometimes gates on ("up to 5,000 SKUs").
+**Decision.** No `LimitKind.Items` or `LimitKind.Partners` is added. A tenant may create as many items,
+variants, barcodes and partners as their catalogue needs, regardless of plan.
+**Consequences.** This is a commercial decision as much as an engineering one, and it is made here
+because nothing downstream should invent a limit to fill a perceived gap: `docs/LICENSING.md` names the
+complete list, and master data is deliberately not on it. The reasoning is the same ADR-034/ADR-052
+pattern applied to a different list — a closed enumeration is only trustworthy if additions are
+deliberate and recorded, not incidental to whichever stage happens to touch it next. If the vendor ever
+wants to sell by catalogue size, that is a new ADR revising `LICENSING.md` §6, not a quiet addition
+here. Until then, `CreateItemCommandHandler` and `CreatePartnerCommandHandler` check only code
+uniqueness and an active unit of measure — no `IEntitlementService.CheckLimitAsync` call — which is the
+same shape `CreateStoreCommandHandler` uses for the hard limit it *does* have, so the absence here is a
+deliberate omission rather than one nobody thought about.

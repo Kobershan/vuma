@@ -119,6 +119,16 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SyncCursor` | `sync` | `NodeLocal` | — | Per-node bookkeeping |
 | `ConflictEntry` | `sync` | `StoreToCloud` | `LastWriterWins` | A queue one machine can see is a queue nobody reviews |
 | `BackupSnapshot` | `backup` | `StoreToCloud` | `LastWriterWins` | Backup health is what a multi-store operator needs |
+| `UnitOfMeasure` | `catalog` | `Bidirectional` | `CloudWins` | Configuration a store may add to locally; head office reconciles a collision the same way it does for `Store` |
+| `Item` | `catalog` | `Bidirectional` | `CloudWins` | A store may raise a new line at the till counter as easily as head office can; the cloud is where a multi-store catalogue is kept consistent |
+| `ItemVariant` | `catalog` | `Bidirectional` | `CloudWins` | Follows its item |
+| `Barcode` | `catalog` | `Bidirectional` | `CloudWins` | A store attaching a legacy or case-pack code locally is routine; the cloud settles a genuine collision |
+| `Partner` | `partners` | `Bidirectional` | `CloudWins` | Suppliers and customers are onboarded at either tier; head office is where a multi-store estate reconciles a duplicate |
+
+Stage 06 (master data). None of the five is immutable — `Item`, `ItemVariant`, `Partner` and `UnitOfMeasure`
+deactivate rather than delete (§7 rule 8), and `Barcode` is the one entity in the module that is hard
+deleted (`docs/DECISIONS.md` ADR-061) — so `CloudWins` is a legitimate policy for all five; nothing here
+collides with the immutable-record rule two paragraphs below.
 
 **An immutable record may not declare a policy that overwrites it.** `AuditInterceptor` throws on any
 update to an `IImmutableRecord` (§7 rule 7, ADR-012), so an immutable entity declaring
