@@ -50,10 +50,12 @@ public sealed record EnforcementDecision(
 /// allowed to" is a second set of edge cases and only one of them gets fixed.
 /// </para>
 /// <para>
-/// <b>Read paths must never call <see cref="CurrentLevel"/>.</b> ADR-028 promises a lapsed tenant full
-/// read, report, reprint and export access, so a query that consults the enforcement level is a bug by
-/// construction — there is no answer it could act on that would be correct. There is a test for that
-/// too.
+/// <b>Deliberately has no way to ask the enforcement level.</b> That question belongs to
+/// <see cref="IEnforcementStatusReader"/> instead (ADR-054). A gate that could also answer "what level
+/// are we at" is a gate a query handler can plausibly justify depending on; keeping the two questions
+/// on two interfaces makes "no query handler depends on <see cref="IEntitlementService"/>" a fact about
+/// the type system rather than a rule someone has to remember, and the architecture test that checks it
+/// needs no exemption list.
 /// </para>
 /// </remarks>
 public interface IEntitlementService
@@ -86,15 +88,33 @@ public interface IEntitlementService
         LimitKind kind,
         long proposedValue,
         CancellationToken cancellationToken = default);
+}
 
+/// <summary>
+/// Where the tenant sits on the enforcement ladder, for whatever legitimately needs to say so
+/// (<c>LICENSING.md</c> §6, ADR-054).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Split out of <see cref="IEntitlementService"/> so that "read paths must never gate on the
+/// enforcement level" and "the licence screen must show the enforcement level" can both be true without
+/// a hand-maintained exception list. This interface can only report; it has no method whose answer
+/// could be used to refuse a read, so a query handler depending on it is safe by construction. The
+/// read-only guard, the lease refresh path and the licence/sub-lease screens are exactly the things
+/// that legitimately need this — everything else asks <see cref="IEntitlementService"/> instead.
+/// </para>
+/// <para>
+/// Implemented by the same instance as <see cref="IEntitlementService"/> within a scope (see the
+/// registration in <c>LicensingServiceCollectionExtensions</c>), so the two interfaces never disagree
+/// about where a request's tenant stood when it was memoised.
+/// </para>
+/// </remarks>
+public interface IEnforcementStatusReader
+{
     /// <summary>
     /// Where the tenant sits on the enforcement ladder.
     /// </summary>
     /// <param name="cancellationToken">Cancels the operation.</param>
-    /// <remarks>
-    /// For the read-only guard and the licence screen. Not for a query handler — see the type's
-    /// remarks, and the architecture test that enforces them.
-    /// </remarks>
     Task<EnforcementDecision> CurrentLevel(CancellationToken cancellationToken = default);
 }
 

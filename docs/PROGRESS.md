@@ -3,113 +3,52 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-14 · **Current stage:** 06 — Master data (items, variants, barcodes, UoM, partners) · **Status:** DONE on this branch (`worktree-stage-06-master-data`); reconciliation with `main` (which has since advanced through 04b-complete and a Stage 05 commit) is the next step before this can merge.
+**Last updated:** 2026-08-14 · **Current stage:** 06 — Master data (items, variants, barcodes, UoM, partners) · **Status:** DONE and merged to `main`. Stages 05 and 07 still have real work in progress on separate branches/worktrees (see below) and have **not** been reconciled or merged.
 
 ---
 
 ## 1. Stage status
 
+`main` is at 06. Two later-numbered-by-dependency stages have genuine progress on unmerged
+branches — 05 was started in its own worktree so it could proceed in parallel without colliding on
+shared files; 07 depends on 06 and could not really be finished until this merge landed. Neither has
+been reconciled or merged back yet.
+
 | Stage | Title | Status | Changed |
 |---|---|---|---|
-| 00 | Foundation — solution skeleton, conventions, CI | **DONE** | 2026-08-09 |
-| 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** | 2026-08-09 |
-| 02 | Identity, RBAC, permission catalogue | **DONE** | 2026-08-10 |
-| 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** | 2026-08-10 |
-| 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** | 2026-08-10 |
-| 04b | Licensing, activation & entitlement | **DONE** | 2026-08-11 |
-| 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (this branch) | 2026-08-14 |
-| 05, 07 – 31 | see `ROADMAP.md` / `main`'s `docs/PROGRESS.md` for the authoritative cross-branch picture | — | — |
+| 00 | Foundation — solution skeleton, conventions, CI | **DONE** (main) | 2026-08-09 |
+| 01 | Persistence core — EF Core, base entity mapping, migrations, audit | **DONE** (main) | 2026-08-09 |
+| 02 | Identity, RBAC, permission catalogue | **DONE** (main) | 2026-08-10 |
+| 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** (main) | 2026-08-10 |
+| 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** (main) | 2026-08-10 |
+| 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
+| 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
+| 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
+| 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **IN_PROGRESS** — unverified, branch `stage-07-finance` plus worktree `.claude/worktrees/stage-07-finance`. Depends on Stage 06, which has now landed | — |
+| 08 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+
+**Stage 06 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-14
+entry below for the full exit checklist and what was found/fixed. **Neither 05 nor 07's branch work has
+been verified** (no exit checklist ticked, no merge to `main`) — treat their statuses as "a session
+started this and made real progress," not as "this is DONE." Whoever picks one up next should run the
+stage through to a green build, tick its Exit Checklist, merge to `main` in dependency order (05 before
+07, since 07 was written expecting Stage 06's master data — now present — and neither stage depended on
+05's approval engine being present to compile, but the roadmap orders 05 first), and update this table
+for real — do not just narrate progress here without the merge.
+
+**A note on the `4320d48` "Stage 05 Commit" already on `main`'s history (2026-08-12).** Despite its
+message, this commit contains **no workflow/approval code at all** — `git show --stat 4320d48` shows a
+raw duplicate of the Stage 00–04b solution tree under
+`.claude/worktrees/agent-a95a23c6486971147/...`, plus two `160000` gitlink entries for
+`.claude/worktrees/stage-06-master-data` and `.claude/worktrees/stage-07-finance`. This looks like an
+accidental `git add -A` run at the repository root while nested worktrees existed on disk, not a real
+merge of Stage 05's work. **It was not touched or reverted this session** — main's history is not
+rewritten except by merging forward — but whoever picks up Stage 05 next should not mistake it for
+Stage 05 progress, and may want to clean the stray paths out in its own commit.
 
 ---
 
 ## 2. Session log
-
-### 2026-08-14 — Stage 06 complete: master data (items, variants, barcodes, UoM, partners)
-
-`dotnet build -c Release` → **0 warnings, 0 errors** (solution-wide; Domain/Application carry
-warnings-as-errors). `dotnet test` → **584 passed, 0 failed** (303 unit, 25 architecture, 256
-integration), run against real PostgreSQL 16 in Docker. Full exit checklist in
-`docs/stages/STAGE-06-master-data.md` ticked. This session picked up a partially-built worktree — the
-domain layer, application commands/queries, EF configurations, RBAC permission declarations and
-core module manifests were already well-formed and largely complete — and closed every remaining gap
-in the exit checklist.
-
-**What was already done when this session started.** `UnitOfMeasure`/`Item`/`ItemVariant`/`Barcode`
-(catalog) and `Partner` (partners) with the attachment/uniqueness rules enforced in the domain;
-`CatalogRuleException`/`CatalogConflictException`/`CatalogNotFoundException`/`PartnerRuleException` etc;
-every command carrying `[CommandSideEffect(SideEffect.Write)]` with a FluentValidation validator; keyset
-pagination types (`KeysetCursor`, `PageResult<T>`) and `ListItemsQuery`/`ListPartnersQuery` built on
-them (not offset paging); EF configurations for all five entities; `CatalogPermissions`/
-`PartnerPermissions` and `CatalogModuleManifest`/`PartnersModuleManifest` (`IsCore = true`), matching
-`CoreModuleManifests.cs`'s pattern.
-
-**What this session found and fixed.**
-
-1. **A real EF Core 9 bug in the shared `Address` value-object mapping.** `ValueObjectMapping.HasAddress`
-   mapped `Address` as a `ComplexProperty`, which EF Core 9 refuses to configure as optional ("Configuring
-   the complex property … as optional is not supported, call IsRequired()" —
-   github.com/dotnet/efcore/issues/31376). Both current users of the mapping (`Store.Address`,
-   `Partner.Address`) need it optional. Rewritten as an owned type (`OwnsOne`) with table splitting onto
-   the owner's own table — same column shape, genuinely supports null. Confirmed against real PostgreSQL:
-   an address with every field null now round-trips as `Address = null`, not a zeroed struct.
-2. **Missing wiring nobody had written yet:** `PartnerRepository` (EF implementation of
-   `IPartnerRepository` — did not exist), `AddVumaCatalog()` / `AddVumaPartners()` DI extensions
-   (self-registering the repositories, `IModulePermissions` and `IModuleManifest` — the same shape
-   `AddVumaLicensing` uses for its own module, so registration order relative to `AddVumaIdentity`/
-   `AddVumaLicensing` does not matter), and both wired into `VumaRetail.StoreServer/Program.cs` alongside
-   `AddVumaPlatform()` (which existed but was never called from any host — `CreateStoreCommand` would have
-   failed to resolve `IStoreRepository` at runtime).
-3. **No API surface existed for either module.** `CatalogEndpoints.MapVumaCatalog()` and
-   `PartnerEndpoints.MapVumaPartners()` added under `/api/v1/catalog/*` and `/api/v1/partners/*`
-   (units-of-measure, items, item variants, barcodes, partners — full CRUD-shaped surface matching the
-   command/query set), with `RequirePermission` on every route, `Produces`/`ProducesProblem` for OpenAPI,
-   and a small `ParseEnum`/`ParsePartnerType` helper that turns a bad enum string into a 400
-   `ValidationFailedException` rather than a 500. New `PageResponse<T>` and per-module `*IdResponse`
-   contracts added to `VumaRetail.Contracts` (desktop/Android reachable, per ADR-008).
-4. **No migration existed.** Generated `20260814112048_MasterData` (adds `catalog` and `partners`
-   schemas, four `catalog` tables, one `partners` table, and converts `platform.stores.address` from a
-   single `varchar(512)` to the structured `address_*` columns). Verified by hand against a throwaway
-   PostgreSQL 16 container: `Up` applied cleanly on top of the existing four migrations, `Down` reverted
-   `MasterData` alone back to a clean `Licensing`-only schema, and a second `Up` re-applied without error
-   — genuinely round-tripped, not merely generated.
-5. **RBAC and read-only enforcement were declared but not wired into the two closed lists that check
-   them.** `AddVumaPermissionCatalogue`/`AddVumaLicensing`'s hand-written module lists don't need editing
-   (both modules self-register — see point 2), but
-   `tests/VumaRetail.ArchitectureTests/IdentityRulesTests.cs`'s `DeclaredModules()` — a hardcoded list the
-   two permission-well-formedness tests iterate — was missing every module past `Identity`, including
-   this stage's two. Added `CatalogPermissions`/`PartnerPermissions`. The mandatory read-only suite
-   (`ReadOnlyCorrectnessTests.Every_write_command_in_the_system_is_refused_and_every_query_passes`) needed
-   no code change at all: it is generated by reflection over the Application/Infrastructure/Sync/Licensing
-   assemblies, so every new `[CommandSideEffect]`-carrying command in this stage was picked up
-   automatically and asserted refused-while-read-only, green on the first run.
-6. **No tests existed for any of it.** Added `UnitOfMeasureTests`, `ItemTests`, `ItemVariantTests`,
-   `BarcodeTests` (Domain/Catalog) and `PartnerTests` (Domain/Partners) — uniqueness, the barcode
-   attachment rule from both directions, UoM one-level conversion, `[Flags]` partner-type validation,
-   deactivate-not-delete. Added `CatalogHarness`/`PartnerHarness` (same shape as Stage 02's
-   `IdentityHarness` — real Postgres, real dispatcher pipeline, hand-constructed container) and
-   `CatalogCommandTests`/`PartnerCommandTests` covering every command handler's refusal paths plus **the
-   keyset-pagination acceptance test the stage brief calls out by name**: a row inserted between two page
-   reads never appears twice or is skipped, asserted against a real concurrent insert mid-page rather than
-   reasoned about.
-7. **`scripts/seed.ps1` (via `DemoSeed.cs`, which it invokes) gained no catalog/partner data.** Added two
-   base units (`EA`, `KG`), one derived (`BOX12` → 12×`EA`), an item with no variants and a barcode
-   (`MILK-2L`), an item with two variants each carrying its own barcode (`SHIRT` → `SHIRT-M-RED`,
-   `SHIRT-L-BLUE`), and two partners (one supplier, one customer) — demonstrating both of `Barcode`'s
-   attachment rules in one seed run. Verified idempotent (second run creates nothing) and the resulting
-   rows verified by hand against the seeded database.
-
-**Docs.** `docs/DATA_MODEL.md` gained §4c (`Tables in catalog`) and §4d (`Tables in partners`), plus five
-new rows in the §5 replication registry. `docs/SYNC_AND_BACKUP.md` §3 gained the same five rows with
-schema and rationale. **ADRs appended:** ADR-060 (variant attributes are one ordered `jsonb` column, not
-a child table) · ADR-061 (a barcode is the one entity in this stage that is hard-deleted, not
-deactivated) · ADR-062 (item and partner counts get no `LimitKind` — `docs/LICENSING.md` §6's list stays
-closed).
-
-**Toolchain note.** `pg_dump`/`pg_restore` were not on `PATH` on this machine, which made six pre-existing
-Stage 04 `BackupTests` fail — unrelated to this stage, but they block "`dotnet test` all green" if left
-unfixed. Installed via `winget install PostgreSQL.PostgreSQL.16` (client tools only needed; the server
-itself runs in Docker for the integration suite). Confirmed all six pass once `pg_dump.exe` is
-reachable.
 
 ### 2026-08-09 — Repository initialised, documentation set filed
 
@@ -504,6 +443,218 @@ See ADR-052.
 `Infrastructure`, with a development key pair · ADR-052 three exemption *kinds*, closed membership ·
 ADR-053 fingerprint tolerance scales with what the machine can report.
 
+### 2026-08-11 — Stage 04b complete: licensing, activation & entitlement
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh`-equivalent → **528 passed, 0
+failed** (261 unit, 27 architecture — 2 new this session — 240 integration — 2 new this session).
+Verified twice: once against a manually-started local PostgreSQL (Docker Desktop's backend would not
+come up on this machine; see toolchain note below), and again after the `UsageCounterSource` fix
+below, to confirm no regression. Full exit checklist in
+`docs/stages/STAGE-04b-licensing.md` now ticked. This closes the debt the Stage 00 filing session
+deferred and the previous session left open: TESTING.md and LICENSING.md now speak read-only
+throughout, the two outstanding metering tests exist, and the two outstanding architecture rules are
+in place.
+
+**Documentation.** `docs/TESTING.md` §7 restated against read-only (ADR-028) rather than the
+superseded ADR-027 lockout language — "drops to read-only", "restores full write access", "write
+unlock" — and its "export unlock" bullet replaced with the real "write unlock" mechanism
+(`LICENSING.md` §5), since read-only already grants export and a separate unlock for it was never
+built. `docs/LICENSING.md` §2's licence key example corrected from the pre-rename `ZNTH-` prefix to
+`VUMA-`, matching what `LicenceKey` actually issues and what `LicenceKeyTests` actually asserts.
+
+**Two tests the stage brief named, now in
+`tests/VumaRetail.IntegrationTests/Licensing/MeteringTests.cs`.** Metering payload privacy, run
+against a tenant seeded with real names, a real email and a real store address, asserting by string
+search that none of it appears in the serialised payload and structurally that every property is on
+the whitelist schema. Offline for forty-five days then reconnected: modelled as forty-five days of
+undelivered backlog with a daily heartbeat keeping the lease current (not as forty-five days of an
+unreachable control plane, which would itself cross the Path A read-only boundary at its default of
+fifteen days partway through — that boundary is `NoAccidentalLockoutTests`' job, not this one's), then
+one delivery pass that sends all forty-five exactly once, asserted against
+`InProcessControlPlane.Metering`'s `(node, period)` keys and `MeteringDeliveries`.
+
+**Two architecture rules the stage brief named, now in
+`tests/VumaRetail.ArchitectureTests/LicensingRulesTests.cs`.** Every module declaring
+`IModulePermissions` also declares an `IModuleManifest` (all five already did; the rule makes it stay
+true). No query handler depends on `IEntitlementService`. Writing the second exposed that it did not
+hold: `GetLicenceStatusQueryHandler` and `GetSubLeaseQueryHandler` — both queries, both legitimate —
+already depended on it for `CurrentLevel`. Rather than a named-exception list in the same shape as
+Stage 04's `BypassTenantFilter` call sites, `CurrentLevel` moved onto a new interface,
+`IEnforcementStatusReader`, leaving `IEntitlementService` as the gate alone (`IsModuleEnabledAsync`,
+`CheckLimitAsync`). Both interfaces resolve to the same `EntitlementService` instance within a scope,
+so the gate and the status reader never disagree about where a request's tenant stood. Five call sites
+(`ReadOnlyGuardBehaviour`, both `LeaseCommands` handlers, both query handlers) changed their
+constructor's parameter type and nothing else. **ADR-054.**
+
+**One correction to a correction.** The previous session's log claimed `CommandClassificationTests`'
+exemption cap had already been moved from counting *commands* to counting *kinds* (ADR-052). It had
+not — the code still read `exempt.Count <= 3` on raw commands. The bug stayed invisible only because
+`CommandClassificationTests` never scanned the `VumaRetail.Licensing` assembly at all (also fixed this
+session), so none of Stage 04b's six licence-screen commands sharing `ReadOnlyExemption.Payment` were
+ever counted. Both are fixed now: the assembly is scanned, and the cap is asserted on the *set* of
+kinds in use against the closed list `{Payment, OfflineFlush, Backup}`, matching what ADR-052 always
+said and what `ReadOnlyExemption.Payment`'s own doc comment already described.
+
+**One real defect the new tests found, confirmed before fixing.** `UsageCounterSource.StorageBytesAsync`
+wrapped `context.Database.GetDbConnection()` — the `DbContext`'s own live connection, not a new one —
+in `await using`, which disposes the connection object outright rather than merely closing it. Every
+query the same `DbContext` ran afterward in that scope threw `ObjectDisposedException`. Latent since
+Stage 04b's metering code was written, because no integration test had exercised
+`RollUpMeteringCommand` against a real database until this session's two did — both failed identically
+on their first run, which is what surfaced it. Fixed by closing the connection again only when this
+method is the one that opened it, and never disposing it; the `DbContext` owns its lifetime. Confirmed
+by re-running the two new tests (green) and then the full suite (green, no regressions elsewhere —
+`CountActivityAsync` is on the heartbeat and metering paths only, so the blast radius was already
+known to be small).
+
+**Replication registry.** `docs/SYNC_AND_BACKUP.md` §3's registry table was missing all eight
+`licensing`-schema entities, despite each one declaring a `[Replicated(...)]` attribute and the Stage
+04b migration having shipped them. Added, all `NodeLocal` except `SupportGrant` (`Bidirectional` —
+consent can be granted or revoked from the store back office or the cloud-facing admin app, and both
+must converge).
+
+**ADRs appended:** ADR-054 `CurrentLevel` moves off `IEntitlementService` onto
+`IEnforcementStatusReader`.
+
+### 2026-08-12 — Documentation reconciled: roadmap, decisions, agents filed and corrected
+
+A batch of loose planning documents was dropped into the repo root again — the same pattern as the
+2026-08-09 filing session, and the reason it happens is the same: an update gets drafted against a
+stale copy of the docs and needs reconciling against what actually landed, not just moved into place.
+
+**Filed as genuine updates (moved, content unchanged except where noted):**
+
+| From (repo root) | To |
+|---|---|
+| `AUTONOMOUS_OPERATION.md` | `docs/AUTONOMOUS_OPERATION.md` |
+| `DESIGN_SYSTEM.md` | `docs/DESIGN_SYSTEM.md` |
+| `API_CONNECT.md` | `docs/API_CONNECT.md` |
+| `STAGE-08b-design-system.md` | `docs/stages/STAGE-08b-design-system.md` |
+| `STAGE-10b-accounts-layby-stokvel.md` | `docs/stages/STAGE-10b-accounts-layby-stokvel.md` (ADR-030 ref → ADR-055) |
+| `STAGE-21b-vuma-connect.md` | `docs/stages/STAGE-21b-vuma-connect.md` (ADR-031 ref → ADR-056) |
+| `claude-user-settings.json` | `deploy/claude-user-settings.json` (matches the path `docs/AUTONOMOUS_OPERATION.md` §2 already documents) |
+| `run-autonomous.ps1` | `scripts/run-autonomous.ps1` (matches the path `CLAUDE.md` and `docs/AUTONOMOUS_OPERATION.md` already reference) |
+
+**`docs/DECISIONS.md`** — the root copy's five new ADRs (customer-money liability, Vuma Connect
+tenancy, payment orchestration, one design system, unattended operation) were numbered ADR-030–034,
+colliding with the five *real* ADR-030–034 already on `main` (central package management, Windows-only
+projects, FluentAssertions pin, money rounding, command-side-effect classification — all from Stage
+00). The root document was drafted against an old copy of the ADR log and never saw ADR-030 onward. The
+five new ADRs were appended for real as **ADR-055–059**, and the two stage documents that cited the old
+numbers were corrected.
+
+**`docs/ROADMAP.md`** — the root copy's 37-stage plan (adding 08b/10b/21b) was a genuine improvement
+over the 31-stage table it replaced, so it became the new `docs/ROADMAP.md`. Corrections made filing
+it: stage-doc links pointed at filenames that don't exist (`STAGE-01-domain-kernel.md`,
+`STAGE-04-sync-backup.md` — the real files are `STAGE-01-persistence.md` and
+`STAGE-04-sync-and-backup.md`); the intro cited a `docs/GAP_ANALYSIS.md` that was never written and
+isn't needed (this entry, and the ADRs above, are the actual record of what changed and why); and
+stages 05/06/07 are linked as plain text, not markdown links, since their stage documents exist only on
+WIP branches, not on `main` (see §1, §5).
+
+**`docs/PROGRESS.md`** (this file) — **not** overwritten by the root copy. The root `PROGRESS.md` was a
+stale, unfilled-in template (stages 00–04 "reported complete by owner; verify before building on it",
+04b still `NOT_STARTED`, a stale product-rename handoff note) — clearly an earlier draft than this
+file's real session log, not an update to it. It was deleted rather than filed. What *was* real and
+missing from this file: stages 05, 06 and 07 have actual work in progress on three separate
+worktrees/branches that this file's stage table didn't mention at all. §1 and §5 above now reflect
+that honestly — in progress, unmerged, unverified — instead of the table's previous blanket
+`NOT_STARTED`.
+
+**`CLAUDE.md`** — the working copy had already been edited in place (it's a tracked file, so the edit
+showed as a diff rather than a new file) with a mix of real additions and a repeat of the exact
+"duplicated, stale module map" bug the 2026-08-09 session fixed once already: a second, conflicting
+module → stage table appended after the live one, with different stage numbers for the same modules.
+Reverted that block again. Also reverted a repository-layout edit that renamed the folder shown in §5's
+tree from `vuma/` to `vuma-retail/` — the actual folder, remote and package prefix are `vuma`
+(ADR-042, LOCKED); the tree diagram was simply wrong. Kept the genuine additions: the
+`docs/AUTONOMOUS_OPERATION.md` reference and rules in §1, the three new doc references and two new
+hard rules in §5/§7 (renumbered to fit after the existing 16, since the stale block had also knocked
+the numbering out), and the 08b/10b/21b rows in the §6 module map.
+
+**Not filed — left for a decision, not silently applied:** root `settings.json` looks like it's meant
+to replace `.claude/settings.json` (adds `AskUserQuestion` to the deny list, matching the new
+`AUTONOMOUS_OPERATION.md` and ADR-059) but also changes which secret-file patterns are denied. That's a
+permissions/security change, not a docs filing — flagged to the user rather than applied.
+
+**Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
+`stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
+three parallel branches is its own piece of work — see §5.
+
+### 2026-08-14 — Stage 06 complete: master data (items, variants, barcodes, UoM, partners) — merged to `main`
+
+`dotnet build -c Release` → **0 warnings, 0 errors** (solution-wide; Domain/Application carry
+warnings-as-errors). `dotnet test` → **584 passed, 0 failed** (303 unit, 25 architecture, 256
+integration) on the stage-06 branch before merging, run against real PostgreSQL 16 in Docker; re-run
+green again on `main` after the merge (see below). Full exit checklist in
+`docs/stages/STAGE-06-master-data.md` ticked. This session picked up the partially-built worktree at
+`.claude/worktrees/stage-06-master-data` (branch `worktree-stage-06-master-data`, based on `daac7ef` —
+the same commit as `main`'s Stage 04b, before the 04b-complete fixes and the doc-reconciliation session
+below) — the domain layer, application commands/queries, EF configurations, RBAC permission
+declarations and core module manifests were already well-formed and largely complete — and closed
+every remaining gap in the exit checklist, then merged forward through `main`'s two extra commits
+(`8ca6c7f` Stage 04b complete, `269750b` doc reconciliation) before merging into `main` itself.
+
+**What was already done when this session started.** `UnitOfMeasure`/`Item`/`ItemVariant`/`Barcode`
+(catalog) and `Partner` (partners) with the attachment/uniqueness rules enforced in the domain, not the
+handler; the full exception hierarchy; every command carrying `[CommandSideEffect(SideEffect.Write)]`
+with a FluentValidation validator; keyset pagination primitives (`KeysetCursor`, `PageResult<T>`) and
+`ListItemsQuery`/`ListPartnersQuery` built on them (not offset paging, honouring the promise this file
+made when Stage 04 was written); EF configurations for all five entities; `CatalogPermissions`/
+`PartnerPermissions` and `CatalogModuleManifest`/`PartnersModuleManifest` (`IsCore = true`).
+
+**What this session found and fixed:**
+
+1. **A real EF Core 9 bug.** `ValueObjectMapping.HasAddress` mapped the shared `Address` value object
+   (ADR-037, used by both `Store` and the new `Partner`) as a `ComplexProperty`, which EF Core 9 refuses
+   to configure as optional. Rewritten as an owned type (`OwnsOne`, table-split onto the owner's own
+   table) — same columns, genuinely nullable. Confirmed against real PostgreSQL: an address with every
+   field null now round-trips as `Address = null`.
+2. **Missing wiring nobody had written yet:** `PartnerRepository`; `AddVumaCatalog()` /
+   `AddVumaPartners()` DI extensions (self-registering permissions and manifests, same shape
+   `AddVumaLicensing` uses); wired into `VumaRetail.StoreServer/Program.cs` alongside `AddVumaPlatform()`
+   (which existed but was never called from any host).
+3. **No API surface existed for either module.** Added under `/api/v1/catalog/*` and
+   `/api/v1/partners/*` with `RequirePermission` on every route and OpenAPI `Produces`/`ProducesProblem`.
+4. **No migration existed.** Generated `20260814112048_MasterData` (adds `catalog` and `partners`
+   schemas, four `catalog` tables, one `partners` table, converts `platform.stores.address` from a bare
+   `varchar(512)` to structured `address_*` columns). Verified by hand against a throwaway PostgreSQL 16
+   container: `Up` → `Down` → `Up`, genuinely round-tripped.
+5. **RBAC/read-only wiring:** `IdentityRulesTests.DeclaredModules()` — a hardcoded list two
+   permission-well-formedness architecture tests iterate — was missing every module past `Identity`
+   (this gap predates Stage 06; Sync/Licensing were left as found, not this stage's job to fix). Added
+   `CatalogPermissions`/`PartnerPermissions`. The mandatory read-only suite needed no code change: it is
+   generated by reflection over the Application/Infrastructure/Sync/Licensing assemblies, so this
+   stage's new commands were picked up and asserted refused-while-read-only automatically.
+6. **No tests existed.** Added Domain unit tests for all five entities and integration tests
+   (`CatalogHarness`/`PartnerHarness`, same shape as Stage 02's `IdentityHarness`) covering every command
+   handler's refusal paths plus the keyset-pagination acceptance test the stage brief calls out by name —
+   a row inserted between two page reads asserted never to appear twice or be skipped.
+7. **Seed data.** `DemoSeed.cs` (which `scripts/seed.ps1`/`seed.sh` invoke) gained two base units, one
+   derived, an item with no variants and a barcode, an item with two variants each with its own barcode,
+   and two partners — demonstrating both of `Barcode`'s attachment rules. Verified idempotent and the
+   resulting rows checked by hand.
+
+**Docs.** `docs/DATA_MODEL.md` gained §4c/§4d and five replication-registry rows; `docs/SYNC_AND_BACKUP.md`
+§3 gained the same five rows. **ADRs appended:** ADR-060 (variant attributes are one ordered `jsonb`
+column) · ADR-061 (barcode is the one hard-deleted entity in this stage) · ADR-062 (item/partner counts
+get no `LimitKind` — `docs/LICENSING.md` §6's list stays closed).
+
+**Toolchain note.** `pg_dump`/`pg_restore` were not on `PATH`, which made six pre-existing Stage 04
+`BackupTests` fail — unrelated to this stage, but blocking "all green". Installed via
+`winget install PostgreSQL.PostgreSQL.16`; confirmed all six pass with `pg_dump.exe` reachable.
+
+**Merging forward.** The branch's base (`daac7ef`) was exactly `main`'s Stage 04b commit before two
+further commits (`8ca6c7f` Stage 04b's completion fixes — including moving `CurrentLevel` off
+`IEntitlementService`, ADR-054 — and `269750b`'s doc reconciliation, which appended ADR-055–059 for
+later-stage planning docs). This session's own new ADRs were written against the stage's stale local
+copy of `docs/DECISIONS.md` and had collided on ADR-054–056; renumbered to ADR-060–062 before merging so
+nothing on `main` was overwritten. `docs/DECISIONS.md`, `docs/PROGRESS.md` and `docs/SYNC_AND_BACKUP.md`
+all had textual merge conflicts, all resolved by keeping both sides' content (no code files conflicted —
+the merge base was exactly this branch's own starting point, so the two branches never touched the same
+line of code). Full `dotnet build -c Release` and `dotnet test` re-run after the merge, on the stage-06
+branch and again on `main` after the merge landed there — both green.
+
 ---
 
 ## 3. Deferred — needs real credentials
@@ -527,31 +678,35 @@ These are cited as reference reading by stages that will need them. Each should 
 stage that first depends on it, not all up front:
 
 `ARCHITECTURE.md` · `IMPORT_PIPELINE.md` (Stage 11) · `HARDWARE.md` (Stage 09) ·
-`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21) · `GAP_ANALYSIS.md`.
+`API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21).
 
 Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
-`API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04).
+`API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04), `LICENSING.md` (Stage 04b),
+`API_CONTROL_PLANE.md` (Stage 30b), `DESIGN_SYSTEM.md` (Stage 08b), `API_CONNECT.md` (Stage 21b),
+`AUTONOMOUS_OPERATION.md` (unattended-run setup, ADR-059).
 
-Stage documents exist for **00**, **01**, **02**, **03**, **04**, **04b** and **30b**. Every other stage
+Stage documents exist on `main` for **00**, **01**, **02**, **03**, **04**, **04b**, **08b**, **10b**,
+**21b** and **30b**. Stage documents for **05**, **06** and **07** exist only on their WIP
+branches/worktrees (§1) and have not been filed to `main` yet — filing them without the code that
+implements them would be misleading, so they stay put until each branch merges. Every other stage
 document must be written by the session that executes it, using `STAGE-04b-licensing.md` as the
 template.
 
-### 4.2 Unresolved contradiction in `docs/TESTING.md` §7 — **still open, and now the only thing between Stage 04b and DONE**
+### 4.2 Contradiction in `docs/TESTING.md` §7 — **RESOLVED 2026-08-11**
 
-The licensing test suite in TESTING.md §7 is still written in the **lockout** language of the
+The licensing test suite in TESTING.md §7 was still written in the **lockout** language of the
 superseded ADR-027: "the store trades normally throughout, and locks only at the configured
 boundary", "Emergency access code: unlocks fully", "Open-session carve-out ... then the terminal
 locks". ADR-028 is the live decision and it ends the ladder at **read-only**, with hard lockout
 surviving only as a manual, two-person, audited vendor action for confirmed abuse.
 
-The *intent* of every listed test survives — they all assert that restriction cannot happen by
-accident — but the assertions need restating against read-only rather than lockout. This was left
-for Stage 04b rather than rewritten here, because it is a test-design decision, not a filing error.
-`docs/LICENSING.md` §4 should be re-read at the same time for the same drift.
-
-**As of 2026-08-11 the tests those paragraphs describe all exist and are green, stated against
-read-only** — `EnforcementPolicyTests`, `NoAccidentalLockoutTests` and `ReadOnlyCorrectnessTests`. What
-has not happened is the document catching up with them. See §5 item 1.
+The *intent* of every listed test survived — they all assert that restriction cannot happen by
+accident — the assertions just needed restating against read-only rather than lockout. TESTING.md §7
+now speaks read-only throughout: "drops to read-only", "restores full write access", "write unlock"
+in place of "unlocks", and the "export unlock" bullet (a mechanism ADR-028 folded into read-only
+itself, since read-only already grants export) is replaced with the actual "write unlock" mechanism
+`LICENSING.md` §5 describes. `LICENSING.md` §2's licence key example was also corrected from the
+pre-rename `ZNTH-` prefix to `VUMA-`, matching what `LicenceKey` actually issues.
 
 ### 4.3 Toolchain not available on the current development machine
 
@@ -572,6 +727,26 @@ migration chain against it, so the handler-test requirement in `docs/TESTING.md`
 rather than waived. See ADR-036 for why the fixture never skips.
 
 The next real toolchain blocker is **Windows**, at Stage 09.
+
+**2026-08-11 — this Stage 04b completion session ran on an actual Windows machine**, not the Linux
+machine the rest of this section describes. Notes for whoever next runs on Windows directly:
+
+- .NET 9 SDK installed via `winget install Microsoft.DotNet.SDK.9` — clean, no issues.
+- PostgreSQL 16 installed via `winget install PostgreSQL.PostgreSQL.16`. **`scripts/pg-test.sh` does
+  not work as shipped**: it passes `-k <data dir>` to `pg_ctl` to set `unix_socket_directories`, and
+  the Windows build of PostgreSQL does not support Unix sockets at all — `pg_ctl` fails outright
+  ("could not create lock file"). Started manually instead, TCP-only, no `-k`:
+  `initdb -D <dir> -U vuma --auth=trust -E UTF8` then
+  `pg_ctl -D <dir> -l <dir>/server.log -o "-p 55432 -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" start`,
+  then `VUMA_TEST_POSTGRES="Host=127.0.0.1;Port=55432;Database=postgres;Username=vuma;Password=vuma"`.
+  `scripts/pg-test.sh` is still correct for Linux; it is simply not the Windows path, and nobody has
+  written one yet. Worth a `scripts/pg-test.ps1` or a Windows branch in the existing script if Windows
+  becomes a regular dev target before Stage 31.
+- Docker Desktop was installed and its processes were running (`docker context ls` succeeded, the
+  `dockerDesktopLinuxEngine` named pipe existed), but `docker ps` hung indefinitely regardless of
+  client (git-bash, PowerShell) — the WSL2 backend never became responsive in this session. Not
+  investigated further since the manual PostgreSQL path worked. If Testcontainers is wanted, whatever
+  is wrong with this Docker Desktop install needs diagnosing first.
 
 ### 4.4 CI is live and green — **RESOLVED 2026-08-09**
 
@@ -617,39 +792,38 @@ a redirect from the old name, so any stale clone still fetches, but it should be
 
 ## 5. Next session starts here
 
-**Finish Stage 04b.** The code and the tests are done and green — 524 passing, 0 warnings, migration
-reversible. What is left is documentation, and none of it is large:
+**Update, 2026-08-14: Stage 06 is now DONE and merged to `main`** — 584 tests green (303 unit, 25
+architecture, 256 integration), 0 warnings. See the 2026-08-14 session log entry above for the full
+account. That leaves two branches still needing to be taken to a real DONE and merged: **05**
+(`stage-05-workflow`, unrelated to 06's work, can proceed independently) and **07**
+(`stage-07-finance`, which was blocked on Stage 06's master data existing — it now does, on `main`).
+Do not start a fifth parallel worktree. **The next session's job is to pick one of the two — 05 first
+per the roadmap's dependency order, since nothing in 06 or 07 actually depends on 05's approval engine
+existing to compile, but the documented order is 05 before 07 — finish it for real (build, tests, exit
+checklist), merge it to `main`, and only then move to the other.** Read `docs/stages/STAGE-05-workflow.md`
+(on branch `stage-05-workflow` / worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, not yet on
+`main`) and its reference reading before resuming that work. **Do not confuse `main`'s `4320d48` "Stage
+05 Commit" with real Stage 05 progress — see the §1 note above, it is not workflow code.**
 
-1. **`docs/TESTING.md` §7 still speaks the superseded lockout language of ADR-027** — "the store trades
-   normally throughout, and locks only at the configured boundary", "Emergency access code: unlocks
-   fully", "the terminal locks". Restate every assertion against **read-only** (ADR-028). The intent of
-   each listed test survives and each one now exists, so this is a rewording against the suites that
-   are already there: `EnforcementPolicyTests`, `NoAccidentalLockoutTests`, `ReadOnlyCorrectnessTests`,
-   `ActivationTests`. This was explicitly deferred to Stage 04b by the Stage 00 filing session (§4.2)
-   and is the last piece of that debt.
-2. **`docs/LICENSING.md` §4 needs the same read.** It is already ADR-028-shaped, but §2's licence key
-   example still shows the pre-rename `ZNTH-` prefix; the code issues `VUMA-` and
-   `LicenceKeyTests` asserts a `ZNTH-` key is refused. Correct the document.
-3. **`docs/stages/STAGE-04b-licensing.md`** — walk its Exit Checklist against the repo and set the
-   status line. Every box is believed to pass; the two worth checking by hand are the metering-privacy
-   assertion and the "offline for 45 days then reconnect" catch-up, because **those two tests are the
-   ones not yet written** (see below).
-4. **Two tests from the stage brief are still outstanding**, both in the metering area and neither
-   blocking anything else:
-   - metering payload privacy against a fully seeded tenant (schema whitelist; no free text, name,
-     address or document content in the serialised payload);
-   - offline for 45 days then reconnect — metering for every missed day arrives exactly once.
-   `InProcessControlPlane.Metering` is keyed on `(node, period)` precisely so the second is a loop and
-   an assertion on `MeteringDeliveries` versus distinct keys. Put them in
-   `tests/VumaRetail.IntegrationTests/Licensing/MeteringTests.cs`.
-5. **Two architecture rules from the stage brief are still outstanding**, and both should be proven by
-   a deliberate violation before being committed, as every other rule in this repo was:
-   - every module that declares `IModulePermissions` also declares an `IModuleManifest`;
-   - no query handler depends on `IEntitlementService` — a read path that consults the enforcement
-     level is a bug by construction (ADR-028).
-   The closed-list exemption rule already exists, but it lives in `ReadOnlyCorrectnessTests` rather
-   than in `VumaRetail.ArchitectureTests`; moving it there would put all three together.
-6. Then update this file's stage table to **DONE**, and commit.
+**Original note, still true for whichever branch is picked up next.** Stage 04b is DONE on `main`: 0
+warnings, exit checklist ticked in `docs/stages/STAGE-04b-licensing.md`.
+
+**One thing Stage 05 (and every later stage) inherits and should know about:** `IEntitlementService`
+no longer has a `CurrentLevel` method. If a handler only needs to *report* the enforcement level for
+display (a status screen, a banner), depend on `IEnforcementStatusReader` instead — it is registered
+to resolve to the same instance within a scope. If a handler needs to *gate* on a module flag or a
+plan limit, `IEntitlementService`'s `IsModuleEnabledAsync` / `CheckLimitAsync` are unchanged. See
+ADR-054 and `docs/LICENSING.md` §6.
+
+**If Stage 05 is running in a separate worktree/session from this one** (several stages were being run
+in tandem as of 2026-08-11), it started from a copy of `main` that may predate this commit. Rebase or
+merge Stage 04b's commit before that session's own commit, not after — `IEntitlementService`'s
+`CurrentLevel` removal is a compile break for anything written against the old shape, better caught by
+a merge than discovered mid-stage.
+
+**On Windows, `scripts/pg-test.sh` does not work as shipped** — see §4.3's 2026-08-11 note for the
+manual TCP-only PostgreSQL startup this session used instead, and for Docker Desktop's WSL2 backend
+not responding on this machine. Worth checking before assuming a stage is blocked on Postgres.
 
 ### Known gaps carried into later stages
 

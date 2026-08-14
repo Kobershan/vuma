@@ -720,6 +720,99 @@ which is the correct way for this to fail — a false rebind demand stops a payi
 ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
 never reads as agreement, and no value is ever fabricated to fill a gap.
 
+## ADR-054 — `CurrentLevel` moves off `IEntitlementService` onto `IEnforcementStatusReader` — **LOCKED**
+**Context.** `IEntitlementService`'s own remarks promised an architecture test asserting that no query
+handler consults the enforcement level (ADR-028 rule 4: a lapsed tenant keeps full read, report,
+reprint and export access, so a read path has no correct use for the gate). Writing that test exposed
+that the promise did not hold: `GetLicenceStatusQueryHandler` and `GetSubLeaseQueryHandler` — the
+licence screen and the till's sub-lease, both queries — already depended on `IEntitlementService` and
+called `CurrentLevel` to display it. Both uses are legitimate; the licence screen exists to show the
+level. A named-exception list (Stage 04's `BypassTenantFilter` call-site pattern) would have made the
+rule true in the same reviewed-list sense ADR-052 already uses for exemption kinds, but this codebase's stronger
+habit — layering, `CommitAsync`, the pipeline's `IUnitOfWork` ban — is to make an invariant a type
+cannot violate rather than a list a reviewer must remember to check.
+**Decision.** `CurrentLevel` moves onto a new interface, `IEnforcementStatusReader`, implemented by the
+same `EntitlementService` instance and resolved to it within a scope so the gate and the status reader
+never disagree about where a request's tenant stood. `IEntitlementService` keeps only
+`IsModuleEnabledAsync` and `CheckLimitAsync` — the gate proper. Everything that only needs to *report*
+the level (the read-only guard, `RefreshLeaseCommand`, `SendHeartbeatCommand`, the two query handlers)
+now depends on `IEnforcementStatusReader` instead. "No query handler depends on `IEntitlementService`"
+is therefore enforceable with no exemption list at all: there is no `CurrentLevel` on that interface for
+a query handler to plausibly justify calling.
+**Consequences.** The architecture test in `LicensingRulesTests.cs` needs no named exceptions and cannot
+go stale the way a hand-maintained list can. The split cost five call sites their parameter type and
+nothing else — no behavioural change, since both interfaces are the same object within a scope. A
+future query handler that wants the enforcement level for display depends on
+`IEnforcementStatusReader`, which is safe by construction; one that wants to gate a read on it has no
+interface that lets it, which is the point.
+
+---
+
+# Revision 3 — ecosystem, savings schemes, design system, unattended operation
+
+## ADR-055 — Money held for customers is a liability with its own module — **LOCKED**
+**Context.** Credit accounts, lay-bys and stokvels all involve holding a customer's money or goods
+before delivery, and all three are commonplace in South African retail. Bolting them onto Sales would
+produce three inconsistent implementations of the same accounting problem.
+**Decision.** One module (Stage 10b). Deposits, contributions and account credits post to **liability**
+accounts through Stage 07's posting rules and release to revenue only on delivery. Lay-by stock is
+reserved, not sold — no revenue, no stock issue, no cost of sale until final payment. Stokvel member
+balances are a projection of an append-only contribution ledger; there is no "set balance" operation.
+Stokvel benefits are allocated **time-weighted** by what each member contributed and when.
+**Consequences.** The three liability balances reconcile to their control accounts continuously, like
+every other sub-ledger. The time-weighted benefit calculation is the most dispute-prone arithmetic in
+the product and carries a hand-computed fixture test. Reserved lay-by and stokvel stock is excluded
+from available stock, so a store cannot sell December's hampers in November.
+
+## ADR-056 — Vuma Connect: both sides are tenants, and a supplier never writes into a retailer — **LOCKED**
+**Context.** The product becomes a network when suppliers publish prices once and connected retailers
+order and pay in-app. The obvious build — a supplier "portal" bolted onto the retailer's system — breaks
+immediately, because a wholesaler is a supplier to twenty retailers *and* a retailer buying from ten
+manufacturers.
+**Decision.** A supplier is a full Vuma tenant. Trading happens over mutually accepted, revocable
+connections, and **every cross-tenant data flow is a proposal the receiving side accepts** — published
+prices land in the retailer's import preview with a diff, never as a silent cost update. The one
+concession is that a dispatch note pre-populates a GRN, which the retailer still confirms line by line.
+Connection codes issued by suppliers are the growth mechanism.
+**Consequences.** Retailers will connect, because a supplier can never change their costs behind their
+back. Cross-tenant isolation becomes the highest-stakes security surface in the product and gets a
+dedicated suite: no retailer sees another's volumes, no supplier sees a competitor's prices, and network
+benchmarks are suppressed where too few tenants would make a figure attributable.
+
+## ADR-057 — Vuma orchestrates payments, it does not hold funds — **LOCKED**
+**Context.** In-app payment between retailer and supplier looks like the natural centre of the network,
+and it is also the fastest way to acquire regulatory obligations nobody planned for.
+**Decision.** Money moves through a licensed provider behind `IPaymentGateway` and `ISettlementProvider`.
+Vuma orchestrates, records and reconciles: a payment posts to the retailer's AP and the supplier's AR in
+one atomic operation. Both interfaces ship with fakes so Stage 21b is fully testable without a licence,
+and the regulatory position is documented in `docs/compliance/` before any real funds flow.
+**Consequences.** The network's value — one order, one status, one reconciled payment — is delivered
+without Vuma becoming a payments institution. If the model later requires holding funds, that is a
+provider change and a licence, not a rewrite.
+
+## ADR-058 — One design system, generated from one token file — **LOCKED**
+**Context.** Four surfaces (WPF desktop, Android, supplier portal, storefront) drawn by different stages
+months apart will diverge unless the tokens are mechanical.
+**Decision.** `design/tokens.json` is the single source of truth. WPF `ResourceDictionary`, Compose
+theme and CSS custom properties are **generated** in CI; a hand-edited generated file fails the build,
+and an architecture test scans for literal hex values in any UI source. Dark and light are both
+first-class, with dark defaulting on POS and light in back office, overridable per user and per
+terminal. Tenant branding is limited to logo, accent and receipt header.
+**Consequences.** Every Vuma install is recognisable and supportable. Contrast is verified in CI, so a
+palette tweak cannot silently break legibility on a five-year-old till screen.
+
+## ADR-059 — Unattended operation is a first-class requirement — **LOCKED**
+**Context.** Build sessions run overnight with nobody watching. A single permission prompt or clarifying
+question wastes the entire night.
+**Decision.** `AskUserQuestion` is denied in settings. `CLAUDE.md` forbids writing to `.claude/**`
+(a protected path whose writes prompt). Bypass mode is set at launch from both user and project scope.
+`scripts/run-autonomous.ps1` runs **one stage per invocation** — fresh context each time — and verifies
+three independent progress signals (a commit landed, `PROGRESS.md` changed, the build is green) before
+continuing, stopping cleanly rather than looping.
+**Consequences.** Quality does not decay across a long night the way it does in one enormous session,
+and a stalled run stops with a diagnosable log instead of burning hours. See `docs/AUTONOMOUS_OPERATION.md`
+for the environment setup this depends on.
+
 ---
 
 # Revision 9 — Stage 06 master data

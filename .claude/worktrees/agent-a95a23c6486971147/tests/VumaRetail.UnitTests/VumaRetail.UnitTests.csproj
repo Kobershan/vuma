@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.UnitTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <!--
+      Stage 04. The hybrid logical clock and the conflict resolver are pure protocol over Application
+      ports, so they belong at this level: no database, no host, and every case a table.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+    <!-- Stage 04b: the enforcement ladder, the fingerprint matcher and the signed documents. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

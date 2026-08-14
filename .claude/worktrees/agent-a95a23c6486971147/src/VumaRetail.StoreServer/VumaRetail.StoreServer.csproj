@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    The in-store server: ASP.NET Core Minimal APIs hosted as a Windows Service.
+    This is the source of truth for the store (R2) and must keep the tills
+    trading with no internet (R1).
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.StoreServer</RootNamespace>
+    <UserSecretsId>vuma-storeserver</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\VumaRetail.Web\VumaRetail.Web.csproj" />
+    <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
+  </ItemGroup>
+
+</Project>

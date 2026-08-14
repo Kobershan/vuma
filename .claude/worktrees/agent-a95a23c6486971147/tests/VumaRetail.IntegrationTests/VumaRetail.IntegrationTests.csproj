@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Handler and mapping tests against a real PostgreSQL with real migrations
+    (docs/TESTING.md §2). A mocked DbContext proves nothing about a query that
+    has to run against Postgres, a global query filter, or a bytea concurrency
+    token — which is most of what Stage 01 built.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.IntegrationTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <!-- docs/TESTING.md §1's API level: routing, auth, ProblemDetails and OpenAPI over a real host. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <!-- Stage 02: the authenticated IPrincipalAccessor is what makes R6's audit trail name a person. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
+    <!--
+      Stage 03: the API-level tests run the store server itself through WebApplicationFactory, so
+      what is asserted is the wiring a store actually gets rather than a re-creation of it here.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.StoreServer\VumaRetail.StoreServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="VumaRetail.Infrastructure.Persistence" />
+  </ItemGroup>
+
+</Project>
