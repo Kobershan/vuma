@@ -22,6 +22,35 @@ Every stage adds, at minimum:
 4. **Sync test** — create the entity on a disconnected node, reconnect, assert convergence on all tiers.
 5. **Offline test** (if the POS touches it) — the operation queues and replays correctly.
 
+### 2.1 Before running the full integration suite
+
+Two things about the harness that cost a session in Stage 07. Both are usage, not code.
+
+**Free space.** `PostgresFixture` clones the template database once per test class, so a full run
+creates a great many complete PostgreSQL databases. Give it a few GB of headroom — and do not let the
+cluster live on a `tmpfs`. `scripts/pg-test.sh` defaults its data directory to `${TMPDIR:-/tmp}`,
+which on a typical Linux box is RAM, and a full run will fill it. Point it at real disk:
+
+```bash
+export VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg
+```
+
+This matters more than it sounds, because **running out of space does not present as a disk error**.
+Some tests fail with an explicit `XX000: Disk quota exceeded`, but others fail as ordinary assertion
+failures on rows that were never written, and a full volume can stop the shell working at all. For an
+unattended overnight run it reads as a pile of confusing test failures. If a run fails in a way that
+makes no sense, check free space before believing any of it.
+
+**One cluster per session.** `scripts/pg-test.sh` uses a fixed port and data directory, and its
+`start` path short-circuits on `pg_isready` — so a second session gets a success message and silently
+attaches to the first session's cluster. Both suites then share one server, whose template database
+each run drops and recreates. If another session might be running the suite, set both:
+
+```bash
+export VUMA_TEST_PG_PORT=55433
+export VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg-$$
+```
+
 ## 3. Money and quantity testing
 
 Financial calculation bugs are the most expensive kind here. Every pricing, tax, discount and

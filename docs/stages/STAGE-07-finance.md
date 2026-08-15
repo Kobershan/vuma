@@ -1,11 +1,17 @@
 # STAGE 07 — Finance: GL, AR, AP, banking, tax, posting rules engine
 
-**Status:** IN_PROGRESS · **Depends on:** 06 (not yet built — see Scope note below) · **Reference
+**Status:** DONE (merged to `main`, 2026-08-15) · **Depends on:** 06 (built and merged) · **Reference
 reading:** `docs/DECISIONS.md` ADR-016 (the spec this stage implements), `docs/CONVENTIONS.md`,
 `docs/DATA_MODEL.md`, `docs/API_STANDARDS.md`, `docs/SYNC_AND_BACKUP.md`, `docs/TESTING.md`,
 `docs/stages/STAGE-04b-licensing.md` (the template this document follows)
 
-## Scope note — Stage 06 not yet built
+## Scope note — written before Stage 06 landed
+
+> **Update, 2026-08-15.** Stage 06 has since been built and merged, and Stage 07 is now merged too.
+> Nothing below changed as a result: Finance still references partners by bare `PartnerId` and still
+> has no approval gate. Resolving partner names is a read model Stage 06's surface adds, and the
+> approval gates are Stage 05's to configure against the same commands. The note is kept as written
+> because it explains why the boundaries are where they are.
 
 Two other sessions are building Stage 05 (workflow/approvals) and Stage 06 (master data:
 items, variants, UoM, partners) concurrently, each in its own worktree. Finance genuinely needs
@@ -51,7 +57,7 @@ banking slice, and a tax rules engine (never a constant). Built ahead of Invento
 - `FinanceReconciliationHostedService` — the "automated daily job" ADR-016 calls for — runs the
   same checker across every open period once a day and writes a `ReconciliationVarianceFlag` row
   so a variance is visible *before* somebody tries to close, not only at the close attempt. See
-  ADR-058 for why this is a plain `IHostedService` rather than a Quartz.NET job.
+  ADR-063 for why this is a plain `IHostedService` rather than a Quartz.NET job.
 
 **General ledger** (`finance.journals`, `finance.journal_lines`)
 - `Journal`/`JournalLine` — double-entry, `IImmutableRecord` once `Status = Posted`. Rejected
@@ -131,14 +137,26 @@ testable slice, not gold-plated:
 - EF migration: up → down → up on an empty database.
 
 ## Exit checklist
+
+> **Re-walked and re-ticked 2026-08-15.** Every box below was already ticked when this document
+> arrived on the branch — including the zero-warning build and the reversible migration, at a point
+> when no migration existed and the EF model could not be constructed. The ticks below are the ones
+> that were verified: build and test output, a migration applied and reversed against real
+> PostgreSQL, and the module driven over HTTP.
+
 - [x] Chart of accounts with analysis dimensions
 - [x] Accounting periods with a variance-blocked close and a daily variance check
 - [x] Immutable double-entry GL, balanced-or-rejected, amended only by reversal
-- [x] Posting rules engine with `IFinancialEvent` contract and the rule-12 architecture test
+- [x] Posting rules engine with `IFinancialEvent` contract and the rule-12 architecture test —
+      proved by a deliberate violation, whose blind spot is recorded in `FinanceRulesTests`' remarks
 - [x] AR and AP sub-ledgers referencing partners by bare `PartnerId`, reconciling to GL
 - [x] Minimal real banking slice: accounts, statement lines, match/unmatch
 - [x] Tax as a configurable rules engine, seeded with the `en-ZA` default only
-- [x] Zero-warning build, migration reversible, RBAC permissions and module manifest registered,
-      entitlement flag wired, seed data extended, `docs/PROGRESS.md` + ADRs updated
+- [x] Zero-warning build (`dotnet build -c Release`, 0 warnings 0 errors), 674 tests green
+      (377 unit, 31 architecture, 266 integration), migration reversible (up → down → up asserted
+      against real PostgreSQL in `FinancePersistenceTests`), RBAC permissions and module manifest
+      registered *and reachable* (`AddVumaFinance` now scans its own assembly for handlers — it did
+      not, and every endpoint would have 500'd), entitlement flag wired, seed data extended and
+      verified idempotent, `docs/PROGRESS.md` + ADR-063…067 written
 - [ ] Stage 05/06 integration (approval gates, resolved partner names) — deferred, documented in
-      `docs/PROGRESS.md` §3, not blocking this stage's completion
+      `docs/PROGRESS.md` §5, not blocking this stage's completion
