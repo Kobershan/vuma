@@ -46,7 +46,7 @@ that was already built and green. This stage proceeded without waiting.
 - `Document` and `DocumentVersion` — attachment/generation metadata and an append-only version
   history, separate from the bytes themselves (which live behind `IDocumentBlobStore`).
 
-**New project: `VumaRetail.Workflow`** (ADR-054), on the `VumaRetail.Sync` / `VumaRetail.Licensing`
+**New project: `VumaRetail.Workflow`** (ADR-072), on the `VumaRetail.Sync` / `VumaRetail.Licensing`
 pattern (ADR-048/ADR-051): references `Application` and `Contracts` only — no EF, no HTTP, no
 filesystem. Holds:
 - `ApprovalEngine` — the **sole** implementation of `IApprovalService`. Evaluates a policy, creates or
@@ -160,9 +160,12 @@ filesystem. Holds:
       `EnsureNotificationAsync`; `WorkflowPermissions` and `WorkflowModuleManifest` registered via
       `AddVumaWorkflow`
 - [x] `dotnet build -c Release` — 0 warnings, 0 errors; `scripts/test.sh` fully green;
-      Domain + Application new-code line coverage ≥ 80% — 600 passed, 0 failed, 0 skipped
-      (313 unit, 28 architecture, 259 integration); Domain + Application Workflow line coverage 94.4%
-      (336/356; Domain files 100%, `WorkflowPorts.cs` 82.3%)
+      Domain + Application new-code line coverage ≥ 80%. The stage's own pre-merge run was 600 passed
+      (313 unit, 28 architecture, 259 integration) with Workflow line coverage 94.4% (336/356; Domain
+      files 100%, `WorkflowPorts.cs` 82.3%). **Re-verified after the merge into `main`**, which is the
+      number that counts: **820 passed, 0 failed, 0 skipped** (480 unit, 34 architecture, 306
+      integration), 0 warnings. The coverage figure was not re-measured because the merge changed no
+      file under `src/VumaRetail.Workflow` or `src/VumaRetail.Domain/Workflow`
 - [x] `docs/DATA_MODEL.md` and `docs/SYNC_AND_BACKUP.md` updated with the `workflow` schema and its
-      replication registry entries — `DATA_MODEL.md` §3 and new §4c; `SYNC_AND_BACKUP.md` §3
-- [x] `docs/PROGRESS.md` updated, ADRs appended, committed — ADR-054, ADR-055; session log below
+      replication registry entries — `DATA_MODEL.md` §3 and new §4f; `SYNC_AND_BACKUP.md` §3
+- [x] `docs/PROGRESS.md` updated, ADRs appended, committed — ADR-072 (ADR-067 already carried the nullable-Money decision); session log below

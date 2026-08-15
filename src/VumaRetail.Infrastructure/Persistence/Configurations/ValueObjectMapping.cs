@@ -62,20 +62,15 @@ public static class ValueObjectMapping
         });
     }
 
-    // There is deliberately no nullable overload of HasMoney above.
-    //
-    // A nullable Money property (an approval policy's optional threshold, Stage 05) was first mapped
-    // as an optional ComplexProperty here. EF Core 9's relational providers do not support that —
-    // every shape tried (nested properties marked optional, the complex property alone marked
-    // optional) fails at model-build time with "Configuring the complex property … as optional is not
-    // supported, call 'IsRequired()'" (dotnet/efcore#31376).
-    //
-    // A module with a nullable money property maps it as two ordinary nullable properties
-    // ({Name}Value: decimal?, {Name}Currency: string?) on the entity — private, if the public API
-    // should stay a single Money? computed from the pair — configured with two plain
-    // builder.Property<T>("{Name}Value") calls rather than this helper. See
-    // ApprovalPolicy.ThresholdAmount / ApprovalRequest.Amount for the pattern, and revisit once the
-    // upstream issue ships.
+    // There is deliberately no HasMoney overload for an optional Money? (ADR-067). EF Core 9 cannot
+    // configure a complex property as optional, and reaching a nullable value type's fields needs the
+    // two-hop expression `value!.Value.Amount`, which ComplexPropertyBuilder.Property refuses to
+    // parse — it throws at model-building time, not at compile time, which is how the first attempt
+    // shipped a solution that built cleanly and could not construct its own DbContext. An entity with
+    // an optional monetary amount stores the {name}_amount / {name}_currency pair as plain properties
+    // and exposes a computed Money? accessor; VumaRetail.Domain.Finance.JournalLine is the worked
+    // example. HasAddress below solves the same EF limitation the other way, with an owned type,
+    // because an address has no arithmetic to preserve.
 
     /// <summary>
     /// Maps a <see cref="Quantity"/> property to <c>{name}_value</c> and <c>{name}_uom</c>.
@@ -107,5 +102,70 @@ public static class ValueObjectMapping
                 .HasMaxLength(16)
                 .IsRequired(isRequired);
         });
+    }
+
+    /// <summary>
+    /// Maps an <see cref="Address"/> property to <c>{prefix}_line1</c>, <c>{prefix}_line2</c>,
+    /// <c>{prefix}_city</c>, <c>{prefix}_region</c>, <c>{prefix}_postal_code</c> and
+    /// <c>{prefix}_country_code</c> (Stage 06, ADR-037).
+    /// </summary>
+    /// <typeparam name="TEntity">The owning entity.</typeparam>
+    /// <param name="builder">The entity type builder.</param>
+    /// <param name="property">The address property, for example <c>store => store.Address</c>.</param>
+    /// <param name="columnPrefix">The column name prefix, <c>snake_case</c>.</param>
+    /// <param name="isRequired">
+    /// Whether every field is required. <c>false</c> leaves every column nullable, which is how an
+    /// entity with an optional address (a store that has not recorded one yet) represents "none" —
+    /// every <c>{prefix}_*</c> column is null on that row.
+    /// </param>
+    public static void HasAddress<TEntity>(
+        this EntityTypeBuilder<TEntity> builder,
+        System.Linq.Expressions.Expression<Func<TEntity, Address?>> property,
+        string columnPrefix,
+        bool isRequired = true)
+        where TEntity : class
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(columnPrefix);
+
+        // An owned type (table-split onto the same table) rather than a complex property. EF Core 9
+        // refuses to configure a complex property as optional ("call IsRequired()" —
+        // https://github.com/dotnet/efcore/issues/31376), and an optional address is exactly what
+        // Stage 06 needs: a store or a partner with no address recorded yet is a row with every
+        // {prefix}_* column null, not an empty address. OwnsOne with no separate ToTable call maps to
+        // the owner's own table by default, so the column shape is identical to what ComplexProperty
+        // would have produced.
+        builder.OwnsOne(property, address =>
+        {
+            address.Property(value => value.Line1)
+                .HasColumnName($"{columnPrefix}_line1")
+                .HasMaxLength(256)
+                .IsRequired(isRequired);
+
+            address.Property(value => value.Line2)
+                .HasColumnName($"{columnPrefix}_line2")
+                .HasMaxLength(256);
+
+            address.Property(value => value.City)
+                .HasColumnName($"{columnPrefix}_city")
+                .HasMaxLength(128)
+                .IsRequired(isRequired);
+
+            address.Property(value => value.Region)
+                .HasColumnName($"{columnPrefix}_region")
+                .HasMaxLength(128);
+
+            address.Property(value => value.PostalCode)
+                .HasColumnName($"{columnPrefix}_postal_code")
+                .HasMaxLength(16);
+
+            address.Property(value => value.CountryCode)
+                .HasColumnName($"{columnPrefix}_country_code")
+                .HasMaxLength(2)
+                .IsFixedLength()
+                .IsRequired(isRequired);
+        });
+
+        builder.Navigation(property).IsRequired(isRequired);
     }
 }

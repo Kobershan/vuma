@@ -17,6 +17,7 @@
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <ProjectReference Include="..\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
     <ProjectReference Include="..\VumaRetail.Workflow\VumaRetail.Workflow.csproj" />
+    <ProjectReference Include="..\VumaRetail.Finance\VumaRetail.Finance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

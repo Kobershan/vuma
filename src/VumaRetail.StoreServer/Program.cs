@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Persistence;
@@ -12,9 +13,13 @@ using VumaRetail.StoreServer;
 using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
+using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Web.Partners;
 using VumaRetail.Web.Sync;
 using VumaRetail.Web.Workflow;
 
@@ -80,6 +85,26 @@ string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
 // AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
 builder.Services.AddVumaWeb(jwt, host);
 builder.Services.AddVumaPersistence(connectionString);
+
+// Stage 06. Master data: items, variants, barcodes, units of measure, and suppliers/customers. Both
+// self-register their permission declaration and core module manifest — see the remarks on
+// AddVumaCatalog for why registration order relative to AddVumaIdentity/AddVumaLicensing does not matter.
+builder.Services.AddVumaPlatform();
+builder.Services.AddVumaCatalog();
+builder.Services.AddVumaPartners();
+
+// Stage 07. GL, AR, AP, banking, tax and the posting rules engine — CLAUDE.md §7 rule 12's mechanism.
+// Built ahead of Inventory (08) and POS (09) because both post to it (ADR-016). The reconciliation
+// host is registered separately: it needs the tenant this installation runs as, the same split
+// AddVumaControlPlaneClient uses for LicensingHostTenant.
+builder.Services.AddVumaFinance();
+builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantId, host.StoreId));
+
+// Stage 08. Locations, the append-only stock ledger, balances, transfers and stocktakes. Stock
+// movements raise a valuation event that AddVumaFinance's posting rules engine turns into a journal;
+// the binding is chosen when the publisher is resolved rather than when it is registered, so this
+// line's position relative to AddVumaFinance does not matter.
+builder.Services.AddVumaInventory();
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -175,6 +200,10 @@ app.MapVumaIdentity();
 app.MapVumaSync();
 app.MapVumaLicensing();
 app.MapVumaWorkflow();
+app.MapVumaCatalog();
+app.MapVumaPartners();
+app.MapVumaFinance();
+app.MapVumaInventory();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

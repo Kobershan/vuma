@@ -80,8 +80,13 @@ table lands anywhere else — including `public`, which belongs to no module and
 | `platform` | tenants, stores, the audit trail | 01 |
 | `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
+| `backup` | the snapshot ledger | 04 |
 | `licensing` | licences, leases, activations, entitlements, metering | 04b |
 | `workflow` | approval policies and requests, notifications, document metadata and versions | 05 |
+| `catalog` | items, variants, barcodes, units of measure | 06 |
+| `partners` | suppliers, customers, and partners who are both | 06 |
+| `finance` | chart of accounts, GL, AR, AP, banking, tax, posting rules | 07 |
+| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes | 08 |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -208,9 +213,151 @@ Both a replay and a theft get the same answer — every live token for that user
 
 ---
 
-## 4c. Tables in `workflow`
+## 4c. Tables in `catalog`
 
-Built in Stage 05 (ADR-019, ADR-054), before any module needs an approval chain, an in-app inbox or a
+Built in Stage 06. What a tenant sells: units of measure, items, variants and barcodes. No stock
+quantity, no price, no GL account — those are Stage 08, Stage 10 and Stage 07 respectively (Stage 06's
+own scope note). No foreign key leaves this schema; `Item.UnitOfMeasureId` and `Barcode.ItemId`/
+`ItemVariantId` are same-schema plain references, and `Item.TaxClassCode` is a string code rather than
+a reference into `finance`, per `CONVENTIONS.md` §2.
+
+### `catalog.units_of_measure`
+
+`code`, `name`, `type`, `base_unit_of_measure_id`, `conversion_factor_to_base`, `is_active`.
+
+A unit either *is* a base unit (`base_unit_of_measure_id` is `null`, factor `1`) or converts to one by
+multiplication — one level, never a graph, because no retailer's packaging needs a conversion chain and
+a chain needs a path-finding query on every stock movement. `ux_units_of_measure_tenant_id_code` is
+unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`.
+
+### `catalog.items`
+
+`code`, `name`, `description`, `item_type`, `unit_of_measure_id`, `tax_class_code`, `is_active`,
+`has_variants`.
+
+`has_variants` is the domain's own record of which of the two states — sells as itself, or sells only
+through a variant — the item is in; `Barcode.CreateForItem` reads it before attaching directly to an
+item. `ux_items_tenant_id_code` is unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`, the
+same shape as `platform.stores`.
+
+### `catalog.item_variants`
+
+`item_id`, `sku`, `attributes` (`jsonb`), `is_active`.
+
+`attributes` is an ordered list of name/value pairs — `Size: M`, `Colour: Red` — stored as one `jsonb`
+column rather than a child table (ADR-054). Created only through `Item.AddVariant`, never directly, so
+the parent item is always the one place that records it has gained its first variant.
+`ux_item_variants_tenant_id_sku` is unique on `(tenant_id, sku)`, filtered to `deleted_at IS NULL`.
+
+### `catalog.barcodes`
+
+`code`, `symbology`, `item_id`, `item_variant_id`, `is_primary`.
+
+Attaches to exactly one of an item (only while that item has no variants) or a variant — enforced both
+by the domain (`Barcode.CreateForItem`/`CreateForVariant`) and by a database check constraint,
+`ck_barcodes_exactly_one_owner`. `ux_barcodes_tenant_id_code` is unique **tenant-wide regardless of
+symbology** — a scanner reads a code, not a type. Two more unique, partial indexes
+(`ux_barcodes_item_id_primary`, `ux_barcodes_item_variant_id_primary`) back the "exactly one primary
+per owner" invariant at the database level, belt-and-braces alongside `Barcode.SetPrimary`'s own
+bookkeeping, against the one write two terminals could race on. `Barcode` is the one entity in this
+module that is hard-deleted rather than deactivated — see ADR-055 for why, and `docs/SYNC_AND_BACKUP.md`
+§3 for how that interacts with replication.
+
+## 4d. Tables in `partners`
+
+Built in Stage 06. Who a tenant trades with. No credit terms, no balance, no ledger account — Stage 07
+owns AR/AP against a `PartnerId` it doesn't need this schema to widen for.
+
+### `partners.partners`
+
+`code`, `name`, `type`, `address_*` (the same structured `Address` value object `platform.stores` uses,
+ADR-037), `email`, `phone`, `tax_number`, `is_active`.
+
+`type` is `PartnerType`, a `[Flags]` enum stored as text — `Customer`, `Supplier`, or both — and the
+domain refuses `None` (`PartnerRuleException.MustBeCustomerOrSupplier`): the flag is the reason the
+type exists. `ux_partners_tenant_id_code` is unique on `(tenant_id, code)`, filtered to
+`deleted_at IS NULL`.
+
+---
+
+## 4e. Tables in `inventory`
+
+Built in Stage 08. How much of a `catalog` item exists, where, and what it cost. Every item/variant
+reference below is a plain `uuid` column with an index and **never** a foreign key into `catalog` —
+`CONVENTIONS.md` §2 — validated by the application layer instead.
+
+Four of the six tables carry the same `((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1`
+check constraint, mirroring `catalog.barcodes`: a row identifies an item (when it has no variants) or
+a variant, never both and never neither. The rule also lives in the domain
+(`StockItemReference.Validate`); the constraint is the backstop.
+
+### `inventory.stock_locations`
+
+`code`, `name`, `type`, `is_active`. `ux_stock_locations_tenant_id_code` is unique on
+`(tenant_id, code)`, filtered to `deleted_at IS NULL`. `store_id` (the base column) is nullable here
+and means it: a central warehouse serving several stores belongs to the tenant, not to one store (R8).
+
+### `inventory.stock_ledger_entries`
+
+The append-only ledger (ADR-005). `location_id`, `item_id`/`item_variant_id`, `movement_type`,
+`quantity_value`/`quantity_uom`, `unit_cost_amount`/`unit_cost_currency`, `reference_type`,
+`reference_id`, `reason_code`, `note`.
+
+`quantity_value` is **signed** — positive in, negative out — so `SUM(quantity_value)` per location and
+stock-keeping unit *is* the on-hand quantity, with no case statement. A check constraint refuses zero:
+a zero-quantity row is not a movement, and this table has no update path to correct one with.
+
+`ix_stock_ledger_entries_location_id_created_at_id` is `(location_id, created_at DESC, id DESC)` — the
+exact pair the keyset cursor compares, so a page boundary is an index seek rather than a sort of
+everything the location has ever done. `ix_stock_ledger_entries_reference_id` is partial on
+`reference_id IS NOT NULL` and answers "both sides of this transfer" and "every variance this
+stocktake posted".
+
+The entity is `IImmutableRecord`, so `AuditInterceptor` refuses it in the `Modified` or `Deleted`
+state (§7 rule 7) — the append-only guarantee is structural, not conventional.
+
+### `inventory.stock_balances`
+
+The projection the ledger sums to. `location_id`, `item_id`/`item_variant_id`,
+`quantity_on_hand_value`/`_uom`, `average_cost_amount`/`_currency`.
+
+Two unique indexes rather than one, split on which reference is set —
+`ux_stock_balances_location_id_item_id` filtered to `item_id IS NOT NULL` and its variant twin —
+because PostgreSQL treats NULLs as distinct in a unique index, so a single index over both nullable
+columns would not stop two rows for the same `(location, item, NULL)`. That uniqueness is what stops
+two concurrent first receipts each opening their own balance row and the projection reporting half the
+stock.
+
+Written only by `StockLedgerPoster`, in the same transaction as the ledger row it corresponds to.
+
+### `inventory.stock_transfers`
+
+The document correlating a transfer's two ledger entries. `source_location_id`,
+`destination_location_id`, the item/variant pair, `quantity_*`, `unit_cost_*`, `out_entry_id`,
+`in_entry_id`, `note`. A check constraint refuses `source_location_id = destination_location_id`.
+
+Its `id` is minted by the caller *before* either ledger entry is posted, so both can carry it as their
+`reference_id` — the one entity in the solution using `Entity`'s caller-minted-id constructor
+(ADR-071).
+
+### `inventory.stocktake_sessions` / `inventory.stocktake_lines`
+
+A session carries `location_id`, `status` and `finalized_at`.
+`ix_stocktake_sessions_open_by_location` is partial on `status = 'Open'`, which keeps "is a count
+already running here?" cheap once a location has years of finalized sessions behind it.
+
+A line carries `stocktake_session_id`, the item/variant pair, `system_quantity_*` and
+`counted_quantity_*`. `system_quantity` is snapshotted when the count is *recorded*, not when the
+session is finalized — stock keeps moving during a count, and comparing a 09:00 count against a 17:00
+system quantity would blame the stocktake for every sale in between. One line per stock-keeping unit
+per session, enforced by the same split-unique-index pattern as `stock_balances`: a second count of
+the same item is a recount of the existing line, never a second row that would double its variance.
+
+---
+
+## 4f. Tables in `workflow`
+
+Built in Stage 05 (ADR-019, ADR-072), before any module needs an approval chain, an in-app inbox or a
 file attachment — later modules configure against this schema rather than building their own. No
 foreign key leaves it; every business record a row here refers to (`SubjectEntityId`, `EntityId`) is an
 id into another module's own schema, resolved by convention rather than by constraint (§3).
@@ -221,13 +368,12 @@ A gate a module has configured on one `module.entityType.action` key. `module`, 
 `action`, `threshold_amount` / `threshold_currency` (both nullable — absence means gate every
 occurrence, ADR-019), `required_permission`, `min_approvals`, `allow_self_approval`, `is_active`.
 
-The nullable threshold is **two flat nullable columns**, not `ValueObjectMapping.HasMoney`'s
-complex-type form: EF Core 9's relational providers do not yet support an optional complex property
-(dotnet/efcore#31376, hit and worked around while scaffolding this stage's migration). A module with a
-nullable `Money` maps it as `{Name}Value: decimal?` / `{Name}Currency: string?` and reassembles a
-computed `Money?` property from the pair — see `ApprovalPolicy.ThresholdAmount` and
-`ApprovalRequest.Amount` for the pattern, and revisit `ValueObjectMapping.HasMoney`'s note once the
-upstream issue ships.
+The nullable threshold is **two flat columns**, not `ValueObjectMapping.HasMoney`'s complex-type form:
+EF Core 9's relational providers do not support an optional complex property (dotnet/efcore#31376, hit
+independently here and in Stage 07). That is **ADR-067**, and the naming it settled on — `{name}_amount`
+/ `{name}_currency`, with a computed `Money?` accessor over the pair — is what these columns use. See
+`ApprovalPolicy.ThresholdAmount` and `ApprovalRequest.Amount` alongside ADR-067's own worked example,
+`JournalLine`, and revisit `ValueObjectMapping.HasMoney`'s note once the upstream issue ships.
 
 `ux_approval_policies_tenant_key` is unique on `(tenant_id, module, entity_type, action)`, **filtered to
 `is_active AND deleted_at IS NULL`** — the same shape `platform.stores`' code uniqueness takes, so a
@@ -296,8 +442,21 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `UserRoleAssignment` | CloudToStore | CloudWins | As `Role`. Who holds what is decided centrally. |
 | `Terminal` | StoreToCloud | StoreWins | The store enrols its own tills; the cloud observes them, and counts them for licensing. |
 | `RefreshToken` | NodeLocal | LastWriterWins | A session credential has no business leaving the node that issued it. Shipping these to the cloud would put every store's live sessions in one place for no operational gain. |
+| `UnitOfMeasure` | Bidirectional | CloudWins | A store may add a unit locally; head office reconciles a collision the same way it does for `Store`. |
+| `Item` | Bidirectional | CloudWins | A new line may be raised at either tier; the cloud is where a multi-store catalogue stays consistent. |
+| `ItemVariant` | Bidirectional | CloudWins | Follows its item. |
+| `Barcode` | Bidirectional | CloudWins | Attaching a case-pack or legacy code locally is routine; the cloud settles a genuine collision. The one entity in this stage that is hard-deleted rather than deactivated (ADR-055), which the delete itself replicates like any other change. |
+| `Partner` | Bidirectional | CloudWins | Suppliers and customers are onboarded at either tier; head office reconciles a duplicate. |
+| `StockLocation` | Bidirectional | CloudWins | A store names its own back room; head office adds a distribution centre. Same shape as `Store`. |
+| `StockLedgerEntry` | StoreToCloud | AppendOnly | Stock physically moves at the store, and the ledger accumulates. Two nodes writing independent movements merge without overwriting — the same reason `AuditEntry` is append-only (ADR-005). |
+| `StockBalance` | NodeLocal | LastWriterWins | **Deliberately not replicated as a value** (ADR-069). A running total is not safely mergeable: two nodes each applying their own delta to a synced total would double an overlapping movement or diverge silently, and neither surfaces as a conflict for anybody to review. Each node rebuilds its own from the entries it has applied. |
+| `StockTransfer` | StoreToCloud | AppendOnly | The document is written once, when both its ledger entries already exist, and never edited. |
+| `StocktakeSession` | StoreToCloud | StoreWins | The count happens on one store's floor; the cloud observes the result rather than participating in it. |
+| `StocktakeLine` | StoreToCloud | StoreWins | Follows its session. |
 
-Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`.
+Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
+adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
+one-line rationale per entity.
 
 ---
 

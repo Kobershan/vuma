@@ -30,6 +30,7 @@ public sealed class CommandClassificationTests
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
         // Stage 05: the approval, notification and document commands.
         typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
+        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
     ];
 
     [Fact]
@@ -63,20 +64,33 @@ public sealed class CommandClassificationTests
     [Fact]
     public void Read_only_exemptions_stay_confined_to_the_three_ADR_028_carve_outs()
     {
-        // Each of these is a hole in the commercial lever. ADR-028 names exactly three and the set is
-        // meant to stay reviewable in one place — a fourth should cost an ADR, not a code review.
-        List<string> exempt = AllCommands()
+        // The cap is on *kinds*, not commands (ADR-052) — counting commands would fail the build the
+        // moment a second command legitimately shared a kind that already had one user, which is
+        // exactly what Stage 04b's licence-screen commands do under Payment (SideEffect.cs's own
+        // remarks on ReadOnlyExemption.Payment name six of them by design). What must stay closed is
+        // the set of *kinds*: Payment, OfflineFlush and Backup, asserted by name so a fourth needs a
+        // superseding ADR rather than a code review.
+        List<(Type Type, ReadOnlyExemption Exemption)> exempt = AllCommands()
             .Select(command => (Type: command, Attribute: command.GetCustomAttribute<CommandSideEffectAttribute>()))
             .Where(entry => entry.Attribute is { Exemption: not ReadOnlyExemption.None })
-            .Select(entry => $"{entry.Type.FullName} — {entry.Attribute!.Exemption}")
+            .Select(entry => (entry.Type, entry.Attribute!.Exemption))
             .ToList();
 
-        Assert.True(exempt.Count <= 3, $"""
-            More commands claim a read-only exemption than ADR-028 allows. The permitted carve-outs are
-            Payment, OfflineFlush and Backup. Widening the set needs a superseding ADR.
+        HashSet<ReadOnlyExemption> kinds = [.. exempt.Select(entry => entry.Exemption)];
+
+        HashSet<ReadOnlyExemption> permitted =
+        [
+            ReadOnlyExemption.Payment,
+            ReadOnlyExemption.OfflineFlush,
+            ReadOnlyExemption.Backup,
+        ];
+
+        Assert.True(kinds.IsSubsetOf(permitted) && kinds.Count <= 3, $"""
+            A read-only exemption kind outside ADR-028's closed list of three (Payment, OfflineFlush,
+            Backup) is in use. Widening the set of kinds needs a superseding ADR.
 
             Currently exempt:
-            {string.Join(Environment.NewLine, exempt.Select(entry => $"  - {entry}"))}
+            {string.Join(Environment.NewLine, exempt.Select(entry => $"  - {entry.Type.FullName} — {entry.Exemption}"))}
             """);
     }
 

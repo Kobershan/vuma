@@ -329,15 +329,26 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
         bool identity = await harness.InScopeAsync(provider =>
             provider.GetRequiredService<IEntitlementService>().IsModuleEnabledAsync("identity"));
 
-        bool inventory = await harness.InScopeAsync(provider =>
-            provider.GetRequiredService<IEntitlementService>().IsModuleEnabledAsync("inventory"));
+        // Deliberately a name no module declares. Until Stage 08 this read "inventory", which worked
+        // only because inventory did not exist yet — when it arrived as a core module the assertion
+        // inverted, which is the assertion doing its job rather than a regression.
+        //
+        // Note what this actually exercises: EntitlementService refuses an *undeclared* module before
+        // it ever consults the plan, so this is the unknown-module path, not the entitled-or-not one.
+        // Every module in the solution is core today, so the "declared, not core, not on the plan"
+        // branch has no coverage — see docs/PROGRESS.md. The first licensable module should come with
+        // a test that names it here.
+        const string unlicensed = "no-such-module";
+
+        bool unknown = await harness.InScopeAsync(provider =>
+            provider.GetRequiredService<IEntitlementService>().IsModuleEnabledAsync(unlicensed));
 
         identity.Should().BeTrue();
-        inventory.Should().BeFalse();
+        unknown.Should().BeFalse();
 
-        ModuleNotEnabledException refusal = new("inventory");
+        ModuleNotEnabledException refusal = new(unlicensed);
         refusal.Kind.Should().Be(VumaRetail.Domain.Primitives.DomainProblemKind.Forbidden);
-        refusal.ProblemExtensions["upgrade"].Should().Be("module:inventory");
+        refusal.ProblemExtensions["upgrade"].Should().Be($"module:{unlicensed}");
     }
 
     [Fact]

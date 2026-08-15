@@ -1,0 +1,11 @@
+{
+  "_comment": "COPY THIS TO ~/.claude/settings.json (Windows: C:\\Users\\<you>\\.claude\\settings.json). Some permission settings are only honoured from USER scope, not from a project's .claude/settings.json. Merge it with anything already there rather than overwriting.",
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "ask": [],
+    "deny": [
+      "AskUserQuestion"
+    ]
+  },
+  "includeCoAuthoredBy": false
+}

@@ -5,7 +5,7 @@
 
     Built once, up front, so later modules configure rather than build (docs/ROADMAP.md "05 before
     every module"). No EF, no HTTP, no filesystem — it sits above Application and below Infrastructure,
-    on the same pattern as VumaRetail.Sync (ADR-048) and VumaRetail.Licensing (ADR-051). See ADR-054.
+    on the same pattern as VumaRetail.Sync (ADR-048) and VumaRetail.Licensing (ADR-051). See ADR-072.
   -->
 
   <PropertyGroup>

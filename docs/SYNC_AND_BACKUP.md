@@ -101,7 +101,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04)
+### The registry as built (Stage 04, extended Stage 04b and Stage 06)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -119,12 +119,30 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SyncCursor` | `sync` | `NodeLocal` | — | Per-node bookkeeping |
 | `ConflictEntry` | `sync` | `StoreToCloud` | `LastWriterWins` | A queue one machine can see is a queue nobody reviews |
 | `BackupSnapshot` | `backup` | `StoreToCloud` | `LastWriterWins` | Backup health is what a multi-store operator needs |
+| `Activation` | `licensing` | `NodeLocal` | `LastWriterWins` | A hardware binding belongs to the one machine it was captured on |
+| `Lease` | `licensing` | `NodeLocal` | `AppendOnly` | The signed token this node is currently running on; each node holds its own |
+| `Licence` | `licensing` | `NodeLocal` | `AppendOnly` | The store server holds the licence; terminals take sub-leases over the LAN rather than a replica (`LICENSING.md` §2) |
+| `EmergencyUnlock` | `licensing` | `NodeLocal` | `LastWriterWins` | Issued by the vendor to one installation's licence screen |
+| `TamperFlag` | `licensing` | `NodeLocal` | `LastWriterWins` | Reported to the vendor over the heartbeat channel (`API_CONTROL_PLANE.md` §2), not the tenant's own store↔cloud replication |
+| `ClockWatermark` | `licensing` | `NodeLocal` | `LastWriterWins` | The highest wall clock *this* installation has seen |
+| `MeteringRecord` | `licensing` | `NodeLocal` | `LastWriterWins` | Delivered to the vendor over the heartbeat channel, not synced to the tenant's own cloud replica |
+| `SupportGrant` | `licensing` | `Bidirectional` | `LastWriterWins` | Consent can be granted or revoked from the store back office or the cloud-facing admin app; both must converge |
 | `ApprovalPolicy` | `workflow` | `CloudToStore` | `CloudWins` | What requires approval, and by whom, is a head-office decision (ADR-019) — the same authority shape as `Role` |
 | `ApprovalRequest` | `workflow` | `Bidirectional` | `ManualReview` | Raised at either tier (a store's own purchase order, a cloud-side bulk action) and decided at either; a genuine divergence — two nodes both deciding the same request differently — is exactly the case a person, not a policy, should settle |
 | `ApprovalDecisionEntry` | `workflow` | `StoreToCloud` | `AppendOnly` | The decision history, like the audit trail — two nodes recording decisions on the same request converge by accumulation |
 | `Notification` | `workflow` | `Bidirectional` | `LastWriterWins` | A read receipt from either tier is the freshest fact about whether somebody has seen it |
 | `Document` | `workflow` | `Bidirectional` | `LastWriterWins` | Metadata only; attached at either tier, and the latest version pointer is what matters after a merge |
 | `DocumentVersion` | `workflow` | `StoreToCloud` | `AppendOnly` | Never overwritten (ADR-019's non-destructive versioning) — the same posture as the stock ledger |
+| `UnitOfMeasure` | `catalog` | `Bidirectional` | `CloudWins` | Configuration a store may add to locally; head office reconciles a collision the same way it does for `Store` |
+| `Item` | `catalog` | `Bidirectional` | `CloudWins` | A store may raise a new line at the till counter as easily as head office can; the cloud is where a multi-store catalogue is kept consistent |
+| `ItemVariant` | `catalog` | `Bidirectional` | `CloudWins` | Follows its item |
+| `Barcode` | `catalog` | `Bidirectional` | `CloudWins` | A store attaching a legacy or case-pack code locally is routine; the cloud settles a genuine collision |
+| `Partner` | `partners` | `Bidirectional` | `CloudWins` | Suppliers and customers are onboarded at either tier; head office is where a multi-store estate reconciles a duplicate |
+
+Stage 06 (master data). None of the five `catalog`/`partners` entities is immutable — `Item`,
+`ItemVariant`, `Partner` and `UnitOfMeasure` deactivate rather than delete (§7 rule 8), and `Barcode` is
+the one entity in the module that is hard deleted (`docs/DECISIONS.md` ADR-061) — so `CloudWins` is a
+legitimate policy for all five; nothing here collides with the immutable-record rule two paragraphs below.
 
 **An immutable record may not declare a policy that overwrites it.** `AuditInterceptor` throws on any
 update to an `IImmutableRecord` (§7 rule 7, ADR-012), so an immutable entity declaring

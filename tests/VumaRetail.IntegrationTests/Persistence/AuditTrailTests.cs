@@ -46,7 +46,7 @@ public sealed class AuditTrailTests(PostgresFixture fixture)
         await context.SaveChangesAsync();
 
         clock.Advance(TimeSpan.FromDays(30));
-        store.SetDetails("Johannesburg Central", "12 Main Road");
+        store.SetDetails("Johannesburg Central", Address.Create("12 Main Road", "Johannesburg", "ZA"));
         await context.SaveChangesAsync();
 
         store.CreatedAt.Should().Be(TestClock.DefaultStart);

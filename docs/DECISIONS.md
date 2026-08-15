@@ -720,11 +720,350 @@ which is the correct way for this to fail — a false rebind demand stops a payi
 ADR-026 already chose detection over prevention. A missing component still scores nothing, so absence
 never reads as agreement, and no value is ever fabricated to fill a gap.
 
+## ADR-054 — `CurrentLevel` moves off `IEntitlementService` onto `IEnforcementStatusReader` — **LOCKED**
+**Context.** `IEntitlementService`'s own remarks promised an architecture test asserting that no query
+handler consults the enforcement level (ADR-028 rule 4: a lapsed tenant keeps full read, report,
+reprint and export access, so a read path has no correct use for the gate). Writing that test exposed
+that the promise did not hold: `GetLicenceStatusQueryHandler` and `GetSubLeaseQueryHandler` — the
+licence screen and the till's sub-lease, both queries — already depended on `IEntitlementService` and
+called `CurrentLevel` to display it. Both uses are legitimate; the licence screen exists to show the
+level. A named-exception list (Stage 04's `BypassTenantFilter` call-site pattern) would have made the
+rule true in the same reviewed-list sense ADR-052 already uses for exemption kinds, but this codebase's stronger
+habit — layering, `CommitAsync`, the pipeline's `IUnitOfWork` ban — is to make an invariant a type
+cannot violate rather than a list a reviewer must remember to check.
+**Decision.** `CurrentLevel` moves onto a new interface, `IEnforcementStatusReader`, implemented by the
+same `EntitlementService` instance and resolved to it within a scope so the gate and the status reader
+never disagree about where a request's tenant stood. `IEntitlementService` keeps only
+`IsModuleEnabledAsync` and `CheckLimitAsync` — the gate proper. Everything that only needs to *report*
+the level (the read-only guard, `RefreshLeaseCommand`, `SendHeartbeatCommand`, the two query handlers)
+now depends on `IEnforcementStatusReader` instead. "No query handler depends on `IEntitlementService`"
+is therefore enforceable with no exemption list at all: there is no `CurrentLevel` on that interface for
+a query handler to plausibly justify calling.
+**Consequences.** The architecture test in `LicensingRulesTests.cs` needs no named exceptions and cannot
+go stale the way a hand-maintained list can. The split cost five call sites their parameter type and
+nothing else — no behavioural change, since both interfaces are the same object within a scope. A
+future query handler that wants the enforcement level for display depends on
+`IEnforcementStatusReader`, which is safe by construction; one that wants to gate a read on it has no
+interface that lets it, which is the point.
+
 ---
 
-# Revision 9 — Stage 05 workflow, approvals, notifications, documents
+# Revision 3 — ecosystem, savings schemes, design system, unattended operation
 
-## ADR-054 — `VumaRetail.Workflow` sits below `Infrastructure`, on the `Sync`/`Licensing` pattern — **LOCKED**
+## ADR-055 — Money held for customers is a liability with its own module — **LOCKED**
+**Context.** Credit accounts, lay-bys and stokvels all involve holding a customer's money or goods
+before delivery, and all three are commonplace in South African retail. Bolting them onto Sales would
+produce three inconsistent implementations of the same accounting problem.
+**Decision.** One module (Stage 10b). Deposits, contributions and account credits post to **liability**
+accounts through Stage 07's posting rules and release to revenue only on delivery. Lay-by stock is
+reserved, not sold — no revenue, no stock issue, no cost of sale until final payment. Stokvel member
+balances are a projection of an append-only contribution ledger; there is no "set balance" operation.
+Stokvel benefits are allocated **time-weighted** by what each member contributed and when.
+**Consequences.** The three liability balances reconcile to their control accounts continuously, like
+every other sub-ledger. The time-weighted benefit calculation is the most dispute-prone arithmetic in
+the product and carries a hand-computed fixture test. Reserved lay-by and stokvel stock is excluded
+from available stock, so a store cannot sell December's hampers in November.
+
+## ADR-056 — Vuma Connect: both sides are tenants, and a supplier never writes into a retailer — **LOCKED**
+**Context.** The product becomes a network when suppliers publish prices once and connected retailers
+order and pay in-app. The obvious build — a supplier "portal" bolted onto the retailer's system — breaks
+immediately, because a wholesaler is a supplier to twenty retailers *and* a retailer buying from ten
+manufacturers.
+**Decision.** A supplier is a full Vuma tenant. Trading happens over mutually accepted, revocable
+connections, and **every cross-tenant data flow is a proposal the receiving side accepts** — published
+prices land in the retailer's import preview with a diff, never as a silent cost update. The one
+concession is that a dispatch note pre-populates a GRN, which the retailer still confirms line by line.
+Connection codes issued by suppliers are the growth mechanism.
+**Consequences.** Retailers will connect, because a supplier can never change their costs behind their
+back. Cross-tenant isolation becomes the highest-stakes security surface in the product and gets a
+dedicated suite: no retailer sees another's volumes, no supplier sees a competitor's prices, and network
+benchmarks are suppressed where too few tenants would make a figure attributable.
+
+## ADR-057 — Vuma orchestrates payments, it does not hold funds — **LOCKED**
+**Context.** In-app payment between retailer and supplier looks like the natural centre of the network,
+and it is also the fastest way to acquire regulatory obligations nobody planned for.
+**Decision.** Money moves through a licensed provider behind `IPaymentGateway` and `ISettlementProvider`.
+Vuma orchestrates, records and reconciles: a payment posts to the retailer's AP and the supplier's AR in
+one atomic operation. Both interfaces ship with fakes so Stage 21b is fully testable without a licence,
+and the regulatory position is documented in `docs/compliance/` before any real funds flow.
+**Consequences.** The network's value — one order, one status, one reconciled payment — is delivered
+without Vuma becoming a payments institution. If the model later requires holding funds, that is a
+provider change and a licence, not a rewrite.
+
+## ADR-058 — One design system, generated from one token file — **LOCKED**
+**Context.** Four surfaces (WPF desktop, Android, supplier portal, storefront) drawn by different stages
+months apart will diverge unless the tokens are mechanical.
+**Decision.** `design/tokens.json` is the single source of truth. WPF `ResourceDictionary`, Compose
+theme and CSS custom properties are **generated** in CI; a hand-edited generated file fails the build,
+and an architecture test scans for literal hex values in any UI source. Dark and light are both
+first-class, with dark defaulting on POS and light in back office, overridable per user and per
+terminal. Tenant branding is limited to logo, accent and receipt header.
+**Consequences.** Every Vuma install is recognisable and supportable. Contrast is verified in CI, so a
+palette tweak cannot silently break legibility on a five-year-old till screen.
+
+## ADR-059 — Unattended operation is a first-class requirement — **LOCKED**
+**Context.** Build sessions run overnight with nobody watching. A single permission prompt or clarifying
+question wastes the entire night.
+**Decision.** `AskUserQuestion` is denied in settings. `CLAUDE.md` forbids writing to `.claude/**`
+(a protected path whose writes prompt). Bypass mode is set at launch from both user and project scope.
+`scripts/run-autonomous.ps1` runs **one stage per invocation** — fresh context each time — and verifies
+three independent progress signals (a commit landed, `PROGRESS.md` changed, the build is green) before
+continuing, stopping cleanly rather than looping.
+**Consequences.** Quality does not decay across a long night the way it does in one enormous session,
+and a stalled run stops with a diagnosable log instead of burning hours. See `docs/AUTONOMOUS_OPERATION.md`
+for the environment setup this depends on.
+
+---
+
+# Revision 9 — Stage 06 master data
+
+## ADR-060 — A variant's attributes are one ordered `jsonb` column, not a child table — **LOCKED**
+**Context.** `ItemVariant` needs a small, ordered set of named attribute pairs — `Size: M`, `Colour:
+Red` — and the number of dimensions a retailer actually uses is almost always one or two, occasionally
+three, and essentially never open-ended. A child table (`item_variant_attributes`) is the conventional
+normalised shape and is also a join on every variant read, a migration to add an index the first time
+somebody asks "find every red thing", and a second sequence column to keep display order, which a
+relational table does not give for free.
+**Decision.** `ItemVariant.Attributes` is an ordered `IReadOnlyList<VariantAttribute>` value object,
+mapped to a single `jsonb` column (`CatalogConfigurations.ItemVariantConfiguration`). Order is
+preserved because it is display order and a JSON array keeps it without an extra column. A value
+comparer is registered so EF's change tracker treats two lists with the same elements in the same
+order as equal, which is what makes the column participate correctly in `SaveChanges` and in the
+mapping-conformance round-trip tests.
+**Consequences.** Reading a variant costs nothing beyond the row it already fetches, and adding a
+fourth attribute to the product line is a data edit, not a migration touching every existing variant
+row. The cost is paid on the other side: attributes are not individually indexable or queryable in SQL
+without a `jsonb` expression index, which nobody needs today — POS and catalogue search resolve a
+variant by SKU or barcode, never by filtering on `Colour = 'Red'` across the whole catalogue. If that
+requirement ever arrives, promoting the column to a child table is a self-contained migration, not a
+domain redesign, because `VariantAttribute` is already a named pair rather than a free-text blob.
+
+## ADR-061 — A barcode is the one entity in this stage that is genuinely hard-deleted — **LOCKED**
+**Context.** CLAUDE.md §7 rule 8 makes soft delete the default for every table, and `Item`,
+`ItemVariant`, `Partner` and `UnitOfMeasure` all follow it — each carries a `Deactivate()`/`Activate()`
+pair instead of a delete. A barcode is different in kind: it identifies a product to a scanner and
+carries no history of its own the way a sale line, a stock movement or a partner does. A shop
+relabelling a product with a new EAN has no use for the old code sitting in every future lookup,
+uniqueness check and keyset page forever.
+**Decision.** `RemoveBarcodeCommand` calls `IBarcodeRepository.Remove`, which is a real
+`DbSet.Remove` — the row is gone, not `deleted_at`-stamped. Removing a primary barcode promotes a
+remaining sibling atomically in the same handler (`RemoveBarcodeCommandHandler`), so the "exactly one
+primary" invariant survives the deletion.
+**Consequences.** A barcode value becomes reusable the instant it is removed, which is correct — the
+uniqueness index is filtered on `deleted_at IS NULL` for every other catalog table but a removed
+barcode leaves no row at all, so there is nothing to filter. The replication registry still declares
+`Bidirectional`/`CloudWins` for `Barcode` (`docs/SYNC_AND_BACKUP.md` §3): a delete is itself a change
+the outbox captures and ships like any other, and `CloudWins` decides which node's delete-or-recreate
+wins if both edit the same barcode's owner at once. The one thing this ADR rules out is ever adding a
+`deleted_at` column to `catalog.barcodes` to "make it consistent" with its siblings — that would be
+solving a problem (audit of a removed alias) nothing in this product asks for, at the cost of the
+uniqueness index every add-barcode call depends on.
+
+## ADR-062 — Item and partner counts get no `LimitKind`; they stay unlimited — **LOCKED**
+**Context.** `docs/LICENSING.md` §6 fixes the hard limits — stores, terminals, named users — and the
+soft limits — transactions/month, storage, API calls — as closed lists, and says plainly that a new
+kind is not to be added speculatively. Stage 06 is the first stage that could plausibly want one: a
+catalogue of items and a register of partners are exactly the kind of thing a SaaS pricing tier
+sometimes gates on ("up to 5,000 SKUs").
+**Decision.** No `LimitKind.Items` or `LimitKind.Partners` is added. A tenant may create as many items,
+variants, barcodes and partners as their catalogue needs, regardless of plan.
+**Consequences.** This is a commercial decision as much as an engineering one, and it is made here
+because nothing downstream should invent a limit to fill a perceived gap: `docs/LICENSING.md` names the
+complete list, and master data is deliberately not on it. The reasoning is the same ADR-034/ADR-052
+pattern applied to a different list — a closed enumeration is only trustworthy if additions are
+deliberate and recorded, not incidental to whichever stage happens to touch it next. If the vendor ever
+wants to sell by catalogue size, that is a new ADR revising `LICENSING.md` §6, not a quiet addition
+here. Until then, `CreateItemCommandHandler` and `CreatePartnerCommandHandler` check only code
+uniqueness and an active unit of measure — no `IEntitlementService.CheckLimitAsync` call — which is the
+same shape `CreateStoreCommandHandler` uses for the hard limit it *does* have, so the absence here is a
+deliberate omission rather than one nobody thought about.
+
+## ADR-063 — The daily reconciliation check is a plain `IHostedService`, not a Quartz job — **LOCKED**
+**Context.** ADR-016 requires an "automated daily job" that compares every control account against its
+sub-ledger, so a variance is visible before somebody tries to close a period rather than only at the
+close attempt. `CLAUDE.md` §4 locks Quartz.NET as the scheduler for background work, which reads as an
+instruction to make this a Quartz job.
+**Decision.** `FinanceReconciliationHostedService` is a `BackgroundService` on a 24-hour loop. It
+issues `RunDailyReconciliationCheckCommand` through the ordinary command pipeline — validation,
+transaction, audit — exactly as a person clicking "check now" would.
+**Consequences.** Quartz earns its place when schedules are tenant-configurable, need persistence
+across restarts, or must not double-fire across a cluster. None of those apply: the interval is fixed
+at 24 hours, a missed pass costs nothing because the next one recomputes from current state rather
+than from a delta, and the store server is a single node by topology. Introducing a scheduler, its
+tables and its own transaction semantics to run one idempotent command on a timer would be more moving
+parts than the requirement has. The important half of the decision is not the timer but that the
+scheduled path and the on-demand path are the same command — a check that behaved differently when a
+person asked for it than when the clock did would be the one worth having, and this way there is only
+one. When a later stage genuinely needs tenant-configured schedules, Quartz arrives then and this
+service becomes one of its jobs without the command changing.
+
+## ADR-064 — Finance is a core module, not a licensable one — **LOCKED**
+**Context.** R7 makes every module switchable per tenant, and `FinanceModuleManifest` has to declare
+whether it is core. Finance is a plausible upsell — plenty of retail products sell "accounting" as a
+tier.
+**Decision.** `IsCore => true`. The `finance` licence flag exists and is declared, but the module
+cannot be switched off.
+**Consequences.** Rule 12 makes Finance load-bearing for every other module: POS, procurement and
+inventory all move value, and the only way any of them may affect the ledger is by raising an
+`IFinancialEvent` that Finance turns into a journal. A tenant with Finance disabled would not lose a
+feature the way a tenant without Loyalty does — every posting write in the system would fail,
+including a sale at the till, which contradicts R1's "POS never stops" outright. This is the same
+judgement Stage 06 made for Catalog and Partners, one layer lower: those are core because other
+modules read them, Finance is core because other modules cannot write without it. Selling accounting
+as a tier remains possible commercially — it would gate the *UI surface* and the AR/AP/banking
+endpoints via permissions, not the posting engine underneath — but that is a pricing decision for the
+control plane, and it must never reach the code path a POS sale takes.
+
+## ADR-065 — Document number counters are node-local and locked inside the caller's transaction — **LOCKED**
+**Context.** Journals, AR invoices and AP payments all need per-tenant sequential human-readable
+numbers. Two questions follow: whether the counter replicates, and how two concurrent postings avoid
+issuing the same number.
+**Decision.** `DocumentNumberCounter` is `ReplicationScope.NodeLocal`. The repository takes a
+`SELECT ... FOR UPDATE` row lock inside the command pipeline's existing transaction (slot 200) rather
+than opening one of its own.
+**Consequences.** Replicating the counter would be actively harmful: the number is printed on the
+document before any replica could learn about it, so a replicated counter converging after the fact
+would hand two stores the same invoice number and then quietly agree on which one was right. Keeping
+it node-local means a store's series is that store's series, which is what a person reading an invoice
+number expects anyway. Taking the lock inside the caller's transaction — not a fresh one — is what
+makes the series gap-free rather than merely unique: the increment rolls back with the command that
+failed, so a rejected posting does not burn a number. It also has to be that way regardless, since
+§7 rule 2 and the architecture test forbid a repository committing its own `SaveChanges`. The cost is
+that concurrent postings in the same series serialise on that row; for a store issuing tens of
+documents a minute this is invisible, and a store that ever outgrows it wants a different numbering
+scheme rather than a looser lock.
+
+## ADR-066 — `Journal.Lines` is a backing-field one-to-many, not an owned collection — **LOCKED**
+**Context.** A journal's lines are created once, at `Journal.Post`, and never added to afterwards.
+That looks exactly like an owned collection, which is how EF would normally model a child collection
+with no independent lifetime.
+**Decision.** `JournalLine` is a full entity with its own configuration; `Journal.Lines` is mapped as
+the parent side of a plain one-to-many over a backing field, with `PropertyAccessMode.Field`.
+**Consequences.** An owned collection would deny the line its own identity, and the line needs one for
+three separate reasons: it carries the standard audit columns §7 rule 3 requires on every table, it is
+independently `[Replicated]` with its own sync stamp, and `BankStatementLine.MatchedJournalLineId`
+points at a specific line — a bank reconciliation matches one side of one posting, not a whole
+journal. Owned types also cannot be queried independently, and the trial balance and account-balance
+queries both group by account across every journal without loading the parents. The backing field is
+what preserves the invariant that motivated considering ownership in the first place: the collection
+is populated inside `Post` and there is no public way to add to it afterwards, so immutability is
+enforced by the aggregate rather than by the mapping.
+
+## ADR-067 — An optional `Money` is two plain columns and a computed accessor, never a complex property — **LOCKED**
+**Context.** A journal line carries a debit or a credit, never both and never neither, so each side is
+optional on its own. `ValueObjectMapping.HasMoney` maps `Money` as an EF complex property, and the
+obvious move was a second overload taking `Expression<Func<TEntity, Money?>>`.
+**Decision.** There is no `HasMoney` overload for `Money?`. An entity with an optional monetary amount
+declares `{name}Amount` and `{name}Currency` as plain properties and exposes a computed `Money?`
+accessor over them; `JournalLine` is the worked example, and its mapping sets the column type and
+length directly.
+**Consequences.** This one was learned the expensive way and is recorded so nobody re-derives it. EF
+Core 9 cannot configure a complex property as optional at all, and reaching a nullable value type's
+fields requires the two-hop expression `value!.Value.Amount`, which `ComplexPropertyBuilder.Property`
+refuses to parse. Both failures happen at *model-building* time, not compile time — so the overload
+compiled cleanly, shipped in a checkpoint commit, and left a solution in which `VumaRetailDbContext`
+threw on construction. Every integration test and every architecture test that reads the model failed,
+and a build with zero warnings said nothing was wrong. The general lesson is the one worth keeping:
+`dotnet build` proves nothing about an EF model, so a stage that adds entities is not green until
+something has actually constructed the context. `HasAddress` solves the same EF limitation the other
+way, with an owned type, because an address has no arithmetic to preserve and does not mind losing
+value-type semantics; money does, so it keeps `Money` in the domain and pushes the split into the
+mapping alone.
+
+---
+
+## ADR-068 — Stock is valued at weighted-average moving cost — **LOCKED**
+**Context.** Stage 08 has to put a number on what a unit of stock cost when it is relieved, and the
+choice governs every cost of sales figure the ledger will ever carry. FIFO, specific identification,
+standard costing and weighted average are all defensible; the roadmap's later stages (12 procurement,
+17 manufacturing) each assume *something* is already decided.
+**Decision.** Weighted-average moving cost. Every receipt blends its cost into a running average held
+on `StockBalance.AverageCost`; every issue relieves at that average without changing it. There are no
+cost layers, no lot tracking and no revaluation pass.
+**Consequences.** This is the simplest method that is still correct, which is what `CLAUDE.md` §1 asks
+for on a first cut. It needs one decimal per balance rather than a layer table, it cannot get out of
+order, and it has no batch job that must run before the numbers are true. What it gives up is real:
+a tenant whose accountant requires FIFO cannot have it, and shelf-life or serial-number costing
+(Stage 18's territory) will need genuine cost layers, not a variation on this. That is an additive
+change — a costing-method column on the item and a layer table beside the balance — rather than a
+rewrite, because every posting already goes through `StockLedgerPoster` and nothing else computes a
+cost. Note the deliberate detail that an emptied balance keeps its last average: a positive adjustment
+or a found-stock variance afterwards then has a cost basis, where zeroing it would force the caller to
+invent one.
+
+---
+
+## ADR-069 — `StockBalance` is node-local and rebuilt, never replicated as a value — **LOCKED**
+**Context.** ADR-005 makes the stock ledger append-only and names `stock_balance` a materialised
+projection. Every other replicated table carries a `ReplicatedAttribute` naming a conflict policy, and
+the obvious reading is that the balance replicates too, `LastWriterWins` like any other mutable row.
+**Decision.** `StockBalance` is `ReplicationScope.NodeLocal`. Ledger entries replicate
+(`StoreToCloud`, `AppendOnly`); the balance does not. Each node maintains its own copy from the
+entries it has applied, whether raised locally or received from a peer.
+**Consequences.** A running total is not safely mergeable the way an accumulating ledger is. Two nodes
+each applying their own delta to a synced total would either double an overlapping movement or
+silently diverge, and neither shows up as a conflict for ADR-007 to escalate — it shows up months
+later as stock figures nobody trusts. Keeping the balance local means the only thing crossing the wire
+is the immutable fact that a movement happened, which merges by accumulation and cannot conflict. The
+cost is that a node's balance is only as current as the entries it has received, and a rebuild is the
+repair for any divergence — which is available precisely because the ledger is append-only and
+complete.
+
+---
+
+## ADR-070 — A missing posting rule does not refuse a stock movement — **LOCKED**
+**Context.** Stage 08 raises an `IFinancialEvent` for every movement and Stage 07's engine resolves a
+`PostingRule` for its event type, throwing `PostingRuleNotFoundException` when none is configured. The
+question is what inventory does with that exception.
+**Decision.** `FinancialInventoryValuationEventPublisher` catches it, logs a warning naming the event
+type and the ledger entry, and returns. The stock movement stands; no journal is raised.
+**Consequences.** The stock ledger records what physically happened, and that is true whether or not
+an accountant has finished the chart of accounts. Failing the movement would mean a store cannot
+receive a delivery because its posting rules are incomplete — refusing to write down what is
+demonstrably on the shelf, which is the wrong failure. It also makes the transfer case fall out
+correctly rather than needing a special case: with a single inventory account a transfer's two sides
+would debit and credit the same account for the same amount, so the demo seeds no transfer rule and
+the correct posting is no posting. The real risk is the other reading — a rule that *should* exist and
+does not, silently costing the ledger a journal — which is why it is a warning rather than debug, and
+why the message names the event type a rule would need. A stage that needs the stricter behaviour
+(Stage 12's three-way match is the likely first) should make it explicit per event type rather than
+flipping this globally.
+
+---
+
+## ADR-071 — A constructor overload never defaults a parameter that differs only by nullability — **LOCKED**
+**Context.** `Entity` gained a second constructor for callers that mint an id before the row exists —
+`StockTransfer`, whose two ledger entries must carry the transfer's id before the transfer itself can
+be built. It was written as `Entity(Guid id, Guid tenantId, Guid? storeId = null)`, beside the
+existing `Entity(Guid tenantId, Guid? storeId = null)`.
+**Decision.** The id-taking constructor takes no default for `storeId`. All three arguments are
+required. More generally: where two overloads differ by a leading parameter of the same type, the
+longer one does not get a trailing default that makes both applicable to the same argument count.
+**Consequences.** With the default present, a two-argument `base(tenantId, storeId)` call from an
+entity whose own `storeId` is a non-nullable `Guid` binds to the *id* constructor — two exact `Guid`
+matches beat one exact match plus a `Guid`-to-`Nullable<Guid>` conversion. C# is behaving exactly as
+specified; the result is a row with `Id` set to the tenant's id, `TenantId` set to the store's, and no
+store at all, which places it outside its own tenant's global query filter. Nothing about the call
+site changes, no warning is produced, and the build stays clean. `Terminal` was the only entity in the
+solution shaped this way and it cost fourteen failing tests across Identity, Licensing and Sync, none
+of which named the real cause. Removing the default makes the two-argument call unambiguous again.
+This sits beside ADR-067 as the second case this codebase has hit where the compiler is content and
+the model is wrong; `EntityTests` now asserts both constructors bind as intended, because that is the
+only place the mistake is visible.
+
+---
+
+# Revision 10 — Stage 05 workflow, approvals, notifications, documents
+
+Stage 05 was written against Stage 04b and merged after 06, 07 and 08, so its two ADRs were drafted as
+054 and 055 — both numbers main had since spent. The first is renumbered **ADR-072** below. The second
+is **not reproduced**: it reached exactly ADR-067's conclusion about optional `Money`, independently and
+from a different starting point (`ApprovalPolicy.ThresholdAmount` rather than `JournalLine`'s debit and
+credit), and ADR-067 landed on `main` first. Two entries for one decision is how a codebase ends up
+with two answers to it. What Stage 05's draft had that ADR-067 did not is the upstream issue number —
+**dotnet/efcore#31376** — now recorded here so the workaround can be retired when it closes.
+
+## ADR-072 — `VumaRetail.Workflow` sits below `Infrastructure`, on the `Sync`/`Licensing` pattern — **LOCKED**
 **Context.** Stage 05 needed a home for `ApprovalEngine` (the sole implementation `IApprovalService`
 may have, rule 13), the notification dispatcher and channels, and the document versioning service —
 code every later module stage depends on, that has to be unit-testable with no database and no host in
@@ -744,29 +1083,3 @@ rather than as database fixtures. The layering rule — no EF Core, no ASP.NET C
 enforced by an architecture test alongside `Sync` and `Licensing`, and "only `VumaRetail.Workflow`
 implements `IApprovalService`" is enforced by a second, proven by a deliberate second implementation in
 `Infrastructure` that was confirmed to fail the build and then removed.
-
-## ADR-055 — A nullable `Money` property maps as two flat columns, not an optional complex type — **LOCKED**
-**Context.** `ApprovalPolicy.ThresholdAmount` and `ApprovalRequest.Amount` are both legitimately
-absent — not every gated action carries money, and "no threshold" is exactly what "gate every
-occurrence" means (ADR-019). The obvious mapping extends `ValueObjectMapping.HasMoney` with a nullable
-overload using EF Core's `ComplexProperty`. Every shape tried — the nested `Amount`/`Currency`
-properties marked optional, the complex property alone marked optional, both together — failed at
-model-build time with "Configuring the complex property 'ApprovalPolicy.ThresholdAmount' as optional is
-not supported, call 'IsRequired()'". EF Core 9's relational providers do not yet support an optional
-complex property at all (tracked upstream as dotnet/efcore#31376), which is not stated anywhere
-`docs/DATA_MODEL.md` §2 or `ValueObjectMapping`'s own doc comments had reason to anticipate, and which
-`dotnet ef migrations add Workflow` was the first thing in this repository to actually exercise.
-**Decision.** A nullable `Money` property is represented as two ordinary nullable properties —
-`{Name}Value: decimal?`, `{Name}Currency: string?` — private, since the entity's public API stays a
-single computed `Money?` reassembled from the pair, exactly as every other consumer (`ApprovalEngine`,
-the summaries, the endpoints) already expects. Mapped with two plain
-`builder.Property<T>("{Name}Value")` calls rather than through `ValueObjectMapping.HasMoney`, which
-keeps only its required-`Money` overload; a comment where the nullable overload used to be explains why
-there is none and points at this pattern.
-**Consequences.** One extra pair of columns and one computed property per nullable money field, instead
-of the single line the required case gets — a real but small cost, paid twice in this stage
-(`ApprovalPolicy.ThresholdAmount`, `ApprovalRequest.Amount`) and by whichever later module is the next
-to need an optional monetary field. Nothing downstream changed: the domain's public shape, the
-`Application`-layer contracts and every test written against `Money?` are unaffected, because this is
-an `Infrastructure`-mapping decision, not a domain one. Revisit `ValueObjectMapping.HasMoney` once EF
-Core ships optional complex type support and the workaround can be retired.

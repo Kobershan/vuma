@@ -47,8 +47,8 @@ public sealed class Store : Entity
     /// <summary>The store's name as it appears on a receipt.</summary>
     public string Name { get; private set; } = string.Empty;
 
-    /// <summary>The trading address, unstructured for now — Stage 06 owns structured addresses.</summary>
-    public string? Address { get; private set; }
+    /// <summary>The trading address, or <c>null</c> if none has been recorded yet (Stage 06, ADR-037).</summary>
+    public Address? Address { get; private set; }
 
     /// <summary>ISO 4217 code this store trades in, or <c>null</c> to use the tenant's base currency.</summary>
     public string? CurrencyOverride { get; private set; }
@@ -76,10 +76,10 @@ public sealed class Store : Entity
     /// <summary>Renames the store and updates its address.</summary>
     /// <param name="name">The new store name.</param>
     /// <param name="address">The new trading address, or <c>null</c> to clear it.</param>
-    public void SetDetails(string name, string? address)
+    public void SetDetails(string name, Address? address)
     {
         Name = Require(name, nameof(name));
-        Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim();
+        Address = address;
     }
 
     /// <summary>Overrides the tenant's currency and timezone for this store, or clears the overrides.</summary>

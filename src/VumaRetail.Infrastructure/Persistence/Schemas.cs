@@ -41,4 +41,17 @@ public static class Schemas
 
     /// <summary>Approval policies and requests, notifications, document metadata and versions. Stage 05.</summary>
     public const string Workflow = "workflow";
+    /// <summary>Items, item variants, barcodes and units of measure. Stage 06.</summary>
+    public const string Catalog = "catalog";
+
+    /// <summary>Suppliers, customers, and partners who are both. Stage 06.</summary>
+    public const string Partners = "partners";
+
+    /// <summary>Chart of accounts, GL, AR, AP, banking, tax, posting rules. Stage 07.</summary>
+    public const string Finance = "finance";
+
+    /// <summary>
+    /// Stock locations, the append-only stock ledger, balances, transfers and stocktakes. Stage 08.
+    /// </summary>
+    public const string Inventory = "inventory";
 }

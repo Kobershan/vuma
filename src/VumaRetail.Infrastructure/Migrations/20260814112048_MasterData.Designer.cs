@@ -12,8 +12,8 @@ using VumaRetail.Infrastructure.Persistence;
 namespace VumaRetail.Infrastructure.Migrations
 {
     [DbContext(typeof(VumaRetailDbContext))]
-    [Migration("20260812070117_Workflow")]
-    partial class Workflow
+    [Migration("20260814112048_MasterData")]
+    partial class MasterData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -162,6 +162,463 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ix_snapshots_tenant_id_store_id");
 
                     b.ToTable("snapshots", "backup");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Catalog.Barcode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_primary");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid?>("ItemVariantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_variant_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("Symbology")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("symbology");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_barcodes");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_barcodes_item_id_primary")
+                        .HasFilter("is_primary AND item_id IS NOT NULL AND deleted_at IS NULL");
+
+                    b.HasIndex("ItemVariantId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_barcodes_item_variant_id_primary")
+                        .HasFilter("is_primary AND item_variant_id IS NOT NULL AND deleted_at IS NULL");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_barcodes_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_barcodes_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_barcodes_tenant_id_code")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_barcodes_tenant_id_store_id");
+
+                    b.ToTable("barcodes", "catalog", t =>
+                        {
+                            t.HasCheckConstraint("ck_barcodes_exactly_one_owner", "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1");
+                        });
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Catalog.Item", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("HasVariants")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_variants");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("item_type");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<string>("TaxClassCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("tax_class_code");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UnitOfMeasureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unit_of_measure_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_items");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_items_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_items_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_items_tenant_id_code")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_items_tenant_id_store_id");
+
+                    b.ToTable("items", "catalog");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Catalog.ItemVariant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attributes");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sku");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_item_variants");
+
+                    b.HasIndex("ItemId")
+                        .HasDatabaseName("ix_item_variants_item_id");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_item_variants_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_item_variants_tenant_id");
+
+                    b.HasIndex("TenantId", "Sku")
+                        .IsUnique()
+                        .HasDatabaseName("ux_item_variants_tenant_id_sku")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_item_variants_tenant_id_store_id");
+
+                    b.ToTable("item_variants", "catalog");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Catalog.UnitOfMeasure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("BaseUnitOfMeasureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("base_unit_of_measure_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("code");
+
+                    b.Property<decimal>("ConversionFactorToBase")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("conversion_factor_to_base");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("name");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_units_of_measure");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_units_of_measure_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_units_of_measure_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_units_of_measure_tenant_id_code")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_units_of_measure_tenant_id_store_id");
+
+                    b.ToTable("units_of_measure", "catalog");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Identity.RefreshToken", b =>
@@ -1853,6 +2310,125 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.ToTable("tamper_flags", "licensing");
                 });
 
+            modelBuilder.Entity("VumaRetail.Domain.Partners.Partner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("phone");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<string>("TaxNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("tax_number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partners");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_partners_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_partners_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_partners_tenant_id_code")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_partners_tenant_id_store_id");
+
+                    b.ToTable("partners", "partners");
+                });
+
             modelBuilder.Entity("VumaRetail.Domain.Platform.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1986,11 +2562,6 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("address");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -2750,810 +3321,106 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.ToTable("sync_cursors", "sync");
                 });
 
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalDecisionEntry", b =>
+            modelBuilder.Entity("VumaRetail.Domain.Partners.Partner", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                    b.OwnsOne("VumaRetail.Domain.Primitives.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("PartnerId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
 
-                    b.Property<Guid>("ApprovalRequestId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("approval_request_id");
+                            b1.Property<string>("City")
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("address_city");
 
-                    b.Property<string>("Comment")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("comment");
+                            b1.Property<string>("CountryCode")
+                                .HasMaxLength(2)
+                                .HasColumnType("character(2)")
+                                .HasColumnName("address_country_code")
+                                .IsFixedLength();
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
+                            b1.Property<string>("Line1")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("address_line1");
 
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
+                            b1.Property<string>("Line2")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("address_line2");
 
-                    b.Property<DateTimeOffset>("DecidedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("decided_at");
+                            b1.Property<string>("PostalCode")
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("address_postal_code");
 
-                    b.Property<string>("DecidedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("decided_by");
+                            b1.Property<string>("Region")
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("address_region");
 
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
+                            b1.HasKey("PartnerId");
 
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
+                            b1.ToTable("partners", "partners");
 
-                    b.Property<string>("Outcome")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("outcome");
+                            b1.WithOwner()
+                                .HasForeignKey("PartnerId")
+                                .HasConstraintName("fk_partners_partners_id");
+                        });
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_approval_decision_entries");
-
-                    b.HasIndex("ApprovalRequestId")
-                        .HasDatabaseName("ix_approval_decision_entries_request");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_approval_decision_entries_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_approval_decision_entries_tenant_id");
-
-                    b.HasIndex("ApprovalRequestId", "DecidedBy")
-                        .IsUnique()
-                        .HasDatabaseName("ux_approval_decision_entries_request_decider");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_approval_decision_entries_tenant_id_store_id");
-
-                    b.ToTable("approval_decision_entries", "workflow");
+                    b.Navigation("Address");
                 });
 
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalPolicy", b =>
+            modelBuilder.Entity("VumaRetail.Domain.Platform.Store", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("action");
-
-                    b.Property<bool>("AllowSelfApproval")
-                        .HasColumnType("boolean")
-                        .HasColumnName("allow_self_approval");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("entity_type");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<int>("MinApprovals")
-                        .HasColumnType("integer")
-                        .HasColumnName("min_approvals");
-
-                    b.Property<string>("Module")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("module");
-
-                    b.Property<string>("RequiredPermission")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("required_permission");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<string>("ThresholdAmountCurrency")
-                        .HasMaxLength(3)
-                        .HasColumnType("character(3)")
-                        .HasColumnName("threshold_currency")
-                        .IsFixedLength();
-
-                    b.Property<decimal?>("ThresholdAmountValue")
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("threshold_amount");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_approval_policies");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_approval_policies_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_approval_policies_tenant_id");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_approval_policies_tenant_id_store_id");
-
-                    b.HasIndex("TenantId", "Module", "EntityType", "Action")
-                        .IsUnique()
-                        .HasDatabaseName("ux_approval_policies_tenant_key")
-                        .HasFilter("is_active AND deleted_at IS NULL");
-
-                    b.ToTable("approval_policies", "workflow");
-                });
-
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("action");
-
-                    b.Property<bool>("AllowSelfApproval")
-                        .HasColumnType("boolean")
-                        .HasColumnName("allow_self_approval");
-
-                    b.Property<string>("AmountCurrency")
-                        .HasMaxLength(3)
-                        .HasColumnType("character(3)")
-                        .HasColumnName("amount_currency")
-                        .IsFixedLength();
-
-                    b.Property<decimal?>("AmountValue")
-                        .HasColumnType("numeric(18,4)")
-                        .HasColumnName("amount_amount");
-
-                    b.Property<int>("ApprovalCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("approval_count");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DecidedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("decided_at");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("entity_type");
-
-                    b.Property<int>("MinApprovals")
-                        .HasColumnType("integer")
-                        .HasColumnName("min_approvals");
-
-                    b.Property<string>("Module")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("module");
-
-                    b.Property<Guid>("PolicyId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("policy_id");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("reason");
-
-                    b.Property<int>("RejectionCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("rejection_count");
-
-                    b.Property<DateTimeOffset>("RequestedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("requested_at");
-
-                    b.Property<string>("RequestedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("requested_by");
-
-                    b.Property<string>("RequiredPermission")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("required_permission");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<Guid>("SubjectEntityId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("subject_entity_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_approval_requests");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_approval_requests_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_approval_requests_tenant_id");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_approval_requests_tenant_id_store_id");
-
-                    b.HasIndex("TenantId", "StoreId", "Status")
-                        .HasDatabaseName("ix_approval_requests_pending")
-                        .HasFilter("status = 'Pending'");
-
-                    b.ToTable("approval_requests", "workflow");
-                });
-
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.Document", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<int>("CurrentVersionNumber")
-                        .HasColumnType("integer")
-                        .HasColumnName("current_version_number");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<Guid>("EntityId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("entity_id");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("entity_type");
-
-                    b.Property<bool>("IsGenerated")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_generated");
-
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("kind");
-
-                    b.Property<string>("Module")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("module");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_documents");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_documents_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_documents_tenant_id");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_documents_tenant_id_store_id");
-
-                    b.HasIndex("TenantId", "Module", "EntityType", "EntityId")
-                        .HasDatabaseName("ix_documents_entity");
-
-                    b.ToTable("documents", "workflow");
-                });
-
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.DocumentVersion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ContentHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("content_hash");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("document_id");
-
-                    b.Property<string>("GeneratedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("generated_by");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("size_bytes");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("source");
-
-                    b.Property<string>("StorageKey")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("storage_key");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("VersionNumber")
-                        .HasColumnType("integer")
-                        .HasColumnName("version_number");
-
-                    b.HasKey("Id")
-                        .HasName("pk_document_versions");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_document_versions_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_document_versions_tenant_id");
-
-                    b.HasIndex("DocumentId", "VersionNumber")
-                        .IsUnique()
-                        .HasDatabaseName("ux_document_versions_document_version");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_document_versions_tenant_id_store_id");
-
-                    b.ToTable("document_versions", "workflow");
-                });
-
-            modelBuilder.Entity("VumaRetail.Domain.Workflow.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ActionUrl")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("action_url");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("body");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("category");
-
-                    b.Property<string>("Channel")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("channel");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<string>("DeliveryError")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("delivery_error");
-
-                    b.Property<string>("DeliveryStatus")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("delivery_status");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_read");
-
-                    b.Property<DateTimeOffset?>("ReadAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("read_at");
-
-                    b.Property<Guid>("RecipientUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("recipient_user_id");
-
-                    b.Property<Guid?>("RelatedEntityId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("related_entity_id");
-
-                    b.Property<string>("RelatedEntityType")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("related_entity_type");
-
-                    b.Property<string>("RelatedModule")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("related_module");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
-                    b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("Severity")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("severity");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("store_id");
-
-                    b.Property<string>("SyncStamp")
-                        .IsRequired()
-                        .HasMaxLength(86)
-                        .HasColumnType("character varying(86)")
-                        .HasColumnName("sync_stamp");
-
-                    b.Property<string>("SyncState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("sync_state");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_notifications");
-
-                    b.HasIndex("RecipientUserId")
-                        .HasDatabaseName("ix_notifications_recipient_unread")
-                        .HasFilter("channel = 'InApp' AND NOT is_read");
-
-                    b.HasIndex("SyncState")
-                        .HasDatabaseName("ix_notifications_sync_state")
-                        .HasFilter("sync_state <> 'Synced'");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_notifications_tenant_id");
-
-                    b.HasIndex("RecipientUserId", "CreatedAt")
-                        .HasDatabaseName("ix_notifications_recipient");
-
-                    b.HasIndex("TenantId", "StoreId")
-                        .HasDatabaseName("ix_notifications_tenant_id_store_id");
-
-                    b.ToTable("notifications", "workflow");
+                    b.OwnsOne("VumaRetail.Domain.Primitives.Address", "Address", b1 =>
+                        {
+                            b1.Property<Guid>("StoreId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<string>("City")
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("address_city");
+
+                            b1.Property<string>("CountryCode")
+                                .HasMaxLength(2)
+                                .HasColumnType("character(2)")
+                                .HasColumnName("address_country_code")
+                                .IsFixedLength();
+
+                            b1.Property<string>("Line1")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("address_line1");
+
+                            b1.Property<string>("Line2")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("address_line2");
+
+                            b1.Property<string>("PostalCode")
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("address_postal_code");
+
+                            b1.Property<string>("Region")
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("address_region");
+
+                            b1.HasKey("StoreId");
+
+                            b1.ToTable("stores", "platform");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StoreId")
+                                .HasConstraintName("fk_stores_stores_id");
+                        });
+
+                    b.Navigation("Address");
                 });
 #pragma warning restore 612, 618
         }

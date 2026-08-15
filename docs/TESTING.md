@@ -22,6 +22,35 @@ Every stage adds, at minimum:
 4. **Sync test** — create the entity on a disconnected node, reconnect, assert convergence on all tiers.
 5. **Offline test** (if the POS touches it) — the operation queues and replays correctly.
 
+### 2.1 Before running the full integration suite
+
+Two things about the harness that cost a session in Stage 07. Both are usage, not code.
+
+**Free space.** `PostgresFixture` clones the template database once per test class, so a full run
+creates a great many complete PostgreSQL databases. Give it a few GB of headroom — and do not let the
+cluster live on a `tmpfs`. `scripts/pg-test.sh` defaults its data directory to `${TMPDIR:-/tmp}`,
+which on a typical Linux box is RAM, and a full run will fill it. Point it at real disk:
+
+```bash
+export VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg
+```
+
+This matters more than it sounds, because **running out of space does not present as a disk error**.
+Some tests fail with an explicit `XX000: Disk quota exceeded`, but others fail as ordinary assertion
+failures on rows that were never written, and a full volume can stop the shell working at all. For an
+unattended overnight run it reads as a pile of confusing test failures. If a run fails in a way that
+makes no sense, check free space before believing any of it.
+
+**One cluster per session.** `scripts/pg-test.sh` uses a fixed port and data directory, and its
+`start` path short-circuits on `pg_isready` — so a second session gets a success message and silently
+attaches to the first session's cluster. Both suites then share one server, whose template database
+each run drops and recreates. If another session might be running the suite, set both:
+
+```bash
+export VUMA_TEST_PG_PORT=55433
+export VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg-$$
+```
+
 ## 3. Money and quantity testing
 
 Financial calculation bugs are the most expensive kind here. Every pricing, tax, discount and
@@ -74,19 +103,22 @@ A red pipeline blocks the stage from being marked DONE.
 Two suites are mandatory and must be run in CI on every build, not just during Stage 04b:
 
 **No-accidental-lockout.** This is the suite that protects the business from its own licensing, and it
-must be green on every build (the guarantees survive from ADR-027 into the live ADR-028):
+must be green on every build (the guarantees survive from ADR-027 into the live ADR-028, restated
+against **read-only** rather than a hard lock — see `docs/LICENSING.md` §4):
 - Control plane unreachable for the full tolerance window: the store trades normally throughout, and
-  locks only at the configured boundary — **never earlier**
+  drops to read-only only at the configured boundary — **never earlier**
 - Control plane returning 500s, timeouts, or garbage: treated as unreachable, never as unlicensed
-- A single failed charge, and a second, and a third: **no lockout** until dunning completes and
-  notifications are recorded as delivered
-- Clock moved backwards, forwards, or into next year: reported as a tamper flag, never a lockout and
+- A single failed charge, and a second, and a third: **no read-only restriction** until dunning
+  completes and notifications are recorded as delivered
+- Clock moved backwards, forwards, or into next year: reported as a tamper flag, never a restriction and
   never an extension
-- Hardware fingerprint change within tolerance: no lockout
-- Payment received while locked: unlocked at the next heartbeat, under 60 seconds, with no manual step
-- Emergency access code: unlocks fully **with no internet at all**, expires exactly on time, cannot be
-  reused, and cannot be forged without the signing key
-- Export unlock: exports and reports work, trading and configuration do not
+- Hardware fingerprint change within tolerance: no restriction
+- Payment received while read-only: full write access restored at the next heartbeat, under 60 seconds,
+  with no manual step
+- Emergency write code: restores full write access **with no internet at all**, expires exactly on
+  time, cannot be reused, and cannot be forged without the signing key
+- Write unlock: a vendor-granted, time-limited restoration of write access to a read-only tenant; read
+  access never needed unlocking because it was never blocked
 - Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start
 
 **Read-only correctness.** The other mandatory suite (ADR-028). In read-only, assert that:
