@@ -55,6 +55,7 @@ public sealed class VumaExceptionHandler(
         {
             ValidationFailedException validation => Validation(validation),
             DomainException domain => Domain(domain),
+            BadHttpRequestException malformed => Malformed(malformed),
             _ => Unhandled(exception, httpContext),
         };
 
@@ -126,6 +127,39 @@ public sealed class VumaExceptionHandler(
 
         return problem;
     }
+
+    /// <summary>
+    /// A request that never reached a handler: model binding failed before the endpoint ran.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Minimal APIs raise <see cref="BadHttpRequestException"/> when a required non-nullable query or
+    /// route parameter is absent or unparseable, when a body cannot be deserialised, and when a body
+    /// exceeds the size limit. Without this arm every one of those fell through to
+    /// <see cref="Unhandled"/> and the caller got a <c>500 INTERNAL_ERROR</c> — telling them the
+    /// server had broken when in fact their request was incomplete and they could have fixed it. It
+    /// also logged an error and burned a correlation id per malformed request, which makes a caller's
+    /// bad integration look like an outage.
+    /// </para>
+    /// <para>
+    /// The exception's own <see cref="BadHttpRequestException.StatusCode"/> is honoured rather than
+    /// hard-coding 400, because the framework already distinguishes these: a body over the limit is a
+    /// 413, not a 400, and answering it with 400 would send the caller looking at their JSON rather
+    /// than at its size.
+    /// </para>
+    /// <para>
+    /// Only the framework's own message is disclosed, never an inner exception's. The outer message
+    /// names the parameter or the reason ("Required parameter ... was not provided from query
+    /// string") and is exactly what the caller needs; an inner <c>JsonException</c> can carry a
+    /// fragment of the payload and a path into it, which is the caller's data echoed back through a
+    /// log and a response body and is not disclosed here.
+    /// </para>
+    /// </remarks>
+    private static ProblemDetails Malformed(BadHttpRequestException exception) => Build(
+        exception.StatusCode,
+        "Bad request",
+        exception.Message,
+        ApiErrorCodes.MalformedRequest);
 
     private ProblemDetails Unhandled(Exception exception, HttpContext httpContext)
     {

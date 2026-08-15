@@ -24,6 +24,19 @@ public static class ApiErrorCodes
     /// <summary>The request was malformed. The <c>errors</c> extension says which properties.</summary>
     public const string ValidationFailed = "VALIDATION_FAILED";
 
+    /// <summary>
+    /// The request never reached a handler: a required query or route parameter was missing or
+    /// unparseable, or the body could not be read.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="ValidationFailed"/>, and the distinction is the useful part for a
+    /// client. <c>VALIDATION_FAILED</c> means the request bound successfully and a validator rejected
+    /// a value, so there is an <c>errors</c> extension naming the properties. This one means binding
+    /// itself failed, so there is nothing to enumerate — the caller has sent something the endpoint
+    /// could not read at all.
+    /// </remarks>
+    public const string MalformedRequest = "MALFORMED_REQUEST";
+
     /// <summary>No usable credential was presented, or it has expired.</summary>
     public const string Unauthenticated = "UNAUTHENTICATED";
 
