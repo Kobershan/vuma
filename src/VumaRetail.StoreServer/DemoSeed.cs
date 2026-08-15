@@ -7,12 +7,14 @@ using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Partners.Commands;
 using VumaRetail.Domain.Catalog;
+using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Finance.Commands;
 using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
 
@@ -136,6 +138,183 @@ public static class DemoSeed
             .ConfigureAwait(false);
         await EnsurePartnerAsync(
             provider, context, "CORPCLIENT", "Corporate Client (Pty) Ltd", PartnerType.Customer, "accounts@corpclient.example", cancellationToken)
+            .ConfigureAwait(false);
+
+        await SeedFinanceAsync(provider, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 07: a minimal chart of accounts, the current period, the `en-ZA` tax rule, and the
+    /// posting rules that make an AR invoice and a till sale post to the ledger.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The chart is deliberately small — six accounts, enough to post a sale and a purchase and to
+    /// give AR, AP and the bank their control accounts. A demo chart with a realistic hundred accounts
+    /// would be a fiction nobody's real business matches, and every one of them would have to be
+    /// maintained here.
+    /// </para>
+    /// <para>
+    /// Exactly one tax rule, `STANDARD` at 15% inclusive, per CLAUDE.md §9 and the stage brief:
+    /// seeding a second jurisdiction would suggest the list is meant to be exhaustive rather than a
+    /// starting point a tenant edits.
+    /// </para>
+    /// <para>
+    /// A `pos.sale.tendered` rule is seeded even though Stage 09 does not exist yet. It costs one row
+    /// and it is the demonstration that rule 12 works: the POS module, when it arrives, raises that
+    /// event and posts correctly without Finance or the seed changing.
+    /// </para>
+    /// </remarks>
+    private static async Task SeedFinanceAsync(
+        IServiceProvider provider, VumaRetailDbContext context, CancellationToken cancellationToken)
+    {
+        Guid debtors = await EnsureAccountAsync(
+            provider, context, "1100", "Trade debtors", AccountType.Asset,
+            ControlAccountType.AccountsReceivable, cancellationToken).ConfigureAwait(false);
+        Guid bank = await EnsureAccountAsync(
+            provider, context, "1200", "Bank — cheque account", AccountType.Asset,
+            ControlAccountType.Bank, cancellationToken).ConfigureAwait(false);
+        Guid creditors = await EnsureAccountAsync(
+            provider, context, "2100", "Trade creditors", AccountType.Liability,
+            ControlAccountType.AccountsPayable, cancellationToken).ConfigureAwait(false);
+        // One combined VAT control account rather than separate input and output accounts. That is
+        // what a small South African retailer's chart usually looks like — the VAT201 return is
+        // prepared from the net position — and splitting it would mean seeding two accounts to
+        // demonstrate one rule.
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid sales = await EnsureAccountAsync(
+            provider, context, "4000", "Sales", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid purchases = await EnsureAccountAsync(
+            provider, context, "5000", "Cost of sales", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsureCurrentPeriodAsync(provider, context, cancellationToken).ConfigureAwait(false);
+
+        await EnsureTaxRuleAsync(
+            provider, context, "STANDARD", "South African VAT, standard rate", 0.15m,
+            TaxTreatment.Inclusive, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "ar.invoice.posted", "Customer invoice",
+            [
+                new PostingRuleLineInput(debtors, NormalBalance.Debit, "Gross", InheritDimensions: false, "Trade debtors"),
+                new PostingRuleLineInput(sales, NormalBalance.Credit, "Net", InheritDimensions: true, "Sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Credit, "Tax", InheritDimensions: false, "Output VAT"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "pos.sale.tendered", "Cash sale at the till",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Gross", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(sales, NormalBalance.Credit, "Net", InheritDimensions: true, "Sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Credit, "Tax", InheritDimensions: false, "Output VAT"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        // The mirror of the AR rule: cost of sales and input VAT are debited, trade creditors
+        // credited. Debiting the same VAT control account is what makes it a net position.
+        await EnsurePostingRuleAsync(
+            provider, context, "ap.invoice.posted", "Supplier invoice",
+            [
+                new PostingRuleLineInput(purchases, NormalBalance.Debit, "Net", InheritDimensions: true, "Cost of sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Debit, "Tax", InheritDimensions: false, "Input VAT"),
+                new PostingRuleLineInput(creditors, NormalBalance.Credit, "Gross", InheritDimensions: false, "Trade creditors"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<Guid> EnsureAccountAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        AccountType type,
+        ControlAccountType controlAccountType,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Accounts
+            .FirstOrDefaultAsync(account => account.Code == code, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateAccountCommand(code, name, type, "ZAR", controlAccountType), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Opens the period covering today, so a demo posting has somewhere to land.</summary>
+    private static async Task EnsureCurrentPeriodAsync(
+        IServiceProvider provider, VumaRetailDbContext context, CancellationToken cancellationToken)
+    {
+        DateOnly today = DateOnly.FromDateTime(
+            provider.GetRequiredService<IClock>().UtcNow.UtcDateTime);
+        DateOnly start = new(today.Year, today.Month, 1);
+        DateOnly end = start.AddMonths(1).AddDays(-1);
+
+        if (await context.AccountingPeriods
+            .FirstOrDefaultAsync(period => period.PeriodStart == start, cancellationToken)
+            .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new OpenAccountingPeriodCommand(start, end), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsureTaxRuleAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        decimal rate,
+        TaxTreatment treatment,
+        CancellationToken cancellationToken)
+    {
+        if (await context.TaxRules
+            .FirstOrDefaultAsync(rule => rule.Code == code, cancellationToken)
+            .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        // Effective from the start of the current year rather than today, so a demo can post a
+        // back-dated document without the rule having started after the document's own date.
+        DateOnly effectiveFrom = new(provider.GetRequiredService<IClock>().UtcNow.Year, 1, 1);
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateTaxRuleCommand(code, name, rate, treatment, effectiveFrom), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsurePostingRuleAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string eventType,
+        string description,
+        IReadOnlyList<PostingRuleLineInput> lines,
+        CancellationToken cancellationToken)
+    {
+        if (await context.PostingRules
+            .FirstOrDefaultAsync(rule => rule.EventType == eventType, cancellationToken)
+            .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new DefinePostingRuleCommand(eventType, lines, description), cancellationToken)
             .ConfigureAwait(false);
     }
 

@@ -39,7 +39,7 @@ public sealed class JournalLine : Entity, IImmutableRecord
     /// The debit amount's numeric value, or <c>null</c> if this line is a credit. Mapped directly as a
     /// plain nullable column; prefer <see cref="Debit"/> — this pairs with <see cref="DebitCurrency"/>
     /// only because EF Core 9 complex properties do not support a two-hop member expression
-    /// (<c>value.Value.Amount</c>) on a nullable value-type complex property (ADR-066).
+    /// (<c>value.Value.Amount</c>) on a nullable value-type complex property (ADR-067).
     /// </summary>
     public decimal? DebitAmount { get; private set; }
 

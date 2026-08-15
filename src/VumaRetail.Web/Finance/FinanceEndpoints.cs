@@ -626,10 +626,21 @@ public static class FinanceEndpoints
     }
 
     private static async Task<IResult> CalculateTaxAsync(
-        string taxCode, decimal amount, string currency, DateOnly asOf, IDispatcher dispatcher, CancellationToken cancellationToken)
+        string taxCode,
+        decimal amount,
+        string currency,
+        IDispatcher dispatcher,
+        IClock clock,
+        CancellationToken cancellationToken,
+        DateOnly? asOf = null)
     {
+        // Optional, defaulting to today, like every other as-of endpoint in this module. It was
+        // required, which made the ordinary call — "what does this code calculate to now?" — a 500:
+        // a missing required primitive raises BadHttpRequestException, which the problem-details
+        // handler does not map, so the caller got INTERNAL_ERROR for a request that was merely
+        // incomplete. That mapping gap is wider than Finance and is recorded in docs/PROGRESS.md §3.
         TaxCalculation calculation = await dispatcher
-            .QueryAsync(new CalculateTaxQuery(taxCode, amount, currency, asOf), cancellationToken)
+            .QueryAsync(new CalculateTaxQuery(taxCode, amount, currency, asOf ?? Today(clock)), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Ok(new TaxCalculationResponse(

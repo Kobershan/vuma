@@ -57,6 +57,14 @@ public static class FinanceServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, FinancePermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, FinanceModuleManifest>());
 
+        // The finance handlers and validators live in VumaRetail.Finance, which the Application-only
+        // scan does not reach — the same reason AddVumaSync scans VumaRetail.Sync. Without this every
+        // finance command and query resolves to "no handler is registered" at dispatch time, which
+        // means a 500 from every endpoint in the module: the code is all present and simply
+        // unreachable. Nothing below the host catches that, because a unit test constructs its
+        // handler directly and the endpoint tests assert the route table rather than the container.
+        services.AddVumaMessaging(typeof(VumaRetail.Finance.AssemblyMarker).Assembly);
+
         return services;
     }
 
