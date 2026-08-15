@@ -18,6 +18,25 @@ public sealed class JournalNotBalancedException(IReadOnlyDictionary<string, deci
 public sealed class JournalHasNoLinesException()
     : DomainException("FINANCE_JOURNAL_HAS_NO_LINES", "A journal must have at least one line.");
 
+/// <summary>
+/// Raised when a journal line carries both a debit and a credit, or neither.
+/// </summary>
+/// <remarks>
+/// A <see cref="DomainException"/> rather than the <see cref="ArgumentException"/>
+/// <c>JournalLine.Create</c> raises for the same rule: a manual journal arrives from the API, so a
+/// line with no amounts on it is a caller mistake that deserves a coded 400, not an unhandled 500.
+/// <c>Journal.Post</c> checks every draft line before it computes any balance — the balance loop has
+/// to read one side or the other to do its arithmetic, so validating afterwards would mean
+/// dereferencing an amount that is not there.
+/// </remarks>
+/// <param name="lineNumber">The offending line's position in the posting, one-based.</param>
+/// <param name="problem">What is wrong with it.</param>
+public sealed class JournalLineSideException(int lineNumber, string problem)
+    : DomainException(
+        "FINANCE_JOURNAL_LINE_SIDE",
+        $"Journal line {lineNumber} {problem}. Every line carries exactly one of a debit or a credit.",
+        DomainProblemKind.Malformed);
+
 /// <summary>Raised when a period is closed a second time.</summary>
 /// <param name="periodId">The period.</param>
 public sealed class PeriodAlreadyClosedException(Guid periodId)

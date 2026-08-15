@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Finance\VumaRetail.Finance.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.PublicApi\VumaRetail.PublicApi.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
   </ItemGroup>

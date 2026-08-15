@@ -93,6 +93,7 @@ public sealed class Journal : Entity, IImmutableRecord
     /// <param name="reversalOfJournalId">The journal this reverses, if this is a reversal.</param>
     /// <exception cref="JournalNotBalancedException">Debits and credits do not agree.</exception>
     /// <exception cref="JournalHasNoLinesException">No lines were supplied.</exception>
+    /// <exception cref="JournalLineSideException">A line carries both a debit and a credit, or neither.</exception>
     public static Journal Post(
         Guid tenantId,
         Guid? storeId,
@@ -116,6 +117,24 @@ public sealed class Journal : Entity, IImmutableRecord
         if (lines.Count == 0)
         {
             throw new JournalHasNoLinesException();
+        }
+
+        // Before any arithmetic: the balance loop below has to read one side or the other to get a
+        // currency and a sign out of a line, so a line carrying neither would be dereferenced before
+        // JournalLine.Create ever got the chance to reject it.
+        for (int index = 0; index < lines.Count; index++)
+        {
+            JournalLineDraft line = lines[index];
+
+            if (line.Debit is null && line.Credit is null)
+            {
+                throw new JournalLineSideException(index + 1, "carries neither a debit nor a credit");
+            }
+
+            if (line.Debit is not null && line.Credit is not null)
+            {
+                throw new JournalLineSideException(index + 1, "carries both a debit and a credit");
+            }
         }
 
         Dictionary<string, decimal> balancePerCurrency = [];
