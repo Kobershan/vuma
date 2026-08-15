@@ -62,6 +62,16 @@ public static class ValueObjectMapping
         });
     }
 
+    // There is deliberately no HasMoney overload for an optional Money? (ADR-067). EF Core 9 cannot
+    // configure a complex property as optional, and reaching a nullable value type's fields needs the
+    // two-hop expression `value!.Value.Amount`, which ComplexPropertyBuilder.Property refuses to
+    // parse — it throws at model-building time, not at compile time, which is how the first attempt
+    // shipped a solution that built cleanly and could not construct its own DbContext. An entity with
+    // an optional monetary amount stores the {name}_amount / {name}_currency pair as plain properties
+    // and exposes a computed Money? accessor; VumaRetail.Domain.Finance.JournalLine is the worked
+    // example. HasAddress below solves the same EF limitation the other way, with an owned type,
+    // because an address has no arithmetic to preserve.
+
     /// <summary>
     /// Maps a <see cref="Quantity"/> property to <c>{name}_value</c> and <c>{name}_uom</c>.
     /// </summary>

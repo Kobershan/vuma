@@ -73,6 +73,7 @@ public sealed class HardwareFingerprintTests
         bool sameMachine)
     {
         _ = description;
+        ArgumentNullException.ThrowIfNull(replaced);
 
         string salt = HardwareFingerprint.NewSalt();
         HardwareFingerprint bound = HardwareFingerprint.Capture(salt, Machine);

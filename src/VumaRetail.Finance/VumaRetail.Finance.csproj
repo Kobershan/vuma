@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Stage 07: GL, AR, AP, banking, tax and the posting rules engine, expressed against Application
+    ports and nothing else — no EF, no HTTP. Sits below Infrastructure for the same reason
+    VumaRetail.Sync and VumaRetail.Licensing do (ADR-048, ADR-051): the whole posting engine, the
+    tax engine and the period-close variance check are then testable with an in-memory repository
+    fake and a clock the test moves by hand, with no database in the room.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Finance</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- FinanceReconciliationHostedService — the ADR-016 daily variance job (ADR-063). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

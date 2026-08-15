@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-14 · **Current stage:** 06 — Master data (items, variants, barcodes, UoM, partners) · **Status:** DONE and merged to `main`. Stages 05 and 07 still have real work in progress on separate branches/worktrees (see below) and have **not** been reconciled or merged.
+**Last updated:** 2026-08-15 · **Current stage:** 07 — Finance (GL, AR, AP, banking, tax, posting rules engine) · **Status:** DONE and merged to `main`. Stage 05 (workflow) is the one branch still carrying unverified work; Stage 08 (inventory) was started in a parallel session and is unmerged.
 
 ---
 
@@ -24,17 +24,17 @@ been reconciled or merged back yet.
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
-| 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **IN_PROGRESS** — unverified, branch `stage-07-finance` plus worktree `.claude/worktrees/stage-07-finance`. Depends on Stage 06, which has now landed | — |
-| 08 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
+| 08 | Inventory core | **IN_PROGRESS** — unverified, branch `stage-08-inventory-core`, started in a parallel session and not merged. Its status is that session's to file, not this one's | — |
+| 09 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
-**Stage 06 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-14
-entry below for the full exit checklist and what was found/fixed. **Neither 05 nor 07's branch work has
-been verified** (no exit checklist ticked, no merge to `main`) — treat their statuses as "a session
-started this and made real progress," not as "this is DONE." Whoever picks one up next should run the
-stage through to a green build, tick its Exit Checklist, merge to `main` in dependency order (05 before
-07, since 07 was written expecting Stage 06's master data — now present — and neither stage depended on
-05's approval engine being present to compile, but the roadmap orders 05 first), and update this table
-for real — do not just narrate progress here without the merge.
+**Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
+entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
+compiles and passes without 05's approval engine (the approval gates are documented no-ops, see that
+stage's own Scope note), Stage 08 was already running in a parallel session against `main`, and leaving
+7,000 lines of unverified finance code on a branch was the larger risk. **Stage 05 remains
+unverified** — no exit checklist ticked, no merge to `main` — so treat its status as "a session started
+this and made real progress," not as "this is DONE.
 
 **A note on the `4320d48` "Stage 05 Commit" already on `main`'s history (2026-08-12).** Despite its
 message, this commit contains **no workflow/approval code at all** — `git show --stat 4320d48` shows a
@@ -581,6 +581,97 @@ permissions/security change, not a docs filing — flagged to the user rather th
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
 
+### 2026-08-15 — Stage 07 complete: finance (GL, AR, AP, banking, tax, posting rules) — merged to `main`
+
+`dotnet build -c Release` → **0 warnings, 0 errors**. `dotnet test` → **674 passed, 0 failed**
+(377 unit, 31 architecture, 266 integration) against real PostgreSQL 18. Exit checklist in
+`docs/stages/STAGE-07-finance.md` re-walked and ticked against reality — it arrived on the branch
+already ticked, including "zero-warning build, migration reversible", at a point when the migration
+did not exist and the EF model could not be constructed. **A ticked checkbox on an unmerged branch is
+a claim, not a result.**
+
+**What this session inherited.** Branch `stage-07-finance`, three WIP commits, ~7,000 lines: the whole
+domain, application, infrastructure and endpoint surface for Finance, with **no tests of any kind, no
+EF migration, and no verification that any of it ran.** It compiled cleanly, which turned out to mean
+very little.
+
+**Four defects, in ascending order of how well they were hidden.**
+
+1. **The DbContext could not be constructed.** `ValueObjectMapping` had gained a `HasMoney` overload
+   for `Money?`, used by `JournalLine`'s debit and credit. EF Core 9 cannot configure a complex
+   property as optional, and `ComplexPropertyBuilder.Property` refuses the two-hop expression
+   `value!.Value.Amount` that a nullable value type's fields require. Both failures are at
+   model-building time, so the solution built with zero warnings and then threw on every attempt to
+   construct `VumaRetailDbContext` — 234 integration tests and 7 architecture tests, all failing for
+   one reason. `JournalLine` now stores `DebitAmount`/`DebitCurrency`/`CreditAmount`/`CreditCurrency`
+   as plain columns behind computed `Money?` accessors; the overload is deleted. **ADR-067**, which
+   also records the general lesson: `dotnet build` proves nothing about an EF model.
+2. **No handler in the module was reachable.** `AddVumaFinance` registered every repository and engine
+   but never called `AddVumaMessaging` for its own assembly, the way `AddVumaSync` does. The Scrutor
+   scan covers `VumaRetail.Application` only, so **not one** finance command or query resolved — all
+   27 endpoints would have returned 500 in production. No test could see it: unit tests construct
+   handlers directly, and the endpoint tests assert the route table rather than the container. Found
+   by running `--seed` against a real database.
+3. **`Journal.Post` dereferenced line amounts before validating them.** A line carrying neither a
+   debit nor a credit threw `InvalidOperationException` from inside `Nullable<T>.Value` — an unhandled
+   500 for a caller mistake, on an endpoint that accepts manual journals. A line carrying *both* was
+   reported as `JournalNotBalancedException`, sending the caller after a counter-entry that was not
+   the problem. Both now raise `JournalLineSideException`, a coded `Malformed` failure naming the
+   offending line number, checked before any arithmetic.
+4. **Four endpoints read the wall clock.** Trial balance, AR ageing, AP ageing and bank
+   reconciliation each called `DateTime.UtcNow` for their default `asOf`, which
+   `PersistenceRulesTests` catches and CONVENTIONS.md §6 forbids. They take `IClock`. While fixing it,
+   `GET /finance/tax/calculate` turned out to *require* `asOf` unlike the other four, which made the
+   ordinary "what does this calculate to now?" call a 500 (see §4.6 below). It is optional now.
+
+**Tests written (86, from zero).** Unit (74): journal balance per currency and the exactly-one-side
+rule, reversal equal-and-opposite and back-linked, tax inclusive/exclusive with a second jurisdiction
+at a different rate and treatment to prove the rate is data, posting-rule resolution for
+`ar.invoice.posted` and `pos.sale.tendered`, refusal on an unmatched event type and on a rule naming
+an amount the event does not carry, dimension inheritance on and off, AR/AP ageing at every bucket
+boundary as of a fixed date, period close blocked and then permitted on the same period once the
+sub-ledger agrees, bank match/unmatch, AR/AP document lifecycle and over-allocation. Architecture (4):
+rule 12 — no module outside Finance holds a type dependency on `Account`, `IFinancialEvent` has
+nowhere to put an account id, `IFinancialEventPoster` has exactly one implementation. Integration (8):
+finance schema up → down → up, the debit/credit round trip through real PostgreSQL, both directions of
+the `ck_journal_lines_exactly_one_side` constraint, the immutability guard against update and delete,
+`decimal(18,4)` + currency column shapes, tax rule persistence.
+
+**The rule-12 architecture test was proved by a deliberate violation, and its limit recorded.** A
+field of type `Account` added to `VumaRetail.Sync` failed the test, which named the offending type. A
+bare `Guid AccountId` on the same class did **not** fail it. That blind spot is real and is why the
+test is three tests: the type-dependency check cannot see a module that never names `Account` but
+passes a `Guid` it treats as one, so the defence is that `IFinancialEvent` gives it nowhere to put
+one. Both experiments were reverted before commit.
+
+**Verified by running it, not only by testing it.** `--seed` was run twice against a real database
+(idempotent — zero commands re-issued on the second pass), then the module was driven over HTTP: sign
+in, `GET /finance/tax/calculate` on the seeded 15% inclusive rule returning 100/15/115, `POST
+/finance/ar/invoices` and `/post`, and a trial balance that came back **balanced** at 115 debit / 115
+credit across trade debtors, sales and VAT control, with the AR ageing showing the invoice in
+`current`. That is the posting rules engine, the tax engine, the ledger and the sub-ledger working
+together through the real pipeline.
+
+**Five ADRs written that the code already cited and that did not exist** — 063 (the daily variance
+check is a plain `IHostedService`, not Quartz), 064 (Finance is a core module, not licensable),
+065 (document number counters are node-local, locked inside the caller's transaction), 066
+(`Journal.Lines` is a backing-field one-to-many, not an owned collection), 067 (no optional complex
+`Money`). The stage document also cited ADR-058 for the hosted-service decision; 058 is the design
+system, and the reference now points at 063.
+
+**Seed extended.** Six accounts — trade debtors, bank, trade creditors, VAT control, sales, cost of
+sales — with the AR, AP and bank control accounts marked; the current month's period; exactly one tax
+rule (`STANDARD`, 15%, inclusive, per CLAUDE.md §9); and three posting rules, including
+`pos.sale.tendered` for a POS module that will not exist until Stage 09. That last one costs a row and
+demonstrates rule 12: Stage 09 will post correctly without Finance changing.
+
+**Not done, deliberately.** The Stage 05/06 integration line on the exit checklist stays unticked —
+approval gates on large postings and payment releases are still documented no-ops, and partner names
+are still unresolved bare ids. Both are what the stage's Scope note says they are, and neither blocks
+the stage.
+
+---
+
 ### 2026-08-14 — Stage 06 complete: master data (items, variants, barcodes, UoM, partners) — merged to `main`
 
 `dotnet build -c Release` → **0 warnings, 0 errors** (solution-wide; Domain/Application carry
@@ -799,22 +890,104 @@ product rename to **Vuma Retail** cleared both at once: the repository was renam
 `gh repo rename vuma` and the remote re-pointed to `git@github.com:Kobershan/vuma.git`. GitHub keeps
 a redirect from the old name, so any stale clone still fetches, but it should be re-pointed.
 
+### 4.6 A malformed request to an endpoint with a required primitive returns 500, not 400
+
+Found in Stage 07 and **not fixed there**, because it is an API-platform concern (Stage 03) and the
+fix touches every endpoint in the solution rather than Finance's.
+
+Minimal APIs raise `BadHttpRequestException` when a required non-nullable query or route parameter is
+absent or unparseable. The problem-details handler does not map it, so it falls through to the generic
+handler and the caller gets `INTERNAL_ERROR` with status 500 for a request that was merely incomplete.
+Observed on `GET /api/v1/finance/tax/calculate` with `asOf` omitted, before that parameter was made
+optional:
+
+```
+{"status":500,"code":"INTERNAL_ERROR","title":"Something went wrong"}
+```
+
+with `BadHttpRequestException: Required parameter "DateOnly asOf" was not provided from query string`
+in the log. `docs/API_STANDARDS.md` says a malformed request the caller can fix is a 400 with a stable
+code, and `DomainProblemKind.Malformed` already exists for exactly this. **Any** endpoint with a
+required primitive parameter has the same behaviour today; Finance is only where it was noticed. The
+fix is one arm in the exception handler, plus a test, and it belongs to whoever next touches the API
+platform.
+
+### 4.7 The integration suite can exhaust a volume, and it does not look like a disk problem
+
+`tests/VumaRetail.IntegrationTests/Harness/PostgresFixture.cs` clones the template database once per
+test class. Across 266 tests that is a great many full PostgreSQL databases, and on a machine where
+`TMPDIR` is a `tmpfs` — which is the default on this build machine, where `/tmp` is 16 GB of RAM — the
+full suite fills it outright.
+
+The reason this deserves a note rather than a shrug: **it does not present as an out-of-space error.**
+Some tests fail with an explicit `XX000: could not extend file ... Disk quota exceeded`, but others
+fail as ordinary assertion failures on rows that were never written, and once the volume is full the
+shell itself stops working, which makes diagnosing it from inside a session hard. For an unattended
+overnight run — the scenario `CLAUDE.md` §1 exists for — this reads as a large number of confusing
+test failures rather than as "the disk is full."
+
+Two mitigations, neither requiring a code change:
+
+- Point the cluster at real disk rather than `tmpfs`: `VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg`.
+- Check free space before a full run. A complete pass wants a few GB of headroom.
+
+### 4.8 `scripts/pg-test.sh` is not safe for two concurrent sessions
+
+Separate from 4.7 and did not cause it, but real on its own terms. The script uses a fixed port
+(55432) and a fixed data directory (`${TMPDIR:-/tmp}/vuma-test-pg`), and its `start` path
+short-circuits on `pg_isready` — so a second session that runs it gets a success message and the
+export line, and silently attaches to the **first session's cluster** with no indication that is what
+happened. Both sessions' suites then run against one server, and `CreateTemplateDatabaseAsync` drops
+and recreates the shared template on every `InitializeAsync`.
+
+`VUMA_TEST_PG_PORT` and `VUMA_TEST_PG_DATA` are already environment-overridable, so this is a usage
+note rather than a code fix: **a session running the suite alongside another must set both.** This
+session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
+
+
+
 ---
 
 ## 5. Next session starts here
 
-**Update, 2026-08-14: Stage 06 is now DONE and merged to `main`** — 584 tests green (303 unit, 25
-architecture, 256 integration), 0 warnings. See the 2026-08-14 session log entry above for the full
-account. That leaves two branches still needing to be taken to a real DONE and merged: **05**
-(`stage-05-workflow`, unrelated to 06's work, can proceed independently) and **07**
-(`stage-07-finance`, which was blocked on Stage 06's master data existing — it now does, on `main`).
-Do not start a fifth parallel worktree. **The next session's job is to pick one of the two — 05 first
-per the roadmap's dependency order, since nothing in 06 or 07 actually depends on 05's approval engine
-existing to compile, but the documented order is 05 before 07 — finish it for real (build, tests, exit
-checklist), merge it to `main`, and only then move to the other.** Read `docs/stages/STAGE-05-workflow.md`
-(on branch `stage-05-workflow` / worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, not yet on
-`main`) and its reference reading before resuming that work. **Do not confuse `main`'s `4320d48` "Stage
-05 Commit" with real Stage 05 progress — see the §1 note above, it is not workflow code.**
+**Update, 2026-08-15: Stage 07 is now DONE and merged to `main`** — 674 tests green (377 unit, 31
+architecture, 266 integration), 0 warnings, and the module driven end to end over HTTP against a real
+database. See the 2026-08-15 session log entry above for the four defects it was carrying and what
+each one hid behind.
+
+**Two stages remain unmerged, and they are not equivalent.**
+
+- **05 (`stage-05-workflow`)** — worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`. Genuinely
+  unverified, in the same state Stage 07 was found in: real progress, no exit checklist, no evidence
+  it runs. Expect to find the same class of problem — assume nothing works until a `DbContext` has
+  been constructed and the app has been started. **Do not confuse `main`'s `4320d48` "Stage 05
+  Commit" with real Stage 05 progress; see the §1 note above, it is not workflow code.**
+- **08 (`stage-08-inventory-core`)** — started in a parallel session on 2026-08-15, based on `main` at
+  Stage 06. That session owns it and will merge `main` forward itself; **do not pick it up, and do not
+  file its status here on its behalf.**
+
+**Pick 05.** It is the last stage carrying unverified work that nobody else is holding, and Stage 09's
+POS depends on both 05 and 07.
+
+**What Stage 07 leaves for whoever comes next.**
+
+- **Approval gates are documented no-ops.** Large-journal posting and AP payment release both succeed
+  without a gate today. Stage 05 wires a real policy against the *same commands* — the command shapes
+  do not change, only whether the pipeline gates them. Nothing in Finance needs editing for that.
+- **Partner names are unresolved.** AR and AP carry a bare `PartnerId` and Finance never resolves it.
+  Stage 06 landed its master data, so a read model can now join them; that is Stage 06's surface to
+  add, not a change to Finance's shape.
+- **Rule 12 is now enforced, and it will bite.** Any module that moves money raises an
+  `IFinancialEvent` and gets a journal back. It may not name a GL account, and
+  `FinanceRulesTests` fails the build if it does. A new event type is a `PostingRule` row seeded by
+  the stage that raises it — see `DemoSeed.SeedFinanceAsync` for the three worked examples, including
+  `pos.sale.tendered`, which is already seeded and waiting for Stage 09.
+- **`PeriodVarianceChecker` compares current balances, not point-in-time.** Reconciling a period that
+  is not the most recent open one, from historical sub-ledger state, is not built. It is right for the
+  common case (checking or closing the period that is currently open) and wrong for a retrospective
+  close; whoever needs the latter should read the remarks on that class first.
+- **Read §4.7 and §4.8 before running the full test suite**, particularly if another session is
+  running one at the same time.
 
 **Original note, still true for whichever branch is picked up next.** Stage 04b is DONE on `main`: 0
 warnings, exit checklist ticked in `docs/stages/STAGE-04b-licensing.md`.
