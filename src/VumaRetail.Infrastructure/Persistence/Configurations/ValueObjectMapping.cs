@@ -62,45 +62,15 @@ public static class ValueObjectMapping
         });
     }
 
-    /// <summary>
-    /// Maps an optional <see cref="Money"/> property to <c>{name}_amount</c> and <c>{name}_currency</c>,
-    /// both nullable.
-    /// </summary>
-    /// <typeparam name="TEntity">The owning entity.</typeparam>
-    /// <param name="builder">The entity type builder.</param>
-    /// <param name="property">
-    /// The money property, for example <c>line => line.Debit</c> — <see cref="Domain.Finance.JournalLine"/>
-    /// carries either a debit or a credit, never both, so each is optional on its own.
-    /// </param>
-    /// <param name="columnPrefix">The column name prefix, <c>snake_case</c>.</param>
-    /// <remarks>
-    /// A second overload rather than a default parameter on the non-nullable <c>HasMoney</c>: EF Core 9
-    /// requires a complex property's nullability to match its CLR type, so <c>Money?</c> needs its own
-    /// expression type rather than a flag threaded through the non-nullable one.
-    /// </remarks>
-    public static void HasMoney<TEntity>(
-        this EntityTypeBuilder<TEntity> builder,
-        System.Linq.Expressions.Expression<Func<TEntity, Money?>> property,
-        string columnPrefix)
-        where TEntity : class
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(columnPrefix);
-
-        builder.ComplexProperty(property, money =>
-        {
-            money.IsRequired(false);
-
-            money.Property(value => value!.Value.Amount)
-                .HasColumnName($"{columnPrefix}_amount")
-                .HasColumnType(MoneyColumnType);
-
-            money.Property(value => value!.Value.Currency)
-                .HasColumnName($"{columnPrefix}_currency")
-                .HasMaxLength(3)
-                .IsFixedLength();
-        });
-    }
+    // There is deliberately no HasMoney overload for an optional Money? (ADR-067). EF Core 9 cannot
+    // configure a complex property as optional, and reaching a nullable value type's fields needs the
+    // two-hop expression `value!.Value.Amount`, which ComplexPropertyBuilder.Property refuses to
+    // parse — it throws at model-building time, not at compile time, which is how the first attempt
+    // shipped a solution that built cleanly and could not construct its own DbContext. An entity with
+    // an optional monetary amount stores the {name}_amount / {name}_currency pair as plain properties
+    // and exposes a computed Money? accessor; VumaRetail.Domain.Finance.JournalLine is the worked
+    // example. HasAddress below solves the same EF limitation the other way, with an owned type,
+    // because an address has no arithmetic to preserve.
 
     /// <summary>
     /// Maps a <see cref="Quantity"/> property to <c>{name}_value</c> and <c>{name}_uom</c>.

@@ -61,8 +61,29 @@ internal sealed class JournalLineConfiguration : EntityConfiguration<JournalLine
         builder.Property(line => line.AccountId).IsRequired();
         builder.Property(line => line.Description).IsRequired().HasMaxLength(256);
 
-        builder.HasMoney(line => line.Debit, "debit");
-        builder.HasMoney(line => line.Credit, "credit");
+        // Mapped as four plain columns rather than through ValueObjectMapping.HasMoney (ADR-067):
+        // a journal line's debit and credit are each optional on their own, and EF Core 9 cannot
+        // configure an optional complex property — Money? needs the two-hop member expression
+        // `value!.Value.Amount`, which ComplexPropertyBuilder.Property refuses to parse. JournalLine
+        // therefore stores the pair itself and exposes Debit/Credit as computed Money? accessors, so
+        // the domain still speaks Money and only the mapping knows about the split.
+        builder.Property(line => line.DebitAmount)
+            .HasColumnType(ValueObjectMapping.MoneyColumnType);
+
+        builder.Property(line => line.DebitCurrency)
+            .HasMaxLength(3)
+            .IsFixedLength();
+
+        builder.Property(line => line.CreditAmount)
+            .HasColumnType(ValueObjectMapping.MoneyColumnType);
+
+        builder.Property(line => line.CreditCurrency)
+            .HasMaxLength(3)
+            .IsFixedLength();
+
+        builder.Ignore(line => line.Debit);
+        builder.Ignore(line => line.Credit);
+        builder.Ignore(line => line.SignedAmount);
 
         builder.Property(line => line.DepartmentId);
         builder.Property(line => line.CostCentreId);

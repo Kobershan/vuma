@@ -312,10 +312,10 @@ public static class FinanceEndpoints
     }
 
     private static async Task<IResult> GetTrialBalanceAsync(
-        IDispatcher dispatcher, CancellationToken cancellationToken, DateOnly? asOf = null)
+        IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken, DateOnly? asOf = null)
     {
         IReadOnlyList<TrialBalanceLine> lines = await dispatcher
-            .QueryAsync(new GetTrialBalanceQuery(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), cancellationToken)
+            .QueryAsync(new GetTrialBalanceQuery(asOf ?? Today(clock)), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Ok<IReadOnlyList<TrialBalanceLineResponse>>(
@@ -434,10 +434,10 @@ public static class FinanceEndpoints
     }
 
     private static async Task<IResult> GetArAgeingAsync(
-        IDispatcher dispatcher, CancellationToken cancellationToken, DateOnly? asOf = null)
+        IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken, DateOnly? asOf = null)
     {
         IReadOnlyList<AgeingRow> rows = await dispatcher
-            .QueryAsync(new GetArAgeingQuery(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), cancellationToken)
+            .QueryAsync(new GetArAgeingQuery(asOf ?? Today(clock)), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Ok<IReadOnlyList<AgeingRowResponse>>([.. rows.Select(ToResponse)]);
@@ -495,10 +495,10 @@ public static class FinanceEndpoints
     }
 
     private static async Task<IResult> GetApAgeingAsync(
-        IDispatcher dispatcher, CancellationToken cancellationToken, DateOnly? asOf = null)
+        IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken, DateOnly? asOf = null)
     {
         IReadOnlyList<AgeingRow> rows = await dispatcher
-            .QueryAsync(new GetApAgeingQuery(asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)), cancellationToken)
+            .QueryAsync(new GetApAgeingQuery(asOf ?? Today(clock)), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Ok<IReadOnlyList<AgeingRowResponse>>([.. rows.Select(ToResponse)]);
@@ -561,11 +561,11 @@ public static class FinanceEndpoints
     }
 
     private static async Task<IResult> GetBankReconciliationSummaryAsync(
-        Guid bankAccountId, IDispatcher dispatcher, CancellationToken cancellationToken, DateOnly? asOf = null)
+        Guid bankAccountId, IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken, DateOnly? asOf = null)
     {
         BankReconciliationSummary summary = await dispatcher
             .QueryAsync(
-                new GetBankReconciliationSummaryQuery(bankAccountId, asOf ?? DateOnly.FromDateTime(DateTime.UtcNow)),
+                new GetBankReconciliationSummaryQuery(bankAccountId, asOf ?? Today(clock)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -651,6 +651,16 @@ public static class FinanceEndpoints
         row.PartnerId, row.Current, row.Days30, row.Days60, row.Days90, row.Days90Plus, row.Total);
 
     /// <summary>Parses an enum from a request field, refusing with a 400 rather than a 500 on a typo.</summary>
+    /// <summary>
+    /// Today's date for an "as of" query the caller left unspecified.
+    /// </summary>
+    /// <remarks>
+    /// Through <see cref="IClock"/> rather than <c>DateTime.UtcNow</c> (CONVENTIONS.md §6): a trial
+    /// balance, an ageing report and a bank reconciliation are all as-of-a-date answers, so a test
+    /// that cannot move the clock cannot assert what any of them return on a date boundary.
+    /// </remarks>
+    private static DateOnly Today(IClock clock) => DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+
     private static TEnum ParseEnum<TEnum>(string value, string propertyName, string messageName)
         where TEnum : struct, Enum
     {
