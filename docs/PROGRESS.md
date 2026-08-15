@@ -3,18 +3,21 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-15 · **Current stage:** 08 — Inventory core (stock ledger, valuation, transfers, stocktakes) · **Status:** DONE and merged to `main`. Stage 05 (workflow) is the one branch still carrying unverified work.
+**Last updated:** 2026-08-15 · **Current stage:** 05 — Workflow, approvals, notifications, documents · **Status:** DONE and merged to `main`. **Every stage 00–08 is now on `main` and verified; no branch carries unverified work.** Next is Stage 09 (POS), whose two dependencies — 05 and 07 — are both in.
 
 ---
 
 ## 1. Stage status
 
-`main` is at 08, and carries 00 through 04b plus 06, 07 and 08 — every stage except 05. Stage 05 was
-started in its own worktree so it could proceed in parallel without colliding on shared files, and is
-the one branch still holding unverified work; 07 and 08 were both finished and merged ahead of it,
-out of the roadmap's documented order, because neither needs 05's approval engine to compile or pass
-(their approval gates are documented no-ops) and leaving verified stages on branches is the larger
-risk. Stage 09 does need 05, so it is the next thing to pick up.
+`main` carries **00 through 08, complete**. Stage 05 was the last one outstanding — it was started in
+its own worktree so it could proceed in parallel without colliding on shared files, then sat unverified
+while 06, 07 and 08 were finished and merged ahead of it, out of the roadmap's documented order,
+because none of them needs 05's approval engine to compile or pass (their approval gates are documented
+no-ops) and leaving verified stages on branches was the larger risk. Stage 05 has now been merged
+forward onto `main` and verified there: **820 tests green** (480 unit, 34 architecture, 306
+integration), 0 failed, 0 skipped, 0 warnings, migrations reversible up → down → up, and the demo seed
+run against a real database. No branch is carrying unverified work. Stage 09 (POS) is next; both of its
+dependencies, 05 and 07, are in.
 
 | Stage | Title | Status | Changed |
 |---|---|---|---|
@@ -24,29 +27,22 @@ risk. Stage 09 does need 05, so it is the next thing to pick up.
 | 03 | API platform — versioning, ProblemDetails, OpenAPI, CQRS pipeline | **DONE** (main) | 2026-08-10 |
 | 04 | Sync + cloud backup foundation — outbox/inbox, HLC, restore | **DONE** (main) | 2026-08-10 |
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
-| 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
+| 05 | Workflow, approvals, notifications, documents | **DONE** (main) | 2026-08-15 |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 09 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
-**Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
-entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
-compiles and passes without 05's approval engine (the approval gates are documented no-ops, see that
-stage's own Scope note), Stage 08 was already running in a parallel session against `main`, and leaving
-7,000 lines of unverified finance code on a branch was the larger risk. **Stage 05 remains
-unverified** — no exit checklist ticked, no merge to `main` — so treat its status as "a session started
-this and made real progress," not as "this is DONE.
-
-**A note on the `4320d48` "Stage 05 Commit" already on `main`'s history (2026-08-12).** Despite its
-message, this commit contains **no workflow/approval code at all** — `git show --stat 4320d48` shows a
-raw duplicate of the Stage 00–04b solution tree under
-`.claude/worktrees/agent-a95a23c6486971147/...`, plus two `160000` gitlink entries for
-`.claude/worktrees/stage-06-master-data` and `.claude/worktrees/stage-07-finance`. This looks like an
-accidental `git add -A` run at the repository root while nested worktrees existed on disk, not a real
-merge of Stage 05's work. **It was not touched or reverted this session** — main's history is not
-rewritten except by merging forward — but whoever picks up Stage 05 next should not mistake it for
-Stage 05 progress, and may want to clean the stray paths out in its own commit.
+**A note on the `4320d48` "Stage 05 Commit" on `main`'s history (2026-08-12).** Despite its message,
+this commit contains **no workflow/approval code at all** — `git show --stat 4320d48` shows a raw
+duplicate of the Stage 00–04b solution tree under `.claude/worktrees/agent-a95a23c6486971147/...`, plus
+`160000` gitlink entries for the then-live worktrees. This looks like an accidental `git add -A` run at
+the repository root while nested worktrees existed on disk, not a real merge of Stage 05's work. Real
+Stage 05 arrived later, in the 2026-08-15 merge described below. **The stray paths are still there and
+were deliberately not touched** — `main`'s history is not rewritten except by merging forward, and
+deleting them is a content change nobody had a reason to bundle into a stage merge. They are inert
+(nothing references them, no project in the `.sln` points at them) but they do bloat a clone, and
+removing them in a commit of their own is still worth doing.
 
 ---
 
@@ -583,6 +579,72 @@ permissions/security change, not a docs filing — flagged to the user rather th
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
 
+### 2026-08-15 — Stage 05 merged to `main` and verified there: the last unverified branch is gone
+
+Stage 05 was the one branch still carrying unverified work. It is now on `main`, and `main` carries
+**00 through 08, complete**. Verified after the merge, which is the only number that means anything:
+**820 passed, 0 failed, 0 skipped** (480 unit, 34 architecture, 306 integration), **0 warnings**,
+migrations applied → reversed to `0` → re-applied against a real PostgreSQL database, and
+`scripts/seed.sh` run end to end against a fresh one.
+
+**The merge was the work; the stage's own code needed no changes.** Not one file under
+`src/VumaRetail.Workflow`, `src/VumaRetail.Domain/Workflow` or
+`src/VumaRetail.Application/Abstractions/Workflow` was edited — the only change inside the module is an
+ADR number in a `.csproj` comment. Everything below is reconciliation between a branch cut at 04b and a
+`main` that had since gained three stages.
+
+**The migration had to be rescaffolded, not merged.** Stage 05's `Workflow` migration was timestamped
+`20260812070117`. EF replays migrations in timestamp order, so merging it as-is would have inserted it
+*before* `MasterData`, `Finance` and `Inventory` — and each of those carries a `.Designer.cs` snapshot
+of the model as of its own creation, none of which knows the workflow tables exist. The chain would
+have applied (the tables don't collide) while leaving every later snapshot describing a model that
+never existed, which is the kind of thing that stays quiet until someone scaffolds migration number
+nine. The old pair was deleted and `Workflow` re-added at the head of the chain (`20260815164702`).
+`dotnet ef migrations has-pending-model-changes` now reports the model and the migrations agree.
+
+**Two ADR numbers had been spent twice.** Stage 05 drafted ADR-054 and ADR-055 against a `main` whose
+last ADR was 053; by the time it merged, `main` had reached ADR-071.
+
+- Stage 05's ADR-054 (`VumaRetail.Workflow` sits below `Infrastructure`) is renumbered **ADR-072** and
+  filed as Revision 10. `main`'s ADR-054 (`CurrentLevel` moves to `IEnforcementStatusReader`) keeps the
+  number it has been published under since 04b.
+- Stage 05's ADR-055 is **not in the file at all**, because it is ADR-067. Both stages independently
+  discovered that EF Core 9 cannot configure a complex property as optional — Stage 05 from
+  `ApprovalPolicy.ThresholdAmount`, Stage 07 from `JournalLine`'s debit and credit — and wrote it up
+  separately. Two ADRs for one decision is how a codebase ends up with two answers to it. ADR-067 was
+  on `main` first and wins; the one thing Stage 05's draft had that ADR-067 lacked, the upstream issue
+  number **dotnet/efcore#31376**, is carried across so the workaround can be retired when it closes.
+
+**`DemoSeed` did not survive a mechanical merge, and would not have been caught by the suite.** Both
+branches appended to the same seed method and to the same `using` block, and resolving those hunks by
+keeping both sides interleaved the bodies of `EnsureNotificationAsync` and `EnsureTaxRuleAsync` — the
+compiler caught that one. What the compiler could not have caught is that **no test executes
+`DemoSeed`**: the two architecture tests naming it assert over its *shape*, and the integration harness
+builds its own fixtures. The file was retaken from `main` and Stage 05's two seed methods grafted on by
+hand, then verified the only way available — `scripts/seed.sh` against an empty database, and the two
+rows read back out of `workflow.approval_policies` and `workflow.notifications` with `psql`. A
+demo-seed regression is worth a test at some point; today it has none.
+
+The seeding call had to move, too. Stage 05 placed it directly after `EnsureTerminalAsync`, which was
+the end of the seed method on a 04b-era `main`. The policy it defines gates
+`inventory.stock-adjustment`, so it now runs last, after Stage 08's stock locations and opening
+receipt. Nothing enforces that ordering — the policy is data and would seed happily against no
+inventory module at all — but a seed that reads top to bottom in stage order is worth the two lines.
+
+**Corrected on the way through.** `DATA_MODEL.md`'s new `workflow` section described its nullable-money
+columns as `{Name}Value` / `{Name}Currency`. That is neither what the migration emits nor what ADR-067
+settled on; the real columns are `threshold_amount` / `threshold_currency`, confirmed against
+`\d workflow.approval_policies` on a seeded database. The section is also renumbered §4c → **§4f**:
+`main`'s §4c–§4e (catalog, partners, inventory) are cross-referenced from three other documents, and
+renaming three sections to avoid renaming one is the wrong trade.
+
+**Left alone deliberately.** `main`'s `DATA_MODEL.md` cites ADR-054 for the `item_variants.attributes`
+`jsonb` column and ADR-055 for `Barcode`'s hard delete. Neither ADR says any such thing — ADR-054 is the
+entitlement change and 055 no longer exists — and PROGRESS itself cites ADR-061 for the `Barcode`
+decision. These are pre-existing Stage 06 documentation errors, not merge damage, and correcting Stage
+06's docs inside a Stage 05 merge would bury them. **Recorded here as the next small thing worth
+fixing.**
+
 ### 2026-08-15 — Stage 08 complete: inventory core (ledger, valuation, transfers, stocktakes)
 
 `dotnet test` → **744 passed, 0 failed** (428 unit, 31 architecture, 285 integration) against real
@@ -809,7 +871,17 @@ manually-started local PostgreSQL 16 server instead (`initdb`/`pg_ctl`, TCP-only
 case (`pg_dump`/`pg_restore` reachable via the `winget`-installed client tools on `PATH`). No further
 code changes were needed — the exit checklist in `docs/stages/STAGE-06-master-data.md` was re-walked
 item by item against this exact commit and every box holds.
-### 2026-08-12 — Stage 05 complete: workflow, approvals, notifications, documents
+### 2026-08-12 — Stage 05 built on its own branch: workflow, approvals, notifications, documents
+
+> **Read this entry with its date in mind.** Everything below was true of `stage-05-workflow` as it
+> stood on 2026-08-12, measured against a solution containing 00–04b and nothing else. It was written
+> as "Stage 05 complete", which it was not: nothing had been merged, and the numbers had never been
+> re-run against a `main` that by then carried 06, 07 and 08. The header is corrected to say what the
+> session actually did. The stage reached a genuinely verified DONE on 2026-08-15 — see that entry
+> below for the merge, and for what the reconciliation cost. **`ADR-055` referenced further down no
+> longer exists**; that decision is ADR-067, reached independently from `JournalLine` and merged to
+> `main` first, and the column naming this entry gives as `{Name}Value` / `{Name}Currency` is really
+> `{name}_amount` / `{name}_currency`.
 
 `dotnet build -c Release` → **0 warnings, 0 errors**. `scripts/test.sh` → **600 passed, 0 failed, 0
 skipped** (313 unit, 28 architecture, 259 integration), run twice against a fresh throwaway PostgreSQL
@@ -1153,27 +1225,67 @@ R7 ("each module can be switched on/off per tenant without breaking the rest") i
 Manufacturing (17) are the likely candidates — must arrive with a test that names it here, otherwise
 the entitlement gate ships to a paying tenant having never once refused anything.
 
+### 4.10 The approval engine is merged, proven, and gating nothing
+
+Stage 05 landed on `main` on 2026-08-15 with `ApprovalEngine` fully exercised — separation of duties,
+N-of-M counting, the one-decision-per-person guard at both the engine and a unique index, the unified
+inbox. It is real code and the tests are real tests. **No production module calls it.**
+
+`grep -rl IApprovalService src/` outside `VumaRetail.Workflow` returns the port definition, the DI
+registration and one XML doc comment. The comment is `PostManualJournalCommand`'s, and it still reads
+"Stage 05 has not landed, so this command posts unconditionally today ... only a pipeline registration
+once `IApprovalService` exists". `IApprovalService` now exists. The registration was not written,
+because doing it inside a merge whose job was reconciliation would have been a scope change nobody
+asked for — but the premise that comment is waiting on has expired, and the comment now misleads.
+
+Everything that drives the engine through the real dispatcher is a **test-assembly** command:
+`RaiseTestApprovalCommand` and `WorkflowTestEndpoints`, declared in
+`tests/VumaRetail.IntegrationTests/Workflow/` and registered into the host through `ApiHarness`. Stage
+05's own acceptance criteria specified exactly that ("raise a request through `IApprovalService` from a
+throwaway test handler"), and it was the right call at the time: procurement is Stage 12 and there was
+no real gated action to point at. There is now. Two are already named and waiting:
+
+- `PostManualJournalCommand` — a large manual journal, per `STAGE-07-finance.md`'s Scope note.
+- AP payment release — same document, same note.
+
+This is the same shape as §4.9 and deserves the same wariness. **The mechanism is demonstrated; the
+integration is not.** A gate whose only caller lives in the test assembly is a gate that has never
+refused a real write, and the first module to wire one should expect to find something — the pipeline
+ordering against the transaction and the `IUnitOfWork` boundary in particular, since the throwaway
+handler's ordering was chosen by the test rather than forced by a real handler's needs.
+
 ---
 
 ## 5. Next session starts here
 
-**Update, 2026-08-15: Stage 07 is now DONE and merged to `main`** — 674 tests green (377 unit, 31
-architecture, 266 integration), 0 warnings, and the module driven end to end over HTTP against a real
-database. See the 2026-08-15 session log entry above for the four defects it was carrying and what
-each one hid behind.
+**Update, 2026-08-15: Stage 05 is merged and verified. Nothing is unmerged.** `main` carries 00–08
+complete — 820 tests green (480 unit, 34 architecture, 306 integration), 0 warnings, migrations
+reversible, demo seed run against a real database. Every stage branch has landed; for the first time
+since 04b there is no parallel work in flight and no branch to reconcile.
 
-**One stage remains unmerged.**
+**Pick 09 (POS).** Both of its dependencies are in: 05 supplies the approval engine, 07 the posting
+rules. Read the two "what this leaves you" sections below before starting — between them they describe
+the stock path, the seeded `pos.sale.tendered` posting rule and the approval gates that are still
+no-ops, which is most of what POS needs to know.
 
-- **05 (`stage-05-workflow`)** — worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`. Genuinely
-  unverified, in the same state Stage 07 was found in: real progress, no exit checklist, no evidence
-  it runs. Expect to find the same class of problem — assume nothing works until a `DbContext` has
-  been constructed and the app has been started. **Do not confuse `main`'s `4320d48` "Stage 05
-  Commit" with real Stage 05 progress; see the §1 note above, it is not workflow code.**
-- **08 (`stage-08-inventory-core`)** — **DONE, verified and merged to `main`.** Nothing outstanding.
-  See its own session-log entry above.
+**One thing worth reading first: §4.10.** The approval engine is merged and proven, and *nothing gates
+on it* — every caller that drives it through the real dispatcher lives in the test assembly. Stage 09
+is a natural place to change that, and `PostManualJournalCommand` is a one-registration candidate that
+does not need POS at all.
 
-**Pick 05.** It is now the only stage carrying unverified work, and Stage 09's POS depends on it and
-on 07. Stage 08 is merged, so `main` carries everything through inventory.
+**Three smaller things this session left on the floor**, none blocking, all cheap, in the order they
+are worth doing:
+
+1. **Stage 06's docs cite two wrong ADR numbers.** `DATA_MODEL.md` cites ADR-054 for
+   `item_variants.attributes` and ADR-055 for `Barcode`'s hard delete; ADR-054 is the entitlement
+   change and ADR-055 does not exist. PROGRESS cites **ADR-061** for the `Barcode` decision, which is
+   probably right for both. Pre-existing, unrelated to Stage 05, deliberately not fixed inside a stage
+   merge.
+2. **`DemoSeed` has no test that runs it.** This session's merge broke it in a way the compiler caught
+   and the suite would not have; a smoke test that seeds an empty database and asserts a couple of rows
+   would have caught it directly. See the session-log entry above.
+3. **The `4320d48` stray paths are still on `main`** — see §1. Inert, but they bloat every clone, and
+   they are one `git rm -r` in a commit of their own.
 
 **What Stage 08 leaves for whoever comes next.**
 
@@ -1196,9 +1308,12 @@ on 07. Stage 08 is merged, so `main` carries everything through inventory.
 
 **What Stage 07 leaves for whoever comes next.**
 
-- **Approval gates are documented no-ops.** Large-journal posting and AP payment release both succeed
-  without a gate today. Stage 05 wires a real policy against the *same commands* — the command shapes
-  do not change, only whether the pipeline gates them. Nothing in Finance needs editing for that.
+- **Approval gates are documented no-ops — and still are, now that Stage 05 has landed.** Large-journal
+  posting and AP payment release both succeed without a gate today. Stage 05 supplies the engine and it
+  is merged, so the sentence "once `IApprovalService` exists" in `PostManualJournalCommand`'s remarks
+  is now out of date: it exists, and nothing registers a gate against it. The command shapes still do
+  not change — only the pipeline registration. **See §4.10**, which is where this stopped being a
+  forward reference and started being a gap.
 - **Partner names are unresolved.** AR and AP carry a bare `PartnerId` and Finance never resolves it.
   Stage 06 landed its master data, so a read model can now join them; that is Stage 06's surface to
   add, not a change to Finance's shape.
@@ -1217,18 +1332,20 @@ on 07. Stage 08 is merged, so `main` carries everything through inventory.
 **Original note, still true for whichever branch is picked up next.** Stage 04b is DONE on `main`: 0
 warnings, exit checklist ticked in `docs/stages/STAGE-04b-licensing.md`.
 
-**One thing Stage 05 (and every later stage) inherits and should know about:** `IEntitlementService`
+**One thing every later stage inherits and should know about:** `IEntitlementService`
 no longer has a `CurrentLevel` method. If a handler only needs to *report* the enforcement level for
 display (a status screen, a banner), depend on `IEnforcementStatusReader` instead — it is registered
 to resolve to the same instance within a scope. If a handler needs to *gate* on a module flag or a
 plan limit, `IEntitlementService`'s `IsModuleEnabledAsync` / `CheckLimitAsync` are unchanged. See
 ADR-054 and `docs/LICENSING.md` §6.
 
-**If Stage 05 is running in a separate worktree/session from this one** (several stages were being run
-in tandem as of 2026-08-11), it started from a copy of `main` that may predate this commit. Rebase or
-merge Stage 04b's commit before that session's own commit, not after — `IEntitlementService`'s
-`CurrentLevel` removal is a compile break for anything written against the old shape, better caught by
-a merge than discovered mid-stage.
+**Resolved 2026-08-15 — this warning has been discharged.** It used to say that Stage 05, running in a
+parallel worktree, had started from a `main` predating the `CurrentLevel` removal and should merge 04b
+before its own commit. Stage 05 has since been merged forward and the whole solution builds and passes,
+so the compile break it warned about either never materialised or was fixed on the branch. Kept as
+history because the general lesson still holds for any future parallel stage: **merge `main` in early,
+not at the end.** Stage 05 merged last and paid for it in ADR renumbering and a rescaffolded migration —
+see the 2026-08-15 session-log entry.
 
 **On Windows, `scripts/pg-test.sh` does not work as shipped** — see §4.3's 2026-08-11 note for the
 manual TCP-only PostgreSQL startup this session used instead, and for Docker Desktop's WSL2 backend
