@@ -877,3 +877,95 @@ here. Until then, `CreateItemCommandHandler` and `CreatePartnerCommandHandler` c
 uniqueness and an active unit of measure — no `IEntitlementService.CheckLimitAsync` call — which is the
 same shape `CreateStoreCommandHandler` uses for the hard limit it *does* have, so the absence here is a
 deliberate omission rather than one nobody thought about.
+
+## ADR-063 — The daily reconciliation check is a plain `IHostedService`, not a Quartz job — **LOCKED**
+**Context.** ADR-016 requires an "automated daily job" that compares every control account against its
+sub-ledger, so a variance is visible before somebody tries to close a period rather than only at the
+close attempt. `CLAUDE.md` §4 locks Quartz.NET as the scheduler for background work, which reads as an
+instruction to make this a Quartz job.
+**Decision.** `FinanceReconciliationHostedService` is a `BackgroundService` on a 24-hour loop. It
+issues `RunDailyReconciliationCheckCommand` through the ordinary command pipeline — validation,
+transaction, audit — exactly as a person clicking "check now" would.
+**Consequences.** Quartz earns its place when schedules are tenant-configurable, need persistence
+across restarts, or must not double-fire across a cluster. None of those apply: the interval is fixed
+at 24 hours, a missed pass costs nothing because the next one recomputes from current state rather
+than from a delta, and the store server is a single node by topology. Introducing a scheduler, its
+tables and its own transaction semantics to run one idempotent command on a timer would be more moving
+parts than the requirement has. The important half of the decision is not the timer but that the
+scheduled path and the on-demand path are the same command — a check that behaved differently when a
+person asked for it than when the clock did would be the one worth having, and this way there is only
+one. When a later stage genuinely needs tenant-configured schedules, Quartz arrives then and this
+service becomes one of its jobs without the command changing.
+
+## ADR-064 — Finance is a core module, not a licensable one — **LOCKED**
+**Context.** R7 makes every module switchable per tenant, and `FinanceModuleManifest` has to declare
+whether it is core. Finance is a plausible upsell — plenty of retail products sell "accounting" as a
+tier.
+**Decision.** `IsCore => true`. The `finance` licence flag exists and is declared, but the module
+cannot be switched off.
+**Consequences.** Rule 12 makes Finance load-bearing for every other module: POS, procurement and
+inventory all move value, and the only way any of them may affect the ledger is by raising an
+`IFinancialEvent` that Finance turns into a journal. A tenant with Finance disabled would not lose a
+feature the way a tenant without Loyalty does — every posting write in the system would fail,
+including a sale at the till, which contradicts R1's "POS never stops" outright. This is the same
+judgement Stage 06 made for Catalog and Partners, one layer lower: those are core because other
+modules read them, Finance is core because other modules cannot write without it. Selling accounting
+as a tier remains possible commercially — it would gate the *UI surface* and the AR/AP/banking
+endpoints via permissions, not the posting engine underneath — but that is a pricing decision for the
+control plane, and it must never reach the code path a POS sale takes.
+
+## ADR-065 — Document number counters are node-local and locked inside the caller's transaction — **LOCKED**
+**Context.** Journals, AR invoices and AP payments all need per-tenant sequential human-readable
+numbers. Two questions follow: whether the counter replicates, and how two concurrent postings avoid
+issuing the same number.
+**Decision.** `DocumentNumberCounter` is `ReplicationScope.NodeLocal`. The repository takes a
+`SELECT ... FOR UPDATE` row lock inside the command pipeline's existing transaction (slot 200) rather
+than opening one of its own.
+**Consequences.** Replicating the counter would be actively harmful: the number is printed on the
+document before any replica could learn about it, so a replicated counter converging after the fact
+would hand two stores the same invoice number and then quietly agree on which one was right. Keeping
+it node-local means a store's series is that store's series, which is what a person reading an invoice
+number expects anyway. Taking the lock inside the caller's transaction — not a fresh one — is what
+makes the series gap-free rather than merely unique: the increment rolls back with the command that
+failed, so a rejected posting does not burn a number. It also has to be that way regardless, since
+§7 rule 2 and the architecture test forbid a repository committing its own `SaveChanges`. The cost is
+that concurrent postings in the same series serialise on that row; for a store issuing tens of
+documents a minute this is invisible, and a store that ever outgrows it wants a different numbering
+scheme rather than a looser lock.
+
+## ADR-066 — `Journal.Lines` is a backing-field one-to-many, not an owned collection — **LOCKED**
+**Context.** A journal's lines are created once, at `Journal.Post`, and never added to afterwards.
+That looks exactly like an owned collection, which is how EF would normally model a child collection
+with no independent lifetime.
+**Decision.** `JournalLine` is a full entity with its own configuration; `Journal.Lines` is mapped as
+the parent side of a plain one-to-many over a backing field, with `PropertyAccessMode.Field`.
+**Consequences.** An owned collection would deny the line its own identity, and the line needs one for
+three separate reasons: it carries the standard audit columns §7 rule 3 requires on every table, it is
+independently `[Replicated]` with its own sync stamp, and `BankStatementLine.MatchedJournalLineId`
+points at a specific line — a bank reconciliation matches one side of one posting, not a whole
+journal. Owned types also cannot be queried independently, and the trial balance and account-balance
+queries both group by account across every journal without loading the parents. The backing field is
+what preserves the invariant that motivated considering ownership in the first place: the collection
+is populated inside `Post` and there is no public way to add to it afterwards, so immutability is
+enforced by the aggregate rather than by the mapping.
+
+## ADR-067 — An optional `Money` is two plain columns and a computed accessor, never a complex property — **LOCKED**
+**Context.** A journal line carries a debit or a credit, never both and never neither, so each side is
+optional on its own. `ValueObjectMapping.HasMoney` maps `Money` as an EF complex property, and the
+obvious move was a second overload taking `Expression<Func<TEntity, Money?>>`.
+**Decision.** There is no `HasMoney` overload for `Money?`. An entity with an optional monetary amount
+declares `{name}Amount` and `{name}Currency` as plain properties and exposes a computed `Money?`
+accessor over them; `JournalLine` is the worked example, and its mapping sets the column type and
+length directly.
+**Consequences.** This one was learned the expensive way and is recorded so nobody re-derives it. EF
+Core 9 cannot configure a complex property as optional at all, and reaching a nullable value type's
+fields requires the two-hop expression `value!.Value.Amount`, which `ComplexPropertyBuilder.Property`
+refuses to parse. Both failures happen at *model-building* time, not compile time — so the overload
+compiled cleanly, shipped in a checkpoint commit, and left a solution in which `VumaRetailDbContext`
+threw on construction. Every integration test and every architecture test that reads the model failed,
+and a build with zero warnings said nothing was wrong. The general lesson is the one worth keeping:
+`dotnet build` proves nothing about an EF model, so a stage that adds entities is not green until
+something has actually constructed the context. `HasAddress` solves the same EF limitation the other
+way, with an owned type, because an address has no arithmetic to preserve and does not mind losing
+value-type semantics; money does, so it keeps `Money` in the domain and pushes the split into the
+mapping alone.

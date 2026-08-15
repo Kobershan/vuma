@@ -21,6 +21,10 @@ public sealed class LicensingRulesTests
         typeof(VumaRetail.Application.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
         typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
+        // Stage 07. A rule that only covers the assemblies that existed when it was written stops
+        // being a rule — Finance is the first module to live in its own assembly, and it declares
+        // both a permission set and a manifest.
+        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
     ];
 
     /// <summary>Every assembly that may declare a query handler.</summary>
@@ -30,6 +34,7 @@ public sealed class LicensingRulesTests
         typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
         typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
+        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
     ];
 
     [Fact]

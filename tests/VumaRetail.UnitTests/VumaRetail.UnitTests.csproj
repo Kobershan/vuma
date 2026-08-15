@@ -24,6 +24,12 @@
     <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <!-- Stage 04b: the enforcement ladder, the fingerprint matcher and the signed documents. -->
     <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
+    <!--
+      Stage 07. The posting rules engine, the tax engine, the variance checker and the ageing
+      bucketer are all pure decisions over Application ports — the accounting rules that must hold
+      regardless of what the database does, so they are asserted here rather than through EF.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.Finance\VumaRetail.Finance.csproj" />
   </ItemGroup>
 
   <ItemGroup>
