@@ -61,7 +61,7 @@ its status code, which is why the status code always has to be right on its own.
 | `201` | created, with `Location` |
 | `202` | accepted for later work — an import batch, a planning run |
 | `204` | done, nothing to say |
-| `400` | malformed request; `errors` names the properties |
+| `400` | the request could not be used. Two distinct causes, distinguished by `code`: `VALIDATION_FAILED` when it bound and a validator rejected a value (`errors` names the properties), `MALFORMED_REQUEST` when binding itself failed and there is nothing to enumerate |
 | `401` | no usable credential |
 | `403` | authenticated, but the permission is missing (ADR-013) |
 | `404` | not there — **or not this tenant's**, which is answered identically on purpose |
@@ -97,7 +97,20 @@ Every error is an RFC 7807 problem document, `application/problem+json`:
   trace, and never which of several credentials was wrong.
 - **`correlationId`** is on every error and echoed in `X-Correlation-Id`. It is the whole payload of
   a `500`, and it is what support asks for.
-- A `400` adds `errors`: `{ "certificateThumbprint": ["A certificate thumbprint is 64 hexadecimal characters (SHA-256)."] }`.
+- A `VALIDATION_FAILED` `400` adds `errors`: `{ "certificateThumbprint": ["A certificate thumbprint is 64 hexadecimal characters (SHA-256)."] }`.
+- A `MALFORMED_REQUEST` `400` does not, and cannot: the request never bound, so there is no property
+  to name. Its `detail` carries the framework's own reason — *"Required parameter \"DateOnly asOf\"
+  was not provided from query string"* — and nothing from inside the body, because a JSON parse
+  failure's inner exception carries a fragment of the caller's payload and a path into it.
+
+**A request that never reaches a handler is still the caller's to fix.** Minimal APIs raise
+`BadHttpRequestException` when a required query or route parameter is missing or unparseable, when a
+body cannot be deserialised, or when a body is too large. That is mapped in `VumaExceptionHandler`
+alongside the domain kinds, honouring the exception's own status so an oversized body stays a `413`
+rather than being flattened to `400`. It went unmapped until Stage 07, and the consequence was worth
+recording: every such request returned `500 INTERNAL_ERROR`, telling a caller the server had broken
+when their request was merely incomplete, and logging an error each time — so one client's bad
+integration read as an outage.
 
 Platform codes live in `VumaRetail.Contracts.ApiErrorCodes`. Module codes live with the exception
 that raises them — a central list of four hundred codes is a file nobody keeps accurate.

@@ -30,6 +30,8 @@
     <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <!-- Stage 07: the finance permission constants the malformed-request and persistence tests grant. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Finance\VumaRetail.Finance.csproj" />
     <!-- Stage 02: the authenticated IPrincipalAccessor is what makes R6's audit trail name a person. -->
     <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
     <!--
