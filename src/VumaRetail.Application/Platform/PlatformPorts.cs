@@ -24,3 +24,18 @@ public interface IStoreRepository
     /// <param name="store">The store to add.</param>
     void Add(Store store);
 }
+
+/// <summary>Reads <see cref="Tenant"/> rows.</summary>
+/// <remarks>
+/// Read-only, and deliberately so: a tenant is created by activation (Stage 04b) and edited through
+/// the admin surface, neither of which goes through this port. Stage 09 added it because a receipt is
+/// a tax document — a VAT invoice must carry the seller's registration number — and
+/// <see cref="Tenant.TaxRegistrationNumber"/> is the only place that lives.
+/// </remarks>
+public interface ITenantRepository
+{
+    /// <summary>Finds a tenant by id.</summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<Tenant?> FindAsync(Guid tenantId, CancellationToken cancellationToken = default);
+}

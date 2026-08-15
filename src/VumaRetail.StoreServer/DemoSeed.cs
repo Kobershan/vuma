@@ -7,6 +7,10 @@ using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Inventory.Commands;
 using VumaRetail.Application.Partners.Commands;
+using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Pos;
+using VumaRetail.Application.Pos.Commands;
+using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
@@ -116,13 +120,13 @@ public static class DemoSeed
             .ConfigureAwait(false);
 
         Guid milk = await EnsureItemAsync(
-            provider, context, "MILK-2L", "Full cream milk 2L", ItemType.Stock, each, "Fresh full cream milk, 2 litre bottle", "VAT-STD", cancellationToken)
+            provider, context, "MILK-2L", "Full cream milk 2L", ItemType.Stock, each, "Fresh full cream milk, 2 litre bottle", "STANDARD", cancellationToken)
             .ConfigureAwait(false);
         await EnsureBarcodeAsync(provider, context, milk, null, "6009880123456", BarcodeSymbology.Ean13, cancellationToken)
             .ConfigureAwait(false);
 
         Guid shirt = await EnsureItemAsync(
-            provider, context, "SHIRT", "Vuma branded T-shirt", ItemType.Stock, each, "Cotton crew-neck T-shirt", "VAT-STD", cancellationToken)
+            provider, context, "SHIRT", "Vuma branded T-shirt", ItemType.Stock, each, "Cotton crew-neck T-shirt", "STANDARD", cancellationToken)
             .ConfigureAwait(false);
         Guid shirtMedRed = await EnsureVariantAsync(
             provider, context, shirt, "SHIRT-M-RED", [new VariantAttribute("Size", "M"), new VariantAttribute("Colour", "Red")], cancellationToken)
@@ -144,6 +148,7 @@ public static class DemoSeed
 
         await SeedFinanceAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedInventoryAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
+        await SeedPosAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -262,6 +267,123 @@ public static class DemoSeed
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Seeds Stage 09: an open till session on the demo terminal, and one completed sale through it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Built from the domain factories and <see cref="ISaleCompletionService"/> rather than through the
+    /// dispatcher, unlike most of this seed. POS attributes every action to the authenticated operator
+    /// and the originating terminal (<c>PosActor</c>), and the seed runs as a system principal with no
+    /// terminal — so dispatching <c>OpenSaleCommand</c> here would be refused, correctly. Going through
+    /// the completion service still exercises the parts that matter: the stock comes off the ledger and
+    /// the <c>pos.sale.tendered</c> event posts through the rule seeded in <see cref="SeedFinanceAsync"/>.
+    /// </para>
+    /// <para>
+    /// The sale is rung up against <c>MAIN</c>, which is where <see cref="SeedInventoryAsync"/>'s
+    /// opening receipt put the stock. Selling from <c>FLOOR</c> would demonstrate ADR-073's refused-issue
+    /// path instead, which is a real thing to look at but a strange default for a demo — the first
+    /// question anybody asks of a seeded database is "does a normal sale work".
+    /// </para>
+    /// </remarks>
+    private static async Task SeedPosAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid storeId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Sales.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        Terminal? terminal = await provider.GetRequiredService<ITerminalRepository>()
+            .FindByCodeAsync(storeId, "T01", cancellationToken)
+            .ConfigureAwait(false);
+
+        User? cashier = await provider.GetRequiredService<IUserRepository>()
+            .FindByUserNameAsync("cashier1", cancellationToken)
+            .ConfigureAwait(false);
+
+        StockLocation? location = await context.StockLocations
+            .FirstOrDefaultAsync(candidate => candidate.Code == "MAIN", cancellationToken)
+            .ConfigureAwait(false);
+
+        if (terminal is null || cashier is null || location is null)
+        {
+            return;
+        }
+
+        IClock clock = provider.GetRequiredService<IClock>();
+
+        TillSession session = TillSession.Open(
+            DemoTenantId, storeId, terminal.Id, cashier.Id, new Money(500m, "ZAR"), clock.UtcNow);
+
+        provider.GetRequiredService<ITillSessionRepository>().Add(session);
+
+        string saleNumber = await provider.GetRequiredService<IDocumentNumberSequence>()
+            .NextAsync(OpenSaleCommandHandler.SaleNumberSeries, cancellationToken)
+            .ConfigureAwait(false);
+
+        Sale sale = Sale.Open(
+            UuidV7.NewGuid(),
+            DemoTenantId,
+            storeId,
+            saleNumber,
+            session,
+            cashier.Id,
+            location.Id,
+            customerId: null,
+            "ZAR",
+            clock.UtcNow);
+
+        // R59.99 each, two of them, priced through the rules engine exactly as a till would — the
+        // STANDARD rule SeedFinanceAsync writes is 15% inclusive, so R119.98 gross is R104.33 net.
+        Money unitPrice = new(59.99m, "ZAR");
+        Quantity quantity = new(2m, "EA");
+
+        TaxCalculation tax = await provider.GetRequiredService<ITaxCalculator>()
+            .CalculateAsync(
+                "STANDARD",
+                (unitPrice * quantity.Value).RoundToCurrencyScale(),
+                DateOnly.FromDateTime(clock.UtcNow.UtcDateTime),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        sale.AddLine(SaleLine.Ring(
+            DemoTenantId,
+            storeId,
+            sale.Id,
+            sale.NextLineNumber,
+            itemId,
+            null,
+            "Full cream milk 2L",
+            quantity,
+            unitPrice,
+            Money.Zero("ZAR"),
+            tax.TaxCode,
+            tax.NetAmount,
+            tax.TaxAmount,
+            tax.GrossAmount));
+
+        sale.AddTender(SaleTender.Capture(
+            DemoTenantId, storeId, sale.Id, TenderType.Cash, new Money(150m, "ZAR"), null, clock.UtcNow));
+
+        provider.GetRequiredService<ISaleRepository>().Add(sale);
+
+        await provider.GetRequiredService<ISaleCompletionService>()
+            .CompleteAsync(sale, cancellationToken)
+            .ConfigureAwait(false);
+
+        provider.GetRequiredService<IReceiptPrintRepository>().Add(ReceiptPrint.Record(
+            DemoTenantId, storeId, sale.Id, cashier.Id, terminal.Id, isReprint: false, reason: null, clock.UtcNow));
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine($"Sale {sale.SaleNumber} completed: {sale.Gross} tendered, {sale.ChangeGiven} change.");
     }
 
     private static async Task<Guid> EnsureStockLocationAsync(

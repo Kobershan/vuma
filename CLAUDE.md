@@ -243,7 +243,7 @@ vuma/
 
 | Module | Built in stage |
 |---|---|
-| POS system | 09 (core), 10 (promotions/tenders), 09 addendum (lay-by, self-checkout) |
+| POS system | **09** (till, tenders, receipts, cash-up, hardware), 10 (promotions, returns) |
 | Sales management | 10 |
 | Inventory management | 08 (ledger), 13 (bin-level) |
 | **Finance / accounting (GL, AR, AP, banking, tax)** | **07** |
@@ -268,7 +268,7 @@ vuma/
 | API access | 03 (platform) + every module stage |
 | Cloud backup / restore | 04, hardened in 31 |
 | **Design system (Apple-inspired, dark + light)** | **08b** (`docs/DESIGN_SYSTEM.md`) |
-| **Customer accounts, lay-by, stokvels** | **10b** |
+| **Customer accounts, lay-by, stokvels** | **10b** (ADR-055 — *not* a Stage 09 addendum; see `ROADMAP.md`'s ordering notes) |
 | **Supplier↔retailer network, in-app ordering and payment** | **21b** (`docs/API_CONNECT.md`) |
 | **Licensing, activation, entitlements** | **04b** (`docs/LICENSING.md`) |
 | **Vendor control plane, usage analytics, SaaS billing** | **30b** (`docs/API_CONTROL_PLANE.md`) |

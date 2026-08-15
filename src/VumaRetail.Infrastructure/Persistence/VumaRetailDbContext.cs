@@ -136,6 +136,21 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One counted stock-keeping unit within a session.</summary>
     public DbSet<Domain.Inventory.StocktakeLine> StocktakeLines => Set<Domain.Inventory.StocktakeLine>();
 
+    /// <summary>A cashier's shift at one terminal, and the cash-up that closes it (Stage 09).</summary>
+    public DbSet<Domain.Pos.TillSession> TillSessions => Set<Domain.Pos.TillSession>();
+
+    /// <summary>Transactions at the till.</summary>
+    public DbSet<Domain.Pos.Sale> Sales => Set<Domain.Pos.Sale>();
+
+    /// <summary>What was rung up on a sale.</summary>
+    public DbSet<Domain.Pos.SaleLine> SaleLines => Set<Domain.Pos.SaleLine>();
+
+    /// <summary>How a sale was paid for. Immutable once captured.</summary>
+    public DbSet<Domain.Pos.SaleTender> SaleTenders => Set<Domain.Pos.SaleTender>();
+
+    /// <summary>The append-only record of every receipt printed and reprinted.</summary>
+    public DbSet<Domain.Pos.ReceiptPrint> ReceiptPrints => Set<Domain.Pos.ReceiptPrint>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 

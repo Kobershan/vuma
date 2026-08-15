@@ -114,3 +114,49 @@ public interface IFinancialEventPoster
     /// </exception>
     Task<Guid> PostAsync(IFinancialEvent financialEvent, CancellationToken cancellationToken = default);
 }
+
+/// <summary>The result of applying a <c>TaxRule</c> to an amount.</summary>
+/// <param name="TaxCode">The rule's code.</param>
+/// <param name="NetAmount">The amount excluding tax.</param>
+/// <param name="TaxAmount">The tax.</param>
+/// <param name="GrossAmount">Net plus tax.</param>
+/// <param name="Rate">The rate that was applied, as a fraction.</param>
+public sealed record TaxCalculation(string TaxCode, Money NetAmount, Money TaxAmount, Money GrossAmount, decimal Rate);
+
+/// <summary>
+/// Works out net, tax and gross for an amount under the tenant's configured tax rules
+/// (<c>CLAUDE.md</c> §9 — tax is a rules engine, never a constant).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Implemented by <c>VumaRetail.Finance</c>'s <c>TaxEngine</c>. It sits here, beside
+/// <see cref="IFinancialEventPoster"/>, for the same reason that one does: a module that sells
+/// something has to price the tax on it, and <c>VumaRetail.Application</c> cannot reference
+/// <c>VumaRetail.Finance</c> — the dependency runs the other way. Stage 09's POS is the first caller
+/// and the reason this port exists; Stage 07's own AR and AP commands use the concrete engine
+/// directly because they live inside the Finance assembly already.
+/// </para>
+/// <para>
+/// Note what this port deliberately does not expose: no <c>TaxRule</c>, no rate table, no way to ask
+/// "what is the standard rate". A caller names a tax code and a date and is told the three amounts.
+/// Anything more would let a module cache a rate and quietly stop being a rules engine.
+/// </para>
+/// </remarks>
+public interface ITaxCalculator
+{
+    /// <summary>
+    /// Calculates net, tax and gross for a stated amount under the rule effective for a code on a date.
+    /// </summary>
+    /// <param name="taxCode">The tax code, for example <c>STANDARD</c>.</param>
+    /// <param name="statedAmount">
+    /// The amount as given. Whether it is treated as inclusive or exclusive of tax comes from the
+    /// matched rule, not from the caller — which is the point: a South African shelf price is
+    /// inclusive and a wholesale price list is not, and neither the till nor the caller should have to
+    /// know which.
+    /// </param>
+    /// <param name="asOf">The date the rule must be effective on — normally the document date.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <exception cref="Domain.Finance.TaxRuleNotFoundException">No active rule matches the code on that date.</exception>
+    Task<TaxCalculation> CalculateAsync(
+        string taxCode, Money statedAmount, DateOnly asOf, CancellationToken cancellationToken = default);
+}
