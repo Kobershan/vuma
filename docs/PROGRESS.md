@@ -655,6 +655,17 @@ the merge base was exactly this branch's own starting point, so the two branches
 line of code). Full `dotnet build -c Release` and `dotnet test` re-run after the merge, on the stage-06
 branch and again on `main` after the merge landed there — both green.
 
+**Final re-verification on `main` at `7cca1f8`, after a session restart.** `dotnet build -c Release` →
+**0 warnings, 0 errors**. Docker Desktop's daemon was not reachable this pass (`docker info` failed
+after three retries — the same WSL2 flakiness noted in §4.3), so the integration suite ran against a
+manually-started local PostgreSQL 16 server instead (`initdb`/`pg_ctl`, TCP-only on `127.0.0.1:55432`,
+`VUMA_TEST_POSTGRES` set — ADR-036's documented fallback, same recipe §4.3 records for this machine).
+`dotnet test` → **588 passed, 0 failed** (303 unit, 27 architecture, 258 integration), including
+`MigrationTests` (the real `Up` → `Down` → `Up` chain, `MasterData` included) and every `BackupTests`
+case (`pg_dump`/`pg_restore` reachable via the `winget`-installed client tools on `PATH`). No further
+code changes were needed — the exit checklist in `docs/stages/STAGE-06-master-data.md` was re-walked
+item by item against this exact commit and every box holds.
+
 ---
 
 ## 3. Deferred — needs real credentials
