@@ -3,16 +3,18 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-15 · **Current stage:** 08 — Inventory core (stock ledger, valuation, transfers, stocktakes) · **Status:** DONE and verified on branch `stage-08-inventory-core`, merged forward from `main`. Stage 05 (workflow) is the one branch still carrying unverified work.
+**Last updated:** 2026-08-15 · **Current stage:** 08 — Inventory core (stock ledger, valuation, transfers, stocktakes) · **Status:** DONE and merged to `main`. Stage 05 (workflow) is the one branch still carrying unverified work.
 
 ---
 
 ## 1. Stage status
 
-`main` is at 06. Two later-numbered-by-dependency stages have genuine progress on unmerged
-branches — 05 was started in its own worktree so it could proceed in parallel without colliding on
-shared files; 07 depends on 06 and could not really be finished until this merge landed. Neither has
-been reconciled or merged back yet.
+`main` is at 08, and carries 00 through 04b plus 06, 07 and 08 — every stage except 05. Stage 05 was
+started in its own worktree so it could proceed in parallel without colliding on shared files, and is
+the one branch still holding unverified work; 07 and 08 were both finished and merged ahead of it,
+out of the roadmap's documented order, because neither needs 05's approval engine to compile or pass
+(their approval gates are documented no-ops) and leaving verified stages on branches is the larger
+risk. Stage 09 does need 05, so it is the next thing to pick up.
 
 | Stage | Title | Status | Changed |
 |---|---|---|---|
@@ -25,7 +27,7 @@ been reconciled or merged back yet.
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
-| 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (branch `stage-08-inventory-core`, verified, awaiting merge to `main`) | 2026-08-15 |
+| 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 09 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
@@ -630,7 +632,7 @@ node-local and rebuilt rather than replicated, because a running total is not sa
 a missing posting rule logs and continues rather than refusing the movement, because a store must be
 able to receive a delivery before its chart of accounts is finished (070); and 071 above.
 
-**Not merged to `main`.** The branch is verified and pushed; the merge is a separate step.
+**Merged to `main`.** Verified on the branch first, then merged; `main` was re-tested after the merge rather than trusted to stay green.
 
 ### 2026-08-15 — Stage 07 complete: finance (GL, AR, AP, banking, tax, posting rules) — merged to `main`
 
@@ -1042,20 +1044,18 @@ architecture, 266 integration), 0 warnings, and the module driven end to end ove
 database. See the 2026-08-15 session log entry above for the four defects it was carrying and what
 each one hid behind.
 
-**Two stages remain unmerged, and they are not equivalent.**
+**One stage remains unmerged.**
 
 - **05 (`stage-05-workflow`)** — worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`. Genuinely
   unverified, in the same state Stage 07 was found in: real progress, no exit checklist, no evidence
   it runs. Expect to find the same class of problem — assume nothing works until a `DbContext` has
   been constructed and the app has been started. **Do not confuse `main`'s `4320d48` "Stage 05
   Commit" with real Stage 05 progress; see the §1 note above, it is not workflow code.**
-- **08 (`stage-08-inventory-core`)** — **now DONE and verified**, `main` merged forward to `8cdab6f`,
-  744 tests green, pushed. Unlike 05 this needs no investigation: it needs a merge to `main`, which
-  is the one step its session did not take. See its own session-log entry above.
+- **08 (`stage-08-inventory-core`)** — **DONE, verified and merged to `main`.** Nothing outstanding.
+  See its own session-log entry above.
 
-**Merge 08 first — it is a finished stage sitting on a branch, which is exactly the state that rots.**
-Then **pick 05**: the last stage carrying unverified work that nobody is holding, and Stage 09's POS
-depends on both 05 and 07.
+**Pick 05.** It is now the only stage carrying unverified work, and Stage 09's POS depends on it and
+on 07. Stage 08 is merged, so `main` carries everything through inventory.
 
 **What Stage 08 leaves for whoever comes next.**
 

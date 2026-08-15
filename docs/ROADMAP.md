@@ -38,7 +38,7 @@ The minimum that makes a business able to trade *and* account for it.
 |---|---|---|---|
 | 06 | Master Data | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
 | 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
-| 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, verified on branch `stage-08-inventory-core` 2026-08-15, awaiting merge to `main`** |
+| 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
 | 09 | POS Terminal & Hardware | 08b | The till: offline sales, tenders, receipts, lay-by, cash-up |
 | 10 | Sales Management & Promotions | 09 | Quotes, invoices, returns, specials engine, sales analytics |
