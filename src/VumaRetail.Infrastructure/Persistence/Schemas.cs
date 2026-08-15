@@ -47,4 +47,9 @@ public static class Schemas
 
     /// <summary>Chart of accounts, GL, AR, AP, banking, tax, posting rules. Stage 07.</summary>
     public const string Finance = "finance";
+
+    /// <summary>
+    /// Stock locations, the append-only stock ledger, balances, transfers and stocktakes. Stage 08.
+    /// </summary>
+    public const string Inventory = "inventory";
 }

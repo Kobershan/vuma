@@ -118,6 +118,24 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Suppliers, customers, and partners who are both (Stage 06).</summary>
     public DbSet<Domain.Partners.Partner> Partners => Set<Domain.Partners.Partner>();
 
+    /// <summary>Physical places stock is held — warehouses, sales floors (Stage 08).</summary>
+    public DbSet<Domain.Inventory.StockLocation> StockLocations => Set<Domain.Inventory.StockLocation>();
+
+    /// <summary>The append-only stock ledger. Nothing here is ever updated or deleted (ADR-005).</summary>
+    public DbSet<Domain.Inventory.StockLedgerEntry> StockLedgerEntries => Set<Domain.Inventory.StockLedgerEntry>();
+
+    /// <summary>On-hand quantity and weighted-average cost, the projection the ledger sums to.</summary>
+    public DbSet<Domain.Inventory.StockBalance> StockBalances => Set<Domain.Inventory.StockBalance>();
+
+    /// <summary>The document correlating the two ledger entries a transfer posts.</summary>
+    public DbSet<Domain.Inventory.StockTransfer> StockTransfers => Set<Domain.Inventory.StockTransfer>();
+
+    /// <summary>Physical count sessions.</summary>
+    public DbSet<Domain.Inventory.StocktakeSession> StocktakeSessions => Set<Domain.Inventory.StocktakeSession>();
+
+    /// <summary>One counted stock-keeping unit within a session.</summary>
+    public DbSet<Domain.Inventory.StocktakeLine> StocktakeLines => Set<Domain.Inventory.StocktakeLine>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 

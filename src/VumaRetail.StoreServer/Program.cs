@@ -16,6 +16,7 @@ using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Sync;
@@ -96,6 +97,12 @@ builder.Services.AddVumaPartners();
 // AddVumaControlPlaneClient uses for LicensingHostTenant.
 builder.Services.AddVumaFinance();
 builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantId, host.StoreId));
+
+// Stage 08. Locations, the append-only stock ledger, balances, transfers and stocktakes. Stock
+// movements raise a valuation event that AddVumaFinance's posting rules engine turns into a journal;
+// the binding is chosen when the publisher is resolved rather than when it is registered, so this
+// line's position relative to AddVumaFinance does not matter.
+builder.Services.AddVumaInventory();
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -179,6 +186,7 @@ app.MapVumaLicensing();
 app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
+app.MapVumaInventory();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because
