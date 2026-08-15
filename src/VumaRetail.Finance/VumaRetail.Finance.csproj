@@ -20,7 +20,7 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <!-- FinanceReconciliationHostedService — the ADR-016 daily variance job (ADR-058). -->
+    <!-- FinanceReconciliationHostedService — the ADR-016 daily variance job (ADR-063). -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>

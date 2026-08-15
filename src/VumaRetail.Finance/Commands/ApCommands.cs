@@ -63,6 +63,8 @@ public sealed class CreateApInvoiceCommandHandler(
     /// <exception cref="TaxRuleNotFoundException">A line's tax code has no rule effective on the invoice date.</exception>
     public async Task<Guid> HandleAsync(CreateApInvoiceCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         ApInvoice invoice = ApInvoice.Draft(
             tenant.TenantId,
             tenant.StoreId,
@@ -111,6 +113,8 @@ public sealed class PostApInvoiceCommandHandler(
     /// <exception cref="DocumentNotDraftException">The invoice is not a draft.</exception>
     public async Task<Unit> HandleAsync(PostApInvoiceCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         ApInvoice invoice = await invoices.FindByIdAsync(command.ApInvoiceId, cancellationToken).ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(ApInvoice), command.ApInvoiceId);
 
@@ -196,6 +200,8 @@ public sealed class RecordApPaymentCommandHandler(
     /// <exception cref="OverAllocationException">An allocation exceeds an invoice's outstanding balance.</exception>
     public async Task<Guid> HandleAsync(RecordApPaymentCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         List<(Guid ApInvoiceId, Money Amount)> allocationTuples = [];
         Money total = Money.Zero(command.Currency);
 

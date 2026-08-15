@@ -31,6 +31,8 @@ public sealed class OpenAccountingPeriodCommandHandler(IAccountingPeriodReposito
     /// <inheritdoc />
     public Task<Guid> HandleAsync(OpenAccountingPeriodCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         AccountingPeriod period = AccountingPeriod.Open(tenant.TenantId, command.PeriodStart, command.PeriodEnd);
         periods.Add(period);
         return Task.FromResult(period.Id);
@@ -61,6 +63,8 @@ public sealed class ClosePeriodCommandHandler(
     /// <exception cref="PeriodCloseBlockedException">A control account disagrees with its sub-ledger.</exception>
     public async Task<Unit> HandleAsync(ClosePeriodCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         AccountingPeriod period = await periods.FindByIdAsync(command.AccountingPeriodId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(AccountingPeriod), command.AccountingPeriodId);
@@ -86,7 +90,7 @@ public sealed class ClosePeriodCommandHandler(
 /// result whether or not there is a variance.
 /// </summary>
 /// <remarks>
-/// The "automated daily job" ADR-016 calls for (ADR-058). Raised by
+/// The "automated daily job" ADR-016 calls for (ADR-063). Raised by
 /// <c>FinanceReconciliationHostedService</c> once every 24 hours; also safe to run on demand.
 /// </remarks>
 [CommandSideEffect(SideEffect.Write)]

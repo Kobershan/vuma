@@ -51,6 +51,8 @@ public sealed class GetApAgeingQueryHandler(IApInvoiceRepository invoices)
     public async Task<IReadOnlyList<AgeingRow>> HandleAsync(
         GetApAgeingQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         IReadOnlyList<ApInvoice> open = await invoices.ListOpenAsync(cancellationToken).ConfigureAwait(false);
 
         return AgeingBucketer.Bucket(

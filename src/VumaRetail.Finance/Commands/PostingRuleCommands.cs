@@ -58,6 +58,8 @@ public sealed class DefinePostingRuleCommandHandler(
     /// <exception cref="AccountNotFoundException">A line references an account that does not exist.</exception>
     public async Task<Guid> HandleAsync(DefinePostingRuleCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         PostingRule rule = PostingRule.Define(tenant.TenantId, command.EventType, command.Description);
 
         foreach (PostingRuleLineInput line in command.Lines)

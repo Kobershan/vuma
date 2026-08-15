@@ -40,6 +40,8 @@ public sealed class CreateBankAccountCommandHandler(
     /// <exception cref="AccountNotFoundException">The GL account does not exist.</exception>
     public async Task<Guid> HandleAsync(CreateBankAccountCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         if (await glAccounts.FindByIdAsync(command.GlAccountId, cancellationToken).ConfigureAwait(false) is null)
         {
             throw new AccountNotFoundException(command.GlAccountId);
@@ -103,6 +105,8 @@ public sealed class ImportBankStatementLinesCommandHandler(
     /// <exception cref="FinanceDocumentNotFoundException">The bank account does not exist.</exception>
     public async Task<int> HandleAsync(ImportBankStatementLinesCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         BankAccount account = await bankAccounts.FindByIdAsync(command.BankAccountId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(BankAccount), command.BankAccountId);
@@ -150,6 +154,8 @@ public sealed class MatchBankStatementLineCommandHandler(
     /// <exception cref="FinanceDocumentNotFoundException">The statement line does not exist.</exception>
     public async Task<Unit> HandleAsync(MatchBankStatementLineCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         BankStatementLine line = await lines.FindByIdAsync(command.BankStatementLineId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(BankStatementLine), command.BankStatementLineId);
@@ -174,6 +180,8 @@ public sealed class UnmatchBankStatementLineCommandHandler(IBankStatementLineRep
     /// <exception cref="FinanceDocumentNotFoundException">The statement line does not exist.</exception>
     public async Task<Unit> HandleAsync(UnmatchBankStatementLineCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         BankStatementLine line = await lines.FindByIdAsync(command.BankStatementLineId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(BankStatementLine), command.BankStatementLineId);

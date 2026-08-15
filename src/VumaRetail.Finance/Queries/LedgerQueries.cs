@@ -56,6 +56,8 @@ public sealed class GetTrialBalanceQueryHandler(IAccountRepository accounts, IJo
     public async Task<IReadOnlyList<TrialBalanceLine>> HandleAsync(
         GetTrialBalanceQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         IReadOnlyList<Account> all = await accounts.ListAllAsync(cancellationToken).ConfigureAwait(false);
         List<TrialBalanceLine> lines = [];
 
@@ -86,7 +88,11 @@ public sealed class GetAccountBalanceQueryHandler(IJournalRepository journals)
 {
     /// <inheritdoc />
     public Task<decimal> HandleAsync(GetAccountBalanceQuery query, CancellationToken cancellationToken = default)
-        => journals.GetAccountBalanceAsync(query.AccountId, query.AsOf, cancellationToken);
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        return journals.GetAccountBalanceAsync(query.AccountId, query.AsOf, cancellationToken);
+    }
 }
 
 /// <summary>One journal, summarised for a listing.</summary>
@@ -114,6 +120,8 @@ public sealed class ListJournalsQueryHandler(IJournalRepository journals)
     public async Task<IReadOnlyList<JournalSummary>> HandleAsync(
         ListJournalsQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         IReadOnlyList<Journal> recent = await journals
             .ListRecentAsync(query.Limit, cancellationToken).ConfigureAwait(false);
 
@@ -159,6 +167,8 @@ public sealed class GetJournalQueryHandler(IJournalRepository journals)
     /// <exception cref="FinanceDocumentNotFoundException">The journal does not exist.</exception>
     public async Task<JournalDetail> HandleAsync(GetJournalQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         Journal journal = await journals.FindByIdAsync(query.JournalId, cancellationToken).ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(Journal), query.JournalId);
 

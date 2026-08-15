@@ -22,5 +22,9 @@ public sealed class CalculateTaxQueryHandler(TaxEngine taxEngine) : IQueryHandle
     /// <inheritdoc />
     /// <exception cref="Domain.Finance.TaxRuleNotFoundException">No rule matches the code on that date.</exception>
     public Task<TaxCalculation> HandleAsync(CalculateTaxQuery query, CancellationToken cancellationToken = default)
-        => taxEngine.CalculateAsync(query.TaxCode, new Money(query.Amount, query.Currency), query.AsOf, cancellationToken);
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        return taxEngine.CalculateAsync(query.TaxCode, new Money(query.Amount, query.Currency), query.AsOf, cancellationToken);
+    }
 }

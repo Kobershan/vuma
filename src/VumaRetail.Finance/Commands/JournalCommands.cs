@@ -92,6 +92,8 @@ public sealed class PostManualJournalCommandHandler(
     /// <exception cref="JournalNotBalancedException">Debits and credits do not agree.</exception>
     public async Task<Guid> HandleAsync(PostManualJournalCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         AccountingPeriod period = await periods.FindOpenPeriodForDateAsync(command.PostingDate, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NoOpenPeriodException(command.PostingDate);
@@ -174,6 +176,8 @@ public sealed class ReverseJournalCommandHandler(
     /// <exception cref="NoOpenPeriodException">No open period covers today.</exception>
     public async Task<Guid> HandleAsync(ReverseJournalCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         Journal original = await journals.FindByIdAsync(command.JournalId, cancellationToken).ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(Journal), command.JournalId);
 

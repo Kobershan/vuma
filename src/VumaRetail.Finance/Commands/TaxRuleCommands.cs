@@ -46,6 +46,8 @@ public sealed class CreateTaxRuleCommandHandler(ITaxRuleRepository taxRules, ITe
     /// <inheritdoc />
     public Task<Guid> HandleAsync(CreateTaxRuleCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         TaxRule rule = TaxRule.Define(
             tenant.TenantId,
             command.Code,

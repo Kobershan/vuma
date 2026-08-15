@@ -64,6 +64,8 @@ public sealed class CreateArInvoiceCommandHandler(
     /// <exception cref="TaxRuleNotFoundException">A line's tax code has no rule effective on the invoice date.</exception>
     public async Task<Guid> HandleAsync(CreateArInvoiceCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         string invoiceNumber = await numbers.NextAsync(NumberSeries, cancellationToken).ConfigureAwait(false);
 
         ArInvoice invoice = ArInvoice.Draft(
@@ -114,6 +116,8 @@ public sealed class PostArInvoiceCommandHandler(
     /// <exception cref="DocumentNotDraftException">The invoice is not a draft.</exception>
     public async Task<Unit> HandleAsync(PostArInvoiceCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         ArInvoice invoice = await invoices.FindByIdAsync(command.ArInvoiceId, cancellationToken).ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(ArInvoice), command.ArInvoiceId);
 
@@ -194,6 +198,8 @@ public sealed class RecordArReceiptCommandHandler(
     /// <exception cref="OverAllocationException">An allocation exceeds an invoice's outstanding balance.</exception>
     public async Task<Guid> HandleAsync(RecordArReceiptCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         List<(Guid ArInvoiceId, Money Amount)> allocationTuples = [];
         Money total = Money.Zero(command.Currency);
 

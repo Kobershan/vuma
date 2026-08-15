@@ -30,6 +30,8 @@ public sealed class GetBankReconciliationSummaryQueryHandler(
     public async Task<BankReconciliationSummary> HandleAsync(
         GetBankReconciliationSummaryQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         BankAccount account = await bankAccounts.FindByIdAsync(query.BankAccountId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(BankAccount), query.BankAccountId);

@@ -45,6 +45,8 @@ public sealed class CreateAccountCommandHandler(IAccountRepository accounts, ITe
     /// <exception cref="AccountCodeAlreadyInUseException">The code is already in use.</exception>
     public async Task<Guid> HandleAsync(CreateAccountCommand command, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         if (await accounts.FindByCodeAsync(command.Code, cancellationToken).ConfigureAwait(false) is not null)
         {
             throw new AccountCodeAlreadyInUseException(command.Code);
