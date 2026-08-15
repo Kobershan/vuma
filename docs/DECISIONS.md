@@ -969,3 +969,84 @@ something has actually constructed the context. `HasAddress` solves the same EF 
 way, with an owned type, because an address has no arithmetic to preserve and does not mind losing
 value-type semantics; money does, so it keeps `Money` in the domain and pushes the split into the
 mapping alone.
+
+---
+
+## ADR-068 — Stock is valued at weighted-average moving cost — **LOCKED**
+**Context.** Stage 08 has to put a number on what a unit of stock cost when it is relieved, and the
+choice governs every cost of sales figure the ledger will ever carry. FIFO, specific identification,
+standard costing and weighted average are all defensible; the roadmap's later stages (12 procurement,
+17 manufacturing) each assume *something* is already decided.
+**Decision.** Weighted-average moving cost. Every receipt blends its cost into a running average held
+on `StockBalance.AverageCost`; every issue relieves at that average without changing it. There are no
+cost layers, no lot tracking and no revaluation pass.
+**Consequences.** This is the simplest method that is still correct, which is what `CLAUDE.md` §1 asks
+for on a first cut. It needs one decimal per balance rather than a layer table, it cannot get out of
+order, and it has no batch job that must run before the numbers are true. What it gives up is real:
+a tenant whose accountant requires FIFO cannot have it, and shelf-life or serial-number costing
+(Stage 18's territory) will need genuine cost layers, not a variation on this. That is an additive
+change — a costing-method column on the item and a layer table beside the balance — rather than a
+rewrite, because every posting already goes through `StockLedgerPoster` and nothing else computes a
+cost. Note the deliberate detail that an emptied balance keeps its last average: a positive adjustment
+or a found-stock variance afterwards then has a cost basis, where zeroing it would force the caller to
+invent one.
+
+---
+
+## ADR-069 — `StockBalance` is node-local and rebuilt, never replicated as a value — **LOCKED**
+**Context.** ADR-005 makes the stock ledger append-only and names `stock_balance` a materialised
+projection. Every other replicated table carries a `ReplicatedAttribute` naming a conflict policy, and
+the obvious reading is that the balance replicates too, `LastWriterWins` like any other mutable row.
+**Decision.** `StockBalance` is `ReplicationScope.NodeLocal`. Ledger entries replicate
+(`StoreToCloud`, `AppendOnly`); the balance does not. Each node maintains its own copy from the
+entries it has applied, whether raised locally or received from a peer.
+**Consequences.** A running total is not safely mergeable the way an accumulating ledger is. Two nodes
+each applying their own delta to a synced total would either double an overlapping movement or
+silently diverge, and neither shows up as a conflict for ADR-007 to escalate — it shows up months
+later as stock figures nobody trusts. Keeping the balance local means the only thing crossing the wire
+is the immutable fact that a movement happened, which merges by accumulation and cannot conflict. The
+cost is that a node's balance is only as current as the entries it has received, and a rebuild is the
+repair for any divergence — which is available precisely because the ledger is append-only and
+complete.
+
+---
+
+## ADR-070 — A missing posting rule does not refuse a stock movement — **LOCKED**
+**Context.** Stage 08 raises an `IFinancialEvent` for every movement and Stage 07's engine resolves a
+`PostingRule` for its event type, throwing `PostingRuleNotFoundException` when none is configured. The
+question is what inventory does with that exception.
+**Decision.** `FinancialInventoryValuationEventPublisher` catches it, logs a warning naming the event
+type and the ledger entry, and returns. The stock movement stands; no journal is raised.
+**Consequences.** The stock ledger records what physically happened, and that is true whether or not
+an accountant has finished the chart of accounts. Failing the movement would mean a store cannot
+receive a delivery because its posting rules are incomplete — refusing to write down what is
+demonstrably on the shelf, which is the wrong failure. It also makes the transfer case fall out
+correctly rather than needing a special case: with a single inventory account a transfer's two sides
+would debit and credit the same account for the same amount, so the demo seeds no transfer rule and
+the correct posting is no posting. The real risk is the other reading — a rule that *should* exist and
+does not, silently costing the ledger a journal — which is why it is a warning rather than debug, and
+why the message names the event type a rule would need. A stage that needs the stricter behaviour
+(Stage 12's three-way match is the likely first) should make it explicit per event type rather than
+flipping this globally.
+
+---
+
+## ADR-071 — A constructor overload never defaults a parameter that differs only by nullability — **LOCKED**
+**Context.** `Entity` gained a second constructor for callers that mint an id before the row exists —
+`StockTransfer`, whose two ledger entries must carry the transfer's id before the transfer itself can
+be built. It was written as `Entity(Guid id, Guid tenantId, Guid? storeId = null)`, beside the
+existing `Entity(Guid tenantId, Guid? storeId = null)`.
+**Decision.** The id-taking constructor takes no default for `storeId`. All three arguments are
+required. More generally: where two overloads differ by a leading parameter of the same type, the
+longer one does not get a trailing default that makes both applicable to the same argument count.
+**Consequences.** With the default present, a two-argument `base(tenantId, storeId)` call from an
+entity whose own `storeId` is a non-nullable `Guid` binds to the *id* constructor — two exact `Guid`
+matches beat one exact match plus a `Guid`-to-`Nullable<Guid>` conversion. C# is behaving exactly as
+specified; the result is a row with `Id` set to the tenant's id, `TenantId` set to the store's, and no
+store at all, which places it outside its own tenant's global query filter. Nothing about the call
+site changes, no warning is produced, and the build stays clean. `Terminal` was the only entity in the
+solution shaped this way and it cost fourteen failing tests across Identity, Licensing and Sync, none
+of which named the real cause. Removing the default makes the two-argument call unambiguous again.
+This sits beside ADR-067 as the second case this codebase has hit where the compiler is content and
+the model is wrong; `EntityTests` now asserts both constructors bind as intended, because that is the
+only place the mistake is visible.

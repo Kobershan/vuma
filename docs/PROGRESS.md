@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-15 · **Current stage:** 07 — Finance (GL, AR, AP, banking, tax, posting rules engine) · **Status:** DONE and merged to `main`. Stage 05 (workflow) is the one branch still carrying unverified work; Stage 08 (inventory) was started in a parallel session and is unmerged.
+**Last updated:** 2026-08-15 · **Current stage:** 08 — Inventory core (stock ledger, valuation, transfers, stocktakes) · **Status:** DONE and verified on branch `stage-08-inventory-core`, merged forward from `main`. Stage 05 (workflow) is the one branch still carrying unverified work.
 
 ---
 
@@ -25,7 +25,7 @@ been reconciled or merged back yet.
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
-| 08 | Inventory core | **IN_PROGRESS** — unverified, branch `stage-08-inventory-core`, started in a parallel session and not merged. Its status is that session's to file, not this one's | — |
+| 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (branch `stage-08-inventory-core`, verified, awaiting merge to `main`) | 2026-08-15 |
 | 09 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
@@ -581,6 +581,57 @@ permissions/security change, not a docs filing — flagged to the user rather th
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
 
+### 2026-08-15 — Stage 08 complete: inventory core (ledger, valuation, transfers, stocktakes)
+
+`dotnet test` → **744 passed, 0 failed** (428 unit, 31 architecture, 285 integration) against real
+PostgreSQL 18. `main` (at `8cdab6f`, Stage 07 plus the malformed-request fix) merged into the branch
+first, so these numbers are against everything that has landed. Exit checklist in
+`docs/stages/STAGE-08-inventory-core.md` walked and ticked against reality, including an end-to-end
+seed run — see below, because that run is what proved the module actually resolves in a container.
+
+**Picked up mid-stage.** A previous session left the domain and application layers committed as WIP
+with a handoff saying "state not verified green — build/tests were not run". It built green on first
+try; the note was pessimistic. What was genuinely missing was everything below and above those two
+layers: infrastructure, migration, contracts, endpoints, seed, tests and docs.
+
+**Delivered.** The `inventory` schema and its six tables (`stock_locations`, `stock_ledger_entries`,
+`stock_balances`, `stock_transfers`, `stocktake_sessions`, `stocktake_lines`) with EF configurations,
+the `Inventory` migration, five repositories, `AddVumaInventory`, contracts, 15 endpoints under
+`/inventory`, and a seed that adds two locations, four accounts, six posting rules and an opening
+receipt. 49 unit tests and 14 integration tests.
+
+**The Stage 07 integration is closed for real, not stubbed.** The WIP raised
+`IInventoryValuationEventPublisher` against a deferred port because Finance was still on a branch.
+Finance merged during this session, so the default binding now maps each movement to an
+`IFinancialEvent` and posts it through the posting rules engine. **No command handler changed** —
+which was the point of the port. Verified end to end rather than by unit test: seeding a fresh
+database produced a receipt of 40 EA at R42.50, a `stock_ledger_entries` row, a `stock_balances`
+projection of 40 @ 42.5000, and a balanced journal from module `inventory` — Dr 1300 Inventory
+R1,700.00, Cr 2150 GRNI R1,700.00.
+
+**A tenant-isolation bug in the inherited WIP, found and fixed (ADR-071).** `Entity` had gained a
+`(Guid id, Guid tenantId, Guid? storeId = null)` constructor for `StockTransfer`, which mints its id
+before the row exists. The default on the third parameter meant a two-argument
+`base(tenantId, storeId)` call from an entity whose own `storeId` is a **non-nullable** `Guid` bound
+to *that* constructor instead — two exact `Guid` matches beat one exact plus a `Guid`→`Guid?`
+conversion. The row came out with `Id` = the tenant's id, `TenantId` = the store's, and no store,
+placing it outside its own tenant's global query filter. `Terminal` was the only entity shaped this
+way, and it was quietly failing 14 tests across Identity, Licensing and Sync — none of which named
+the cause. Removing the default fixes it; `EntityTests` now asserts both constructors bind as
+intended, since the call site gives no clue.
+
+**One Stage 04b test repointed.** `ReadOnlyCorrectnessTests.An_unlicensed_module_is_refused_…` used
+the literal `"inventory"` as a stand-in for a module that did not exist. It exists now and is core,
+so the assertion inverted — the test doing its job. It names an undeclared module instead. See §4.9
+for the coverage gap this exposed.
+
+**Deliberate decisions, all recorded as ADRs.** Weighted-average moving cost (068); `StockBalance` is
+node-local and rebuilt rather than replicated, because a running total is not safely mergeable (069);
+a missing posting rule logs and continues rather than refusing the movement, because a store must be
+able to receive a delivery before its chart of accounts is finished (070); and 071 above.
+
+**Not merged to `main`.** The branch is verified and pushed; the merge is a separate step.
+
 ### 2026-08-15 — Stage 07 complete: finance (GL, AR, AP, banking, tax, posting rules) — merged to `main`
 
 `dotnet build -c Release` → **0 warnings, 0 errors**. `dotnet test` → **674 passed, 0 failed**
@@ -963,7 +1014,24 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
+### 4.9 The "declared but not entitled" module path has no test coverage
 
+Every module in the solution declares `IsCore => true` — platform, identity, sync, backup, licensing,
+catalog, partners, finance (ADR-064) and now inventory. `EntitlementService.IsModuleEnabledAsync` has
+three branches: an undeclared module is refused, a core module is always allowed, and a declared
+non-core module is checked against the plan's entitlements. **The third branch is never exercised**,
+because no module reaches it.
+
+This surfaced in Stage 08. `ReadOnlyCorrectnessTests.An_unlicensed_module_is_refused_with_an_upgrade_reference_and_not_a_dead_end`
+read as though it covered that branch, but it passed `"inventory"` at a time when no such module was
+declared — so it was really testing the *undeclared* path. When Stage 08 declared inventory as core
+the assertion inverted, which is how the gap was noticed. The test now names an obviously undeclared
+module and says so in a comment.
+
+R7 ("each module can be switched on/off per tenant without breaking the rest") is therefore
+**asserted but not demonstrated**. The first genuinely optional module — Vuma Connect (21b) and
+Manufacturing (17) are the likely candidates — must arrive with a test that names it here, otherwise
+the entitlement gate ships to a paying tenant having never once refused anything.
 
 ---
 
@@ -981,12 +1049,32 @@ each one hid behind.
   it runs. Expect to find the same class of problem — assume nothing works until a `DbContext` has
   been constructed and the app has been started. **Do not confuse `main`'s `4320d48` "Stage 05
   Commit" with real Stage 05 progress; see the §1 note above, it is not workflow code.**
-- **08 (`stage-08-inventory-core`)** — started in a parallel session on 2026-08-15, based on `main` at
-  Stage 06. That session owns it and will merge `main` forward itself; **do not pick it up, and do not
-  file its status here on its behalf.**
+- **08 (`stage-08-inventory-core`)** — **now DONE and verified**, `main` merged forward to `8cdab6f`,
+  744 tests green, pushed. Unlike 05 this needs no investigation: it needs a merge to `main`, which
+  is the one step its session did not take. See its own session-log entry above.
 
-**Pick 05.** It is the last stage carrying unverified work that nobody else is holding, and Stage 09's
-POS depends on both 05 and 07.
+**Merge 08 first — it is a finished stage sitting on a branch, which is exactly the state that rots.**
+Then **pick 05**: the last stage carrying unverified work that nobody is holding, and Stage 09's POS
+depends on both 05 and 07.
+
+**What Stage 08 leaves for whoever comes next.**
+
+- **Stage 09 (POS) has a working stock path already.** `RecordSaleIssueCommand` takes the sale's id as
+  `SaleReferenceId`, relieves at weighted-average cost, refuses insufficient stock, and raises
+  `inventory.sale.issued` — for which `DemoSeed` already seeds a posting rule (Dr cost of sales, Cr
+  inventory). POS supplies the sale; nothing in inventory changes.
+- **A transfer is deliberately synchronous and single-node.** Both entries post in one transaction,
+  which covers the common small-multi-store deployment. A cross-server transfer with an in-transit
+  state and a receiving confirmation fits the same document shape.
+- **No posting rule means no journal, by design (ADR-070).** A movement whose event type has no rule
+  is recorded and logged at warning. The seed deliberately omits rules for the two transfer event
+  types, because with a single inventory account both sides would cancel. If a later stage needs
+  strictness, make it explicit per event type rather than flipping it globally.
+- **Costing is weighted average and there are no cost layers** (ADR-068). FIFO, lot or serial costing
+  is additive — a layer table beside the balance — because every posting already goes through
+  `StockLedgerPoster`.
+- **Stock is not yet reserved or allocated.** Nothing distinguishes on-hand from available; a
+  lay-by (10b) or an unfulfilled order (14) needs a reservation concept this stage does not have.
 
 **What Stage 07 leaves for whoever comes next.**
 

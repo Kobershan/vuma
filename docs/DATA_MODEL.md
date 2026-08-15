@@ -80,7 +80,12 @@ table lands anywhere else — including `public`, which belongs to no module and
 | `platform` | tenants, stores, the audit trail | 01 |
 | `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
+| `backup` | the snapshot ledger | 04 |
 | `licensing` | licences, leases, activations, entitlements, metering | 04b |
+| `catalog` | items, variants, barcodes, units of measure | 06 |
+| `partners` | suppliers, customers, and partners who are both | 06 |
+| `finance` | chart of accounts, GL, AR, AP, banking, tax, posting rules | 07 |
+| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes | 08 |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -274,6 +279,81 @@ type exists. `ux_partners_tenant_id_code` is unique on `(tenant_id, code)`, filt
 
 ---
 
+## 4e. Tables in `inventory`
+
+Built in Stage 08. How much of a `catalog` item exists, where, and what it cost. Every item/variant
+reference below is a plain `uuid` column with an index and **never** a foreign key into `catalog` —
+`CONVENTIONS.md` §2 — validated by the application layer instead.
+
+Four of the six tables carry the same `((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1`
+check constraint, mirroring `catalog.barcodes`: a row identifies an item (when it has no variants) or
+a variant, never both and never neither. The rule also lives in the domain
+(`StockItemReference.Validate`); the constraint is the backstop.
+
+### `inventory.stock_locations`
+
+`code`, `name`, `type`, `is_active`. `ux_stock_locations_tenant_id_code` is unique on
+`(tenant_id, code)`, filtered to `deleted_at IS NULL`. `store_id` (the base column) is nullable here
+and means it: a central warehouse serving several stores belongs to the tenant, not to one store (R8).
+
+### `inventory.stock_ledger_entries`
+
+The append-only ledger (ADR-005). `location_id`, `item_id`/`item_variant_id`, `movement_type`,
+`quantity_value`/`quantity_uom`, `unit_cost_amount`/`unit_cost_currency`, `reference_type`,
+`reference_id`, `reason_code`, `note`.
+
+`quantity_value` is **signed** — positive in, negative out — so `SUM(quantity_value)` per location and
+stock-keeping unit *is* the on-hand quantity, with no case statement. A check constraint refuses zero:
+a zero-quantity row is not a movement, and this table has no update path to correct one with.
+
+`ix_stock_ledger_entries_location_id_created_at_id` is `(location_id, created_at DESC, id DESC)` — the
+exact pair the keyset cursor compares, so a page boundary is an index seek rather than a sort of
+everything the location has ever done. `ix_stock_ledger_entries_reference_id` is partial on
+`reference_id IS NOT NULL` and answers "both sides of this transfer" and "every variance this
+stocktake posted".
+
+The entity is `IImmutableRecord`, so `AuditInterceptor` refuses it in the `Modified` or `Deleted`
+state (§7 rule 7) — the append-only guarantee is structural, not conventional.
+
+### `inventory.stock_balances`
+
+The projection the ledger sums to. `location_id`, `item_id`/`item_variant_id`,
+`quantity_on_hand_value`/`_uom`, `average_cost_amount`/`_currency`.
+
+Two unique indexes rather than one, split on which reference is set —
+`ux_stock_balances_location_id_item_id` filtered to `item_id IS NOT NULL` and its variant twin —
+because PostgreSQL treats NULLs as distinct in a unique index, so a single index over both nullable
+columns would not stop two rows for the same `(location, item, NULL)`. That uniqueness is what stops
+two concurrent first receipts each opening their own balance row and the projection reporting half the
+stock.
+
+Written only by `StockLedgerPoster`, in the same transaction as the ledger row it corresponds to.
+
+### `inventory.stock_transfers`
+
+The document correlating a transfer's two ledger entries. `source_location_id`,
+`destination_location_id`, the item/variant pair, `quantity_*`, `unit_cost_*`, `out_entry_id`,
+`in_entry_id`, `note`. A check constraint refuses `source_location_id = destination_location_id`.
+
+Its `id` is minted by the caller *before* either ledger entry is posted, so both can carry it as their
+`reference_id` — the one entity in the solution using `Entity`'s caller-minted-id constructor
+(ADR-071).
+
+### `inventory.stocktake_sessions` / `inventory.stocktake_lines`
+
+A session carries `location_id`, `status` and `finalized_at`.
+`ix_stocktake_sessions_open_by_location` is partial on `status = 'Open'`, which keeps "is a count
+already running here?" cheap once a location has years of finalized sessions behind it.
+
+A line carries `stocktake_session_id`, the item/variant pair, `system_quantity_*` and
+`counted_quantity_*`. `system_quantity` is snapshotted when the count is *recorded*, not when the
+session is finalized — stock keeps moving during a count, and comparing a 09:00 count against a 17:00
+system quantity would blame the stocktake for every sale in between. One line per stock-keeping unit
+per session, enforced by the same split-unique-index pattern as `stock_balances`: a second count of
+the same item is a recount of the existing line, never a second row that would double its variance.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -296,6 +376,12 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `ItemVariant` | Bidirectional | CloudWins | Follows its item. |
 | `Barcode` | Bidirectional | CloudWins | Attaching a case-pack or legacy code locally is routine; the cloud settles a genuine collision. The one entity in this stage that is hard-deleted rather than deactivated (ADR-055), which the delete itself replicates like any other change. |
 | `Partner` | Bidirectional | CloudWins | Suppliers and customers are onboarded at either tier; head office reconciles a duplicate. |
+| `StockLocation` | Bidirectional | CloudWins | A store names its own back room; head office adds a distribution centre. Same shape as `Store`. |
+| `StockLedgerEntry` | StoreToCloud | AppendOnly | Stock physically moves at the store, and the ledger accumulates. Two nodes writing independent movements merge without overwriting — the same reason `AuditEntry` is append-only (ADR-005). |
+| `StockBalance` | NodeLocal | LastWriterWins | **Deliberately not replicated as a value** (ADR-069). A running total is not safely mergeable: two nodes each applying their own delta to a synced total would double an overlapping movement or diverge silently, and neither surfaces as a conflict for anybody to review. Each node rebuilds its own from the entries it has applied. |
+| `StockTransfer` | StoreToCloud | AppendOnly | The document is written once, when both its ledger entries already exist, and never edited. |
+| `StocktakeSession` | StoreToCloud | StoreWins | The count happens on one store's floor; the cloud observes the result rather than participating in it. |
+| `StocktakeLine` | StoreToCloud | StoreWins | Follows its session. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
