@@ -18,7 +18,7 @@ namespace VumaRetail.Domain.Inventory;
 /// quantity this row reports is what you get.
 /// </para>
 /// <para>
-/// Valuation is weighted-average moving cost (ADR-063): every receipt blends its cost into the running
+/// Valuation is weighted-average moving cost (ADR-068): every receipt blends its cost into the running
 /// average, and every issue relieves quantity at that average without changing it. This is the
 /// simplest costing method to build and maintain correctly for a first cut (<c>CLAUDE.md</c> §1),
 /// avoiding a costing-layer stack (FIFO lots, specific identification) a later stage can add if a
@@ -26,7 +26,7 @@ namespace VumaRetail.Domain.Inventory;
 /// </para>
 /// <para>
 /// Deliberately <em>not</em> replicated between nodes as a value — see the type's
-/// <see cref="ReplicatedAttribute"/> and ADR-064. It is <see cref="ReplicationScope.NodeLocal"/>:
+/// <see cref="ReplicatedAttribute"/> and ADR-069. It is <see cref="ReplicationScope.NodeLocal"/>:
 /// each node rebuilds and maintains its own copy from the ledger entries it has applied, whether
 /// locally originated or received from a peer. A running total is not safely mergeable the way an
 /// accumulating ledger is — two nodes each applying their own delta to a synced total would double an

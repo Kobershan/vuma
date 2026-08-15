@@ -92,10 +92,61 @@ public sealed class EntityTests
         entity.SyncState.Should().Be(SyncState.Synced);
     }
 
+    [Fact]
+    public void An_entity_whose_store_is_not_nullable_still_lands_on_the_right_constructor()
+    {
+        // Regression, Stage 08. Entity gained a second constructor taking a caller-minted id, for
+        // StockTransfer. Written as (Guid id, Guid tenantId, Guid? storeId = null) it silently stole
+        // every two-argument base(tenantId, storeId) call from an entity whose own storeId parameter
+        // is a non-nullable Guid — Terminal is the one in this solution — because two exact Guid
+        // matches beat one exact match plus a Guid-to-Guid? conversion. The row came out with its
+        // tenant id as its primary key, the store id in TenantId, and no store at all, which puts it
+        // outside its own tenant's global query filter.
+        //
+        // The fix is that the id-taking constructor has no default for storeId, so a two-argument
+        // call cannot bind to it. This test is here because the failure is invisible at the call
+        // site: it compiles, and only an assertion on the resulting values catches it.
+        var entity = new StoreScopedEntity(Tenant, Store);
+
+        entity.TenantId.Should().Be(Tenant);
+        entity.StoreId.Should().Be(Store);
+        entity.Id.Should().NotBe(Tenant);
+    }
+
+    [Fact]
+    public void An_entity_may_be_created_with_an_identity_the_caller_minted()
+    {
+        Guid minted = UuidV7.NewGuid();
+
+        var entity = new PreMintedEntity(minted, Tenant, Store);
+
+        entity.Id.Should().Be(minted);
+        entity.TenantId.Should().Be(Tenant);
+        entity.StoreId.Should().Be(Store);
+    }
+
     private sealed class TestEntity : Entity
     {
         public TestEntity(Guid tenantId, Guid? storeId = null)
             : base(tenantId, storeId)
+        {
+        }
+    }
+
+    /// <summary>Shaped like <c>Terminal</c>: a store-scoped entity whose store is not optional.</summary>
+    private sealed class StoreScopedEntity : Entity
+    {
+        public StoreScopedEntity(Guid tenantId, Guid storeId)
+            : base(tenantId, storeId)
+        {
+        }
+    }
+
+    /// <summary>Shaped like <c>StockTransfer</c>: the identity is minted before the row exists.</summary>
+    private sealed class PreMintedEntity : Entity
+    {
+        public PreMintedEntity(Guid id, Guid tenantId, Guid? storeId)
+            : base(id, tenantId, storeId)
         {
         }
     }

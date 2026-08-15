@@ -41,8 +41,17 @@ public abstract class Entity
     /// ahead of the row rather than discovered afterward, unlike every other aggregate root.
     /// </param>
     /// <param name="tenantId">The owning tenant. Required — every row is tenant-scoped.</param>
-    /// <param name="storeId">The owning store, where the entity belongs to one.</param>
-    protected Entity(Guid id, Guid tenantId, Guid? storeId = null)
+    /// <param name="storeId">
+    /// The owning store, where the entity belongs to one. Deliberately has <b>no default value</b>, and
+    /// must not be given one. With a default, a two-argument <c>base(tenantId, storeId)</c> call from an
+    /// entity whose own <c>storeId</c> parameter is a non-nullable <see cref="Guid"/> binds <em>here</em>
+    /// rather than to the constructor above — two exact <see cref="Guid"/> matches beat one exact match
+    /// plus a <see cref="Guid"/>-to-<see cref="Nullable{T}"/> conversion — silently producing a row whose
+    /// <c>Id</c> is the tenant's, whose <c>TenantId</c> is the store's, and whose <c>StoreId</c> is null.
+    /// That is invisible at the call site, compiles cleanly, and puts the row outside its own tenant's
+    /// query filter. Requiring all three arguments makes the two-argument call unambiguous again.
+    /// </param>
+    protected Entity(Guid id, Guid tenantId, Guid? storeId)
     {
         Id = id;
         TenantId = tenantId;

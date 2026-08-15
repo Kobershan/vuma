@@ -39,7 +39,7 @@ public sealed class StockTransfer : Entity, IImmutableRecord
         Guid outEntryId,
         Guid inEntryId,
         string? note)
-        : base(id, tenantId)
+        : base(id, tenantId, storeId: null)
     {
         SourceLocationId = sourceLocationId;
         DestinationLocationId = destinationLocationId;

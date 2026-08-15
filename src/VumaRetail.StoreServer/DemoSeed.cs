@@ -5,8 +5,10 @@ using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Inventory.Commands;
 using VumaRetail.Application.Partners.Commands;
 using VumaRetail.Domain.Catalog;
+using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Licensing;
@@ -141,6 +143,146 @@ public static class DemoSeed
             .ConfigureAwait(false);
 
         await SeedFinanceAsync(provider, context, cancellationToken).ConfigureAwait(false);
+        await SeedInventoryAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 08: two stock locations, the accounts stock movements post to, the posting rules
+    /// that connect them, and an opening receipt so the demo has stock on hand.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two locations rather than one, because a transfer needs somewhere to go — a single-location
+    /// demo cannot exercise the one movement type that posts two correlated ledger entries.
+    /// </para>
+    /// <para>
+    /// <b>No rule is seeded for the two transfer event types.</b> That is the demonstration, not an
+    /// omission: with one inventory account a transfer's two sides would debit and credit the same
+    /// account for the same amount, so the correct posting is no posting at all. A tenant running
+    /// per-location inventory accounts defines the rules and the same events start posting, with no
+    /// code change. It also exercises the path where a movement is recorded with no posting rule
+    /// configured, which logs a warning and leaves the stock ledger correct (ADR-070).
+    /// </para>
+    /// </remarks>
+    private static async Task SeedInventoryAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        Guid inventory = await EnsureAccountAsync(
+            provider, context, "1300", "Inventory on hand", AccountType.Asset,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        // Goods received but not yet invoiced. A receipt increases stock before the supplier's invoice
+        // arrives, and the credit has to land somewhere until Stage 12's three-way match clears it.
+        Guid grni = await EnsureAccountAsync(
+            provider, context, "2150", "Goods received not invoiced", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid costOfSales = await EnsureAccountAsync(
+            provider, context, "5000", "Cost of sales", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid stockAdjustments = await EnsureAccountAsync(
+            provider, context, "5100", "Stock adjustments", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        // Separate from adjustments on purpose: a documented write-off and an unexplained count
+        // difference are different questions to a business, and merging them hides the second.
+        Guid shrinkage = await EnsureAccountAsync(
+            provider, context, "5200", "Stock shrinkage", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.receipt.posted", "Stock received",
+            [
+                new PostingRuleLineInput(inventory, NormalBalance.Debit, "Value", InheritDimensions: false, "Inventory on hand"),
+                new PostingRuleLineInput(grni, NormalBalance.Credit, "Value", InheritDimensions: false, "Goods received not invoiced"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.sale.issued", "Stock issued for a sale",
+            [
+                new PostingRuleLineInput(costOfSales, NormalBalance.Debit, "Value", InheritDimensions: true, "Cost of sales"),
+                new PostingRuleLineInput(inventory, NormalBalance.Credit, "Value", InheritDimensions: false, "Inventory on hand"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.adjustment.decrease", "Stock written off",
+            [
+                new PostingRuleLineInput(stockAdjustments, NormalBalance.Debit, "Value", InheritDimensions: true, "Stock adjustments"),
+                new PostingRuleLineInput(inventory, NormalBalance.Credit, "Value", InheritDimensions: false, "Inventory on hand"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.adjustment.increase", "Stock written on",
+            [
+                new PostingRuleLineInput(inventory, NormalBalance.Debit, "Value", InheritDimensions: false, "Inventory on hand"),
+                new PostingRuleLineInput(stockAdjustments, NormalBalance.Credit, "Value", InheritDimensions: true, "Stock adjustments"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.stocktake.shortage", "Stocktake counted less than the system expected",
+            [
+                new PostingRuleLineInput(shrinkage, NormalBalance.Debit, "Value", InheritDimensions: true, "Stock shrinkage"),
+                new PostingRuleLineInput(inventory, NormalBalance.Credit, "Value", InheritDimensions: false, "Inventory on hand"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.stocktake.surplus", "Stocktake counted more than the system expected",
+            [
+                new PostingRuleLineInput(inventory, NormalBalance.Debit, "Value", InheritDimensions: false, "Inventory on hand"),
+                new PostingRuleLineInput(shrinkage, NormalBalance.Credit, "Value", InheritDimensions: true, "Stock shrinkage"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        Guid warehouse = await EnsureStockLocationAsync(
+            provider, context, "MAIN", "Sandton back room", StockLocationType.Warehouse, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureStockLocationAsync(
+            provider, context, "FLOOR", "Sandton sales floor", StockLocationType.SalesFloor, cancellationToken)
+            .ConfigureAwait(false);
+
+        // One opening receipt, so a freshly seeded demo has stock on hand to sell, transfer and count
+        // rather than an empty ledger that refuses every outbound movement.
+        if (!await context.StockLedgerEntries.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            await provider
+                .GetRequiredService<IDispatcher>()
+                .SendAsync(
+                    new ReceiveStockCommand(
+                        warehouse,
+                        itemId,
+                        null,
+                        new Quantity(40m, "EA"),
+                        new Money(42.50m, "ZAR"),
+                        "Opening stock"),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Guid> EnsureStockLocationAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        string code,
+        string name,
+        StockLocationType type,
+        CancellationToken cancellationToken)
+    {
+        if (await context.StockLocations
+            .FirstOrDefaultAsync(location => location.Code == code, cancellationToken)
+            .ConfigureAwait(false) is { } existing)
+        {
+            return existing.Id;
+        }
+
+        return await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(new CreateStockLocationCommand(code, name, type), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
