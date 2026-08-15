@@ -890,10 +890,13 @@ product rename to **Vuma Retail** cleared both at once: the repository was renam
 `gh repo rename vuma` and the remote re-pointed to `git@github.com:Kobershan/vuma.git`. GitHub keeps
 a redirect from the old name, so any stale clone still fetches, but it should be re-pointed.
 
-### 4.6 A malformed request to an endpoint with a required primitive returns 500, not 400
+### 4.6 A malformed request returned 500, not 400 — **RESOLVED 2026-08-15**
 
-Found in Stage 07 and **not fixed there**, because it is an API-platform concern (Stage 03) and the
-fix touches every endpoint in the solution rather than Finance's.
+Found during Stage 07 and initially left unfixed as an API-platform concern. Fixed immediately
+afterwards, on its own branch, because the reasoning for deferring it did not survive scrutiny: the
+change is one arm in one `switch` in the single place that maps exceptions to responses, and the
+behaviour it corrected was misreporting the server as broken on every malformed request to any
+endpoint in the solution.
 
 Minimal APIs raise `BadHttpRequestException` when a required non-nullable query or route parameter is
 absent or unparseable. The problem-details handler does not map it, so it falls through to the generic
@@ -906,11 +909,27 @@ optional:
 ```
 
 with `BadHttpRequestException: Required parameter "DateOnly asOf" was not provided from query string`
-in the log. `docs/API_STANDARDS.md` says a malformed request the caller can fix is a 400 with a stable
-code, and `DomainProblemKind.Malformed` already exists for exactly this. **Any** endpoint with a
-required primitive parameter has the same behaviour today; Finance is only where it was noticed. The
-fix is one arm in the exception handler, plus a test, and it belongs to whoever next touches the API
-platform.
+in the log. Every endpoint with a required primitive parameter behaved the same way; Finance is only
+where it was noticed.
+
+**The fix.** `VumaExceptionHandler` maps `BadHttpRequestException` to a new
+`ApiErrorCodes.MalformedRequest` (`MALFORMED_REQUEST`), honouring the exception's own `StatusCode`
+rather than hard-coding 400 — an oversized body is a 413 and flattening it to 400 would send the
+caller to inspect their JSON instead of its size. Only the framework's outer message is disclosed;
+an inner `JsonException` carries a fragment of the caller's payload and a path into it, and a test
+asserts a secret in a malformed body does not come back in the response.
+
+`MALFORMED_REQUEST` is deliberately distinct from `VALIDATION_FAILED`, and a test holds them apart.
+The distinction is what a client acts on: `VALIDATION_FAILED` means the request bound and a rule
+rejected a value, so there is an `errors` extension naming properties; `MALFORMED_REQUEST` means
+binding never got that far, so there is nothing to enumerate.
+
+Five integration tests in `tests/VumaRetail.IntegrationTests/Api/MalformedRequestTests.cs`, asserted
+over real HTTP because the exception comes from the framework's binding layer — a unit test would
+construct the exception itself and prove only that the `switch` arm exists. **Verified by removing
+the arm**: three of the five failed, and the two that did not were the `VALIDATION_FAILED` control
+and a correlation-id assertion that passed against the old 500 path too. That second one was
+strengthened with a status assertion rather than left as coverage that proved nothing.
 
 ### 4.7 The integration suite can exhaust a volume, and it does not look like a disk problem
 
