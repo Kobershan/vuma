@@ -22,6 +22,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <!--
+      Stage 09: the receipt endpoint renders the slip's fixed-width layout so that a screen preview,
+      an emailed copy and the thermal printer cannot disagree about what the customer was handed.
+      Hardware is cross-platform and carries no ASP.NET Core dependency, so this reference does not
+      widen what a till installs (ADR-039's concern is the other direction).
+    -->
+    <ProjectReference Include="..\VumaRetail.Hardware\VumaRetail.Hardware.csproj" />
   </ItemGroup>
 
   <ItemGroup>

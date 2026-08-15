@@ -101,7 +101,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b and Stage 06)
+### The registry as built (Stage 04, extended Stage 04b, 06, 08 and 09)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -132,6 +132,23 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ItemVariant` | `catalog` | `Bidirectional` | `CloudWins` | Follows its item |
 | `Barcode` | `catalog` | `Bidirectional` | `CloudWins` | A store attaching a legacy or case-pack code locally is routine; the cloud settles a genuine collision |
 | `Partner` | `partners` | `Bidirectional` | `CloudWins` | Suppliers and customers are onboarded at either tier; head office is where a multi-store estate reconciles a duplicate |
+| `StockLocation` | `inventory` | `Bidirectional` | `CloudWins` | A store names its own back room; head office adds a distribution centre. Same shape as `Store` |
+| `StockLedgerEntry` | `inventory` | `StoreToCloud` | `AppendOnly` | Stock physically moves at the store and the ledger accumulates (ADR-005) |
+| `StockBalance` | `inventory` | `NodeLocal` | `LastWriterWins` | **Deliberately not replicated as a value** (ADR-069): a running total is not safely mergeable, so each node rebuilds its own from the entries it applied |
+| `StockTransfer` | `inventory` | `StoreToCloud` | `AppendOnly` | Written once, when both its ledger entries already exist, and never edited |
+| `StocktakeSession` | `inventory` | `StoreToCloud` | `StoreWins` | The count happens on one store's floor; the cloud observes the result |
+| `StocktakeLine` | `inventory` | `StoreToCloud` | `StoreWins` | Follows its session |
+| `TillSession` | `pos` | `StoreToCloud` | `StoreWins` | A shift happens at one drawer in one shop; two stores can never contend over the same till |
+| `Sale` | `pos` | `StoreToCloud` | `StoreWins` | Rung up in one place, frozen once it completes. `StoreWins` rather than `AppendOnly` because a sale is legitimately mutable while open and only the store can be editing it |
+| `SaleLine` | `pos` | `StoreToCloud` | `StoreWins` | Follows its sale |
+| `SaleTender` | `pos` | `StoreToCloud` | `AppendOnly` | Money that changed hands. Immutable, so it accumulates and never overwrites |
+| `ReceiptPrint` | `pos` | `StoreToCloud` | `AppendOnly` | A print log a later write can overwrite is not a log |
+
+**The `inventory` rows above were added in Stage 09**, not Stage 08. Stage 08 declared all six
+`[Replicated]` attributes on the entities and recorded them in `docs/DATA_MODEL.md` §5, but did not
+carry them into this table — so the registry here was six entities short of the code for one stage.
+The attributes are the source of truth and the architecture test enforces them; this table is the
+prose copy, and it had drifted. Nothing changed in Stage 08's behaviour.
 
 Stage 06 (master data). None of the five `catalog`/`partners` entities is immutable — `Item`,
 `ItemVariant`, `Partner` and `UnitOfMeasure` deactivate rather than delete (§7 rule 8), and `Barcode` is

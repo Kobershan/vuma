@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Contracts.Finance;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Finance.Commands;

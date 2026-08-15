@@ -30,6 +30,13 @@
       regardless of what the database does, so they are asserted here rather than through EF.
     -->
     <ProjectReference Include="..\..\src\VumaRetail.Finance\VumaRetail.Finance.csproj" />
+    <!--
+      Stage 09. The receipt layout, the ESC/POS byte stream and the embedded-weight barcode reader are
+      pure functions with no device in the room — which is exactly why they belong here, and why they
+      are testable on the Linux machine this repository is built on for a printer that only exists on
+      a shop counter.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.Hardware\VumaRetail.Hardware.csproj" />
   </ItemGroup>
 
   <ItemGroup>

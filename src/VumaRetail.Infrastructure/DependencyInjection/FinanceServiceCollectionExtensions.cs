@@ -52,6 +52,14 @@ public static class FinanceServiceCollectionExtensions
         // producer module depends on IFinancialEventPoster only, never on PostingRuleEngine itself.
         services.AddScoped<IFinancialEventPoster, PostingRuleEngine>();
         services.AddScoped<TaxEngine>();
+
+        // ITaxCalculator is the same instance under its published name. Stage 07's own AR and AP
+        // commands take the concrete TaxEngine because they live in this assembly; a module outside
+        // Finance cannot, so Stage 09 added the port and this line is what makes it resolvable.
+        // Forwarded rather than registered separately, so a host cannot end up with two tax engines
+        // reading the same rules and no way to tell which one answered.
+        services.AddScoped<ITaxCalculator>(provider => provider.GetRequiredService<TaxEngine>());
+
         services.AddScoped<PeriodVarianceChecker>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, FinancePermissions>());

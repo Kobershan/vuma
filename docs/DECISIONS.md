@@ -1050,3 +1050,50 @@ of which named the real cause. Removing the default makes the two-argument call 
 This sits beside ADR-067 as the second case this codebase has hit where the compiler is content and
 the model is wrong; `EntityTests` now asserts both constructors bind as intended, because that is the
 only place the mistake is visible.
+
+---
+
+## ADR-072 — A sale line carries the price it was sold at; POS does not resolve prices — **LOCKED**
+**Context.** Stage 09 builds the till, and a till has to put a number on a line. Stage 06's own scope
+note says it ships "no price, cost or promotion — that is Stage 10", so there is no price list on
+`main` to read from, and `ROADMAP.md` puts the price list, the promotions engine and the specials
+engine together at Stage 10. POS could have built a minimal price table to get itself unblocked.
+**Decision.** `SaleLine.UnitPrice` is supplied by the caller and stored as sold. POS resolves what is
+being sold (`SellableItemResolver`, through catalog's published ports) and what tax applies to it
+(`ITaxCalculator`, through Finance's), and resolves nothing about price. `AddSaleLineCommand` takes
+the unit price and an optional manual discount as inputs.
+**Consequences.** A minimal price table built here would be the second place a price lives the moment
+Stage 10 arrives, and the migration off it would have to rewrite completed sales — which are
+immutable — or leave two pricing paths in the product permanently. It also would not have been
+sufficient: a weighed line, an open-price line and a manually reduced line all have a price that no
+list could have supplied, so the "price arrives with the line" path has to exist regardless. Stage 10
+changes what fills the field in, not the field. The cost is that until Stage 10 the caller is
+responsible for the number, which for the demo seed means a literal and for a real till means the
+screen the operator is looking at; nothing about that is wrong, it is just not yet automatic. The
+line stores its computed tax alongside, so a rate change tomorrow does not restate a receipt a
+customer is holding.
+
+---
+
+## ADR-073 — A stock issue the ledger refuses does not fail the sale — **LOCKED**
+**Context.** Two rules meet at the moment a sale completes. R1: POS never stops. Stage 08 rule 4
+(ADR-005): stock cannot go negative through any path. When the shelf and the system disagree — which
+in retail is routine, not exceptional — the customer is standing there holding an item the ledger says
+does not exist, and something has to give.
+**Decision.** The sale completes. The stock issue is attempted per line through Stage 08's
+`IStockLedgerPoster`; if inventory refuses it, the line is marked `StockIssueStatus.Refused` with the
+refusal's own message, no ledger entry is written, and completion carries on.
+`ListRefusedStockIssuesQuery` and `GET /pos/reconciliation/stock-issues` are the queue a manager works
+through, and `SaleCompletionResult.StockIssuesRefused` tells the till it happened at the moment it
+happened. Any *other* failure — a database fault, a cancellation — propagates and rolls the command
+back.
+**Consequences.** Neither rule is weakened: nothing posts a negative balance, and no customer is
+turned away. The alternative readings are both worse. Refusing the sale means a shop stops trading
+because its stock data is stale, and the goods leave the building anyway. Forcing the posting through
+means Stage 08's central invariant is true except when POS says otherwise, which is not an invariant.
+The discrepancy is recorded as a queryable row rather than a log line specifically because somebody
+has to reconcile it, and nobody reconciles from a log. A growing queue is a real signal — it means the
+shelf and the system have drifted apart and a stocktake is due — which is information the previous two
+options destroy. The cost is that a sale can complete having relieved nothing, so cost of sales for
+that line is not posted either; that is the honest state of affairs and it is visible, which is the
+most this stage can offer without inventing stock that is not there.

@@ -52,4 +52,15 @@ public static class Schemas
     /// Stock locations, the append-only stock ledger, balances, transfers and stocktakes. Stage 08.
     /// </summary>
     public const string Inventory = "inventory";
+
+    /// <summary>
+    /// Till sessions, sales, sale lines, tenders and the receipt print log. Stage 09.
+    /// </summary>
+    /// <remarks>
+    /// Declaring the schema is also what puts POS into the daily metering rollup: usage is grouped on
+    /// the schema half of <c>schema.table</c> from the audit trail (<c>UsageCounterSource</c>), so a
+    /// module gets its counter by existing rather than by writing one. Rule 16 stays true — the count
+    /// is a count, and no business row is read to produce it.
+    /// </remarks>
+    public const string Pos = "pos";
 }

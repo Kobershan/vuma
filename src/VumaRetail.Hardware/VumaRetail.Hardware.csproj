@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Stage 09: the till's peripherals — receipt printer, cash drawer, scanner, scale, payment terminal.
+
+    Deliberately `net9.0` and not `net9.0-windows`, even though the product ships on Windows
+    (ADR-031). What is in here is the *protocol* half of hardware — ESC/POS bytes, a raw TCP socket
+    to a network printer, the digits inside a price-embedded barcode — and none of that is
+    Windows-specific. It is also the half that is genuinely hard to get right and worth testing on
+    every machine a developer has, rather than only on the one that can run WPF.
+
+    The Windows-only half — serial and USB transports, the OPOS/POS-for-.NET scanner path, a real
+    payment terminal SDK — implements these same interfaces and is Stage 31 installer work. See
+    docs/HARDWARE.md.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Hardware</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

@@ -354,6 +354,278 @@ the same item is a recount of the existing line, never a second row that would d
 
 ---
 
+## 4f. Tables in `finance`
+
+Built in Stage 07. The double-entry accounting spine: a chart of accounts, an immutable general
+ledger, the AR and AP sub-ledgers that reconcile to it, a minimal banking slice and tax as data.
+Lettered after `inventory` because that section was written first; §3's table is the stage-ordered
+index.
+
+Every partner reference below is a bare `uuid` and **never** a foreign key into `partners` —
+`CONVENTIONS.md` §2, and the same rule `inventory` follows for `catalog`. Finance does not resolve a
+partner to a name; that is a read model `partners` publishes.
+
+**The one rule that shapes this whole schema:** no module outside `finance` may name a GL account
+(CLAUDE.md §7 rule 12). Other modules raise an `IFinancialEvent` carrying named amounts, and
+`posting_rules` — tenant data, not code — decides which accounts those amounts hit. So there is no
+`account_id` column anywhere outside this schema, and `FinanceRulesTests` fails the build if a type
+dependency on `Account` appears in one. Stage 08's inventory events were the first real test of that
+and needed no account column; see ADR-016 and the `pos.sale.tendered` rule in `DemoSeed`.
+
+### `finance.accounts`
+
+`code`, `name`, `type` (Asset/Liability/Equity/Revenue/Expense), `parent_account_id` for the
+hierarchy, `control_account_type`, `currency`, `is_active`.
+`ux_accounts_tenant_id_code` is unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`.
+
+`ix_accounts_control_account_type` is partial on `control_account_type <> 'None'`, because the only
+question ever asked of that column is "which accounts must reconcile to a sub-ledger?" — a handful of
+rows out of a chart that may run to hundreds. Both the period-close check and the daily variance job
+read exactly this index.
+
+`parent_account_id` is a self-reference and the one place a foreign key would be legal inside the
+schema; it is deliberately a plain `uuid` anyway, so the hierarchy can be reparented without the
+database arguing about ordering.
+
+### `finance.accounting_periods`
+
+`period_start`, `period_end`, `status` (Open/Closed), `closed_at`, `closed_by`. Tenant-wide, not
+per-store — one calendar, so `store_id` is null on every row.
+
+`ix_accounting_periods_status` is partial on `status = 'Open'`. Open periods are a permanently small
+set no matter how many years of closed ones accumulate, and every posting resolves one.
+
+A close is refused while any control account disagrees with its sub-ledger, so a period's rows are
+only ever `Closed` once `reconciliation_variance_flags` has nothing to say about it.
+
+### `finance.journals` / `finance.journal_lines`
+
+The immutable ledger (§7 rule 7). A journal carries `accounting_period_id`, `journal_number`,
+`posted_at`, `posted_by`, `source_module`, `source_event_type`, `source_reference`, `narration` and
+`reversal_of_journal_id`. Both entities are `IImmutableRecord`, so `AuditInterceptor` refuses them in
+`Modified` or `Deleted` — a posted journal is corrected by a reversal that links back through
+`reversal_of_journal_id`, never by an edit. `ix_journals_reversal_of_journal_id` is partial on
+`IS NOT NULL`, since reversals are the exception.
+
+A line carries `journal_id`, `line_number`, `account_id`, `description`, the five nullable analysis
+dimensions (`department_id`, `cost_centre_id`, `project_id`, `channel_id`, `employee_id` — all bare
+opaque ids, none resolved by this module; store is the base `store_id` column), and **four money
+columns**: `debit_amount`/`debit_currency` and `credit_amount`/`credit_currency`.
+
+Four plain columns rather than two `Money` complex properties, which is the one piece of this schema
+that looks wrong until you know why (**ADR-067**). A line carries a debit *or* a credit, so each is
+optional on its own, and EF Core 9 cannot configure a complex property as optional at all. The domain
+still speaks `Money`: `JournalLine.Debit` and `.Credit` are computed `Money?` accessors over the
+pairs, and only the mapping knows about the split.
+
+`ck_journal_lines_exactly_one_side` enforces
+`((debit_amount IS NOT NULL)::int + (credit_amount IS NOT NULL)::int) = 1`. The domain refuses the
+same thing in `Journal.Post`, but the constraint is the backstop that a restore, a sync apply or a
+hand-run SQL fix also has to pass. `ix_journal_lines_account_id` is what the trial balance and every
+account-balance query group by.
+
+Balance is **not** a constraint. Debits equalling credits per currency is checked in `Journal.Post`
+before insert, because it is a property of a set of rows rather than of one, and a deferred
+constraint that fires at commit would report it far from where it was caused.
+
+### `finance.ar_invoices` / `_lines`, `finance.ar_receipts` / `_allocations`
+
+The AR sub-ledger. An invoice carries `partner_id`, `invoice_number`, `invoice_date`, `due_date`,
+`currency`, `status` (Draft/Posted/Settled), `journal_id`, and `total_*` plus
+`outstanding_balance_*` money pairs.
+
+Unlike a journal an invoice is **not** `IImmutableRecord`, and the distinction is deliberate: its
+outstanding balance legitimately falls as receipts allocate. What freezes at posting is its *lines*,
+enforced in the entity (`ArInvoice.AddLine` refuses once status leaves Draft), not by the
+persistence-layer guard, which is for records with no legitimate mutation at all.
+
+`ix_ar_invoices_partner_id_status` is partial on `status <> 'Settled'`, which is the ageing report's
+and the variance check's whole working set — settled invoices are the vast majority of the table and
+neither query ever wants them.
+
+A receipt carries `partner_id`, `receipt_number`, `receipt_date`, `amount_*` and `journal_id`; its
+allocations carry `ar_receipt_id`, `ar_invoice_id` and `amount_*`. Over-allocation is refused in the
+domain (`OverAllocationException`) — allowing it is precisely how a control account silently stops
+matching its sub-ledger.
+
+### `finance.ap_invoices` / `_lines`, `finance.ap_payments` / `_allocations`
+
+The mirror of AR, column for column, with `supplier_invoice_number` in place of a tenant-issued
+number — the supplier issues it, so it is not drawn from `document_number_counters`. Event types
+`ap.invoice.posted` / `ap.payment.posted`.
+
+### `finance.bank_accounts` / `finance.bank_statement_lines`
+
+`ux_bank_accounts_gl_account_id` is unique on `gl_account_id`: one bank account per GL bank control
+account, or the variance check has two sub-ledgers claiming one balance.
+
+A statement line carries `bank_account_id`, `transaction_date`, `description`, a **signed**
+`amount_*` (positive in, negative out — one column, because a bank statement is a single running
+balance), `external_reference`, and `matched_journal_line_id`/`matched_at`/`matched_by`.
+
+`ux_bank_statement_lines_bank_account_id_external_reference` is unique and is what makes importing
+the same statement twice a no-op rather than a doubled balance.
+
+**There is no reconciliation-run table.** A line's matched state *is* the reconciliation: the bank
+control account's variance check sums the matched lines, so matching a line is the whole act of
+reconciling it. `ix_bank_statement_lines_bank_account_id_matched` serves exactly that sum. A separate
+run entity would give the reconciled balance two sources, which would eventually disagree.
+
+### `finance.posting_rules` / `finance.posting_rule_lines`
+
+The rule-12 mechanism, as data. A rule carries `event_type`, `description`, `is_active`; a line
+carries `posting_rule_id`, `line_number`, `account_id`, `side` (Debit/Credit), `amount_key` — which
+named amount on the incoming event it draws from, e.g. `Net`, `Tax`, `Gross` — `inherit_dimensions`
+and `description`.
+
+`ix_posting_rules_tenant_id_event_type` is partial on `is_active`, and rules are deactivated rather
+than deleted so a journal already posted still shows which rule produced it.
+
+Nothing validates that a rule's lines balance when it is configured — a rule may name any amounts in
+any combination. `Journal.Post`'s balance check is the backstop, and a mis-configured rule fails at
+posting time with the amounts in hand rather than at configuration time with a guess about them.
+
+### `finance.tax_rules`
+
+`code`, `name`, `rate`, `treatment` (Inclusive/Exclusive), `effective_from`, `effective_to`,
+`is_active`. `ix_tax_rules_tenant_id_code_effective_from` answers the only question the engine asks:
+which rule applies to this code on this date.
+
+`rate` is a plain `numeric` fraction, **not** a `Money` — it is a multiplier, not an amount, and
+routing it through `HasMoney` would attach a meaningless currency to it.
+
+A rate change is a **new row** with its own effective dates, never an edit, so a historical invoice
+always recalculates to what it actually charged. The `en-ZA` default seeds exactly one row —
+`STANDARD`, 15%, inclusive — and a second jurisdiction is a row, not a release (CLAUDE.md §9).
+
+### `finance.reconciliation_variance_flags`
+
+What the daily job writes: `accounting_period_id`, `account_id`, `control_account_type`,
+`gl_balance`, `sub_ledger_balance`, `variance`, `checked_at`.
+
+A row is written on **every** check, including a clean one, so "reconciled today" is distinguishable
+from "nobody looked" — an empty table otherwise reads as all-clear whether or not the job ran.
+`ix_reconciliation_variance_flags_variance` is partial on `variance <> 0`, which is the only subset
+anybody opens a screen to see.
+
+### `finance.document_number_counters`
+
+`series`, `next_value`. `ux_document_number_counters_tenant_id_series` is unique per tenant.
+
+`ReplicationScope.NodeLocal` and **deliberately not replicated** (ADR-065): the number is printed on
+the document before any replica could learn of it, so a converging counter would hand two stores the
+same invoice number and then agree on which was right. The repository takes a `SELECT ... FOR UPDATE`
+row lock inside the *caller's* transaction, so a rejected posting rolls the increment back with
+everything else and the series stays gap-free rather than merely unique.
+
+---
+
+## 4g. Tables in `pos`
+
+Built in Stage 09. The till: a cashier's shift, the sales rung up on it, what was paid and how, and
+the record of every receipt that came out of the printer.
+
+Every item, variant, customer, terminal and user reference below is a bare `uuid` and **never** a
+foreign key into `catalog`, `partners` or `identity` — `CONVENTIONS.md` §2, the same rule `inventory`
+follows. Foreign keys *within* this schema are used and correct: a sale line without its sale is
+meaningless.
+
+**The rule that shapes this schema is R1 — the till never stops.** Two of the tables below carry
+columns that exist only because something downstream is allowed to fail without taking the sale with
+it, and those columns are the ones to read first.
+
+### `pos.till_sessions`
+
+`terminal_id`, `operator_user_id`, `currency`, `opening_float_*`, `opened_at`, `status`
+(Open/Closed), `counted_cash_amount`, `expected_cash_amount`, `closed_at`, `closed_by_user_id`,
+`note`.
+
+`ux_till_sessions_tenant_id_terminal_id_open` is unique on `(tenant_id, terminal_id)` filtered to
+`status = 'Open' AND deleted_at IS NULL`. **One open session per terminal is a database guarantee, not
+only a check the handler performs** — two concurrent open requests on the same drawer collide here
+rather than both succeeding and leaving neither one's expected cash a real number.
+
+The counted and expected amounts are two plain `numeric(18,4)` columns behind computed `Money?`
+accessors, per ADR-067; the currency is the session's own. Both are meaningless until the session
+closes.
+
+**Nothing writes `expected_cash_amount` from an input.** It is derived at close from the opening float
+plus the session's own sales' `CashContribution` — cash tendered less change given, and only on sales
+that actually completed. That derivation is the entire control: a cash-up whose expected figure can be
+supplied by the person being counted tells you nothing.
+
+### `pos.sales`
+
+`sale_number` (ADR-065's sequence, series `SALE`), `till_session_id`, `terminal_id`,
+`operator_user_id`, `location_id`, optional `customer_id`, `currency`, `status`
+(Open/Parked/Completed/Voided), the `net_*`/`tax_*`/`gross_*` totals, `amount_tendered_*`,
+`change_given_*`, `opened_at`, `completed_at`, `voided_at`, `void_reason`.
+
+`ux_sales_tenant_id_sale_number` is unique per tenant, filtered to `deleted_at IS NULL`.
+`ix_sales_till_session_id_status` serves both the cash-up derivation and the check that blocks a close.
+`ix_sales_terminal_id_parked` is partial on `status = 'Parked'`, because parked sales are a handful out
+of a day's trading and it is the list a cashier opens for every customer who comes back.
+
+Three check constraints restate what the aggregate already enforces, because these are the columns
+every later report reads and a null in one of them would be silently wrong rather than loud: a
+`Completed` sale has a `completed_at`, a `Voided` one has both `voided_at` and `void_reason`, and
+`change_given_amount >= 0`.
+
+**The primary key may be minted by the caller.** UUID v7 is offline-safe by design (ADR-004), so a
+terminal that rang a sale up while the network was down replays it under the id it already printed on
+the customer's slip, and the replay is idempotent by primary key rather than by a deduplication table
+somebody has to remember to check.
+
+### `pos.sale_lines`
+
+`sale_id`, `line_number`, `item_id`/`item_variant_id`, a `description` snapshot taken at ring-up,
+`quantity_*`, `unit_price_*`, `discount_*`, `tax_code`, `net_*`, `tax_*`, `gross_*`, `is_voided`,
+`voided_at`, and the three stock-issue columns below.
+
+`ux_sale_lines_sale_id_line_number` is unique. Line numbers are never reused after a void: a receipt
+whose line 2 is a different item on the reprint than it was on the original is worse than one with a
+gap.
+
+The description is snapshotted rather than joined. Renaming the item next month must not rewrite what
+a customer was handed.
+
+`ck_sale_lines_balances` asserts `net_amount + tax_amount = gross_amount`, and
+`ck_sale_lines_quantity_positive` asserts a positive quantity — a return is a Stage 10 document that
+references this sale, not a negative line on it, and a later stage adding returns has to make a
+deliberate decision about this table rather than sliding one in.
+
+**`stock_issue` (Pending/Posted/Refused), `stock_ledger_entry_id` and `stock_issue_note` are ADR-073.**
+A sale completes even when Stage 08's ledger refuses to relieve the stock behind a line — the customer
+is holding the item, and Stage 08 rule 4 still forbids a negative balance, so the sale stands and the
+line says what happened. `ix_sale_lines_stock_issue_refused` is partial on `Refused` and is the
+reconciliation queue a manager works through. If it ever grows large, that is the signal that the
+shelf and the system have drifted apart, not that the index is wrong.
+
+### `pos.sale_tenders`
+
+`sale_id`, `type` (Cash/Card/Voucher/MobileMoney/CustomerAccount), `amount_*`, optional `reference`,
+`captured_at`. `IImmutableRecord`, so `AuditInterceptor` refuses the row in `Modified` or `Deleted` —
+money that changed hands is corrected by another tender, never by an edit, the same relationship a
+journal has with its reversal. `ck_sale_tenders_amount_positive` holds the sign.
+
+Only `Cash` counts towards the drawer, and only cash can produce change; a card overpayment asking for
+the difference back is a cash advance, which a till may not do. `CustomerAccount` is declared here and
+settled nowhere — ADR-055 gave money held on behalf of a customer its own module at Stage 10b.
+
+### `pos.receipt_prints`
+
+`sale_id`, `printed_by_user_id`, `terminal_id`, `is_reprint`, `reason`, `printed_at`. Append-only and
+`IImmutableRecord`.
+
+Reprinting a receipt is the oldest till fraud there is — a second copy of a real sale is what a refund
+scheme is built on — so R6's "who did what" covers printing even though printing changes nothing.
+`ck_receipt_prints_reprint_has_reason` makes the reason mandatory on a reprint, and **whether a print
+is a reprint is derived from the row count rather than supplied by the caller**: a caller who could
+declare "this is the first print" could reprint forever without any of them being marked, which would
+make the log worse than useless because it would look complete.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -382,6 +654,11 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `StockTransfer` | StoreToCloud | AppendOnly | The document is written once, when both its ledger entries already exist, and never edited. |
 | `StocktakeSession` | StoreToCloud | StoreWins | The count happens on one store's floor; the cloud observes the result rather than participating in it. |
 | `StocktakeLine` | StoreToCloud | StoreWins | Follows its session. |
+| `TillSession` | StoreToCloud | StoreWins | A shift happens at one drawer in one shop. The cloud observes the cash-up; it never participates in one, and two stores can never contend over the same till. |
+| `Sale` | StoreToCloud | StoreWins | A sale is rung up in one place and is frozen the moment it completes. `StoreWins` rather than `AppendOnly` because a sale is legitimately mutable while it is open — lines and tenders arrive one at a time — and the store is the only node that can be editing it. |
+| `SaleLine` | StoreToCloud | StoreWins | Follows its sale. |
+| `SaleTender` | StoreToCloud | AppendOnly | Money that changed hands. `IImmutableRecord`, so it accumulates and never overwrites — the same reason `AuditEntry` and `StockLedgerEntry` are append-only. |
+| `ReceiptPrint` | StoreToCloud | AppendOnly | A print log that a later write can overwrite is not a log. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

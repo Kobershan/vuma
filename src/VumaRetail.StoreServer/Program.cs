@@ -19,6 +19,7 @@ using VumaRetail.Web.Identity;
 using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
+using VumaRetail.Web.Pos;
 using VumaRetail.Web.Sync;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -104,6 +105,12 @@ builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantI
 // line's position relative to AddVumaFinance does not matter.
 builder.Services.AddVumaInventory();
 
+// Stage 09. The till: sessions, sales, tenders, receipts and the cash-up. Depends on catalog (what is
+// being sold), inventory (the stock it relieves) and finance (the tax it prices with and the journal a
+// completed sale raises). Registered after all three; like AddVumaInventory, the financial binding is
+// chosen when the publisher is resolved rather than when it is registered.
+builder.Services.AddVumaPos();
+
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
 builder.Services.AddVumaSync(node);
@@ -187,6 +194,7 @@ app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
+app.MapVumaPos();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

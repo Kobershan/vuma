@@ -40,7 +40,7 @@ The minimum that makes a business able to trade *and* account for it.
 | 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
-| 09 | POS Terminal & Hardware | 08b | The till: offline sales, tenders, receipts, lay-by, cash-up |
+| 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — **API and hardware DONE, merged to `main` 2026-08-15; the WPF till screen is deferred with 08b** |
 | 10 | Sales Management & Promotions | 09 | Quotes, invoices, returns, specials engine, sales analytics |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
 | 11 | Data Import (Excel/CSV/PDF) | 06 | Ingest suppliers, customers, inventory and specials with preview + rollback |
@@ -123,10 +123,19 @@ than a giveaway.
   later stages configure rather than build (ADR-019).
 - **04b before 06.** Every module stage from 06 onward gates on entitlements and reports usage, so
   the entitlement choke point must already exist.
-- **08b before 09.** The POS terminal is the first screen built; it must consume generated tokens and
-  components rather than invent its own (ADR-058).
+- **08b before 09 — for the screen, not for the stage.** ADR-058 still holds: the POS terminal is the
+  first screen built and must consume generated tokens rather than invent its own. What Stage 09
+  actually shipped is the till's API, domain and hardware layer, which no design system gates and
+  which R3 requires to exist before any UI anyway. 08b plus `VumaRetail.Desktop` render it. Neither
+  can be built on the Linux machine this repository is developed on (ADR-031, `PROGRESS.md` §4.3), so
+  09 was taken as far as it goes without Windows rather than blocked behind a stage that is also
+  blocked.
 - **10b after 07, 09 and 10.** Accounts, lay-by and stokvels post to Finance and are sold and paid for
-  through the POS and Sales flows those stages build (ADR-055).
+  through the POS and Sales flows those stages build (ADR-055). **Lay-by is 10b's, not 09's** — this
+  table's one-line summary for Stage 09 used to say "lay-by" and `CLAUDE.md` §6 used to promise a
+  "09 addendum (lay-by, self-checkout)". Both predate ADR-055, which gave money held on behalf of a
+  customer its own module. Corrected in Stage 09: the till declares the `CustomerAccount` tender type
+  and settles nothing behind it.
 - **20 and 21 late but together.** Both sit on `VumaRetail.PublicApi` with its own DTOs and auth
   model (ADR-021), and 21 depends on 20's member identity.
 - **21b after 21.** Vuma Connect is a trading network on top of ecommerce's headless API and Finance's
