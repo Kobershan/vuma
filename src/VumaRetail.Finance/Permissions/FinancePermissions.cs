@@ -76,7 +76,19 @@ public sealed class FinancePermissions : IModulePermissions
     ];
 }
 
-/// <summary>The <c>finance</c> module's manifest (R7).</summary>
+/// <summary>
+/// The <c>finance</c> module's manifest (R7).
+/// </summary>
+/// <remarks>
+/// Core (ADR-064). Every other module speaks <c>IFinancialEvent</c> and gets a journal back
+/// (CLAUDE.md §7 rule 12) — a disabled Finance module would not remove a feature the way a disabled
+/// Loyalty or Ecommerce module does, it would make every posting write in the system fail, including
+/// a POS sale under R1's "POS never stops". That is the same shape of dependency
+/// <c>CatalogModuleManifest</c> and <c>PartnersModuleManifest</c> were judged core for at Stage 06 —
+/// AR needs a customer to exist and Finance needs an item's tax class resolved by the time Stage 08/09
+/// land — except Finance sits one layer lower again: it is the only place a GL account may be named,
+/// so nothing downstream can route around it if it is off.
+/// </remarks>
 public sealed class FinanceModuleManifest : IModuleManifest
 {
     /// <inheritdoc />
@@ -87,4 +99,7 @@ public sealed class FinanceModuleManifest : IModuleManifest
 
     /// <inheritdoc />
     public string Description => "General ledger, accounts receivable, accounts payable, banking and tax.";
+
+    /// <inheritdoc />
+    public bool IsCore => true;
 }

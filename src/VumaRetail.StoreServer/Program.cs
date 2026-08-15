@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Persistence;
@@ -13,6 +14,7 @@ using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
+using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
@@ -87,6 +89,13 @@ builder.Services.AddVumaPersistence(connectionString);
 builder.Services.AddVumaPlatform();
 builder.Services.AddVumaCatalog();
 builder.Services.AddVumaPartners();
+
+// Stage 07. GL, AR, AP, banking, tax and the posting rules engine — CLAUDE.md §7 rule 12's mechanism.
+// Built ahead of Inventory (08) and POS (09) because both post to it (ADR-016). The reconciliation
+// host is registered separately: it needs the tenant this installation runs as, the same split
+// AddVumaControlPlaneClient uses for LicensingHostTenant.
+builder.Services.AddVumaFinance();
+builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantId, host.StoreId));
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -169,6 +178,7 @@ app.MapVumaSync();
 app.MapVumaLicensing();
 app.MapVumaCatalog();
 app.MapVumaPartners();
+app.MapVumaFinance();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

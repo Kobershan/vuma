@@ -118,6 +118,65 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Suppliers, customers, and partners who are both (Stage 06).</summary>
     public DbSet<Domain.Partners.Partner> Partners => Set<Domain.Partners.Partner>();
 
+    /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
+    public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
+
+    /// <summary>The tenant's accounting calendar.</summary>
+    public DbSet<Domain.Finance.AccountingPeriod> AccountingPeriods => Set<Domain.Finance.AccountingPeriod>();
+
+    /// <summary>The immutable general ledger.</summary>
+    public DbSet<Domain.Finance.Journal> Journals => Set<Domain.Finance.Journal>();
+
+    /// <summary>One debit or credit line of a posted journal.</summary>
+    public DbSet<Domain.Finance.JournalLine> JournalLines => Set<Domain.Finance.JournalLine>();
+
+    /// <summary>Tenant-configured mappings from a financial event type to GL postings.</summary>
+    public DbSet<Domain.Finance.PostingRule> PostingRules => Set<Domain.Finance.PostingRule>();
+
+    /// <summary>One posting a posting rule produces.</summary>
+    public DbSet<Domain.Finance.PostingRuleLine> PostingRuleLines => Set<Domain.Finance.PostingRuleLine>();
+
+    /// <summary>Customer invoices — the AR sub-ledger.</summary>
+    public DbSet<Domain.Finance.ArInvoice> ArInvoices => Set<Domain.Finance.ArInvoice>();
+
+    /// <summary>One line of a customer invoice.</summary>
+    public DbSet<Domain.Finance.ArInvoiceLine> ArInvoiceLines => Set<Domain.Finance.ArInvoiceLine>();
+
+    /// <summary>Payments received from customers.</summary>
+    public DbSet<Domain.Finance.ArReceipt> ArReceipts => Set<Domain.Finance.ArReceipt>();
+
+    /// <summary>How a customer receipt was allocated across invoices.</summary>
+    public DbSet<Domain.Finance.ArReceiptAllocation> ArReceiptAllocations => Set<Domain.Finance.ArReceiptAllocation>();
+
+    /// <summary>Supplier invoices — the AP sub-ledger.</summary>
+    public DbSet<Domain.Finance.ApInvoice> ApInvoices => Set<Domain.Finance.ApInvoice>();
+
+    /// <summary>One line of a supplier invoice.</summary>
+    public DbSet<Domain.Finance.ApInvoiceLine> ApInvoiceLines => Set<Domain.Finance.ApInvoiceLine>();
+
+    /// <summary>Payments made to suppliers.</summary>
+    public DbSet<Domain.Finance.ApPayment> ApPayments => Set<Domain.Finance.ApPayment>();
+
+    /// <summary>How a supplier payment was allocated across invoices.</summary>
+    public DbSet<Domain.Finance.ApPaymentAllocation> ApPaymentAllocations => Set<Domain.Finance.ApPaymentAllocation>();
+
+    /// <summary>Bank accounts, one per GL bank control account.</summary>
+    public DbSet<Domain.Finance.BankAccount> BankAccounts => Set<Domain.Finance.BankAccount>();
+
+    /// <summary>Imported bank statement lines and their reconciliation state.</summary>
+    public DbSet<Domain.Finance.BankStatementLine> BankStatementLines => Set<Domain.Finance.BankStatementLine>();
+
+    /// <summary>Tenant-configured tax rules — a rules engine, never a constant (CLAUDE.md §9).</summary>
+    public DbSet<Domain.Finance.TaxRule> TaxRules => Set<Domain.Finance.TaxRule>();
+
+    /// <summary>The evidence the daily control-account variance check leaves.</summary>
+    public DbSet<Domain.Finance.ReconciliationVarianceFlag> ReconciliationVarianceFlags
+        => Set<Domain.Finance.ReconciliationVarianceFlag>();
+
+    /// <summary>Node-local document numbering state.</summary>
+    public DbSet<Domain.Finance.DocumentNumberCounter> DocumentNumberCounters
+        => Set<Domain.Finance.DocumentNumberCounter>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

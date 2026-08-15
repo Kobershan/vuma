@@ -44,4 +44,7 @@ public static class Schemas
 
     /// <summary>Suppliers, customers, and partners who are both. Stage 06.</summary>
     public const string Partners = "partners";
+
+    /// <summary>Chart of accounts, GL, AR, AP, banking, tax, posting rules. Stage 07.</summary>
+    public const string Finance = "finance";
 }
