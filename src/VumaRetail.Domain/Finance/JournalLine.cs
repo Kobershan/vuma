@@ -35,11 +35,28 @@ public sealed class JournalLine : Entity, IImmutableRecord
     /// <summary>The GL account this line posts to.</summary>
     public Guid AccountId { get; private set; }
 
+    /// <summary>
+    /// The debit amount's numeric value, or <c>null</c> if this line is a credit. Mapped directly as a
+    /// plain nullable column; prefer <see cref="Debit"/> — this pairs with <see cref="DebitCurrency"/>
+    /// only because EF Core 9 complex properties do not support a two-hop member expression
+    /// (<c>value.Value.Amount</c>) on a nullable value-type complex property (ADR-066).
+    /// </summary>
+    public decimal? DebitAmount { get; private set; }
+
+    /// <summary>The debit amount's currency, paired with <see cref="DebitAmount"/>.</summary>
+    public string? DebitCurrency { get; private set; }
+
+    /// <summary>The credit amount's numeric value, or <c>null</c> if this line is a debit. See <see cref="DebitAmount"/>.</summary>
+    public decimal? CreditAmount { get; private set; }
+
+    /// <summary>The credit amount's currency, paired with <see cref="CreditAmount"/>.</summary>
+    public string? CreditCurrency { get; private set; }
+
     /// <summary>The debit amount, or <c>null</c> if this line is a credit.</summary>
-    public Money? Debit { get; private set; }
+    public Money? Debit => DebitAmount is { } amount ? new Money(amount, DebitCurrency!) : null;
 
     /// <summary>The credit amount, or <c>null</c> if this line is a debit.</summary>
-    public Money? Credit { get; private set; }
+    public Money? Credit => CreditAmount is { } amount ? new Money(amount, CreditCurrency!) : null;
 
     /// <summary>A line-level narration.</summary>
     public string Description { get; private set; } = string.Empty;
@@ -94,8 +111,10 @@ public sealed class JournalLine : Entity, IImmutableRecord
             JournalId = journalId,
             LineNumber = lineNumber,
             AccountId = accountId,
-            Debit = debit,
-            Credit = credit,
+            DebitAmount = debit?.Amount,
+            DebitCurrency = debit?.Currency,
+            CreditAmount = credit?.Amount,
+            CreditCurrency = credit?.Currency,
             Description = description?.Trim() ?? string.Empty,
             DepartmentId = departmentId,
             CostCentreId = costCentreId,
