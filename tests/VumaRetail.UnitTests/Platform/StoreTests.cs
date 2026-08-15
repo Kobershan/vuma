@@ -65,12 +65,24 @@ public sealed class StoreTests
     }
 
     [Fact]
+    public void Renaming_a_store_can_also_set_its_structured_address()
+    {
+        Store store = Store.Create(TenantId, "JHB01", "Johannesburg");
+        Address address = Address.Create("12 Main Road", "Johannesburg", "ZA");
+
+        store.SetDetails("Johannesburg Central", address);
+
+        store.Name.Should().Be("Johannesburg Central");
+        store.Address.Should().Be(address);
+    }
+
+    [Fact]
     public void Renaming_a_store_can_also_clear_its_address()
     {
         Store store = Store.Create(TenantId, "JHB01", "Johannesburg");
-        store.SetDetails("Johannesburg", "12 Main Road");
+        store.SetDetails("Johannesburg", Address.Create("12 Main Road", "Johannesburg", "ZA"));
 
-        store.SetDetails("Johannesburg Central", "  ");
+        store.SetDetails("Johannesburg Central", null);
 
         store.Name.Should().Be("Johannesburg Central");
         store.Address.Should().BeNull();

@@ -35,7 +35,17 @@ following the session protocol. Do not ask me any questions.
 
 ## 1. Autonomy policy — NON-NEGOTIABLE
 
-The user will not be available to answer questions. Treat every ambiguity as a decision you own.
+**Sessions run unattended, overnight, with nobody watching.** Treat every ambiguity as a decision you
+own. See `docs/AUTONOMOUS_OPERATION.md` for the environment setup.
+
+- **Never call `AskUserQuestion`.** It is denied in settings, but do not reach for it. There is no one
+  to answer.
+- **Never write to `.claude/**`.** It is a protected path: writing there triggers a permission prompt
+  that will stall an unattended run until morning. Nothing in this build needs to touch it.
+- **Never leave the repo broken.** Commit at green checkpoints throughout a stage, not once at the end.
+  A run that dies mid-refactor wastes the whole night.
+- **If context is getting long, stop cleanly** at a green build with an honest handoff in
+  `docs/PROGRESS.md` rather than pushing on with degraded judgement. The next invocation starts fresh.
 
 - **Never ask the user a question.** Not for scope, not for naming, not for library choice, not for
   confirmation. If you are about to write "Would you like me to…", stop and just do it.
@@ -62,10 +72,15 @@ This project is intended to be run with full tool access so sessions never stall
 claude --dangerously-skip-permissions
 ```
 
-`.claude/settings.json` already sets `permissions.defaultMode` to `bypassPermissions` and allows the
-full tool set. **Run this on a dedicated dev machine, VM, or container** — that flag disables the
-approval prompts that normally protect the filesystem and shell. The repo ships a `.gitignore` and a
-`scripts/` folder; keep destructive operations inside the repo working tree.
+or, for unattended overnight runs, `scripts/run-autonomous.ps1`.
+
+**Read `docs/AUTONOMOUS_OPERATION.md` before the first run** — there is one-time setup (user-scope
+settings, and accepting the bypass dialog once interactively) without which prompts still appear and
+background runs are refused.
+
+**Run this on a dedicated dev machine, VM, or container** — bypass mode disables the checks that
+normally protect the filesystem and shell, including protection against instructions hidden in files
+Claude reads.
 
 You are explicitly authorised to, without asking: create/modify/delete files anywhere under the repo,
 run `dotnet`, `git`, `npm`, `psql`, `docker`, `gradle`, install NuGet/npm packages, generate and apply
@@ -192,7 +207,9 @@ vuma/
 │   ├── HARDWARE.md
 │   ├── API_LOYALTY.md            ← public loyalty API contract
 │   ├── API_ECOMMERCE.md          ← public storefront API contract
-│   ├── GAP_ANALYSIS.md           ← what the first plan missed and where it now lives
+│   ├── AUTONOMOUS_OPERATION.md   ← how to run builds unattended without prompts
+│   ├── DESIGN_SYSTEM.md          ← tokens, themes, components, voice
+│   ├── API_CONNECT.md            ← supplier↔retailer trading network contract
 │   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
 │   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
 │   ├── AGENTS.md
@@ -250,6 +267,9 @@ vuma/
 | **Workflow, approvals, notifications, documents** | **05** |
 | API access | 03 (platform) + every module stage |
 | Cloud backup / restore | 04, hardened in 31 |
+| **Design system (Apple-inspired, dark + light)** | **08b** (`docs/DESIGN_SYSTEM.md`) |
+| **Customer accounts, lay-by, stokvels** | **10b** |
+| **Supplier↔retailer network, in-app ordering and payment** | **21b** (`docs/API_CONNECT.md`) |
 | **Licensing, activation, entitlements** | **04b** (`docs/LICENSING.md`) |
 | **Vendor control plane, usage analytics, SaaS billing** | **30b** (`docs/API_CONTROL_PLANE.md`) |
 | Android admin app | 29 (API), 30 (app) |
@@ -289,7 +309,12 @@ vuma/
     asserts all of it.
 16. **Telemetry is whitelisted aggregate counters only.** Building a metering payload from a business
     table is a bug, and there is a test that catches it.
-17. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
+17. **No screen defines its own colours, spacing, type sizes or radii.** Everything comes from
+    `design/tokens.json` via generated theme files. An architecture test scans for literal hex values.
+18. **No data crosses a tenant boundary without an active, mutually accepted connection**, and then
+    only the documents that connection created. A supplier never writes directly into a retailer's
+    data — everything arrives as a proposal the retailer accepts.
+19. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
 
 ---
 

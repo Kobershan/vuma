@@ -11,9 +11,11 @@ using VumaRetail.StoreServer;
 using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Web.Partners;
 using VumaRetail.Web.Sync;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -78,6 +80,13 @@ string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
 // AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
 builder.Services.AddVumaWeb(jwt, host);
 builder.Services.AddVumaPersistence(connectionString);
+
+// Stage 06. Master data: items, variants, barcodes, units of measure, and suppliers/customers. Both
+// self-register their permission declaration and core module manifest — see the remarks on
+// AddVumaCatalog for why registration order relative to AddVumaIdentity/AddVumaLicensing does not matter.
+builder.Services.AddVumaPlatform();
+builder.Services.AddVumaCatalog();
+builder.Services.AddVumaPartners();
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -158,6 +167,8 @@ app.UseVumaOpenApi();
 app.MapVumaIdentity();
 app.MapVumaSync();
 app.MapVumaLicensing();
+app.MapVumaCatalog();
+app.MapVumaPartners();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

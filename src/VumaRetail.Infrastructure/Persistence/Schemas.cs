@@ -38,4 +38,10 @@ public static class Schemas
 
     /// <summary>Licences, leases, activations, entitlements, metering. Stage 04b.</summary>
     public const string Licensing = "licensing";
+
+    /// <summary>Items, item variants, barcodes and units of measure. Stage 06.</summary>
+    public const string Catalog = "catalog";
+
+    /// <summary>Suppliers, customers, and partners who are both. Stage 06.</summary>
+    public const string Partners = "partners";
 }

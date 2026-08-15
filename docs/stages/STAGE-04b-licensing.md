@@ -1,6 +1,6 @@
 # STAGE 04b — Licensing, Activation & Entitlement
 
-**Status:** NOT_STARTED · **Depends on:** 04 · **Reference reading:** `docs/LICENSING.md` (all of it), `docs/API_CONTROL_PLANE.md` §2, `docs/DECISIONS.md` ADR-028 (the live decision; ADR-023 and ADR-027 are superseded and must not be implemented)
+**Status:** DONE (2026-08-11) · **Depends on:** 04 · **Reference reading:** `docs/LICENSING.md` (all of it), `docs/API_CONTROL_PLANE.md` §2, `docs/DECISIONS.md` ADR-028 (the live decision; ADR-023 and ADR-027 are superseded and must not be implemented)
 
 ## Objective
 The client and tenant half of the SaaS model: activation against a licence key, a signed monthly
@@ -153,12 +153,16 @@ Built here, early, because every module stage from 06 onward gates on entitlemen
 - Control plane switched off for a full simulated trading day: zero customer impact
 
 ## Exit checklist
-- [ ] Activation works end to end from a licence key on clean hardware
-- [ ] Lease refresh, heartbeat and metering all functioning and resumable
-- [ ] Entitlement gating enforced through the single service, with the architecture test in place
-- [ ] Full ladder proven on both paths, including instant reset and sub-60-second unlock on payment
-- [ ] No-accidental-lockout suite green — this gates the stage
-- [ ] Read-only correctness suite green, including the generated per-module write-refusal tests
-- [ ] Emergency write code proven with no connectivity; payment from inside read-only proven to recover
-- [ ] Support-access consent flow working with dual audit
-- [ ] Replication registry updated, `docs/PROGRESS.md` + ADRs updated, committed
+- [x] Activation works end to end from a licence key on clean hardware
+- [x] Lease refresh, heartbeat and metering all functioning and resumable — `MeteringTests` proves the
+      forty-five-day offline backlog catches up in one pass, exactly once per day
+- [x] Entitlement gating enforced through the single service, with the architecture test in place —
+      `IEntitlementService` is now the gate only (`IsModuleEnabledAsync`, `CheckLimitAsync`); reporting
+      the level moved to `IEnforcementStatusReader` so "no query handler depends on
+      `IEntitlementService`" holds with no exemption list (ADR-054)
+- [x] Full ladder proven on both paths, including instant reset and sub-60-second unlock on payment
+- [x] No-accidental-lockout suite green — this gates the stage
+- [x] Read-only correctness suite green, including the generated per-module write-refusal tests
+- [x] Emergency write code proven with no connectivity; payment from inside read-only proven to recover
+- [x] Support-access consent flow working with dual audit
+- [x] Replication registry updated, `docs/PROGRESS.md` + ADRs updated, committed

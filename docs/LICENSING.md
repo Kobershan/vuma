@@ -64,7 +64,7 @@ Vendor (you)
                           └── Terminal sub-leases  issued by the store server on the LAN
 ```
 
-**Licence key** — human-readable, issued once, used at activation: `ZNTH-XXXXX-XXXXX-XXXXX-XXXXX`
+**Licence key** — human-readable, issued once, used at activation: `VUMA-XXXXX-XXXXX-XXXXX-XXXXX`
 (Base32, checksummed so a typo is caught before it hits the network).
 
 **Licence** — issued monthly by the control plane, signed with Ed25519. The private key lives in a
