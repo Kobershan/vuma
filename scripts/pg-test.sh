@@ -15,7 +15,19 @@
 set -euo pipefail
 
 PORT="${VUMA_TEST_PG_PORT:-55432}"
-DATA_DIR="${VUMA_TEST_PG_DATA:-${TMPDIR:-/tmp}/vuma-test-pg}"
+
+# Under $HOME, not under $TMPDIR. On the machine this is built on — and on most Ubuntu server
+# installs — /tmp is a tmpfs sized at half of RAM and carrying a per-user quota, so the default used
+# to put a PostgreSQL cluster on a RAM disk. It works until it doesn't: during Stage 10 the cluster,
+# the test databases, the coverage output and the build artefacts together exhausted the quota
+# mid-run, which failed 182 integration tests with connection errors that looked nothing like a disk
+# problem and left the shell unable to start at all.
+#
+# $HOME/.cache is the right home for it: it survives a reboot (so a re-run reuses the migrated
+# template instead of rebuilding it), it is on real storage, and it is the directory the XDG spec
+# reserves for exactly this — regenerable data that is expensive to recreate. Override with
+# VUMA_TEST_PG_DATA when running two suites side by side; see docs/PROGRESS.md §4.9.
+DATA_DIR="${VUMA_TEST_PG_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/vuma-test-pg}"
 USER_NAME="vuma"
 
 find_pg_bin() {

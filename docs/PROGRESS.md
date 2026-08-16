@@ -1415,10 +1415,27 @@ Two mitigations, neither requiring a code change:
 - Point the cluster at real disk rather than `tmpfs`: `VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg`.
 - Check free space before a full run. A complete pass wants a few GB of headroom.
 
+> **CLOSED 2026-08-16, after it happened again and worse.** The first mitigation above was correct,
+> prominent, repeated in `TESTING.md` §2.1 — and Stage 10 did not apply it. The result: the PostgreSQL
+> cluster, the seed database, the coverage output and every `bin`/`obj` shared 16 GB of RAM, the
+> per-user quota was exhausted mid-run, **182 integration tests failed with
+> `RelationalConnection.OpenAsync` errors** that looked like the server was down, and the shell then
+> refused to start at all — so the session could not even run the `rm` that would have fixed it, or
+> commit the work it had finished. The suite had already passed twice that session; nothing was
+> actually wrong with the code.
+>
+> `scripts/pg-test.sh` now defaults `DATA_DIR` to `${XDG_CACHE_HOME:-$HOME/.cache}/vuma-test-pg`, so
+> the safe path is the default and the failure mode is unreachable rather than merely documented.
+> **That is the lesson worth keeping: a guardrail that lives in a document is not a guardrail.** This
+> one was a year old, correct, and in two files, and it did not survive contact with a session that
+> was concentrating on something else. §4.8's concurrency hazard is the same shape and is still only
+> documented — it should get the same treatment the next time anybody is in this script.
+
 ### 4.8 `scripts/pg-test.sh` is not safe for two concurrent sessions
 
 Separate from 4.7 and did not cause it, but real on its own terms. The script uses a fixed port
-(55432) and a fixed data directory (`${TMPDIR:-/tmp}/vuma-test-pg`), and its `start` path
+(55432) and a fixed data directory (`${XDG_CACHE_HOME:-$HOME/.cache}/vuma-test-pg` since 4.7 was
+closed; `${TMPDIR:-/tmp}/vuma-test-pg` before that), and its `start` path
 short-circuits on `pg_isready` — so a second session that runs it gets a success message and the
 export line, and silently attaches to the **first session's cluster** with no indication that is what
 happened. Both sessions' suites then run against one server, and `CreateTemplateDatabaseAsync` drops
