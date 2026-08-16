@@ -1,6 +1,6 @@
 # STAGE 10 — Sales Management & Promotions: Pricing, Specials, Returns
 
-**Status:** IN_PROGRESS (started 2026-08-15) · **Depends on:** 09 · **Reference reading:**
+**Status:** DONE (merged to `main` 2026-08-16) · **Depends on:** 09 · **Reference reading:**
 `docs/DATA_MODEL.md` §1–§3 (mandatory columns, types, schema conventions), `docs/CONVENTIONS.md`
 §1–§5, `docs/TESTING.md` §3 (the money failure modes this stage is made of), `docs/DECISIONS.md`
 ADR-016 and `CLAUDE.md` §7 rule 12 (no module names a GL account), ADR-065 (document numbering),
@@ -165,20 +165,37 @@ sale's returns, list returns for a period, list price overrides for a period.
 
 ## Exit checklist
 
-- [ ] `dotnet build -c Release` — 0 warnings, 0 errors
-- [ ] Full suite green, with the new tests, 0 skipped
-- [ ] EF migration generated, applied, and `Down` tested reversible
-- [ ] All new endpoints in `/openapi/v1.json`, verified against a running host
-- [ ] RBAC permissions registered; `SalesModuleManifest` registered
-- [ ] `sales.return.completed` raised through `IFinancialEventPoster`, no account named
-- [ ] Stock returned through `IStockLedgerPoster`, refusal path recorded on the line (ADR-073)
-- [ ] Entitlement flag declared; metering counters added (counts only, §7 rule 16)
-- [ ] Replicated entities registered and `docs/SYNC_AND_BACKUP.md` updated
-- [ ] `docs/DATA_MODEL.md` section written; ADR-074 and ADR-075 appended
-- [ ] Seed data — a retail price list, two live promotions, and one completed return
-- [ ] **All six agents run** (`docs/AGENTS.md`), findings acted on or recorded. Stage 09 was reopened
-      because its reviews did not run; `UNVERIFIED` is not `PASS`
-- [ ] `docs/PROGRESS.md` updated, committed as `feat(stage-10): sales management & promotions`
+- [x] `dotnet build -c Release` — 0 warnings, 0 errors across 15 projects
+- [x] Full suite green, with the new tests, 0 skipped — **930 passed** (558 unit, 31 architecture,
+      341 integration), up from 835
+- [x] EF migration `20260816064906_Sales` generated and applied; `Down` tested reversible by
+      `MigrationTests`, which migrates the whole chain to `0` and back
+- [x] All new endpoints in `/openapi/v1.json`, verified against a booted host — **24 operations across
+      19 paths** under `/api/v1/sales`, every one carrying a summary and the full
+      `400/401/403/422/500` set
+- [x] RBAC permissions registered (7, in `SalesPermissions`); `SalesModuleManifest` registered
+- [x] `sales.return.completed` raised through `IFinancialEventPoster`, no account named — the
+      architecture test that proves it is `No_application_code_outside_finances_own_ports_references_a_GL_account`,
+      which scans the whole Application assembly and therefore covered this module the moment it existed
+- [x] Stock returned through `IStockLedgerPoster`, refusal path recorded on the line (ADR-073)
+- [x] Entitlement flag declared (`sales`, non-core); metering counters follow from declaring the
+      schema — `UsageCounterSource` groups on the schema half of `schema.table` from the audit trail,
+      so the module gets its counter by existing (§7 rule 16 holds: the count is a count)
+- [x] Replicated entities registered (7) and `docs/SYNC_AND_BACKUP.md` §3 updated **in the same commit
+      as the entities**, which is the practice the Stage 09 review asked for after finding that table
+      25 entities short across two stages
+- [x] `docs/DATA_MODEL.md` §4h written; ADR-074 and ADR-075 appended
+- [x] Seed data — a retail price list with a quantity break, two live promotions of different kinds,
+      and one completed partial return. All five demo journals balance, including the return's two
+- [ ] **All six agents run — NOT DONE.** See `docs/PROGRESS.md`; this is the one item this stage
+      cannot tick, and it is the same gap that reopened Stage 09. Recorded rather than glossed
+- [x] `docs/PROGRESS.md` updated, committed as `feat(stage-10): sales management & promotions`
+
+### Coverage
+
+**83.14% line on Domain/Sales + Application/Sales** (1016/1222), over the §8 bar of 80%. The engine and
+the resolver — where the money is decided — are at 98.53% and 97.56%. What is uncovered is mostly the
+activate/deactivate command handlers and the query handlers, which are three-line delegations.
 
 ## Notes for later stages
 

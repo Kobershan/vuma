@@ -1097,3 +1097,54 @@ shelf and the system have drifted apart and a stocktake is due — which is info
 options destroy. The cost is that a sale can complete having relieved nothing, so cost of sales for
 that line is not posted either; that is the honest state of affairs and it is visible, which is the
 most this stage can offer without inventing stock that is not there.
+
+---
+
+## ADR-074 — Stage 10 is split; quotes, invoices and sales analytics become Stage 10c — **LOCKED**
+**Context.** `ROADMAP.md` lists five features against Stage 10: quotes, invoices, returns, the
+specials engine and sales analytics. That is not one focused session, and the roadmap's own rules of
+engagement say to split rather than silently under-deliver. Stage 09's review is the cautionary
+example on the other side: a stage taken to "DONE" on an inline self-review turned out to be carrying
+eight defects, four of them serious, and the thing that made them expensive was that the stage had
+already been called finished.
+**Decision.** Stage 10 ships price lists and price resolution, the promotions engine, and
+returns/credit notes. **Stage 10c** picks up quotes, invoices and sales analytics.
+**Consequences.** The split falls on a dependency line rather than on a convenient volume of work.
+Everything in Stage 10 is something another stage is blocked on: Stage 09's till has no price without
+the resolver, Stage 10b prices a lay-by through it at the moment it is laid by, and Stage 11's bulk
+import needs `PriceListLine`'s uniqueness rule to be idempotent. Nothing in 10c blocks 10b, 11 or 12 —
+Stage 14 (order management) is the natural neighbour for sales documents, and Stage 29 owns read
+models and KPIs, so analytics built here would be built twice and the second build would have to
+reconcile with the first. The cost is one more numbered stage in a plan that has already been renumbered
+once, and a shop that wants to quote before it can invoice waits for 10c. A quote is a priced basket
+with an expiry, so 10c must snapshot this stage's `PriceResolution` rather than re-resolving — an
+expired special silently repricing an accepted quote is the failure mode that split creates.
+
+---
+
+## ADR-075 — Tax is computed and stored per line, and no consumer recomputes it from a total — **LOCKED**
+**Context.** The Stage 09 handoff asked for this as its own ADR (item 7) and the `money-and-tax`
+review sharpened why. The divergence between the sum of per-line rounded tax and tax computed on a
+document total is **not** bounded at a cent: it is bounded per line at just under half a cent and grows
+linearly, so a hundred-line basket can diverge by fifty. The sharpest statement of it: the same basket,
+same customer, same R99.00 taken, declares R13.00 output VAT if the cashier scans a hundred items
+individually and R12.91 if they key quantity 100. Nothing customer-visible was wrong when that was
+found, because nothing recomputed. The exposure was that the next author would.
+**Decision.** Tax is computed once, at the moment a line is created, from the tenant's configured tax
+rules, and stored on the line. **No consumer may recompute a document's tax from its total, and no
+consumer may recompute a historical line's tax at all.** A sales return derives its tax from the
+original line's *stored* tax, pro-rata to the returned quantity — never by putting the refund through
+today's rate.
+**Consequences.** Yesterday's receipt is not restated by tomorrow's budget speech, which is the whole
+of it: a rate change between a sale and its return would otherwise refund a different amount of VAT
+than was declared on the sale, and the shop's output tax would stop reconciling to its own receipts
+with no single wrong number anybody could point at. `SalesReturnLine` therefore takes no
+`ITaxCalculator` — the dependency is absent by construction rather than by convention, the same way
+`IFinancialEvent` has nowhere to put a GL account. The pro-rata shares are **cumulative rather than
+per-return**: each amount is the rounded share of everything returned so far less the rounded share of
+everything returned before, so partial refunds telescope and their sum is exactly the original line.
+Rounding each return independently does not have that property and the failure is a refund of money
+the shop never took — half of a R60.00 line whose tax is R7.83 rounds to R30.01, so returning both
+halves refunds R60.02. Business rule 5 caps the *quantity* that can come back and would not have caught
+it. The cost is that a document total is now a reported figure rather than a derivable one, and any
+later report that wants tax by rate has to group the stored lines instead of dividing a total.
