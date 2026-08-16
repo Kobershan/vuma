@@ -106,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09 and 10)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10 and 11)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -174,6 +174,10 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SalesReturn` | `sales` | `StoreToCloud` | `StoreWins` | Goods come back over one counter; mutable while it is a draft, frozen once completed, and only the store can be editing it |
 | `SalesReturnLine` | `sales` | `StoreToCloud` | `StoreWins` | Follows its return |
 | `PriceOverrideLog` | `sales` | `StoreToCloud` | `AppendOnly` | A log a later write can overwrite is not a log |
+| `ImportBatch` | `imports` | `StoreToCloud` | `StoreWins` | An import happens at one store; the cloud observes the outcome |
+| `ImportColumnMapping` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch |
+| `ImportRow` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch; rewritten at validate, commit and rollback, all on the owning node |
+| `ImportMappingTemplate` | `imports` | `Bidirectional` | `CloudWins` | Head office negotiates a supplier's format once and pushes it; a branch still saves its own |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

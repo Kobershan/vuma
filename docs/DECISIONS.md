@@ -1148,3 +1148,111 @@ the shop never took — half of a R60.00 line whose tax is R7.83 rounds to R30.0
 halves refunds R60.02. Business rule 5 caps the *quantity* that can come back and would not have caught
 it. The cost is that a document total is now a reported figure rather than a derivable one, and any
 later report that wants tax by rate has to group the stored lines instead of dividing a total.
+
+---
+
+## ADR-076 — A rollback compensates; it never deletes — **LOCKED**
+**Context.** R5 promises rollback, and two of §7's hard rules stand directly in its way. Rule 6 says
+stock levels are the projection of an append-only ledger and are never a mutable column. Rule 8 says
+nothing is hard-deleted. So the obvious implementation of "undo this import" — delete the rows it
+wrote, subtract the stock it added — is unavailable twice over, and a module that reached for it would
+be quietly special-casing the two invariants the rest of the system is built on.
+**Decision.** A rollback is a **compensating** operation, per row, chosen by what the row did. A row
+that **created** an entity soft-deletes it. A row that **updated** an entity restores it from a
+**before-image** captured at commit. A row that posted a **movement** is reversed by a new, opposite
+ledger entry carrying the same batch reference. Nothing is removed from disk, and the ledger only ever
+grows.
+**Consequences.** The undo is expressible in a system whose invariants forbid deletion, and the audit
+trail of a mistaken import survives the correction — which is the honest record: the import happened,
+and then it was taken back. The reversal sits next to the original entry in the ledger, so the balance
+returns to where it started by the same arithmetic that moved it, and ADR-068's weighted-average cost
+is maintained rather than corrupted by a subtraction nobody costed. The cost is that a rolled-back
+import is visible forever in the ledger and in `imports`, which is more rows than a delete would leave;
+that is the correct trade, because the alternative is a stock balance that changed twice with only one
+explanation on file. The before-image is the fragile part — it is per-handler, stores only the fields
+that handler can change, and a row that updated something and carries none is **refused**
+(`IMPORTS_BEFORE_IMAGE_MISSING`) rather than skipped, because a rollback reporting success having
+changed nothing is the exact failure this ADR exists to prevent.
+
+---
+
+## ADR-077 — The CSV reader is hand-written, not a library — **LOCKED**
+**Context.** `CLAUDE.md` §4 locks ClosedXML for Excel and PdfPig for PDF text, and says nothing about
+CSV. The default instinct is to add CsvHelper.
+**Decision.** `CsvImportSourceReader` is a hand-written RFC 4180 reader: quoted fields, embedded
+commas, embedded newlines, doubled quotes, CRLF or LF, a UTF-8 BOM, ragged rows, and a configurable
+delimiter detected from the header row when unstated.
+**Consequences.** RFC 4180 is small and completely specified, and what this module needs from it is
+exactly the specification — headers and cells as strings, with no type inference. A general-purpose
+CSV library brings a type-inference layer this pipeline must then switch off, because parsing happens
+once at validation against the *target's* declared field type and not against whatever the reader
+guessed from the cell. Two places that decide what `1 234,56` means is precisely how a locale bug gets
+in, and the reader is the wrong place for that decision because it does not know the field. The cost
+is roughly two hundred lines that have to be right, which is why the corner cases are enumerated as
+tests rather than trusted: quoted comma, quoted newline, doubled quote, BOM, CRLF, ragged row, empty
+trailing line. If a future format demands something beyond the RFC, revisit this rather than bending
+the reader.
+
+---
+
+## ADR-078 — The command-classification sweep is derived from module manifests — **LOCKED**
+**Context.** Every command carries `[CommandSideEffect]`, which is what the read-only guard (R9,
+§7 rule 15) reads to decide whether a lapsed tenant may run it. An architecture test proves no command
+is unclassified — but it did so against a **hand-listed** set of assemblies, and `PROGRESS.md` §4.16
+recorded the obvious problem: the day somebody adds a module and forgets to add it to that list, the
+sweep silently stops covering it and reports green.
+**Decision.** The sweep enumerates assemblies from the registered `IModuleManifest` implementations
+rather than from a literal list. A module that is wired is a module that is swept.
+**Consequences.** The failure mode inverts, which is the whole point: forgetting to register a manifest
+now means the module is invisible to entitlement gating and metering as well, which fails loudly and
+immediately, rather than meaning one architecture test quietly narrows. Adding a module stops being two
+edits where the second is easy to forget and has no symptom. The cost is that the architecture test now
+depends on the DI registration being correct, which is a slightly wider blast radius for a test failure
+— acceptable, because a module absent from the manifests is broken in more serious ways than an
+unclassified command.
+
+---
+
+## ADR-079 — An import writes through the domain, never through the DbContext — **LOCKED**
+**Context.** A bulk import is the classic place a codebase grows a second way to write its own records.
+The tempting shape is fast: build entities directly, `AddRange`, one `SaveChanges`, skip the factories.
+It is also how an imported supplier ends up being a subtly different thing from a typed one — missing an
+invariant, a default, a domain event — and the divergence is invisible until something downstream
+depends on the invariant that the import did not enforce.
+**Decision.** A target handler builds entities with the **same `Create` factories the command handlers
+use**, and saves them through the **same repositories**. It does **not** call another command's handler
+(`CONVENTIONS.md` §4).
+**Consequences.** Every invariant that protects the API protects the import, by construction rather
+than by discipline — an imported partner is a Stage 06 `Partner`, and the rule that a partner is a
+customer or a supplier and never neither is enforced on an imported row by the same line of code that
+enforces it on a typed one. The prohibition on calling another handler is the other half: a handler
+that calls a handler puts two transactions and two validation passes inside one command, and the
+import's own "one transaction, all or nothing" promise stops being true. The cost is per-row work
+instead of set-based work, so a fifty-thousand-row import is bounded by round trips rather than by
+bandwidth; `MaxRows` exists to keep that bounded, and if it ever becomes the real constraint the answer
+is batching the reads, not bypassing the domain.
+
+---
+
+## ADR-080 — A duplicate row is its own preview verdict, not a kind of valid — **LOCKED**
+**Context.** Every target handler computes `ImportSemanticVerdict.WouldSkip` — the row matches
+something that already exists and the batch's strategy is `Skip` — and three separate doc comments say
+the preview shows it as a skip. It did not. `ImportValidationService` branched only on whether the
+verdict carried errors, so a `WouldSkip` row came out `Valid`, and the row was not actually marked
+`Skipped` until the commit had already been authorised. Found by the Stage 11 integration tests, which
+is the second defect in this stage that existed only because the tests were not written yet.
+**Decision.** A row comes out of validation as exactly one of `Valid`, `Invalid` or `Skipped`.
+`ImportRowVerdict` carries `WouldSkip`, `ImportBatch.RecordValidation` marks such rows `Skipped`, and
+`SkippedRows` is therefore a **preview** figure rather than only a post-commit one. Consequently
+`BeginCommit` refuses a batch only when it has neither valid nor skipped rows — which is what
+`IMPORTS_NOTHING_TO_COMMIT` has always said in words: *every row on this batch is invalid*.
+**Consequences.** The preview stops overstating what a commit will do. A 4,000-row supplier sheet where
+3,900 partners already exist previews as 100 valid and 3,900 skipped, instead of 4,000 valid followed
+by a commit that changes a hundred things — which is the preview being dishonest that business rule 1
+exists to prevent, and it would have been discovered by a shopkeeper rather than by a test. The
+loosened `BeginCommit` guard is the necessary other half: with skips counted separately, a file whose
+rows all already exist would otherwise be **refused**, and "everything you are importing is already
+here" is a successful no-op, not a failure. A batch in that state now commits, applies nothing, and
+says so in its counters. The commit-time skip path stays, because it answers a different question — a
+row that became a duplicate *between* the preview and the commit, which is a real race and not a
+preview error.

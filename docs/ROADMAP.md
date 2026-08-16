@@ -44,7 +44,7 @@ The minimum that makes a business able to trade *and* account for it.
 | 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
 | 10c | Quotes, Invoices & Sales Analytics | 10, 14 | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
-| 11 | Data Import (Excel/CSV/PDF) | 06 | Ingest suppliers, customers, inventory and specials with preview + rollback |
+| 11 | [Data Import (Excel/CSV/PDF)](stages/STAGE-11-data-import.md) | 06 | Ingest suppliers, customers, inventory and specials with mapping, preview, validation and rollback — **DONE 2026-08-16**, branch `stage-11-data-import`. See `docs/IMPORT_PIPELINE.md`. Closes `PROGRESS.md` §4.16. **The six agent reviews have not run (§4.17)** |
 
 ## Phase C — Supply chain (12–18)
 

@@ -113,6 +113,45 @@ public interface IStockLedgerPoster
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Posts an adjustment that came out of a data import, referenced back to the batch that caused it.
+    /// </summary>
+    /// <param name="location">Where the adjustment applies.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="delta">The signed quantity change. Must not be zero.</param>
+    /// <param name="unitCost">
+    /// The cost to value an increase at, or <c>null</c> to use the current average. Ignored for a
+    /// decrease, exactly as <see cref="AdjustAsync"/> ignores it.
+    /// </param>
+    /// <param name="importBatchId">The batch this movement came from.</param>
+    /// <param name="note">An optional free-text note — the batch number and the source row.</param>
+    /// <returns>The posted entry.</returns>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <remarks>
+    /// <para>
+    /// Added in Stage 11, and a dedicated method rather than a reference parameter on
+    /// <see cref="AdjustAsync"/> for the reason <see cref="ReceiveForSalesReturnAsync"/> gives: a
+    /// movement with no reference is a movement nobody can trace back to the document that caused it,
+    /// and an untraceable adjustment is indistinguishable from a shrinkage write-off.
+    /// </para>
+    /// <para>
+    /// The reason code is always <see cref="AdjustmentReasonCode.Correction"/>. An import states what
+    /// the books should have said; it is not a claim that anything was damaged, lost or found — and
+    /// letting a spreadsheet column choose between <c>Loss</c> and <c>Found</c> would put the
+    /// shrinkage report at the mercy of whoever typed the file.
+    /// </para>
+    /// </remarks>
+    Task<StockLedgerEntry> AdjustForImportAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity delta,
+        Money? unitCost,
+        Guid importBatchId,
+        string? note,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Posts a transfer as two correlated ledger entries — out of <paramref name="source"/>, in at
     /// <paramref name="destination"/> — both valued at the source's weighted-average cost, so the
     /// transfer moves value rather than creating or destroying it.
@@ -260,6 +299,46 @@ public sealed class StockLedgerPoster(
         return await PostIssueLikeAsync(
             location, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
             StockReferenceType.Manual, referenceId: null, reasonCode, note, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<StockLedgerEntry> AdjustForImportAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity delta,
+        Money? unitCost,
+        Guid importBatchId,
+        string? note,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        if (delta.IsZero)
+        {
+            throw InventoryRuleException.QuantityMustBeNonZero();
+        }
+
+        if (!delta.IsNegative)
+        {
+            StockBalance? existing = await balances
+                .FindAsync(location.Id, itemId, itemVariantId, cancellationToken)
+                .ConfigureAwait(false);
+
+            Money cost = unitCost ?? existing?.AverageCost ?? throw InventoryRuleException.UnitCostRequiredToOpenBalance();
+
+            return await PostReceiptLikeAsync(
+                location, itemId, itemVariantId, StockMovementType.Adjustment, delta, cost,
+                StockReferenceType.Import, importBatchId, AdjustmentReasonCode.Correction, note,
+                cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await PostIssueLikeAsync(
+            location, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
+            StockReferenceType.Import, importBatchId, AdjustmentReasonCode.Correction, note,
+            cancellationToken)
             .ConfigureAwait(false);
     }
 

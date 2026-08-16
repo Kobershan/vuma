@@ -1,5 +1,6 @@
 using System.Reflection;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.TestSupport;
 
 namespace VumaRetail.ArchitectureTests;
 
@@ -14,22 +15,23 @@ namespace VumaRetail.ArchitectureTests;
 /// rather than a customer finding out by ringing up a sale during a lapse.
 /// </para>
 /// <para>
-/// There are no commands yet. These tests are written before there is anything to check on purpose —
-/// the first command anyone adds is already governed.
+/// Written in Stage 00, before there was a single command to check, so that the first command anybody
+/// added was already governed. The assembly list it sweeps became derived rather than hand-maintained
+/// in Stage 11, after the hand-maintained one went stale by a whole module (ADR-078).
 /// </para>
 /// </remarks>
 public sealed class CommandClassificationTests
 {
     /// <summary>
-    /// Every assembly that may define commands. Module assemblies get appended here as stages add them.
+    /// Every assembly that may define commands.
     /// </summary>
-    private static readonly Assembly[] CommandAssemblies =
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
-    ];
+    /// <remarks>
+    /// Derived rather than listed, since Stage 11 (ADR-078). It used to be a hand-maintained array,
+    /// and it went stale: <c>VumaRetail.Finance</c> shipped 18 commands entirely outside this sweep
+    /// for a whole stage (<c>PROGRESS.md</c> §4.16), which meant an unattributed command there would
+    /// have written while a tenant was read-only. See <see cref="ModuleAssemblies"/>.
+    /// </remarks>
+    private static Assembly[] CommandAssemblies => ModuleAssemblies.All;
 
     [Fact]
     public void Every_command_declares_a_side_effect()

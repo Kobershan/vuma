@@ -17,6 +17,12 @@
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <ProjectReference Include="..\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
     <ProjectReference Include="..\VumaRetail.Finance\VumaRetail.Finance.csproj" />
+    <!--
+      Stage 11. VumaRetail.Imports is the Excel/CSV/PDF reading engine, expressed against Application
+      ports and nothing else — the same shape as VumaRetail.Sync above. Infrastructure supplies the
+      adapters the pipeline needs around it: the EF repositories, the file store and the usage probe.
+    -->
+    <ProjectReference Include="..\VumaRetail.Imports\VumaRetail.Imports.csproj" />
   </ItemGroup>
 
   <ItemGroup>

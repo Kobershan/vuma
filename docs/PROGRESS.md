@@ -9,7 +9,7 @@
 
 ## 1. Stage status
 
-`main` is at 10, and carries 00 through 04b plus 06, 07, 08, 09 and 10 — every stage except 05. Stage 05
+`main` is at 10 and Stage 11 is finished on its own branch; between them they carry 00 through 04b plus 06, 07, 08, 09, 10 and 11 — every stage except 05. Stage 05
 was started in its own worktree so it could proceed in parallel without colliding on shared files,
 and is the one branch still holding unverified work; 07, 08 and 09 were all finished and merged ahead
 of it, out of the roadmap's documented order, because none of them needs 05's approval engine to
@@ -55,7 +55,8 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) — 930 tests green, 83.14% coverage on the stage's Domain + Application, migration reversible, seeded store has really refunded. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
-| 11 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
+| 12 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
 entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
@@ -609,6 +610,74 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-16 — Stage 11 complete: data import (Excel/CSV/PDF, mapping, preview, rollback)
+
+Branch `stage-11-data-import`. R5 is now built: a shop can hand the system a spreadsheet instead of
+typing its business in, see exactly what will happen before it happens, and take it back afterwards.
+
+**What shipped.** The `imports` schema and its four tables; three source readers (a hand-written RFC
+4180 CSV reader per ADR-077, ClosedXML for Excel, PdfPig for machine-generated PDFs); five target
+handlers writing through Stage 06's partners and catalogue, Stage 08's ledger poster and Stage 10's
+price lists; eight commands and five queries behind 13 endpoints; saved mapping templates keyed on a
+header signature, so the second month's file maps itself. ~8,700 lines.
+
+**The state it was found in.** Most of the code above already existed, uncommitted, from a previous
+session — the build was green and 640 unit and architecture tests passed. What did not exist was any
+integration test, the documentation, the seed data, or the ADRs. Writing the integration tests found
+two defects that a green build and 640 passing unit tests had not.
+
+**Defect 1 — every commit and rollback threw, in a stack trace that named the audit interceptor.**
+`ImportBatch.CommittableRows` and `CompensatableRows` are computed LINQ over `Rows` returning arrays.
+EF Core's conventions do not know that: it mapped each as its own collection navigation, which put two
+spurious nullable foreign keys (`ImportBatchId1`, `ImportBatchId2`) and two indexes onto
+`imports.import_rows`, and — far worse — handed the change tracker two collections it tried to keep
+fixed up. The first commit that moved a row between them died inside `SaveChanges` with
+`System.NotSupportedException: Collection was of a fixed size`, from a stack trace mentioning nothing
+about imports at all. Twelve of the fourteen new tests failed on it. Fixed by ignoring both properties
+in the EF configuration; the migration was removed and regenerated so the junk columns never reach a
+database.
+
+**Defect 2 — the preview overstated what a commit would do (ADR-080).** Every target handler computes
+`ImportSemanticVerdict.WouldSkip`, and three separate doc comments say the preview shows it as a skip.
+It did not: `ImportValidationService` branched only on whether the verdict carried errors, so a
+duplicate row came out `Valid` and was not marked `Skipped` until the commit had already been
+authorised. A 4,000-row supplier sheet where 3,900 partners already exist previewed as 4,000 valid
+rows and then changed a hundred things. That is the preview being dishonest, which is the one thing
+this module exists to prevent. Fixed so validation produces exactly one of `Valid`, `Invalid` or
+`Skipped`; `BeginCommit`'s guard loosened to match what `IMPORTS_NOTHING_TO_COMMIT` has always said in
+words — *every row on this batch is invalid* — so a file whose rows all already exist commits as a
+clean no-op instead of being refused.
+
+**Verified, executed rather than asserted.** `dotnet build -c Release`: 0 warnings, 0 errors. Full
+suite: **995 tests, 0 failed, 0 skipped** — 607 unit, 33 architecture, 355 integration, of which 14 are
+new and cover all five targets creating and updating, all three duplicate strategies, per-row error
+reporting by line number, a stock import moving a real balance and a rollback putting it back, a
+rollback refused whole because an imported item had been received against since, before-image
+restoration field by field, commit idempotency, and content-hash refusal of a re-uploaded file.
+Migration `20260816130335_Imports` is reversible and exercised by `MigrationTests`. `ApiContractTests`
+boots the host and asserts every mapped route is in `/openapi/v1.json`, which covers the 13 new ones.
+
+**Closes §4.16** (ADR-078). `CommandClassificationTests` and `ReadOnlyCorrectnessTests` no longer share
+a hand-maintained assembly list; both derive from `ModuleAssemblies.All`, which walks the reference
+graph and is asserted against the registered `IModuleManifest` implementations. `VumaRetail.Finance`
+and its 18 commands are inside both sweeps for the first time.
+
+**Docs.** `docs/IMPORT_PIPELINE.md` written; `docs/DATA_MODEL.md` §4i and four rows in its replication
+registry; the same four rows in `docs/SYNC_AND_BACKUP.md` §3; ADR-076 (compensating rollback), ADR-077
+(hand-written CSV reader), ADR-078 (manifest-derived sweep), ADR-079 (import writes through the
+domain) and ADR-080 (a duplicate is its own verdict).
+
+**Seed.** `scripts/seed.ps1` now produces two import batches through the real dispatcher: one
+committed supplier file that created two partners, and one rolled back with a reason, whose partner is
+soft-deleted and therefore absent from every read while still on disk with the batch that removed it.
+
+**Not done: the six agent reviews.** The session that finished this stage was not authorised to spawn
+subagents, so this is outstanding exactly as it is for Stage 10 (§4.17). **Stage 11 should not be
+trusted as DONE until they run.** The two defects above are the argument for running them: both were
+in code that built clean and passed 640 tests, and both were found only by executing the stage's own
+acceptance criteria against a real database. Neither was in the import logic a reader would scrutinise
+— one was an ORM convention, the other a dropped flag between two layers.
 
 ### 2026-08-16 — Stage 10 complete: sales management & promotions — merged to `main`
 
@@ -1221,6 +1290,7 @@ item by item against this exact commit and every box holds.
 | **Control plane endpoint** (Stage 04b) | Nothing in this repository has a vendor service to talk to. `HttpControlPlaneClient` is written against `docs/API_CONTROL_PLANE.md` §2 and has never been run against a real endpoint; `InProcessControlPlane` is the tested default and is what the whole enforcement suite and `scripts/seed.sh` run on. Stage 30b builds the real one. | `src/VumaRetail.Infrastructure/Licensing/HttpControlPlaneClient.cs` |
 | **S3 backup vault** (Stage 04) | Nothing in this repository has a bucket or a credential. `S3BackupVault` is written against the AWS SDK and works with AWS S3, Backblaze B2, Wasabi and MinIO via `ServiceUrl` + path-style addressing, but it has never been run against a real endpoint. `FileSystemBackupVault` is the tested default and is what the DR drill exercises — and is itself a working target for a single-store customer with a NAS. | `src/VumaRetail.Infrastructure/Backup/BackupVaults.cs` |
 | **Snapshot encryption key custody** (Stage 04) | The key is configuration today, and the floor that matters holds: it is *not* the vendor's storage credential, so a compromise of the bucket is not a compromise of the data. Real custody (KMS/HSM) is the same problem as Stage 04b's licence signing key and should get the same answer once. | `Vuma:Backup:Encryption:Key` |
+| **OCR for scanned PDFs** (Stage 11) | `CLAUDE.md` §4 names Tesseract as the fallback for a PDF with no text layer. It needs a native library and a trained data file, neither of which this build can acquire, so `IOcrTextExtractor` exists and its only implementation refuses. This is a **capability** gap rather than a credential one, and it fails honestly: a scanned PDF is refused with `IMPORTS_PDF_HAS_NO_TEXT_LAYER`, never silently imported as zero rows. Machine-generated PDFs — which is what a supplier price list is — read fine through PdfPig. Adding OCR later is a registration, not a change to the reader. | `src/VumaRetail.Imports/Readers/PdfImportSourceReader.cs` |
 
 Stage 30b (payment gateway) will be the next entry.
 
@@ -1233,13 +1303,13 @@ Stage 30b (payment gateway) will be the next entry.
 These are cited as reference reading by stages that will need them. Each should be written by the
 stage that first depends on it, not all up front:
 
-`ARCHITECTURE.md` · `IMPORT_PIPELINE.md` (Stage 11) · `API_LOYALTY.md` (Stage 20) ·
-`API_ECOMMERCE.md` (Stage 21).
+`ARCHITECTURE.md` · `API_LOYALTY.md` (Stage 20) · `API_ECOMMERCE.md` (Stage 21).
 
 Written so far: `CONVENTIONS.md` (Stage 00), `DATA_MODEL.md` (Stage 01), `SECURITY.md` (Stage 02),
 `API_STANDARDS.md` (Stage 03), `SYNC_AND_BACKUP.md` (Stage 04), `LICENSING.md` (Stage 04b),
 `API_CONTROL_PLANE.md` (Stage 30b), `DESIGN_SYSTEM.md` (Stage 08b), `API_CONNECT.md` (Stage 21b),
-`AUTONOMOUS_OPERATION.md` (unattended-run setup, ADR-059), `HARDWARE.md` (Stage 09).
+`AUTONOMOUS_OPERATION.md` (unattended-run setup, ADR-059), `HARDWARE.md` (Stage 09),
+`IMPORT_PIPELINE.md` (Stage 11).
 
 Stage documents exist on `main` for **00**, **01**, **02**, **03**, **04**, **04b**, **08**, **08b**,
 **09**, **10b**, **21b** and **30b**. Stage documents for **05**, **06** and **07** exist only on their WIP
@@ -1445,7 +1515,7 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
-### 4.17 The six agent reviews did not run against Stage 10 — **OPEN**
+### 4.17 The six agent reviews did not run against Stage 10 or Stage 11 — **OPEN**
 
 `docs/AGENTS.md` defines six review agents and Stage 10's own exit checklist requires all six, with
 the reason spelled out in it: *"Stage 09 was reopened because its reviews did not run; `UNVERIFIED` is
@@ -1462,6 +1532,21 @@ for — somebody who did not write the code looking where the author was not alr
 is the worked example of the difference: its inline pass re-derived all five of its own claims
 correctly and still missed eight defects, four serious, every one of them outside where the author was
 looking.
+
+**Stage 11 is now in the same position, and it strengthens the case rather than repeating it.** The
+session that finished Stage 11 was not authorised to spawn subagents, so its reviews are outstanding
+too. But that session did write the integration tests the stage asked for, and doing so found **two
+defects in code that already built clean with 0 warnings and already passed 640 unit and architecture
+tests** — one that made every commit and rollback throw at runtime, and one that made the preview
+overstate what a commit would do. Neither was in the import logic a reviewer would read first: one was
+an EF Core convention silently mapping two computed properties as navigations, the other a flag
+computed by five handlers and dropped by the layer above them. That is the same shape as Stage 09's
+eight — defects sitting outside where the author was looking — and it is the argument for running the
+six against both stages before either is trusted.
+
+**These reviews need either an interactive session or explicit authorisation to spawn subagents.** Two
+consecutive stages have now been finished by sessions that could not launch them, which is worth
+fixing at the process level rather than noting a third time.
 
 **This stage's own two defects are weak evidence in both directions.** Both were found and fixed
 before merge, which is better than Stage 09 managed. But both were found by *mechanical* means — a unit
@@ -1497,7 +1582,7 @@ here in the same terms Stage 09's was, and for the same reason: the point of the
 decisions being made by the session that also wrote the code, and a stage marking its own homework
 cannot close this gap by trying harder.
 
-### 4.16 `VumaRetail.Finance` is outside both reflection sweeps — **OPEN, pre-existing from Stage 07**
+### 4.16 `VumaRetail.Finance` is outside both reflection sweeps — **RESOLVED 2026-08-16 (Stage 11, ADR-078)**
 
 Found independently by `architecture-guard` and `licence-safety`. `CommandClassificationTests.CommandAssemblies`
 and `ReadOnlyCorrectnessTests.Assemblies()` both list Application, Infrastructure, Sync and Licensing.
@@ -1521,6 +1606,16 @@ survive (the guard is query-blind); the assertion the doc mandates is simply abs
 assemblies, or assert that every assembly containing an `IModuleManifest` appears in it. A
 hand-maintained list is how this went stale, and the next module will do it again. `VumaRetail.Hardware`
 defines no commands and is unaffected.
+
+**Resolved in Stage 11 by ADR-078, taking the second option.** `ModuleAssemblies.All`
+(`tests/VumaRetail.ArchitectureTests/ModuleAssemblies.cs`) discovers every loaded `VumaRetail.*`
+assembly that is not a test assembly, then walks the reference graph outward to force-load the ones
+nothing has touched yet — loading is lazy in .NET, so a module no test has referenced a type from is
+simply not in `AppDomain.GetAssemblies()` and would have escaped a naive sweep in a new way.
+`CommandClassificationTests.CommandAssemblies` and `ReadOnlyCorrectnessTests.Assemblies()` both read
+it, so the two can no longer disagree. `ModuleAssembliesTests` asserts that every assembly declaring an
+`IModuleManifest` is in the result, so a module that escapes the walk fails a test rather than escaping
+the sweep. `VumaRetail.Finance` and its 18 commands are covered for the first time.
 
 ### 4.15 `pos.receipt.reprint` is a permission nothing checks — **OPEN, found in Stage 09**
 
@@ -1873,6 +1968,28 @@ the entitlement gate ships to a paying tenant having never once refused anything
 ---
 
 ## 5. Next session starts here
+
+**Update, 2026-08-16 (Stage 11): read this first.**
+
+Stage 11 (data import) is **finished on branch `stage-11-data-import`** and merged forward to `main` —
+995 tests green, 0 warnings, 0 skipped, migration reversible, seed demonstrable. It closes §4.16. Full
+account in the session log above.
+
+**Two things carry out of it, in priority order.**
+
+1. **Run the six agent reviews against Stage 10 and Stage 11 (§4.17).** Neither stage has had them, and
+   both were finished by sessions that could not spawn subagents. Stage 11 makes the case concretely:
+   writing its integration tests found two defects in code that already built clean and passed 640
+   tests, one of which made every commit and rollback throw at runtime. That is Stage 09's pattern
+   again — defects outside where the author was looking. Do this before building Stage 12 on top of
+   Stage 11's seams.
+2. **Stage 12 (procurement) reuses this pipeline; do not fork it.** It wants a supplier price-list
+   import on a schedule rather than by upload. `IImportSourceReader` and `IImportTargetHandler` are the
+   seams — what Stage 12 adds is a fetch. `docs/IMPORT_PIPELINE.md` §13 has the notes.
+
+**Everything below still stands, and the four Stage 09 fixes are still the higher priority if anything
+is to be built on POS.**
+
 
 **Update, 2026-08-15 (later): the five agents have now run against committed Stage 09, and the stage
 is REOPENED.** `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. The build (0

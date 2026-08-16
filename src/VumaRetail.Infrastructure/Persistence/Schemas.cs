@@ -74,4 +74,23 @@ public static class Schemas
     /// prices. Sharing POS's schema would make every one of those later modules depend on the till.
     /// </remarks>
     public const string Sales = "sales";
+
+    /// <summary>
+    /// Import batches, their rows, their column mappings and the saved mapping templates. Stage 11.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own schema, and it is the schema that makes the module's central promise enforceable:
+    /// nothing outside <c>imports</c> is written before a batch commits. A person can read that
+    /// guarantee off the schema list rather than out of five handlers, and a reviewer can check it by
+    /// looking at what a table's writes touch.
+    /// </para>
+    /// <para>
+    /// The tables reference items, partners, price-list lines and ledger entries by bare
+    /// <see cref="Guid"/> and never by foreign key, as <c>CONVENTIONS.md</c> §2 requires — and here
+    /// the rule and the design coincide, since <c>ImportRow.TargetEntityId</c> points at a different
+    /// module depending on the batch's target kind, so no typed reference could describe it.
+    /// </para>
+    /// </remarks>
+    public const string Imports = "imports";
 }

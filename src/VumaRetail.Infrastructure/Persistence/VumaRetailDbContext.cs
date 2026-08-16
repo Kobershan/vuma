@@ -172,6 +172,20 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The append-only record of every sale made at something other than the resolved price.</summary>
     public DbSet<Domain.Sales.PriceOverrideLog> PriceOverrideLogs => Set<Domain.Sales.PriceOverrideLog>();
 
+    /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
+    public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
+
+    /// <summary>One source row, its verdict, what it produced, and the before-image a rollback restores.</summary>
+    public DbSet<Domain.Imports.ImportRow> ImportRows => Set<Domain.Imports.ImportRow>();
+
+    /// <summary>One target field bound to one source column, or to a constant.</summary>
+    public DbSet<Domain.Imports.ImportColumnMapping> ImportColumnMappings
+        => Set<Domain.Imports.ImportColumnMapping>();
+
+    /// <summary>A saved mapping, so the same supplier's file maps itself next month.</summary>
+    public DbSet<Domain.Imports.ImportMappingTemplate> ImportMappingTemplates
+        => Set<Domain.Imports.ImportMappingTemplate>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 

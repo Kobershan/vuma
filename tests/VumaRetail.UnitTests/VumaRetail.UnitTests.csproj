@@ -37,6 +37,14 @@
       a shop counter.
     -->
     <ProjectReference Include="..\..\src\VumaRetail.Hardware\VumaRetail.Hardware.csproj" />
+    <!--
+      Stage 11. The three source readers are pure functions from bytes to headers-and-rows, so every
+      corner case of RFC 4180, of a cached formula value and of a PDF's word geometry is assertable
+      from a byte array with no database and no host in the room. The fixtures are built in-test by
+      ClosedXML and PdfPig rather than checked in as files, so a failing case can be changed by
+      editing the test that describes it.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.Imports\VumaRetail.Imports.csproj" />
   </ItemGroup>
 
   <ItemGroup>

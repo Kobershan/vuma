@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Imports;
 using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.DependencyInjection;
@@ -16,6 +17,7 @@ using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Imports;
 using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
@@ -116,6 +118,14 @@ builder.Services.AddVumaPos();
 // reads the sale it reverses, and after inventory because a completed return puts the stock back.
 builder.Services.AddVumaSales();
 
+// Stage 11. Excel/CSV/PDF ingestion. Last of the business modules because it is a caller of all of
+// them: its five target handlers write through catalog's, partners', inventory's and sales'
+// repositories rather than into their tables (ADR-079), and its batch numbers come from finance's
+// document number sequence. Registration order does not actually matter — every one of those is
+// resolved per request — but reading it here in dependency order is the point.
+builder.Services.AddVumaImports(
+    builder.Configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>() ?? new ImportOptions());
+
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
 builder.Services.AddVumaSync(node);
@@ -201,6 +211,7 @@ app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaPos();
 app.MapVumaSales();
+app.MapVumaImports();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because
