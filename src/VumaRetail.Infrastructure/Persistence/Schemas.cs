@@ -63,4 +63,15 @@ public static class Schemas
     /// is a count, and no business row is read to produce it.
     /// </remarks>
     public const string Pos = "pos";
+
+    /// <summary>
+    /// Price lists, promotions, returns and the price override log. Stage 10.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Pos"/> rather than folded into it, even though the till is the loudest
+    /// caller of both. A price list is not a till concept — a quote, a lay-by, an ecommerce basket and
+    /// a wholesale invoice are all priced off the same rows, and a shop with no cash drawer still has
+    /// prices. Sharing POS's schema would make every one of those later modules depend on the till.
+    /// </remarks>
+    public const string Sales = "sales";
 }

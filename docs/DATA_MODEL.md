@@ -624,6 +624,159 @@ is a reprint is derived from the row count rather than supplied by the caller**:
 declare "this is the first print" could reprint forever without any of them being marked, which would
 make the log worse than useless because it would look complete.
 
+## 4h. Tables in `sales`
+
+Built in Stage 10. What something should cost, the specials that change it, what came back over the
+counter, and every time somebody sold at a price the resolver did not give them.
+
+Every item, variant, customer, sale, sale-line, user and ledger-entry reference below is a bare `uuid`
+and **never** a foreign key into `catalog`, `partners`, `pos`, `identity` or `inventory` —
+`CONVENTIONS.md` §2, the same rule `pos` and `inventory` follow. Foreign keys *within* this schema are
+used and correct: a price without its list, or a return line without its return, is meaningless.
+
+**Its own schema rather than a corner of `pos`**, even though the till is the loudest caller of both. A
+price list is not a till concept — a quote, a lay-by, an ecommerce basket and a wholesale invoice are
+all priced off these rows, and a shop with no cash drawer still has prices. Folding them into `pos`
+would make every one of those later modules depend on the till.
+
+### `sales.price_lists`
+
+`code`, `name`, `currency`, `kind` (Retail/Wholesale/Staff), `prices_include_tax`, `priority`,
+`effective_from`, `effective_to`, `is_active`, optional `store_id`.
+
+`ux_price_lists_tenant_id_code` is unique per tenant. `ix_price_lists_store_id_effective_active` is
+partial on the active set and is what the resolver seeks on once per scanned line.
+
+`prices_include_tax` is on the **list**, not the line, because it is a property of how a list was
+authored: a South African shelf price is quoted inclusive and a wholesale list is not. Storing it here
+means the resolver hands `ITaxCalculator` a stated amount and lets the matched tax rule decide the
+split, rather than every caller having to know which kind of list it read.
+
+A `store_id` scopes a list to one branch, and **a scoped list beats a tenant-wide one whatever their
+priorities say**. A branch running its own prices set them for a local reason; head office raising the
+priority of a national list should not silently override that. Priority breaks ties within a scope, and
+`code` breaks ties on priority, so resolution is total rather than dependent on row order.
+
+Deactivated, never deleted (§7 rule 8) — a completed sale has to stay explicable next year.
+
+### `sales.price_list_lines`
+
+`price_list_id`, `item_id` **or** `item_variant_id` (exactly one, `ck_price_list_lines_exactly_one_sku`),
+`unit_price_*`, `minimum_quantity`.
+
+**A quantity break is a row rather than a feature.** "R12.99 each, R11.50 from a dozen" is two lines for
+the same item at minimum quantities of 1 and 12, so adding a break is data entry and the resolver needs
+one rule — take the largest break at or below the quantity being sold — instead of a pricing DSL.
+
+`ux_price_list_lines_list_id_sku_minimum_quantity` is what makes Stage 11's bulk price import
+idempotent: re-importing the same sheet updates rows rather than accumulating a second price for the
+same break. Two prices for one break is not a price, and the resolver would have to pick one
+arbitrarily.
+
+### `sales.promotions`
+
+`code`, `name`, `kind`, `discount_percentage`, `reward_amount` / `reward_currency`,
+`required_quantity`, `free_quantity`, `effective_from`, `effective_to`, `days`, `starts_at`, `ends_at`,
+`priority`, `is_exclusive`, `is_active`, optional `store_id`.
+
+**A promotion is configuration, not code.** Running "3 for R50 on Fridays" is a row here and a row in
+`promotion_lines`; it is never a deployment. That is the whole point of the stage — a shop changes its
+specials weekly and cannot wait for a release to do it.
+
+The reward parameters are flat nullable columns rather than a polymorphic hierarchy or a JSON blob.
+Five kinds cover what a South African shop actually runs, the set changes rarely, and a flat row is
+queryable, diffable and importable in bulk. What keeps the flatness honest is that a kind can only be
+*created* with the parameters it needs — `Promotion` has no public constructor, only five factories,
+each of which validates its own shape. `ck_promotions_quantities_positive` and
+`ck_promotions_percentage_range` re-assert the ranges at the boundary.
+
+`reward_amount` / `reward_currency` is ADR-067's pair: EF Core 9 cannot map an optional complex
+property, so an optional `Money` is two columns behind a computed accessor.
+`ck_promotions_reward_currency_pairs` asserts they move together — an amount with no currency is the
+exact bug §7 rule 4 exists to prevent, and it is invisible until something tries to add it up.
+
+`days` is a flags enum stored as its **integer**, unlike every other enum in this schema. It is a set
+rather than a member, and the string form of a combination ("Monday, Wednesday, Friday") is neither
+queryable nor stable across a member rename.
+
+A time window that wraps past midnight (22:00–02:00) runs through the small hours rather than reading
+as an empty set. A late-night garage forecourt is a real shop.
+
+### `sales.promotion_lines`
+
+`promotion_id`, and exactly one of `item_id`, `item_variant_id` or `category_code`
+(`ck_promotion_lines_exactly_one_target`).
+
+**A promotion with no lines applies to everything** — that is how a store-wide clearance is expressed,
+and it is why `is_exclusive` exists.
+
+### `sales.sales_returns`
+
+`sale_id`, `return_number` (ADR-065's sequence, series `RTN`), `location_id`, `customer_id`,
+`currency`, `reason`, `refund_tender_type`, `authorised_by_user_id`, `status`
+(Draft/Completed/Cancelled), `net_*`, `tax_*`, `gross_*`, `raised_at`, `completed_at`, `cancelled_at`.
+
+**A return is a new document, never an edit.** §7 rule 7 says a completed financial document is
+amended by a new document, and Stage 09 made that structural rather than advisory:
+`ck_sale_lines_quantity_positive` is on `pos.sale_lines` precisely so nobody could later slide a
+negative line into a sale a customer is holding a receipt for. This table is the other half of that
+decision, and the original sale is read and never written.
+
+`ck_sales_returns_balances` asserts `net + tax = gross`, and
+`ck_sales_returns_amounts_not_negative` asserts a refund does not take money off the customer. Both
+hold in the aggregate too; they are here because every later report reads these three columns and a
+wrong one would be silently wrong rather than loud.
+
+### `sales.sales_return_lines`
+
+`sales_return_id`, `sale_line_id`, `item_id` **or** `item_variant_id`, `description`, `quantity_*`,
+`original_quantity_*`, `previously_returned_quantity`, `unit_price_*`, `tax_code`, `net_*`, `tax_*`,
+`gross_*`, `original_stock_ledger_entry_id`, `stock_return`, `stock_ledger_entry_id`,
+`stock_return_note`.
+
+**`ck_sales_return_lines_within_quantity_sold` is business rule 5 as a database guarantee.** The two
+snapshot columns are what make it expressible on the row: `quantity + previously_returned <=
+original_quantity`, so a return line written around the aggregate — by an import, a repair script, a
+future bug — still cannot claim more than was sold. What the constraint cannot settle is two returns
+raced against the same line at the same instant, because each snapshot is honest at the moment it is
+taken; that case is settled by the aggregate reading the committed sum inside the command's
+transaction. `ux_sales_return_lines_return_id_sale_line_id` stops the other way past a per-row check —
+two rows for one original line, each passing on its own.
+
+**The money comes from the original line and its tax is derived, never recomputed** (ADR-075). The
+shares are cumulative rather than per-return: each amount is the rounded share of everything returned
+so far less the rounded share of everything returned before, so partial refunds telescope and their sum
+is exactly the original line. Rounding each return independently does not have that property, and the
+failure is a refund of money the shop never took.
+
+`original_stock_ledger_entry_id` is snapshotted because the *cost* is on the issue entry, not on the
+sale line — Stage 09 stored what the customer paid, which is right for a receipt and useless for a
+stock receipt. A null there is not a fault: it means the original sale completed without relieving
+stock (ADR-073), and the return has no cost basis to receive against. `stock_return` is ADR-073's
+shape for goods moving the other way, and `ix_sales_return_lines_stock_return_refused` is its
+reconciliation queue.
+
+### `sales.price_override_logs`
+
+`sale_id`, `sale_line_id`, `item_id` **or** `item_variant_id`, `operator_user_id`, `quantity_*`,
+`resolved_unit_price_*`, `actual_unit_price_*`, `reason`, `occurred_at`. Append-only and
+`IImmutableRecord` — a log a later write can overwrite is not a log, the same call `pos.receipt_prints`
+made.
+
+Selling off-price is legitimate and routine — a damaged tin, a price match, a manager's goodwill — and
+it is also the oldest shrinkage pattern in retail. Both facts are handled by the same thing: the till
+does not refuse the override, it records it, so a variance that is one cashier and one item every
+Friday is visible as a pattern rather than invisible as a series of individually reasonable decisions.
+`ix_price_override_logs_operator_user_id_occurred_at` leads on the operator because that is who the
+question is almost always asked about.
+
+The variance is **not stored**: it is a difference between two columns that are already here, and a
+stored copy is one more thing that can disagree with them.
+
+`sale_id` and `sale_line_id` are optional because an override is recorded at the point of override,
+which may be before the line exists or before the sale completes at all. An override on a sale later
+voided is still an override that happened.
+
 ---
 
 ## 5. Replication registry
@@ -659,6 +812,13 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `SaleLine` | StoreToCloud | StoreWins | Follows its sale. |
 | `SaleTender` | StoreToCloud | AppendOnly | Money that changed hands. `IImmutableRecord`, so it accumulates and never overwrites — the same reason `AuditEntry` and `StockLedgerEntry` are append-only. |
 | `ReceiptPrint` | StoreToCloud | AppendOnly | A print log that a later write can overwrite is not a log. |
+| `PriceList` | Bidirectional | CloudWins | Head office publishes a national list; a branch maintains its own. Same shape as `Store` and `Item`, and the cloud is where a multi-store estate settles a genuine collision. |
+| `PriceListLine` | Bidirectional | CloudWins | Follows its list. |
+| `Promotion` | Bidirectional | CloudWins | A special is set centrally for a chain and locally for a branch clearance; both are normal, and head office reconciles. |
+| `PromotionLine` | Bidirectional | CloudWins | Follows its promotion. |
+| `SalesReturn` | StoreToCloud | StoreWins | Goods come back over one counter, and the document is frozen the moment it completes. `StoreWins` rather than `AppendOnly` for the reason `Sale` is: it is legitimately mutable while it is a draft, and the store is the only node that can be editing it. |
+| `SalesReturnLine` | StoreToCloud | StoreWins | Follows its return. |
+| `PriceOverrideLog` | StoreToCloud | AppendOnly | A log a later write can overwrite is not a log. `IImmutableRecord`, so it accumulates — the same reason `AuditEntry`, `StockLedgerEntry` and `ReceiptPrint` are append-only. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

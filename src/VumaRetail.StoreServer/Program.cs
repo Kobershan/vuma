@@ -20,6 +20,7 @@ using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
+using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -111,6 +112,10 @@ builder.Services.AddVumaInventory();
 // chosen when the publisher is resolved rather than when it is registered.
 builder.Services.AddVumaPos();
 
+// Stage 10. Price lists, promotions, returns and the price override log. After POS because a return
+// reads the sale it reverses, and after inventory because a completed return puts the stock back.
+builder.Services.AddVumaSales();
+
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
 builder.Services.AddVumaSync(node);
@@ -195,6 +200,7 @@ app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaPos();
+app.MapVumaSales();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

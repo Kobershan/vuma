@@ -106,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08 and 09)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09 and 10)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -167,6 +167,13 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SaleLine` | `pos` | `StoreToCloud` | `StoreWins` | Follows its sale |
 | `SaleTender` | `pos` | `StoreToCloud` | `AppendOnly` | Money that changed hands. Immutable, so it accumulates and never overwrites |
 | `ReceiptPrint` | `pos` | `StoreToCloud` | `AppendOnly` | A print log a later write can overwrite is not a log |
+| `PriceList` | `sales` | `Bidirectional` | `CloudWins` | Head office publishes a national list, a branch maintains its own; the cloud settles a genuine collision |
+| `PriceListLine` | `sales` | `Bidirectional` | `CloudWins` | Follows its list |
+| `Promotion` | `sales` | `Bidirectional` | `CloudWins` | A special is set centrally for a chain and locally for a branch clearance — both are normal |
+| `PromotionLine` | `sales` | `Bidirectional` | `CloudWins` | Follows its promotion |
+| `SalesReturn` | `sales` | `StoreToCloud` | `StoreWins` | Goods come back over one counter; mutable while it is a draft, frozen once completed, and only the store can be editing it |
+| `SalesReturnLine` | `sales` | `StoreToCloud` | `StoreWins` | Follows its return |
+| `PriceOverrideLog` | `sales` | `StoreToCloud` | `AppendOnly` | A log a later write can overwrite is not a log |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared
@@ -181,6 +188,11 @@ prose copy. Nothing changed in Stage 07's or Stage 08's behaviour, and nothing h
 either stage's code. The lesson is that a hand-maintained prose copy of a machine-enforced fact drifts
 silently and is only ever caught by someone diffing the two — which is worth doing at the end of every
 stage that declares a replicated entity, not once a module.
+
+**The seven `sales` rows were added by Stage 10 itself**, in the same commit as the entities, which is
+the practice that lesson asks for. The count was checked the other way round as well: seven
+`[Replicated]` attributes in `src/VumaRetail.Domain/Sales/`, seven rows here, seven rows in
+`docs/DATA_MODEL.md` §5.
 
 Stage 06 (master data). None of the five `catalog`/`partners` entities is immutable — `Item`,
 `ItemVariant`, `Partner` and `UnitOfMeasure` deactivate rather than delete (§7 rule 8), and `Barcode` is

@@ -55,6 +55,36 @@ public interface IStockLedgerPoster
         Guid saleReferenceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Posts a sales return — stock coming back over the counter, valued at what it left at.
+    /// </summary>
+    /// <param name="location">Where the stock comes back to.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="quantity">How much came back. Must be positive.</param>
+    /// <param name="unitCost">
+    /// What it cost when it was sold — read off the original sale's ledger entry, not off today's
+    /// average. Receiving a return at the current average would let a shop change its own cost of
+    /// sales by putting goods through the till and taking them back again.
+    /// </param>
+    /// <param name="salesReturnReferenceId">The return document this receipt correlates to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <remarks>
+    /// Added in Stage 10 as the mirror of <see cref="IssueForSaleAsync"/>. It exists rather than the
+    /// return calling <see cref="ReceiveAsync"/> because a receipt with no reference is a receipt
+    /// nobody can trace back to the document that caused it — the ledger would show stock appearing
+    /// with a <see cref="StockReferenceType.Manual"/> label, which is what a stock adjustment looks
+    /// like, and the two must not be confusable in a shrinkage investigation.
+    /// </remarks>
+    Task<StockLedgerEntry> ReceiveForSalesReturnAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid salesReturnReferenceId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Posts a documented adjustment — a signed correction to on-hand quantity.</summary>
     /// <param name="location">Where the adjustment applies.</param>
     /// <param name="itemId">The item, when it has no variants.</param>
@@ -175,6 +205,24 @@ public sealed class StockLedgerPoster(
         return PostIssueLikeAsync(
             location, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
             StockReferenceType.Sale, saleReferenceId, reasonCode: null, note: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> ReceiveForSalesReturnAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid salesReturnReferenceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostReceiptLikeAsync(
+            location, itemId, itemVariantId, StockMovementType.SalesReturn, quantity, unitCost,
+            StockReferenceType.SalesReturn, salesReturnReferenceId, reasonCode: null, note: null,
+            cancellationToken);
     }
 
     /// <inheritdoc />

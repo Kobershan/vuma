@@ -244,7 +244,7 @@ vuma/
 | Module | Built in stage |
 |---|---|
 | POS system | **09** (till, tenders, receipts, cash-up, hardware), 10 (promotions, returns) |
-| Sales management | 10 |
+| Sales management | **10** (price lists, promotions, returns), 10c (quotes, invoices, analytics — split by ADR-074) |
 | Inventory management | 08 (ledger), 13 (bin-level) |
 | **Finance / accounting (GL, AR, AP, banking, tax)** | **07** |
 | HR management | 25 |

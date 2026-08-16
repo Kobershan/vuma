@@ -41,7 +41,8 @@ The minimum that makes a business able to trade *and* account for it.
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
 | 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — API and hardware merged to `main` 2026-08-15; the WPF till screen is deferred with 08b. **REOPENED after the agent reviews of 2026-08-15: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. Eight open defects, see `PROGRESS.md` §4.10–§4.16** |
-| 10 | Sales Management & Promotions | 09 | Quotes, invoices, returns, specials engine, sales analytics |
+| 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
+| 10c | Quotes, Invoices & Sales Analytics | 10, 14 | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
 | 11 | Data Import (Excel/CSV/PDF) | 06 | Ingest suppliers, customers, inventory and specials with preview + rollback |
 
