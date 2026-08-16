@@ -198,6 +198,12 @@ public enum StockMovementType
 
     /// <summary>The difference between a physical count and the system quantity, posted on finalizing a stocktake.</summary>
     StocktakeVariance = 5,
+
+    /// <summary>
+    /// Stock coming back over the counter on a sales return. Stage 10's mirror of
+    /// <see cref="SaleIssue"/>, valued at what the original issue cost rather than at today's average.
+    /// </summary>
+    SalesReturn = 6,
 }
 
 /// <summary>What kind of document, if any, a <see cref="StockLedgerEntry"/> correlates to.</summary>
@@ -214,6 +220,9 @@ public enum StockReferenceType
 
     /// <summary>Correlates to a sale. Stage 09 supplies the real sale id; Stage 08 only records the correlation.</summary>
     Sale = 3,
+
+    /// <summary>Correlates to a <c>sales.sales_returns</c> document. Stage 10.</summary>
+    SalesReturn = 4,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

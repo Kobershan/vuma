@@ -10,7 +10,11 @@ using VumaRetail.Application.Partners.Commands;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Pos;
 using VumaRetail.Application.Pos.Commands;
+using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Sales;
+using VumaRetail.Application.Sales.Commands;
 using VumaRetail.Domain.Pos;
+using VumaRetail.Domain.Sales;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
@@ -20,6 +24,7 @@ using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Finance.Commands;
 using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
@@ -149,6 +154,186 @@ public static class DemoSeed
         await SeedFinanceAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedInventoryAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
         await SeedPosAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
+        await SeedSalesAsync(
+            provider, context, johannesburg.Id, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 10: a retail price list, two live specials, and one completed return against the
+    /// sale Stage 09 seeded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The price list is what makes the demo answer "what should this cost" rather than "what did
+    /// somebody type". Prices are authored tax-inclusive, which is how a South African shelf price is
+    /// quoted and what <c>PricesIncludeTax</c> exists to record — the <c>STANDARD</c> rule
+    /// <see cref="SeedFinanceAsync"/> writes then splits R59.99 into net and VAT without the till
+    /// having to know which kind of list it read.
+    /// </para>
+    /// <para>
+    /// Two promotions rather than one, and deliberately of different kinds: a multibuy on milk, which
+    /// only fires above a quantity, and a percentage off a variant, which fires on every unit. Between
+    /// them they exercise both halves of the engine's ordering, and a demo with one special cannot show
+    /// that priority does anything.
+    /// </para>
+    /// <para>
+    /// The return is built from the domain factories and <see cref="ISalesReturnCompletionService"/>
+    /// rather than through the dispatcher, for the same reason <see cref="SeedPosAsync"/> is: a return
+    /// is attributed to the person who authorised it (<c>SalesActor</c>), and the seed runs as a system
+    /// principal. Going through the completion service still exercises what matters — the stock goes
+    /// back at what it left at, and <c>sales.return.completed</c> posts through the rule below.
+    /// </para>
+    /// </remarks>
+    private static async Task SeedSalesAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid storeId,
+        Guid milkItemId,
+        Guid shirtVariantId,
+        CancellationToken cancellationToken)
+    {
+        IClock clock = provider.GetRequiredService<IClock>();
+        DateOnly today = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+
+        // A sales-returns contra-revenue account rather than debiting Sales directly. A shop that
+        // cannot see what it refunded cannot tell a bad month from a bad product, and the two figures
+        // net to the same revenue either way.
+        Guid salesReturns = await EnsureAccountAsync(
+            provider, context, "4010", "Sales returns", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        Guid bank = await EnsureAccountAsync(
+            provider, context, "1200", "Bank — cheque account", AccountType.Asset,
+            ControlAccountType.Bank, cancellationToken).ConfigureAwait(false);
+
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        // The exact mirror of `pos.sale.tendered`: what was debited is credited and the other way
+        // round. The amounts arrive positive and the rule decides the sides — a sales module that
+        // negated them would be making a debit-and-credit decision, which §7 rule 12 gives it no
+        // standing to make.
+        await EnsurePostingRuleAsync(
+            provider, context, FinancialSalesReturnEventPublisher.SalesReturnCompletedEventType,
+            "Refund at the counter",
+            [
+                new PostingRuleLineInput(salesReturns, NormalBalance.Debit, "Net", InheritDimensions: true, "Sales returns"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Debit, "Tax", InheritDimensions: false, "Output VAT reversed"),
+                new PostingRuleLineInput(bank, NormalBalance.Credit, "Gross", InheritDimensions: false, "Bank"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        // The stock side of the same return, and the exact mirror of `inventory.sale.issued`. It gets
+        // its own event type rather than reusing `inventory.receipt.posted` because a return credits
+        // cost of sales while a supplier delivery credits goods-received-not-invoiced — the same
+        // movement of stock against two entirely different accounts.
+        Guid inventory = await EnsureAccountAsync(
+            provider, context, "1300", "Inventory on hand", AccountType.Asset,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        Guid costOfSales = await EnsureAccountAsync(
+            provider, context, "5000", "Cost of sales", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "inventory.sale.returned", "Stock back on the shelf from a return",
+            [
+                new PostingRuleLineInput(inventory, NormalBalance.Debit, "Value", InheritDimensions: false, "Inventory on hand"),
+                new PostingRuleLineInput(costOfSales, NormalBalance.Credit, "Value", InheritDimensions: true, "Cost of sales"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        if (!await context.PriceLists.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            Guid retail = await dispatcher.SendAsync(
+                new CreatePriceListCommand(
+                    "RETAIL", "Shelf prices", "ZAR", PriceListKind.Retail,
+                    PricesIncludeTax: true, Priority: 0, today.AddYears(-1)),
+                cancellationToken).ConfigureAwait(false);
+
+            await dispatcher.SendAsync(
+                new SetPriceListLineCommand(retail, milkItemId, null, new Money(59.99m, "ZAR")),
+                cancellationToken).ConfigureAwait(false);
+
+            // A quantity break, so the demo has something to show that a single price cannot: buy six
+            // and the price changes, and the resolver explains why.
+            await dispatcher.SendAsync(
+                new SetPriceListLineCommand(retail, milkItemId, null, new Money(54.99m, "ZAR"), 6m),
+                cancellationToken).ConfigureAwait(false);
+
+            await dispatcher.SendAsync(
+                new SetPriceListLineCommand(retail, null, shirtVariantId, new Money(249.00m, "ZAR")),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (!await context.Promotions.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            Guid multibuy = await dispatcher.SendAsync(
+                new CreatePromotionCommand(
+                    "MILK-3-FOR-150", "3 litres of milk for R150", PromotionKind.MultibuyForAmount,
+                    today.AddDays(-7), today.AddDays(30),
+                    RewardAmount: new Money(150m, "ZAR"), RequiredQuantity: 3m, Priority: 10),
+                cancellationToken).ConfigureAwait(false);
+
+            await dispatcher.SendAsync(
+                new AddPromotionLineCommand(multibuy, milkItemId), cancellationToken).ConfigureAwait(false);
+
+            Guid weekend = await dispatcher.SendAsync(
+                new CreatePromotionCommand(
+                    "SHIRT-WEEKEND", "20% off shirts, weekends only", PromotionKind.PercentageOff,
+                    today.AddDays(-7), today.AddDays(30),
+                    DiscountPercentage: 20m, Priority: 5, Days: PromotionDays.Weekend),
+                cancellationToken).ConfigureAwait(false);
+
+            await dispatcher.SendAsync(
+                new AddPromotionLineCommand(weekend, null, shirtVariantId),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (await context.SalesReturns.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        Sale? sale = await context.Sales
+            .Include(candidate => candidate.Lines)
+            .FirstOrDefaultAsync(candidate => candidate.Status == SaleStatus.Completed, cancellationToken)
+            .ConfigureAwait(false);
+
+        User? cashier = await provider.GetRequiredService<IUserRepository>()
+            .FindByUserNameAsync("cashier1", cancellationToken)
+            .ConfigureAwait(false);
+
+        if (sale is null || cashier is null || sale.Lines.Count == 0)
+        {
+            return;
+        }
+
+        string returnNumber = await provider.GetRequiredService<IDocumentNumberSequence>()
+            .NextAsync(CreateSalesReturnCommandHandler.ReturnNumberSeries, cancellationToken)
+            .ConfigureAwait(false);
+
+        SalesReturn salesReturn = SalesReturn.Raise(
+            sale, returnNumber, "Bottle leaking", TenderType.Cash, cashier.Id, clock.UtcNow);
+
+        // One of the two sold, so the demo shows a partial return: the refund is half the line to the
+        // cent, and the sale it came off is untouched.
+        salesReturn.AddLine(sale.Lines[0], new Quantity(1m, "EA"), previouslyReturned: 0m);
+
+        provider.GetRequiredService<ISalesReturnRepository>().Add(salesReturn);
+
+        await provider.GetRequiredService<ISalesReturnCompletionService>()
+            .CompleteAsync(salesReturn, cancellationToken)
+            .ConfigureAwait(false);
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Return {salesReturn.ReturnNumber} completed: {salesReturn.Gross} refunded "
+            + $"({salesReturn.Tax} tax), stock back on the shelf.");
     }
 
     /// <summary>

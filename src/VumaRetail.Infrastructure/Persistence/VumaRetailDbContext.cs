@@ -151,6 +151,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The append-only record of every receipt printed and reprinted.</summary>
     public DbSet<Domain.Pos.ReceiptPrint> ReceiptPrints => Set<Domain.Pos.ReceiptPrint>();
 
+    /// <summary>Named sets of prices — retail, wholesale, staff (Stage 10).</summary>
+    public DbSet<Domain.Sales.PriceList> PriceLists => Set<Domain.Sales.PriceList>();
+
+    /// <summary>One price on a list, from one quantity upwards.</summary>
+    public DbSet<Domain.Sales.PriceListLine> PriceListLines => Set<Domain.Sales.PriceListLine>();
+
+    /// <summary>Specials. Configuration, never a deployment.</summary>
+    public DbSet<Domain.Sales.Promotion> Promotions => Set<Domain.Sales.Promotion>();
+
+    /// <summary>What a promotion applies to.</summary>
+    public DbSet<Domain.Sales.PromotionLine> PromotionLines => Set<Domain.Sales.PromotionLine>();
+
+    /// <summary>The documents that take goods and money back.</summary>
+    public DbSet<Domain.Sales.SalesReturn> SalesReturns => Set<Domain.Sales.SalesReturn>();
+
+    /// <summary>One line coming back, refunded at what was actually charged.</summary>
+    public DbSet<Domain.Sales.SalesReturnLine> SalesReturnLines => Set<Domain.Sales.SalesReturnLine>();
+
+    /// <summary>The append-only record of every sale made at something other than the resolved price.</summary>
+    public DbSet<Domain.Sales.PriceOverrideLog> PriceOverrideLogs => Set<Domain.Sales.PriceOverrideLog>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 
