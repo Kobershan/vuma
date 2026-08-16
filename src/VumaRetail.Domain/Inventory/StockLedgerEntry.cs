@@ -223,6 +223,18 @@ public enum StockReferenceType
 
     /// <summary>Correlates to a <c>sales.sales_returns</c> document. Stage 10.</summary>
     SalesReturn = 4,
+
+    /// <summary>
+    /// Correlates to an <c>imports.import_batches</c> row — an opening or counted stock figure that
+    /// arrived in a spreadsheet. Stage 11.
+    /// </summary>
+    /// <remarks>
+    /// Its own reference type rather than <see cref="Manual"/> for the reason Stage 10's
+    /// <see cref="SalesReturn"/> exists: an adjustment nobody can trace back to the document that
+    /// caused it looks exactly like a shrinkage write-off, and the two must not be confusable in an
+    /// investigation. It is also what a rollback matches on to find the entries it must reverse.
+    /// </remarks>
+    Import = 5,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

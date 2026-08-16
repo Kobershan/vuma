@@ -1,5 +1,8 @@
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Imports.Commands;
+using VumaRetail.Domain.Imports;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.Identity;
@@ -156,6 +159,85 @@ public static class DemoSeed
         await SeedPosAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
         await SeedSalesAsync(
             provider, context, johannesburg.Id, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
+        await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 11: one supplier file that was imported and kept, and one that was imported and
+    /// taken back.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both go through the real dispatcher — upload, validate, commit — because the pipeline is the
+    /// thing being demonstrated and a batch inserted by hand would show the tables without showing that
+    /// any of it works. The CSV is a byte array in this file rather than a fixture on disk for the same
+    /// reason the rest of the seeder is self-contained: a demo that depends on a file being deployed
+    /// next to it is a demo that fails on somebody else's machine.
+    /// </para>
+    /// <para>
+    /// The second batch exists so the demo can answer the question R5's rollback promise raises and
+    /// nothing else in the seed data can: what a taken-back import actually looks like afterwards. Its
+    /// partner is soft-deleted, so it is absent from every read and still on disk with the batch that
+    /// removed it and the reason somebody gave — which is the whole of ADR-076 in two rows.
+    /// </para>
+    /// <para>
+    /// Guarded on the batch table being empty rather than per-batch, because re-running the seeder
+    /// would otherwise be refused by the content-hash check (<c>IMPORTS_FILE_ALREADY_COMMITTED</c>) —
+    /// correctly, since it is the same file, which is exactly what that check is for.
+    /// </para>
+    /// </remarks>
+    /// <param name="provider">The scoped provider.</param>
+    /// <param name="context">The database context.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static async Task SeedImportsAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (await context.ImportBatches.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        // Headers a person did not have to touch: "Supplier Code", "Supplier Name" and "E-Mail" are all
+        // aliases the Suppliers catalogue already knows, so this file maps itself on upload.
+        ImportBatchCreated kept = await dispatcher.SendAsync(
+            new CreateImportBatchCommand(
+                ImportTargetKind.Suppliers,
+                ImportSourceFormat.Csv,
+                "suppliers-march.csv",
+                Encoding.UTF8.GetBytes(
+                    "Supplier Code,Supplier Name,E-Mail,Telephone\n"
+                    + "COLDCHAIN,Cold Chain Logistics,accounts@coldchain.example,021 555 0142\n"
+                    + "PACKRITE,Pack Rite Packaging,orders@packrite.example,011 555 0188\n")),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ValidateImportBatchCommand(kept.BatchId), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new CommitImportBatchCommand(kept.BatchId), cancellationToken)
+            .ConfigureAwait(false);
+
+        ImportBatchCreated undone = await dispatcher.SendAsync(
+            new CreateImportBatchCommand(
+                ImportTargetKind.Suppliers,
+                ImportSourceFormat.Csv,
+                "suppliers-wrong-branch.csv",
+                Encoding.UTF8.GetBytes(
+                    "Supplier Code,Supplier Name,E-Mail\n"
+                    + "WRONGCO,Wrong Branch Trading,accounts@wrongco.example\n")),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ValidateImportBatchCommand(undone.BatchId), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new CommitImportBatchCommand(undone.BatchId), cancellationToken)
+            .ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new RollbackImportBatchCommand(
+                undone.BatchId, "Uploaded against the wrong branch's supplier list."),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

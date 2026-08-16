@@ -58,6 +58,24 @@
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Data import">
+    <!--
+      Stage 11, both locked by CLAUDE.md §4 rather than chosen here (ADR-077).
+
+      ClosedXML reads and writes OOXML with no Excel installed and no native dependency, which is what
+      a Windows service and a Linux CI container both need. It is also the writer the tests use to
+      build an .xlsx in-memory and read it straight back, so the reader is asserted against a real
+      workbook rather than against a fixture nobody can regenerate.
+
+      PdfPig gives words with their bounding boxes, which is the whole reason a PDF price list is
+      readable at all: rows come from baselines and columns from x-positions. Its PdfDocumentBuilder
+      writes the fixtures the reader tests parse. A scanned PDF has no text layer and is refused
+      rather than guessed at — Tesseract is deferred behind IOcrTextExtractor, see PROGRESS.md.
+    -->
+    <PackageVersion Include="ClosedXML" Version="0.105.1" />
+    <PackageVersion Include="PdfPig" Version="0.1.15" />
+  </ItemGroup>
+
   <ItemGroup Label="API platform">
     <!--
       ADR-009 names Scrutor by name: the dispatcher is ours, the assembly scan that finds handlers

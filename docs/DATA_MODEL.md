@@ -779,6 +779,111 @@ voided is still an override that happened.
 
 ---
 
+## 4i. Tables in `imports`
+
+Built in Stage 11. One uploaded file, what it was read as, what it was mapped to, what each of its rows
+would do, and — the part rollback is built on — what each row overwrote.
+
+Every item, variant, partner, price-list, location and ledger-entry reference below is a bare `uuid`
+and **never** a foreign key out of this schema (`CONVENTIONS.md` §2). Foreign keys *within* `imports`
+are used and correct: a row without its batch, or a mapping without its batch, is meaningless.
+
+**Everything here is written before anything else is.** The whole schema exists so that upload, parse,
+map and validate have somewhere to happen that is not a business table — which is what makes the
+preview an honest preview rather than a report on damage already done. See `docs/IMPORT_PIPELINE.md`.
+
+### `imports.import_batches`
+
+`batch_number`, `target_kind`, `source_format`, `file_name`, `content_hash`, `size_bytes`, `status`,
+`duplicate_strategy`, `worksheet`, `source_columns` (`jsonb`), the six row counters, and the who/when
+of commit and rollback.
+
+`ux_import_batches_tenant_id_batch_number` is unique per tenant; the number comes from ADR-065's
+sequence, series `IMP`.
+
+`ix_import_batches_tenant_id_content_hash_committed` is **partial on committed batches only** and is
+the duplicate-file check, run once per upload. `content_hash` is the SHA-256 of the uploaded bytes, and
+matching on **content rather than on file name** is the point — the same sheet saved under two names is
+the same sheet, and re-importing it is how somebody doubles their opening stock. The index is partial
+because uploading the same file twice is fine while the first attempt is still a preview; refusing it
+would strand somebody who discarded a batch and started again.
+
+`source_columns` is a `jsonb` array rather than a child table because **order is the whole content**. A
+header row is a sequence, and a child table would need a sequence column to say so.
+
+The six counters (`total_rows`, `valid_rows`, `invalid_rows`, `created_rows`, `updated_rows`,
+`skipped_rows`) are **recomputed from the rows on every transition**, never incremented. A counter that
+is incremented is a counter that drifts, and this one is what a person reads before deciding to commit.
+
+The uploaded bytes are **not** a column here. A 40 MB workbook does not belong in a table a list
+endpoint pages over, and the bytes have a different lifetime from the record of what was imported —
+they are dropped on commit, while the batch and its rows are kept.
+
+### `imports.import_column_mappings`
+
+`import_batch_id`, `target_field`, `source_column` (nullable), `default_value` (nullable).
+
+`ix_import_column_mappings_batch_id_target_field` is unique — a target field bound twice is a mapping
+that cannot be applied, and it is refused at the point the mapping is set rather than discovered per
+row.
+
+`source_column` is nullable because of `default_value`: a **constant** for a column the file does not
+have at all — a supplier file with no `currency` column, for a tenant that trades in one currency. That
+is also why a saved template beats alias matching, which by definition cannot bind a column that is not
+there. A binding with neither is refused (`IMPORTS_MAPPING_BINDS_NOTHING`).
+
+### `imports.import_rows`
+
+The single most important table in the module. `import_batch_id`, `row_number`, `raw_values`
+(`jsonb`), `normalised_values` (`jsonb`), `status`, `errors` (`jsonb`), `outcome`, `target_entity_id`,
+`compensation_entity_id`, and `before_image` (`jsonb`).
+
+`ix_import_rows_batch_id_row_number` is the preview's keyset order. `ix_import_rows_batch_id_status_row_number`
+is what the filtered preview seeks on — nobody scrolls forty thousand rows looking for the eleven bad
+ones.
+
+`row_number` is the **file's line number, header counted as 1**, so data rows start at 2. A row error
+that says "line 400" has to mean the line the person sees in their spreadsheet, not an index.
+
+**Both value maps are kept.** `raw_values` is what the file said, keyed by source header, and it is
+what answers "what did the file actually say" a year later. `normalised_values` is the parsed,
+canonical form keyed by *target field* — a cell reading `R1 234,56` is stored raw as written and
+normalised to `1234.56`. Parsing happens **once**, at validation (`CONVENTIONS.md` §6), and a target
+handler reads only the normalised map; a preview and a commit that parse separately are a preview and a
+commit that can disagree.
+
+`before_image` is what makes ADR-076's rollback possible: the prior state of the entity this row
+updated, as JSON, written by the handler that changed it and read back by nobody else. Each handler
+stores **only the fields it can change** — storing the whole entity would break the image the first
+time a later stage adds a field, and restoring a field the handler never touched would undo somebody
+else's edit.
+
+`outcome` (`Created` / `Updated` / `Movement` / `None`) is what the rollback dispatches on, and
+`compensation_entity_id` records the reversing ledger entry for a movement, so the original and its
+reversal can be read back as a pair.
+
+`status` carries three *preview* verdicts and three *post-commit* ones. `Valid`, `Invalid` and
+`Skipped` are what validation produces — a duplicate is its own answer and not a kind of valid
+(ADR-080) — and `Committed`, `Skipped` and `RolledBack` are what the commit and rollback leave behind.
+
+### `imports.import_mapping_templates`
+
+`code`, `name`, `target_kind`, `source_signature`, `bindings` (`jsonb`), `is_active`, `use_count`,
+`last_used_at`.
+
+`ux_import_mapping_templates_tenant_id_code` is unique per tenant.
+`ix_import_mapping_templates_target_kind_source_signature` is the lookup done once per upload.
+
+`source_signature` is a hash of the **normalised header row**, and it is the mechanism that makes the
+second month's import free: a file whose headers match a saved template is mapped on upload with no
+human step at all. Normalised on both sides by stripping everything that is not a letter or a digit, so
+a supplier who changes `Unit Price` to `unit_price` between months does not silently lose their
+template.
+
+Deactivated, never deleted (§7 rule 8) — a batch that was mapped by a template has to stay explicable.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -819,10 +924,20 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `SalesReturn` | StoreToCloud | StoreWins | Goods come back over one counter, and the document is frozen the moment it completes. `StoreWins` rather than `AppendOnly` for the reason `Sale` is: it is legitimately mutable while it is a draft, and the store is the only node that can be editing it. |
 | `SalesReturnLine` | StoreToCloud | StoreWins | Follows its return. |
 | `PriceOverrideLog` | StoreToCloud | AppendOnly | A log a later write can overwrite is not a log. `IImmutableRecord`, so it accumulates — the same reason `AuditEntry`, `StockLedgerEntry` and `ReceiptPrint` are append-only. |
+| `ImportBatch` | StoreToCloud | StoreWins | An import happens at the store, against that store's data, and the cloud observes the outcome — how many rows, what they did, who committed it. The store is the only node that can be editing one. |
+| `ImportColumnMapping` | StoreToCloud | StoreWins | Follows its batch. |
+| `ImportRow` | StoreToCloud | StoreWins | Follows its batch. `StoreWins` rather than `AppendOnly` because a row is legitimately rewritten several times before it settles — a verdict at validation, an outcome at commit, a compensation at rollback — and all of it happens on the one node that owns the batch. |
+| `ImportMappingTemplate` | Bidirectional | CloudWins | The one entity here head office has a reason to own: a chain negotiating a supplier's file format once and pushing the mapping to every branch is the point of templates. A branch still saves its own for a local supplier, and the cloud settles a genuine collision — the same shape as `PriceList`. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
 one-line rationale per entity.
+
+**The uploaded file itself is deliberately absent from this registry.** `IImportFileStore` keeps the
+bytes outside the database entirely, and they do not replicate: the store server is where an import
+happens and where the file was uploaded, and the cloud gets the batch, the rows and the outcome, which
+is what a head office asks about. R10 also applies — an uploaded customer list is exactly the sort of
+document that has no business leaving the premises for vendor purposes.
 
 ---
 

@@ -16,6 +16,7 @@ using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
 using VumaRetail.Licensing.Enforcement;
 using VumaRetail.Licensing.Queries;
+using VumaRetail.TestSupport;
 
 namespace VumaRetail.IntegrationTests.Licensing;
 
@@ -429,13 +430,18 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
         .Where(type => type.GetInterfaces().Any(contract => contract.IsGenericType
             && contract.GetGenericTypeDefinition() == typeof(IQuery<>)));
 
-    private static Assembly[] Assemblies() =>
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
-    ];
+    /// <summary>
+    /// Every product assembly whose commands and queries this sweep covers.
+    /// </summary>
+    /// <remarks>
+    /// Derived rather than listed, since Stage 11 (ADR-078). The hand-maintained version of this array
+    /// omitted <c>VumaRetail.Finance</c> for a whole stage, which meant the trial balance, both
+    /// ageings and every ledger query were never asserted to survive read-only —
+    /// <c>TESTING.md</c> §7 requires the full catalogue, not a sample (<c>PROGRESS.md</c> §4.16).
+    /// <see cref="ModuleAssemblies"/> is shared source with the architecture tests so the two sweeps
+    /// cannot drift apart again.
+    /// </remarks>
+    private static Assembly[] Assemblies() => ModuleAssemblies.All;
 }
 
 /// <summary>
