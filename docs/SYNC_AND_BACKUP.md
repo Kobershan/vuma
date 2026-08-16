@@ -19,8 +19,13 @@ Three tiers, **one protocol**. A terminal posts a batch to its store server at e
 store server posts one to the cloud, and the same receiver code runs at both ends. What differs is
 each node's `NodeKind`, which is the only thing the authority conflict policies read.
 
-The terminal leg is specified here and built in Stage 09, with the POS client that needs it. The
-store↔cloud leg is built and tested.
+The terminal leg is specified here and **is still not built**. Stage 09 shipped the server half of
+POS — the domain, the API and the hardware layer — but no terminal-local SQLite cache and no outbound
+queue: `Microsoft.Data.Sqlite` appears nowhere in `src/`, and `VumaRetail.Desktop` is unstarted. This
+paragraph previously said the leg was "built in Stage 09, with the POS client that needs it"; the
+client is what did not arrive, so the leg went with it. It belongs to whoever builds the desktop POS
+client (Stage 08b plus `VumaRetail.Desktop`), and until then **the three-tier claim in this document
+is a specification, not a description**. The store↔cloud leg is built and tested.
 
 ### Nodes
 
@@ -101,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 08 and 09)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08 and 09)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -132,6 +137,25 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ItemVariant` | `catalog` | `Bidirectional` | `CloudWins` | Follows its item |
 | `Barcode` | `catalog` | `Bidirectional` | `CloudWins` | A store attaching a legacy or case-pack code locally is routine; the cloud settles a genuine collision |
 | `Partner` | `partners` | `Bidirectional` | `CloudWins` | Suppliers and customers are onboarded at either tier; head office is where a multi-store estate reconciles a duplicate |
+| `Account` | `finance` | `CloudToStore` | `CloudWins` | The chart of accounts is head office's; a store never invents a GL account (§7 rule 12) |
+| `AccountingPeriod` | `finance` | `CloudToStore` | `CloudWins` | Opening and closing a period is a head-office act |
+| `PostingRule` | `finance` | `CloudToStore` | `CloudWins` | The rules engine that turns a module's financial event into a journal is configured centrally (ADR-016) |
+| `PostingRuleLine` | `finance` | `CloudToStore` | `CloudWins` | Follows its rule |
+| `TaxRule` | `finance` | `CloudToStore` | `CloudWins` | Tax is a rules engine, not a constant (ADR-014); the rate a store charges is not the store's to set |
+| `DocumentNumberCounter` | `finance` | `NodeLocal` | `LastWriterWins` | **Deliberately not replicated as a value**, for the same reason as `StockBalance`: two nodes sharing a counter would issue the same document number twice |
+| `Journal` | `finance` | `StoreToCloud` | `AppendOnly` | A posted journal is immutable (§7 rule 7); amendment is a reversing entry |
+| `JournalLine` | `finance` | `StoreToCloud` | `AppendOnly` | Follows its journal, and is immutable for the same reason |
+| `ArInvoice` | `finance` | `StoreToCloud` | `StoreWins` | Raised where the sale happened; mutable until posted |
+| `ArInvoiceLine` | `finance` | `StoreToCloud` | `StoreWins` | Follows its invoice |
+| `ArReceipt` | `finance` | `StoreToCloud` | `AppendOnly` | Money that changed hands. Immutable, so it accumulates |
+| `ArReceiptAllocation` | `finance` | `StoreToCloud` | `AppendOnly` | Follows its receipt, and is immutable for the same reason |
+| `ApInvoice` | `finance` | `StoreToCloud` | `StoreWins` | Captured against the store that received the goods |
+| `ApInvoiceLine` | `finance` | `StoreToCloud` | `StoreWins` | Follows its invoice |
+| `ApPayment` | `finance` | `StoreToCloud` | `AppendOnly` | Money that changed hands. Immutable |
+| `ApPaymentAllocation` | `finance` | `StoreToCloud` | `AppendOnly` | Follows its payment |
+| `BankAccount` | `finance` | `StoreToCloud` | `StoreWins` | The account a shop banks into is the shop's to maintain |
+| `BankStatementLine` | `finance` | `StoreToCloud` | `StoreWins` | Imported at the store that owns the account |
+| `ReconciliationVarianceFlag` | `finance` | `StoreToCloud` | `AppendOnly` | A raised flag is a record that it was raised; clearing it is a new row |
 | `StockLocation` | `inventory` | `Bidirectional` | `CloudWins` | A store names its own back room; head office adds a distribution centre. Same shape as `Store` |
 | `StockLedgerEntry` | `inventory` | `StoreToCloud` | `AppendOnly` | Stock physically moves at the store and the ledger accumulates (ADR-005) |
 | `StockBalance` | `inventory` | `NodeLocal` | `LastWriterWins` | **Deliberately not replicated as a value** (ADR-069): a running total is not safely mergeable, so each node rebuilds its own from the entries it applied |
@@ -144,11 +168,19 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SaleTender` | `pos` | `StoreToCloud` | `AppendOnly` | Money that changed hands. Immutable, so it accumulates and never overwrites |
 | `ReceiptPrint` | `pos` | `StoreToCloud` | `AppendOnly` | A print log a later write can overwrite is not a log |
 
-**The `inventory` rows above were added in Stage 09**, not Stage 08. Stage 08 declared all six
-`[Replicated]` attributes on the entities and recorded them in `docs/DATA_MODEL.md` §5, but did not
-carry them into this table — so the registry here was six entities short of the code for one stage.
+**The `finance` and `inventory` rows above were both added retrospectively, and the second correction
+found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared
+as `[Replicated]` attributes and recorded in `docs/DATA_MODEL.md` §5 but never carried into this
+table. The Stage 09 review then found that **Stage 07 had drifted in exactly the same way and by
+three times as much** — 19 `finance` entities declared in code and absent here — which the heading
+above recorded by omitting 07 from its own list of stages. So this table was 25 entities short of the
+code across two stages, not six across one.
+
 The attributes are the source of truth and the architecture test enforces them; this table is the
-prose copy, and it had drifted. Nothing changed in Stage 08's behaviour.
+prose copy. Nothing changed in Stage 07's or Stage 08's behaviour, and nothing here is a defect in
+either stage's code. The lesson is that a hand-maintained prose copy of a machine-enforced fact drifts
+silently and is only ever caught by someone diffing the two — which is worth doing at the end of every
+stage that declares a replicated entity, not once a module.
 
 Stage 06 (master data). None of the five `catalog`/`partners` entities is immutable — `Item`,
 `ItemVariant`, `Partner` and `UnitOfMeasure` deactivate rather than delete (§7 rule 8), and `Barcode` is
@@ -439,7 +471,8 @@ Adding a replicated entity means:
 
 | | Owner |
 |---|---|
-| Terminal ↔ store leg and the SQLite outbound queue (ADR-003) | Stage 09, with the POS client |
+| Terminal ↔ store leg and the SQLite outbound queue (ADR-003) | **Still deferred after Stage 09** — belongs with the desktop POS client (08b + `VumaRetail.Desktop`), which is what did not arrive. See §2 |
+| A convergence test across all three tiers | Same owner. The existing tests build `Cloud` and `Store` harnesses only; `NodeKind.Terminal` never appears as a replicating node, and no `pos` entity appears in any replication test |
 | Cloud → sibling-store fan-out (the cloud relaying one store's change to another) | Stage 06+, when there is master data worth fanning out |
 | mTLS on the sync channel — which Kestrel port demands a client certificate | Stage 31 (installer) |
 | Continuous PITR / WAL archiving on top of full snapshots | Stage 31, after the DR drill decides whether snapshots alone are enough |

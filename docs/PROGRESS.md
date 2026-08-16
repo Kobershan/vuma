@@ -16,13 +16,28 @@ of it, out of the roadmap's documented order, because none of them needs 05's ap
 compile or pass (their approval gates are documented no-ops) and leaving verified stages on branches
 is the larger risk.
 
-**Stage 09 is DONE with one part explicitly deferred, and the deferral is the thing to read first.**
+**Stage 09 is merged but is no longer DONE, and this is the thing to read first.** It was recorded as
+DONE on 2026-08-15 on the strength of an inline self-review. The five agent reviews then ran against
+the committed code and `stage-verifier` returned **`STAGE NOT DONE — 2 failing, 3 unverified`**. The
+stage has been reopened rather than left marked DONE: `UNVERIFIED` is not `PASS`, and neither is
+"merged".
+
+Two things are true at once and both matter. **The core is genuinely solid** — independently
+executed, not asserted: 0 warnings, 835 tests green, 92.01% coverage on Domain/Pos + Application/Pos,
+the migration reversible in both directions, and a seeded store that has really traded with a
+balancing journal. **And there are eight open defects against it**, four of them serious: the offline
+replay path is not idempotent (§4.11), the module entitlement gate is never applied anywhere in the
+product (§4.12), a foreign-currency sale permanently bricks a terminal (§4.13), and weighed lines are
+systematically overcharged by a cent (§4.14). None of these is in POS's own arithmetic or aggregate
+design, which is what the inline pass checked and got right; they are the load-bearing paths POS is
+simply the first module to reach.
+
 The till's domain, application, API and hardware layers are built, tested and merged. The WPF screen
 that renders them is not, and could not be: `VumaRetail.Desktop` cannot be built or run on this Linux
 machine (ADR-031, §4.3), and the design system it must consume is Stage 08b, still NOT_STARTED. R3
 says nothing exists in a UI that is not reachable over the API first, so what shipped is the whole of
 that API — every screen the till will need is an endpoint that works today. Do not read "Stage 09
-DONE" as "there is a till you can touch".
+DONE" as "there is a till you can touch" — and after the reviews, do not read it as DONE at all.
 
 | Stage | Title | Status | Changed |
 |---|---|---|---|
@@ -37,7 +52,7 @@ DONE" as "there is a till you can touch".
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
-| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **DONE** (main), *WPF shell deferred* | 2026-08-15 |
+| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
 | 10 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
@@ -602,8 +617,13 @@ skipped** (498 unit, 31 architecture, 306 integration). Full exit checklist in
 **What shipped.** Schema `pos`, five tables: `till_sessions`, `sales`, `sale_lines`, `sale_tenders`,
 `receipt_prints`. `Sale` is the aggregate root — lines and tenders are only reachable through it, so
 the invariants that matter (totals are the sum of the live lines; the sale is paid for before it
-completes) cannot be broken by writing to a child. Twelve commands, eight queries, nine permissions,
-20 REST operations across 17 paths under `/api/v1/pos`, all present in `/openapi/v1.json`.
+completes) cannot be broken by writing to a child. **Eleven** commands, eight queries, nine
+permissions, **19** REST operations across 17 paths under `/api/v1/pos`, all present in
+`/openapi/v1.json`. (This sentence originally read "Twelve commands" and "20 REST operations". Both
+were prose overcounts, corrected after the reviews of 2026-08-15 — three agents independently counted
+11 commands with 11 matching `[CommandSideEffect]` attributes, and `stage-verifier` counted 19
+operations against a booted host. There is no unclassified twelfth command and no missing endpoint;
+see the review entry below.)
 
 **`VumaRetail.Hardware` is a new project and it is cross-platform on purpose.** `CLAUDE.md` §5 has
 listed it since Stage 00 and §4.3 said it could not be built here. That turned out to be wrong, and
@@ -741,6 +761,124 @@ satisfies net + tax = gross); whether replaying a whole offline sale sequence �
 `OpenSaleCommand` that is explicitly idempotent — can double-add lines or double-relieve stock; and
 whether `PosModuleManifest.IsCore => false` is the right call for the first non-core module in the
 product.
+
+> **Resolved later the same day — all five agents ran against the committed code. See the
+> 2026-08-15 (later) entry immediately below.** All three questions above were answered, and two of
+> the three answers were not the reassuring one. The `UNVERIFIED` flags in this entry are superseded
+> by the verdicts recorded there; this paragraph is left in place because the gap in this stage's
+> evidence was real when it was written, and the fix for it is a matter of record rather than
+> something to tidy away.
+
+### 2026-08-15 (later) — the five agent reviews ran against committed Stage 09
+
+The reviews the stage entry above records as missing were run against `bc56bd0`, the merge commit, by
+a session that did not write the code. This is the entry that closes that gap. **`architecture-guard`,
+`money-and-tax`, `sync-and-offline`, `licence-safety` and `stage-verifier` all completed.** Nothing in
+the repository's source was changed by this session — the reviews are read-only by charter, and every
+defect below is recorded rather than fixed, because several of them need decisions this session did
+not have standing to make alone.
+
+**Verdicts.**
+
+| Agent | Verdict |
+|---|---|
+| `architecture-guard` | `FAIL (3 violations)` |
+| `money-and-tax` | 6 findings — 1 HIGH, 1 MEDIUM-HIGH, 3 MEDIUM/LOW, 1 observation |
+| `sync-and-offline` | 1 CRITICAL, 2 HIGH, 2 MEDIUM |
+| `licence-safety` | §4.10 both items `AT RISK` confirmed; 3 further `AT RISK`; 5 `SAFE`; metering `SAFE` by construction, `UNVERIFIED` by execution |
+| `stage-verifier` | **`STAGE NOT DONE — 2 failing, 3 unverified`** |
+
+**The good news first, because it is substantial and it was independently executed rather than
+asserted.** `stage-verifier` re-ran the stage's own claims and they hold: `dotnet build -c Release`
+gives 0 warnings and 0 errors across 15 projects; `dotnet test` gives **835 passed, 0 failed, 0
+skipped** (498/31/306) exactly as claimed; the `Pos` migration applies to an empty database, reverses
+cleanly leaving the other nine schemas intact, and re-applies; `scripts/seed.sh` produces the traded
+store with `JNL-000003` balancing to the cent and stock relieved 40 → 38. It also produced the
+coverage figure the stage never reported: **Domain/Pos + Application/Pos = 92.01%** (898/976 lines),
+comfortably over the 80% bar. `architecture-guard` re-derived all five of the author's inline claims
+— rule 15, rule 12, rule 2, clock discipline, cross-schema FKs — and **all five hold**. The inline
+pass was not rubber-stamping.
+
+**What the inline pass could not do was look where it was not already looking**, and that is where
+every finding below came from. The three questions the stage recorded, answered:
+
+1. **Per-line vs total tax divergence — real, and the stage's framing understated it.** The claim
+   that the journal balances is correct and holds by construction. But the divergence between
+   sum-of-rounded-lines and tax-on-total is **not bounded at a cent** — it is bounded *per line* at
+   just under half a cent and grows linearly, so 50c on a 100-line basket. Sharpest statement: the
+   same basket, same customer, same R99.00 taken, declares **R13.00 output VAT if the cashier scans
+   100 items individually and R12.91 if they key quantity 100**. Nothing customer-visible or
+   internally inconsistent is wrong today; the exposure is forward-looking, and it wants an ADR
+   saying *tax is computed and stored per line; no consumer may recompute it from a total*.
+2. **Replaying an offline sale sequence — yes, it double-adds lines and double-relieves stock.**
+   `OpenSaleCommand` is idempotent; nothing else in the sequence is. Full worked sequence in §4.11.
+3. **`IsCore => false` is the right call.** Both `architecture-guard` and `licence-safety` argued it
+   rather than asserting it: a warehouse-only site or a back-office wholesaler genuinely has books,
+   stock and no cash drawer, and marking POS core to dodge the entitlement branch would leave R7 with
+   no module it is actually true of. The flag is right. **The enforcement behind it is missing
+   entirely** — §4.12.
+
+**Two agents corrected this repository's own documentation, including corrections made hours earlier
+in the stage session.** Recorded because in both cases the correction was right in method and
+incomplete in extent:
+
+- **`SYNC_AND_BACKUP.md` §3 was 25 entities short, not six.** The stage session found Stage 08's six
+  `inventory` rows missing and added them. `sync-and-offline` found that **Stage 07 had drifted the
+  same way and by three times as much** — 19 `finance` entities declared `[Replicated]` in code and
+  absent from the registry. The tell was in the correction itself: the section heading was rewritten
+  to read "Stage 04, extended Stage 04b, 06, 08 and 09" — with 07 absent from its own list. All 19
+  rows are now in the table with their scopes and policies read off the attributes.
+- **`SYNC_AND_BACKUP.md` §2 claimed the terminal leg was "built in Stage 09".** It is not built at
+  all: `Microsoft.Data.Sqlite` appears nowhere in `src/`, `VumaRetail.Desktop` is empty, and Stage 09
+  changed zero files under `src/VumaRetail.Sync/`. §2 and the §12 deferred table now say so.
+  Relatedly, **there is no three-tier sync test** — `NodeKind.Terminal` never appears as a
+  replicating node, and no `pos` entity appears in any replication test at all.
+- **The command and endpoint counts in this file were both overcounts** — 11 commands, not twelve;
+  19 REST operations, not 20. Three agents counted the commands independently and agree; there is no
+  unclassified twelfth command hiding behind the discrepancy, which was the thing worth ruling out.
+
+**The §4.10 write-up was itself materially wrong, in the direction that makes the fix cheaper.** It
+says "the open-session carve-out is not built at all". `licence-safety` found the mechanism **was
+built in Stage 04b and is live in the guard today** — `ISessionScopedCommand`, `IOpenSessionRegistry`,
+`OpenSessionRegistry` registered as a singleton, `LicensingOptions.OpenSessionCarveOut` defaulting to
+`true`, and the branch at `ReadOnlyGuardBehaviour.cs:77-82` that consults it. What is missing is only
+the POS side of the wire: those two interfaces have **zero references in POS**, and the sole
+implementer anywhere is a test double whose own doc comment says it stands in "because the POS does
+not exist until Stage 09". Consequence: the in-flight case is **not** governed by ADR-052's cap on
+`ReadOnlyExemption` kinds, so only the reprint needs a fourth kind. §4.10 is rewritten below with the
+adjudication and the specification, including the trap in the obvious implementation.
+
+**Findings are recorded as §4.11 through §4.16**, newest-first above §4.10. In severity order the
+four that matter most: §4.11 (POS replay is not idempotent — CRITICAL), §4.12 (the module entitlement
+gate is never applied anywhere in the product), §4.13 (a foreign-currency sale permanently bricks a
+terminal), §4.14 (weighed lines are systematically overcharged by a cent).
+
+**A pattern worth naming, because it caused three separate findings.** In four places a doc comment
+states a guarantee the code does not implement, and in each case it is the claim the *next* author
+would have built against:
+
+| Where | Says | Actually |
+|---|---|---|
+| `PosEndpoints.cs:31` | "the replay is idempotent" | only `OpenSaleCommand` is (§4.11) |
+| `SaleCommands.cs:19` | currency "Defaults to the store's" | hard-coded `"ZAR"`; `CurrencyOverride` and `BaseCurrency` are read zero times in POS (§4.13) |
+| `Money.cs:19-21` | rounding to currency scale "happens once" | happens twice on the extended-price path (§4.14) |
+| `LicensingEndpoints.cs:166` | "the single gate every module stage from 06 uses" | zero call sites (§4.12) |
+
+None of these was reachable by a test, because in each case the test suite asserts what the code does.
+A doc comment that overstates a guarantee is invisible to CI and expensive to whoever trusts it, and
+it is the specific thing an independent reviewer catches that an author cannot.
+
+**Convergence between agents is itself evidence.** Three independent briefs reached
+`VumaRetail.Finance` being outside the reflection sweeps (§4.16), three reached the entitlement gate
+(§4.12), and two reached the same fix for the replay problem from opposite directions —
+`sync-and-offline` from idempotency and `licence-safety` from LICENSING.md Rule 4 — both landing on
+*route terminal replay through the already-exempt sync-batch path rather than the REST command path*.
+That is the single highest-leverage change identified by this review round.
+
+**What this session deliberately did not do.** No source file was changed. No ADR was written: the
+§4.10 decision, the tax-per-line ADR, and the ADR extending ADR-052 are all decisions with commercial
+or contractual weight, and the point of running the reviews was to stop decisions of that kind being
+made by the session that also writes the code. They are specified, argued and ready to take.
 
 ### 2026-08-15 — Stage 08 complete: inventory core (ledger, valuation, transfers, stocktakes)
 
@@ -1186,7 +1324,203 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
-### 4.10 POS does not implement two read-only carve-outs `LICENSING.md` promises — **OPEN, found in Stage 09**
+### 4.16 `VumaRetail.Finance` is outside both reflection sweeps — **OPEN, pre-existing from Stage 07**
+
+Found independently by `architecture-guard` and `licence-safety`. `CommandClassificationTests.CommandAssemblies`
+and `ReadOnlyCorrectnessTests.Assemblies()` both list Application, Infrastructure, Sync and Licensing.
+**`VumaRetail.Finance` is in neither**, and it defines 18 commands and 11 queries.
+
+Why it is not cosmetic: `ReadOnlyGuardBehaviour.cs:51` reads
+`if (envelope.Kind is not MessageKind.Command || envelope.Effect is not SideEffect.Write) return ...`.
+`SideEffect.Unclassified` is `not Write`, so **an unattributed command passes straight through the
+read-only guard and writes while the tenant is read-only** — precisely the hole `SideEffect.cs` says
+must be unreachable, and which `Pipeline.cs` explicitly delegates to the architecture test that does
+not cover this assembly. All 18 current Finance commands do carry the attribute, so this is latent,
+not live. Worked example: a Stage 12 session adds `VoidSupplierInvoiceCommand` without the attribute;
+CI stays green; a lapsed tenant voids supplier invoices while every other write in the product is
+refused.
+
+It also means `TESTING.md` §7's "sweep the full report catalogue, not a sample" is unmet — the trial
+balance, both ageings and every ledger query are never asserted to survive read-only. They will
+survive (the guard is query-blind); the assertion the doc mandates is simply absent.
+
+**Fix:** add Finance to both lists, and make the list self-maintaining — derive it from the module
+assemblies, or assert that every assembly containing an `IModuleManifest` appears in it. A
+hand-maintained list is how this went stale, and the next module will do it again. `VumaRetail.Hardware`
+defines no commands and is unaffected.
+
+### 4.15 `pos.receipt.reprint` is a permission nothing checks — **OPEN, found in Stage 09**
+
+Found by `stage-verifier`; one of its two failing boxes. The permission is declared, catalogued,
+granted, and marked `IsHighRisk: true` at `PosPermissions.cs:37,57`. It is enforced by nothing:
+`POST /api/v1/pos/sales/{saleId}/receipt/prints` requires only `PosPermissions.ReceiptPrint`
+(`PosEndpoints.cs:163`), and the handler performs no permission check of its own.
+
+Worked example: a cashier holding `pos.receipt.print` but **not** `pos.receipt.reprint` POSTs twice
+with a `reason`. The second call succeeds and writes `is_reprint = true`. The only defence is the
+domain's requirement that a reprint carry a reason — not that the caller is authorised to make one.
+The module's own comment calls reprints "the oldest till fraud there is", and the control it documents
+does not exist.
+
+**Fix:** check `ReceiptReprint` inside the handler when `alreadyPrinted > 0`. It cannot be an endpoint
+filter, because reprint-ness is derived from the print log rather than from the request.
+
+### 4.14 Weighed lines are systematically overcharged by one cent — **OPEN, found in Stage 09**
+
+Found by `money-and-tax`. `SaleCommands.cs:182-183` computes
+`Money extended = command.UnitPrice * command.Quantity.Value;` then
+`Money charged = (extended - discount).RoundToCurrencyScale();`. `Money`'s constructor already rounds
+to scale 4 away-from-zero, so this is **two sequential midpoint roundings** — which `Money.cs:19-21`'s
+own doc comment forbids ("Rounding to the currency's own scale happens once"). Quantities are 6-dp, so
+weighed lines land in the gap routinely:
+
+```
+10.01/kg x 0.495 kg = 4.95495 -> round4 4.9550 -> round2 4.96   (correct: 4.95)
+10.02/kg x 0.248 kg = 2.48496 -> round4 2.4850 -> round2 2.49   (correct: 2.48)
+10.05/kg x 0.099 kg = 0.99495 -> round4 0.9950 -> round2 1.00   (correct: 0.99)
+```
+
+**The bias is provably one-directional.** The mismatch window is `[x.xx495, x.xx5)`; any exact value
+at or above `x.xx5` already rounds up at 4 dp, so the second rounding can only ever push *up*. A till
+that is systematically biased against the customer on scaled goods is a consumer-protection exposure,
+not a rounding nit. Because inclusive VAT is derived from `charged`, the receipt, the sale total, the
+VAT declared and the journal all carry the inflated figure. The same defect reaches non-weighed lines
+whenever `UnitPrice` carries 3 or 4 decimals.
+
+The inclusive-VAT path itself is clean — `round2(round4(g/1.15))` was checked exhaustively against
+`round2(g/1.15)` for every 2-dp gross from R0.01 to R20,000.00 with zero mismatches. The 4-dp
+intermediate is harmful only where a 6-dp quantity is involved.
+
+**Fix:** round once — compute the extended amount at full precision and round to currency scale a
+single time. Add the 0.005-boundary table-driven test `TESTING.md` §3 requires and Stage 09 does not
+have; its absence is why this survived.
+
+### 4.13 A foreign-currency sale permanently bricks a terminal — **OPEN, found in Stage 09**
+
+Found by `money-and-tax`. `TillSessionCommands.cs:136-138` seeds the cash-up aggregate with
+`Money.Zero(session.Currency)` and adds `sale.CashContribution`, which is denominated in **the sale's**
+currency. `Money.operator+` throws `InvalidOperationException` across currencies.
+
+Nothing binds a sale's currency to the session, the store or the tenant: `OpenSaleCommand` takes it
+from the caller with a literal `"ZAR"` default, the validator only checks `Length(3)`, and the
+endpoint passes `request.Currency` straight through from the HTTP body. `Store.CurrencyOverride` and
+`Tenant.BaseCurrency` both exist and are **read zero times anywhere in POS** — despite the parameter's
+doc comment claiming the currency "Defaults to the store's".
+
+Worked example: open a session in ZAR, open a sale in USD (accepted — three letters), ring, tender,
+complete, then close the session. `Money.Zero("ZAR") + Money(10.00,"USD")` throws.
+`InvalidOperationException` is not a `DomainException`, so it surfaces as a **500**; the session
+cannot close; `OpenTillSessionCommandHandler` refuses a second session on that terminal. **The
+terminal is bricked with no API path out.** Worse, the sale need not complete — `ListForSessionAsync`
+returns sales of every status and the aggregate runs *before* `session.Close` performs its open-sale
+check, so a single *abandoned* USD sale, voided as "wrong currency, sorry", does it. The operator's
+own correction is what bricks the till.
+
+**Fix:** resolve the sale's currency from the store/tenant rather than the request body, and make the
+cash-up aggregate refuse a foreign-currency sale with a typed `PosRuleException` rather than letting
+`Money` throw. R8 promises multi-currency from the data model up, so the resolution is the real fix
+and the guard is the safety net. Needs the multi-currency cash-up test `TESTING.md` §3 requires.
+
+### 4.12 The module entitlement gate is never applied anywhere in the product — **OPEN, found in Stage 09; invalidates §4.9's premise**
+
+Found independently by `architecture-guard`, `licence-safety` and `stage-verifier`; one of
+`stage-verifier`'s two failing boxes, against §8's "Module entitlement flag declared in the module
+manifest **and gated through `IEntitlementService`**".
+
+`RequireModule(string module)` at `LicensingEndpoints.cs:166` — whose own doc comment calls it "The
+single gate every module stage from 06 uses" — has **exactly one occurrence in `src/`: its own
+definition. Zero call sites.** There is no module gate in the command pipeline either; the four
+behaviours are Logging, Validation, ReadOnlyGuard and Transaction, none of which consults
+`IsModuleEnabledAsync`.
+
+For the eight earlier modules this was invisible, because `EntitlementService.IsModuleEnabledAsync`
+short-circuits `true` on `IsCore`. **POS is the first module for which the short-circuit does not
+fire** — and the gate it falls through to is never called. Worked example: a tenant activates on a
+lease whose entitlements are `["catalog","inventory","finance"]` with no `"pos"`.
+`IsModuleEnabledAsync("pos")` correctly returns `false`. `POST /api/v1/pos/till-sessions` nonetheless
+returns `201 Created`, and all 19 POS endpoints behave the same way. The tenant trades on a module
+they did not buy, and the `403` with an upgrade code that `LICENSING.md` §6 promises is unreachable
+code.
+
+**This is the test §4.9 said must arrive with the first genuinely optional module.** Stage 09 is that
+module and it arrived without it. §4.9's opening premise — "every module in the solution declares
+`IsCore => true`" — **is no longer true** and should be read as history.
+
+**The trap for whoever closes this, which is the important half.** `EntitlementService` falls back to
+an **empty** entitlement set when there is no lease. So a naive `.RequireModule("pos")` would hard-`403`
+a till on a fresh DR restore before rebind, on a migration, or on a corrupted state directory — with
+no ladder, no dunning, no Path A tolerance window, and no read access either, since `RequireModule`
+sits on the GETs too. That is exactly the "restricted by accident" outcome ADR-028 Rule 2 exists to
+prevent, and it would bypass the enforcement ladder rather than going through it. The tell is on the
+adjacent line: `LicenceLimits.Unlimited` is the fallback on the *limits* side and fails open
+correctly, while the entitlement fallback beside it fails closed.
+
+**Fix:** unknown entitlements must mean *permit*, not *deny*, whenever the install is activated and
+inside the Path A window. `IsModuleEnabledAsync` must distinguish "the lease says you do not have this
+module" from "there is no lease to ask". Then wire `RequireModule("pos")` and add the two tests §4.9
+named. Worth its own ADR line, and `licence-safety` should see the result.
+
+### 4.11 The POS offline replay path is not idempotent — double-adds lines and double-relieves stock — **OPEN, CRITICAL, found in Stage 09**
+
+Found by `sync-and-offline`, confirming the suspicion the stage recorded. `OpenSaleCommand` is
+idempotent; **nothing else in the sequence is.** `AddSaleLineCommand` and `TenderSaleCommand` accept
+no client-supplied id and have no dedupe, so every replay mints fresh rows. `Sale.NextLineNumber` is
+`_lines.Count + 1`, so replayed lines are appended as 3 and 4 and the unique index on
+`(SaleId, LineNumber)` does not collide.
+
+Worked sequence — terminal `T`, store server `S`, and it needs only a dropped connection, not a crash
+mid-write:
+
+1. `T` offline. Mints `saleId=S1`, prints the customer's slip. Queue: `Open(S1)` → `AddLine(milk,R25)`
+   → `AddLine(bread,R25)` → `Tender(Cash,R50)` → `Complete(S1)`.
+2. LAN returns. `S` applies `Open`, both `AddLine`s and `Tender`. Sale is `Open`, 2 lines, R50.
+3. `S`'s app pool recycles **before `Complete` is applied or acked**. The sale is left `Status=Open`.
+4. `T` replays from the top. `Open(S1)` correctly returns the existing sale. `AddLine(milk)` then
+   passes `EnsureOpen()` **because the sale is still open**, and is appended as line 3. `AddLine(bread)`
+   as line 4. Gross is now **R100**. `Tender` adds a second R50 → tendered R100. `Complete` then
+   passes **every invariant in `Sale.Complete`**.
+5. `SaleCompletionService` loops `sale.LiveLines` — now four — and `IssueForSaleAsync` has no dedupe
+   on `saleReferenceId`. **Four stock issues post for a two-item basket.**
+6. `SaleTenderedEvent` carries doubled Net/Tax/Gross → the journal posts R100 against R50 actually
+   taken. Revenue and VAT overstated.
+7. Cash-up derives expected drawer cash of R100 against R50 in the drawer. **The shift shows a R50
+   shortage and a cashier is accused.**
+
+Nothing throws and nothing logs. The corruption is internally self-consistent — the sale balances —
+so sync then replicates it faithfully to the cloud. **Convergence is not violated; the converged value
+is simply wrong.** The bug sits above the sync layer, which is why the outbox/inbox machinery cannot
+catch it.
+
+**Partial-ack variant:** a crash after the second `AddLine` but before `Tender` yields 4 lines / R100
+gross against R50 tendered → `Complete` throws `SaleNotFullyTendered` → 422. The sale is
+**permanently unclosable**, holding the customer's money, and the till session cannot be closed while
+any sale is open. A different flavour of R1 breach.
+
+**Out-of-order arrival:** `AddLine` before `Open` returns 404, and whether the till retries or
+discards is **unspecified anywhere** — discarding silently drops a line from a receipt already in the
+customer's hand.
+
+**This is not yet live**, because the terminal-local queue does not exist (`SYNC_AND_BACKUP.md` §2
+and §12). That is precisely why it is cheap to fix now: the client that would depend
+on the broken contract has not been written. **`PosEndpoints.cs:31` currently documents the opposite**
+— "supplies its own `saleId` … and replays the sequence, and the replay is idempotent" — and that is
+the claim the Stage 08b/desktop author would have built against.
+
+**Two fixes, and the second is the one to prefer.**
+
+- *Narrow:* give `AddSaleLineCommand` and `TenderSaleCommand` optional client-supplied ids minted by
+  the till at ring time per ADR-004, and make the handlers find-by-id-and-return exactly as
+  `OpenSaleCommand` does. Make `CompleteSaleCommand` idempotent too, so a lost ack on the final step
+  does not strand the till. Also fixes `RecordReceiptPrintCommand`, where a replay currently appends a
+  row with `isReprint: true` and **fabricates a loss-prevention signal against a cashier**, and
+  `RecordSaleIssueCommand`, which takes a `SaleReferenceId` that nothing dedupes on.
+- *Structural, and recommended:* have the terminal replay through `POST /api/v1/sync/batches` rather
+  than the REST command path. That path already dedupes on `(tenant_id, source_node, operation_id)`
+  and is already `OfflineFlush`-exempt from read-only. **`licence-safety` arrived at the same fix from
+  the opposite direction** — see §4.10's Rule 4 note — which is the strongest signal in this review
+  round that it is the right one.
+
+### 4.10 POS does not implement two read-only carve-outs `LICENSING.md` promises — **OPEN, found in Stage 09; adjudicated by `licence-safety` 2026-08-15**
 
 `docs/LICENSING.md` §"What read-only means, precisely" is a specification, and Stage 09 does not meet
 two lines of it. Both were found by working through the licence-safety questions by hand after the
@@ -1203,12 +1537,23 @@ readings, and both are wrong: either the reprint flow fails (contradicting Rule 
 prints anyway and the print goes unrecorded (contradicting R6, which is the entire reason
 `pos.receipt_prints` exists).
 
-**2. The open-session carve-out is not built at all.**
+**2. The open-session carve-out is not wired to POS.**
 The document says: "if read-only falls due while a till has an open sale or an unclosed cash-up, that
 sale and that cash-up complete, then the terminal goes read-only. No new sale can start. This exists
-so a restriction does not leave a drawer of unrecorded cash and a customer holding goods." Stage 09
-implements no carve-out. `CompleteSaleCommand` and `CloseTillSessionCommand` are plain writes and are
-refused, which produces precisely the outcome that sentence exists to prevent.
+so a restriction does not leave a drawer of unrecorded cash and a customer holding goods."
+`CompleteSaleCommand` and `CloseTillSessionCommand` are plain writes and are refused, which produces
+precisely the outcome that sentence exists to prevent.
+
+> **Correction, 2026-08-15.** This item originally read "the open-session carve-out is not built at
+> all". That was wrong. **The mechanism was built in Stage 04b and is live in the guard today**:
+> `ISessionScopedCommand` and `IOpenSessionRegistry` (`LicensingPorts.cs:193,207`), `OpenSessionRegistry`
+> registered as a singleton, `LicensingOptions.OpenSessionCarveOut` defaulting to `true`, the branch
+> at `ReadOnlyGuardBehaviour.cs:77-82` that consults it, and two passing assertions in
+> `ReadOnlyCorrectnessTests`. What is missing is only the POS side of the wire: neither interface has
+> **any** reference in POS, nothing ever calls `IOpenSessionRegistry.Open(...)`, so the registry is
+> always empty, `MayCarryOn` always returns `false`, and the branch is dead code in a real
+> deployment. The sole implementer anywhere is a test double whose own doc comment says it stands in
+> "because the POS does not exist until Stage 09". **Stage 09 arrived and did not pick it up.**
 
 **Why Stage 09 did not just fix it.** Both fixes need the read-only guard to let a specific command
 through, and the only mechanism for that is `ReadOnlyExemption`. **ADR-052 caps that set at three
@@ -1226,7 +1571,114 @@ to match what is built, which means accepting that a lapse mid-shift strands a d
 the document currently promises and is almost certainly right; (b) should not be chosen quietly.
 Whichever is chosen, `docs/TESTING.md` §7's licensing suite is where the assertion belongs.
 
+---
+
+#### Adjudication — `licence-safety`, 2026-08-15, against `bc56bd0`
+
+**Verdict: (a), and the two halves take different mechanisms.** Both items above were re-derived from
+code and confirmed `AT RISK`.
+
+**Not (b).** The document's own sentence states the harm — "a drawer of unrecorded cash and a customer
+holding goods" — and that harm lands on a cashier and a shopper, not on the delinquent account holder,
+at the moment the vendor is least sympathetic. The commercial lever is fully intact without it: **no
+new sale can start** is the sentence that actually stops trade. (b) buys nothing commercially and costs
+a genuine operational failure. The reprint half is unavailable under (b) regardless — narrowing
+"every reprint works" would contradict Rule 1, R9 and the statutory-records position in §1, which is
+contractual language.
+
+**The in-flight case is the ADR-028 session mechanism, not a new exemption kind.** Because the
+mechanism above already exists, ADR-052's cap does not govern it. Wire POS to it.
+
+**The trap in the obvious implementation, which is the load-bearing part of this adjudication.**
+Wiring only the two commands this section names is *functionally useless*: `Sale.Complete` throws
+`SaleNotFullyTendered` when tendered < gross, and `AddSaleLineCommand`/`TenderSaleCommand` remain
+refused — so a half-rung sale can be neither finished nor paid for. The result is a 422 instead of a
+403 and the drawer is stranded exactly as before. The carve-out must cover ringing and tendering too.
+**And the moment it does, the existing bound is a hole:** `MayCarryOn` bounds only on *when the session
+opened*, with no deadline and no per-sale bound, so a tenant who never runs the cash-up keeps one
+session open indefinitely and rings every customer of the day onto it.
+
+**Member set** — in: `AddSaleLineCommand`, `VoidSaleLineCommand`, `TenderSaleCommand`,
+`CompleteSaleCommand`, `VoidSaleCommand` (abandoning is the safe direction; refusing it strands the
+sale open), `CloseTillSessionCommand`. Out: `OpenSaleCommand` and `OpenTillSessionCommand` (this is
+"no new sale can start"), `ParkSaleCommand` (parking is how you keep a sale open indefinitely), and
+**`ResumeSaleCommand` — critical**: parked sales are a pre-existing pool of "already open" sales, so
+exempting Resume converts that pool into a trading allowance. A parked sale has no customer at the
+counter and no cash in hand; neither justification applies.
+
+**Three bounds, all required. Any two is not safe.**
+
+1. **Sale-scoped as well as session-scoped.** The registry must track the sale, not only its session,
+   or one open session licenses unlimited new sales.
+2. **A hard deadline** on `LicensingOptions`: recommend 30 minutes for a sale, 12 hours for a cash-up
+   (a shift must be able to end). This is the bound that makes indefinite trading impossible even if
+   the others were defeated.
+3. **Evaluated against the watermarked clock**, as `EntitlementService.LoadAsync` already does — not
+   `IClock.UtcNow`, or setting the system clock back extends the carve-out, which is the tamper
+   `LICENSING.md` §7 says must buy nothing.
+
+Keep the two properties the design already has: the registry is in-memory and per-node, so a restart
+clears every carve-out; and the `openedAt < restrictedSince` gate is what stops "open a session" being
+the loophole — extend it identically to sales.
+
+**Is it safe against a tenant trading indefinitely without paying? Yes with all three bounds; no
+without the deadline.** State the worst case plainly in the ADR: *the sales physically on a till screen
+at the instant the level flipped, finished within 30 minutes, plus the cash-ups closed within 12
+hours.* No new sale, no new shift, no resumed park, nothing held open past the window, and a restart
+shortens it further. That is bounded by wall-clock and by what was already physically in progress. It
+is not a trading allowance.
+
+**The reprint is the fourth exemption kind, with a different safety argument — do not fold it into the
+in-flight bound.** A reprint targets an already-completed sale, possibly months old, so "opened before
+the restriction" is meaningless for it and applying the in-flight reasoning would imply a bound that
+does not exist. Its argument is instead **"cannot originate trade"**: the handler appends one row to
+`pos.receipt_prints` for a sale that already exists, and cannot create a sale, move money, move stock,
+raise a financial event or consume a document number. The worst a lapsed tenant achieves is filling
+their own print log, and R6 requires the row. Bound it by **refusing when the referenced sale is still
+`Open`** — a first print of an open sale is the in-flight case and belongs to the other member set.
+
+**One kind, not two.** ADR-052's pattern is a cap on *kinds* with membership as a closed list asserted
+by name, and `Payment` already carries six commands on two distinct rationales. Recommend a single new
+kind (`ReadOnlyExemption.FinishAndReprint` or similar) whose ADR states both justifications separately
+and names every member. Five kinds would make the review surface worse, not better.
+
+**The ADR must contain:** (1) ADR-052's cap moves from three kinds to four, membership still a closed
+list asserted by name; (2) the new kind and its members — `RecordReceiptPrintCommand` only, initially;
+(3) the reprint argument stated as "cannot originate trade", not "already started"; (4) that the
+in-flight carve-out is **not** an exemption kind but the ADR-028 session mechanism, with bounds 1–3
+normative; (5) that `ResumeSaleCommand` and `ParkSaleCommand` are deliberately excluded, and why;
+(6) the two new `LicensingOptions` windows and their defaults.
+
+**Assertions belong in `docs/TESTING.md` §7**, extending
+`An_in_progress_session_finishes_and_a_new_one_may_not_start` to run against the real POS commands
+rather than the `FinishSaleCommand` test double. The single most important new test: **at
+`restrictedSince + window + 1s`, every one of the six in-flight commands is refused** — that is what
+proves the deadline exists. Plus: a sale opened after `RestrictedSince` cannot be lined or tendered;
+`OpenSale`/`OpenTillSession`/`ResumeSale` refused throughout; the clock moved backwards does not
+reopen the window; a store-server restart refuses everything. In the read-only correctness suite:
+`RecordReceiptPrintCommand` succeeds for a `Completed` sale and is refused for an `Open` one, and the
+exemption fixture gains **exactly one** entry. If any other command appears there, the review failed.
+
+**One further divergence to settle in the same ADR, not mentioned above.** The POS REST API is itself
+documented as an offline-replay path (`SaleCommands.cs:12-16`), and `OpenSaleCommand` is an unexempted
+write. A terminal that traded offline *before* the level flipped and reconnects *after* it has its
+replay refused — destroying the record of a sale that already happened, with the customer holding the
+goods and the slip. That is what `LICENSING.md` Rule 4 forbids: "Replicating records that already
+exist is not a new write, and blocking it would destroy the customer's data." `ReceiveSyncBatchCommand`
+is `OfflineFlush`-exempt and reasons that a read-only till "never captures anything for this command
+to flush" — which does not hold for the REST path. Not yet live, because the terminal queue is not
+built. **Recommended resolution: the terminal replays through the sync-batch path, which is already
+exempt and already correct — the same fix `sync-and-offline` reached independently in §4.11.**
+
 ### 4.9 The "declared but not entitled" module path has no test coverage
+
+> **Superseded in part, 2026-08-15.** The opening premise below is no longer true: Stage 09's
+> `PosModuleManifest` declares `IsCore => false`, so POS is the first module that reaches the third
+> branch. This section called the shot correctly — "the first genuinely optional module must arrive
+> with a test that names it here, otherwise the entitlement gate ships to a paying tenant having never
+> once refused anything" — and that is exactly what happened. **See §4.12**, which supersedes this
+> section and adds the part §4.9 could not have known: the gate is not merely untested, it is never
+> applied anywhere in the product. Read the rest of this section as the history of a prediction.
 
 Every module in the solution declares `IsCore => true` — platform, identity, sync, backup, licensing,
 catalog, partners, finance (ADR-064) and now inventory. `EntitlementService.IsModuleEnabledAsync` has
@@ -1249,21 +1701,71 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-15: Stage 09 (POS) is DONE and merged to `main`** — 835 tests green (498 unit, 31
-architecture, 306 integration), 0 warnings, and a sale driven end to end against a real database
-producing a balanced journal and a relieved stock ledger. See the 2026-08-15 session-log entry.
+**Update, 2026-08-15 (later): the five agents have now run against committed Stage 09, and the stage
+is REOPENED.** `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. The build (0
+warnings), the 835 tests, the 92.01% coverage, the reversible migration and the traded-store seed were
+all independently executed and all hold. Eight defects are open against the stage — §4.10 through
+§4.16. See the 2026-08-15 (later) session-log entry for the full account.
 
-**Do these three things before building on Stage 09.**
+**The previous "do these three things" list is superseded. Item 1 is done. Here is what replaces it.**
 
-1. **Run the five agents against it.** They could not be run in the stage's own session (watchdog
-   timeouts, then a usage limit), so the reviews were done inline by the author. §4.10 and the
-   session-log entry say exactly what was and was not checked. This is the highest-value thing the
-   next session can do, and it is cheap.
-2. **Settle §4.10** — the two read-only carve-outs `LICENSING.md` promises and POS does not
-   implement. It needs a fourth `ReadOnlyExemption` kind and therefore an ADR (ADR-052 caps the set
-   at three), which is why Stage 09 left it rather than deciding it unreviewed.
-3. **Pick the next stage deliberately.** The roadmap's numeric order says 10 (Sales & Promotions),
-   but see below — 08b and 05 are both still open and both now have something waiting on them.
+**Fix these four before anything is built on Stage 09.** All four are small and surgical; none
+requires rework of POS's domain or aggregate design, which the reviews found sound.
+
+1. **§4.11 — make the POS replay path idempotent.** CRITICAL. A dropped connection between tender and
+   completion double-adds lines, double-relieves stock, doubles the GL posting and produces a false
+   cash-up shortage against a cashier. Nothing throws. **Prefer the structural fix**: route terminal
+   replay through `POST /api/v1/sync/batches`, which already dedupes on
+   `(tenant_id, source_node, operation_id)` and is already `OfflineFlush`-exempt from read-only. Two
+   agents reached this fix independently from different briefs, and it closes §4.10's Rule 4
+   divergence at the same time. Do this **before** the terminal queue or the desktop client is
+   written — the client that would depend on the broken contract does not exist yet, which is the
+   whole reason this is cheap right now. Also fix `PosEndpoints.cs:31`, which currently documents the
+   guarantee the code does not provide.
+2. **§4.13 — bind a sale's currency to the store/tenant.** A single foreign-currency sale, even an
+   abandoned one, permanently bricks a terminal with a 500 and no API path out.
+3. **§4.14 — round once on the extended-price path.** Weighed lines are systematically overcharged by
+   a cent, always in the same direction. Add the 0.005-boundary test whose absence let it through.
+4. **§4.15 — enforce `pos.receipt.reprint` in the handler.** A declared, high-risk, granted permission
+   that nothing checks.
+
+**Then settle the three decisions, each of which is specified and argued but deliberately not taken.**
+
+5. **§4.10 — the read-only carve-outs.** `licence-safety` has adjudicated: **(a)**, with the in-flight
+   half wired to the existing ADR-028 session mechanism (*not* a new exemption kind — §4.10's original
+   premise was wrong) and only the reprint needing a fourth `ReadOnlyExemption` kind. The full member
+   set, the three required bounds, the ADR contents and the §7 assertions are written out under §4.10.
+   **Read the "trap in the obvious implementation" paragraph before writing any code** — the naive
+   wiring is functionally useless and the existing bound is a hole once the carve-out is widened.
+6. **§4.12 — the module entitlement gate.** `RequireModule` has zero call sites in the entire product.
+   Fix the fail-closed lease fallback *first*, then wire it; wiring it naively hard-403s a till on a
+   fresh DR restore, bypassing the whole enforcement ladder. Needs an ADR line and a `licence-safety`
+   pass on the result.
+7. **The tax-per-line ADR.** Record that tax is computed and stored per line and that no consumer may
+   recompute it from a document total. Cheap now; expensive once Stage 10 returns or a VAT201 report
+   recomputes from a total and disagrees with the ledger.
+
+**And close the two enforcement gaps that let all of this through.**
+
+8. **§4.16 — add `VumaRetail.Finance` to both reflection sweeps**, and make the assembly list
+   self-maintaining rather than hand-kept. An unclassified command passes straight through the
+   read-only guard, and the mechanism meant to make that impossible does not cover 18 commands.
+9. **Add `VumaRetail.Hardware` to `LayeringTests`** and to `FinanceRulesTests.ProducerAssemblies` — a
+   ninth `src/` project currently guarded by nothing, whose references propagate into what the till
+   installs.
+
+**Only then pick the next stage.** The roadmap's numeric order says 10 (Sales & Promotions), but 08b
+and 05 are both still open and both have something waiting on them. Note that 08b plus
+`VumaRetail.Desktop` are what turn Stage 09's API into a till somebody can touch, and both need
+Windows — nothing on this Linux machine can start them.
+
+**A process note worth carrying forward.** The reviews caught four documented guarantees the code does
+not implement, in four separate files, none of them reachable by a test — because a test suite asserts
+what the code does, not what its comments promise. They also caught two documentation drifts that a
+previous session had *already tried to correct* and corrected incompletely. Both classes of defect are
+invisible to the author and cheap for an independent reader. Run the agents at the end of every stage,
+as `docs/AGENTS.md` prescribes; when they cannot run, the stage is not finished, and recording that
+honestly (as the Stage 09 entry did) is what made this round possible.
 
 **What is still unmerged or unbuilt.**
 
@@ -1277,7 +1779,7 @@ producing a balanced journal and a relieved stock ledger. See the 2026-08-15 ses
 
 **What Stage 09 leaves for whoever comes next.**
 
-- **Every screen the till needs is already an endpoint.** 20 operations under `/api/v1/pos`, all in
+- **Every screen the till needs is already an endpoint.** 19 operations under `/api/v1/pos`, all in
   `/openapi/v1.json`. The WPF shell is a rendering job, not a second implementation (R3).
 - **Pricing is the caller's, until Stage 10** (ADR-072). `AddSaleLineCommand` takes a unit price and
   an optional manual discount. Stage 10 changes what fills that field in, not the field — and the

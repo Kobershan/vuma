@@ -160,7 +160,11 @@ Stage 00.
       deferred in `docs/HARDWARE.md` §1
 - [x] `docs/HARDWARE.md` written; `docs/DATA_MODEL.md` §4g written; ADR-072 and ADR-073 appended
 - [x] Seed data added — terminal, open till session, one completed sale with journal and stock movement
-- [x] All 20 endpoints present in `/openapi/v1.json`, verified against a running host
+- [x] All 19 endpoints present in `/openapi/v1.json`, verified against a running host — re-verified
+      independently by `stage-verifier` against a booted host, with summaries, examples and the
+      `400/401/403/404/409/422/500` set on every one. The count read "20" until that run; it is 19
+      operations across 17 paths (11 `MapPost` + 8 `MapGet`, a 1:1 match with the 11 commands and 8
+      queries). Nothing was missing — the figure was a miscount, not a gap
 - [x] Full suite green: unit 498/498, architecture 31/31, integration 306/306, 0 skipped
 - [x] `docs/PROGRESS.md` updated, committed as `feat(stage-09): POS terminal & hardware`
 
