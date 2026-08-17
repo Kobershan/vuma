@@ -233,6 +233,39 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Procurement.SupplierScorecard> SupplierScorecards
         => Set<Domain.Procurement.SupplierScorecard>();
 
+    /// <summary>A named subdivision of a Stage 08 location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.Zone> Zones => Set<Domain.Warehouse.Zone>();
+
+    /// <summary>A single storage position within a zone. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.Bin> Bins => Set<Domain.Warehouse.Bin>();
+
+    /// <summary>On-hand quantity per bin per stock-keeping unit — the bin-level projection. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.BinStock> BinStocks => Set<Domain.Warehouse.BinStock>();
+
+    /// <summary>The append-only bin-level movement ledger. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.BinStockMovement> BinStockMovements => Set<Domain.Warehouse.BinStockMovement>();
+
+    /// <summary>One line of unbinned received stock waiting to be shelved. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PutawayTask> PutawayTasks => Set<Domain.Warehouse.PutawayTask>();
+
+    /// <summary>A batch of outbound demand to fulfil from one location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PickWave> PickWaves => Set<Domain.Warehouse.PickWave>();
+
+    /// <summary>One demand line within a pick wave. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PickTask> PickTasks => Set<Domain.Warehouse.PickTask>();
+
+    /// <summary>A wave's packing record. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PackTask> PackTasks => Set<Domain.Warehouse.PackTask>();
+
+    /// <summary>The document recording a wave's shipment — stock leaving the location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.ShipmentConfirmation> ShipmentConfirmations => Set<Domain.Warehouse.ShipmentConfirmation>();
+
+    /// <summary>A physical count of one or more bins. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.CycleCount> CycleCounts => Set<Domain.Warehouse.CycleCount>();
+
+    /// <summary>One counted bin/stock-keeping-unit pair within a cycle count. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.CycleCountLine> CycleCountLines => Set<Domain.Warehouse.CycleCountLine>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 

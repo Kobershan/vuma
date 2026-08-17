@@ -23,7 +23,7 @@ public sealed class StockLedgerEntryTests
         AdjustmentReasonCode? reasonCode = null,
         string? note = null)
         => StockLedgerEntry.Post(
-            TenantId, StoreId, LocationId, ItemId, null, movementType,
+            TenantId, StoreId, LocationId, null, ItemId, null, movementType,
             quantity ?? new Quantity(5m, "EA"), new Money(20m, "ZAR"),
             referenceType, referenceId, reasonCode, note);
 
@@ -110,7 +110,7 @@ public sealed class StockLedgerEntryTests
     public void A_movement_names_exactly_one_of_an_item_or_a_variant()
     {
         Action both = () => StockLedgerEntry.Post(
-            TenantId, StoreId, LocationId, ItemId, UuidV7.NewGuid(), StockMovementType.Receipt,
+            TenantId, StoreId, LocationId, null, ItemId, UuidV7.NewGuid(), StockMovementType.Receipt,
             new Quantity(1m, "EA"), new Money(1m, "ZAR"), StockReferenceType.Manual, null, null, null);
 
         both.Should().Throw<InventoryRuleException>()
@@ -128,11 +128,11 @@ public sealed class StockLedgerEntryTests
     public void A_movement_must_belong_to_a_tenant_and_name_a_location()
     {
         Action noTenant = () => StockLedgerEntry.Post(
-            Guid.Empty, StoreId, LocationId, ItemId, null, StockMovementType.Receipt,
+            Guid.Empty, StoreId, LocationId, null, ItemId, null, StockMovementType.Receipt,
             new Quantity(1m, "EA"), new Money(1m, "ZAR"), StockReferenceType.Manual, null, null, null);
 
         Action noLocation = () => StockLedgerEntry.Post(
-            TenantId, StoreId, Guid.Empty, ItemId, null, StockMovementType.Receipt,
+            TenantId, StoreId, Guid.Empty, null, ItemId, null, StockMovementType.Receipt,
             new Quantity(1m, "EA"), new Money(1m, "ZAR"), StockReferenceType.Manual, null, null, null);
 
         noTenant.Should().Throw<ArgumentException>();

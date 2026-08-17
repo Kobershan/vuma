@@ -34,6 +34,7 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         Guid tenantId,
         Guid? storeId,
         Guid locationId,
+        Guid? binId,
         Guid? itemId,
         Guid? itemVariantId,
         StockMovementType movementType,
@@ -46,6 +47,7 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         : base(tenantId, storeId)
     {
         LocationId = locationId;
+        BinId = binId;
         ItemId = itemId;
         ItemVariantId = itemVariantId;
         MovementType = movementType;
@@ -64,6 +66,18 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
 
     /// <summary>The location this movement affects.</summary>
     public Guid LocationId { get; private set; }
+
+    /// <summary>
+    /// The bin within <see cref="LocationId"/> this movement affects, or <c>null</c> when the movement
+    /// is not bin-tracked.
+    /// </summary>
+    /// <remarks>
+    /// Added in Stage 13, additively (<c>docs/stages/STAGE-08-inventory-core.md</c>'s own notes said
+    /// this would happen: "the ledger's LocationId stays; a BinId beside it is additive"). Every call
+    /// site from Stage 08, 09, 10 and 12 leaves this <c>null</c> and keeps behaving exactly as before —
+    /// this column adds information for a caller that has it, it does not require one.
+    /// </remarks>
+    public Guid? BinId { get; private set; }
 
     /// <summary>The item this movement affects directly, or <c>null</c> when it is a variant instead.</summary>
     public Guid? ItemId { get; private set; }
@@ -111,6 +125,7 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
     /// <param name="tenantId">The owning tenant.</param>
     /// <param name="storeId">The owning store — the location's own, or <c>null</c> for a tenant-wide location.</param>
     /// <param name="locationId">The location this movement affects.</param>
+    /// <param name="binId">The bin within <paramref name="locationId"/> this movement affects, or <c>null</c> when it is not bin-tracked.</param>
     /// <param name="itemId">The item, when it has no variants. Exactly one of this and <paramref name="itemVariantId"/> must be set.</param>
     /// <param name="itemVariantId">The variant. Exactly one of this and <paramref name="itemId"/> must be set.</param>
     /// <param name="movementType">What kind of movement this is.</param>
@@ -125,6 +140,7 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         Guid tenantId,
         Guid? storeId,
         Guid locationId,
+        Guid? binId,
         Guid? itemId,
         Guid? itemVariantId,
         StockMovementType movementType,
@@ -166,6 +182,7 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
             tenantId,
             storeId,
             locationId,
+            binId,
             itemId,
             itemVariantId,
             movementType,
@@ -256,6 +273,26 @@ public enum StockReferenceType
     /// </para>
     /// </remarks>
     GoodsReceipt = 6,
+
+    /// <summary>
+    /// Correlates to a <c>warehouse.shipment_confirmations</c> document — an outbound wave leaving the
+    /// location. Stage 13.
+    /// </summary>
+    /// <remarks>
+    /// Shares <see cref="StockMovementType.SaleIssue"/> for the reason <see cref="GoodsReceipt"/> shares
+    /// <see cref="StockMovementType.Receipt"/> (ADR-085's precedent): a shipment is structurally the
+    /// same movement as a sale issue — stock leaving, relieved at the current weighted-average cost —
+    /// it simply has a different document behind it, and Order Management (Stage 14) does not exist yet
+    /// to originate a sale in the first place.
+    /// </remarks>
+    Shipment = 7,
+
+    /// <summary>
+    /// Correlates to a <c>warehouse.cycle_counts</c> document — a bin-level physical count, distinct
+    /// from a full <see cref="StocktakeSession"/> so the two counting workflows are never confused in an
+    /// investigation. Stage 13.
+    /// </summary>
+    CycleCount = 8,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>
