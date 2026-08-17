@@ -19,18 +19,20 @@ namespace VumaRetail.TestSupport;
 /// same thing.
 /// </para>
 /// <para>
-/// <b>Derivation, not enumeration.</b> The set is every assembly already loaded into the test process
-/// whose simple name starts with <c>VumaRetail.</c>, minus the test assemblies themselves. That is
-/// broader than the old list and cannot go stale, because an assembly containing commands is by
-/// definition referenced by something the tests load.
+/// <b>Derivation, not enumeration.</b> The set is every assembly reachable from this test project's
+/// reference graph whose simple name starts with <c>VumaRetail.</c>, minus the test assemblies
+/// themselves. That is broader than the old list and cannot go stale, because an assembly containing
+/// commands is by definition referenced by something the tests load.
 /// </para>
 /// <para>
 /// <b>And a belt-and-braces check on top.</b> Loading is lazy in .NET: an assembly that nothing has
-/// touched yet is not in <see cref="AppDomain.GetAssemblies"/>. <see cref="All"/> therefore forces
-/// every referenced <c>VumaRetail.</c> assembly to load first, walking the reference graph from the
-/// test assembly outward. <see cref="ModuleAssembliesTests"/> then asserts that every assembly
-/// declaring an <see cref="IModuleManifest"/> is in the result — so a module that somehow escapes the
-/// walk fails a test rather than escaping the sweep.
+/// touched yet is not in <see cref="AppDomain.GetAssemblies"/>, so the walk is rooted at this
+/// assembly and forces every referenced <c>VumaRetail.</c> assembly to load rather than trusting what
+/// the process happens to have loaded already — which was load-order-dependent, and swept nothing at
+/// all on a run that reached it early enough (Stage 12; <c>PROGRESS.md</c> §4.18).
+/// <see cref="ModuleAssembliesTests"/> then asserts that every assembly declaring an
+/// <see cref="IModuleManifest"/> is in the result — so a module that somehow escapes the walk fails a
+/// test rather than escaping the sweep.
 /// </para>
 /// </remarks>
 public static class ModuleAssemblies
@@ -56,6 +58,16 @@ public static class ModuleAssemblies
         HashSet<string> seen = new(StringComparer.Ordinal);
         Queue<Assembly> pending = new();
 
+        // The walk starts from this assembly, not from whatever happens to be loaded. Seeding only
+        // from AppDomain made discovery a race: the seed set is empty until something has touched a
+        // product type, xUnit evaluates this Lazy from whichever collection reaches it first, and a
+        // run where that collection was ModuleAssembliesTests swept nothing at all. That is the
+        // vacuous-pass failure §4.16 is about, arriving through the guard rather than around it —
+        // CommandClassificationTests and LicensingRulesTests would have passed over an empty set.
+        // This project references every layer on purpose (see its .csproj), so its own reference
+        // graph is the one root that always reaches them.
+        pending.Enqueue(Assembly.GetExecutingAssembly());
+
         foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies().Where(IsProductAssembly))
         {
             pending.Enqueue(assembly);
@@ -72,7 +84,12 @@ public static class ModuleAssemblies
                 continue;
             }
 
-            found.Add(assembly);
+            // Test assemblies are traversed for their references but never swept themselves — the
+            // root is the clearest case of why the two are separate questions.
+            if (IsProductAssembly(assembly))
+            {
+                found.Add(assembly);
+            }
 
             // Walk outward. Without this, a module assembly no test has yet touched a type from is
             // simply absent from the process, and the sweep silently covers less than it says.

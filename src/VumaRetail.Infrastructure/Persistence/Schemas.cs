@@ -93,4 +93,26 @@ public static class Schemas
     /// </para>
     /// </remarks>
     public const string Imports = "imports";
+
+    /// <summary>
+    /// Requisitions, RFQs and their quotes, purchase orders, goods receipts, three-way matches and
+    /// supplier scorecards. Stage 12.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="Inventory"/>, even though a goods receipt is the loudest producer of
+    /// stock movements. Buying and holding stock are different questions asked by different people: a
+    /// warehouse manager reads the ledger, a buyer reads the order book, and the one thing they share —
+    /// "what arrived" — is a reference, not a table. Folding procurement into inventory would also make
+    /// Stage 15's replenishment planning depend on the stock ledger's schema in order to raise a
+    /// requisition, which it has no business doing.
+    /// </para>
+    /// <para>
+    /// Declaring the schema is also what puts procurement into the daily metering rollup: usage is
+    /// grouped on the schema half of <c>schema.table</c> from the audit trail
+    /// (<c>UsageCounterSource</c>), so the module gets its counter by existing rather than by writing
+    /// one. Rule 16 stays true — the count is a count, and no business row is read to produce it.
+    /// </para>
+    /// </remarks>
+    public const string Procurement = "procurement";
 }

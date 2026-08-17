@@ -50,7 +50,7 @@ The minimum that makes a business able to trade *and* account for it.
 
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
-| 12 | Procurement | 08, 11 | Requisitions, RFQs, POs, GRNs, three-way match, supplier scorecards |
+| 12 | [Procurement](stages/STAGE-12-procurement.md) | 08, 11 | Requisitions, RFQs, POs, GRNs, three-way match, supplier scorecards — **DONE 2026-08-17**, merged to `main`. Closes the "minimum viable trading system" at 00–12: the shop can now buy as well as sell |
 | 13 | Warehouse Management | 08 | Zones/bins, putaway, pick/pack/ship, cycle counts, handheld flows |
 | 14 | Order Management | 10, 13 | Omnichannel orders, allocation, backorders, click & collect, returns |
 | 15 | Merchandise Planning, Forecasting & Replenishment ★ | 12, 13, 14 | Forecasting, MRP/DRP, safety stock, open-to-buy, markdown planning |

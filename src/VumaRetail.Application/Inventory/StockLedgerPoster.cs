@@ -85,6 +85,39 @@ public interface IStockLedgerPoster
         Guid salesReturnReferenceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Posts a supplier delivery — stock arriving against a purchase order, valued at what the order
+    /// says it cost.
+    /// </summary>
+    /// <param name="location">Where the goods landed.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="quantity">How much was accepted. Must be positive — a rejected quantity never gets here.</param>
+    /// <param name="unitCost">
+    /// The purchase order line's cost. Not today's average: this is the movement that <em>sets</em> the
+    /// average, which is what a purchase is (ADR-068).
+    /// </param>
+    /// <param name="goodsReceiptReferenceId">The GRN this receipt correlates to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <remarks>
+    /// Added in Stage 12, and a dedicated method rather than a reference parameter on
+    /// <see cref="ReceiveAsync"/> for the reason <see cref="ReceiveForSalesReturnAsync"/> and
+    /// <see cref="AdjustForImportAsync"/> both give: a movement with no reference is a movement nobody
+    /// can trace back to the document that caused it, and an untraceable receipt is indistinguishable
+    /// from somebody typing stock into existence. It shares
+    /// <see cref="StockMovementType.Receipt"/> — and therefore the existing
+    /// <c>inventory.receipt.posted</c> posting rule — because a supplier delivery is what that rule was
+    /// always describing.
+    /// </remarks>
+    Task<StockLedgerEntry> ReceiveForPurchaseAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid goodsReceiptReferenceId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Posts a documented adjustment — a signed correction to on-hand quantity.</summary>
     /// <param name="location">Where the adjustment applies.</param>
     /// <param name="itemId">The item, when it has no variants.</param>
@@ -261,6 +294,24 @@ public sealed class StockLedgerPoster(
         return PostReceiptLikeAsync(
             location, itemId, itemVariantId, StockMovementType.SalesReturn, quantity, unitCost,
             StockReferenceType.SalesReturn, salesReturnReferenceId, reasonCode: null, note: null,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> ReceiveForPurchaseAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid goodsReceiptReferenceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostReceiptLikeAsync(
+            location, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
+            StockReferenceType.GoodsReceipt, goodsReceiptReferenceId, reasonCode: null, note: null,
             cancellationToken);
     }
 
