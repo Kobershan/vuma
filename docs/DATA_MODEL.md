@@ -884,6 +884,139 @@ Deactivated, never deleted (§7 rule 8) — a batch that was mapped by a templat
 
 ---
 
+## 4j. Tables in `procurement`
+
+Built in Stage 12. Thirteen tables for the five documents buying is made of — a requisition that
+commits nothing, an RFQ that asks, an order that commits, a receipt that moves stock, and a match that
+decides whether anybody pays — plus the scorecard that is the reason to keep the records at all.
+
+Every item, variant, partner, location, ledger-entry and journal reference below is a bare `uuid` and
+**never** a foreign key out of this schema (`CONVENTIONS.md` §2). Foreign keys *within* `procurement`
+are used and correct: a line without its document is meaningless.
+
+**No table here names a GL account** (§7 rule 12). Receiving raises Stage 08's valuation event and a
+released match raises `procurement.invoice.matched`; Stage 07's rules engine decides the accounts.
+`supplier_invoice_matches.journal_id` records *which* journal resulted, which is the audit direction —
+not an instruction about what to post. See ADR-081 and ADR-085.
+
+### `procurement.purchase_requisitions` / `_lines`
+
+`requisition_number` (ADR-065's sequence, series `REQ`), `requested_by_user_id`, `location_id`,
+`required_by`, `justification`, `status`, and the who/when of raising, submission and the decision —
+`decided_by_user_id`, `decided_at`, `rejection_reason` covering approval and rejection in one pair
+rather than two.
+
+`ux_purchase_requisitions_tenant_id_number` is unique per tenant and filtered on `deleted_at IS NULL`,
+which is the shape every document number in this schema uses. `ix_purchase_requisitions_status_required_by`
+is the buyer's work queue: what is approved, ordered by when it is needed.
+
+**There is no `partner_id` on a requisition, deliberately.** A requisition is somebody saying they need
+something, before anybody has chosen who to buy it from — and that absence is what lets Stage 15 raise
+one from a forecast. A line carries `estimated_unit_cost_*` because the requester may know roughly what
+it costs, and nothing is held to it.
+
+`sourced_to_document_id` and `sourced_at` on the line are how a requisition answers "did this ever get
+bought?" without the downstream documents having to be searched for it.
+
+### `procurement.rfqs` / `_lines` / `procurement.rfq_responses` / `_lines`
+
+`rfq_number` (series `RFQ`), `title`, the originating `purchase_requisition_id` where there was one,
+`closes_at`, `status`, and `awarded_response_id` / `awarded_at`.
+
+A response is one supplier's quote: `partner_id`, `currency`, `quoted_at`, `valid_until`,
+`lead_time_days`, `status` and the who/when of the award. `ux_rfq_responses_rfq_id_partner_id` is
+unique — one supplier quotes once per RFQ, and a supplier who wants to change their price submits a new
+response rather than editing a promise they already made (business rule 2). `ux_rfq_response_lines_response_id_rfq_line_id`
+says the same thing one level down.
+
+A response line carries `requested_quantity_*` alongside `quoted_quantity_*` — what was asked for as
+well as what the supplier is willing to supply, because a quote for less than the quantity requested is
+a normal answer and the difference is the thing a buyer is comparing.
+
+### `procurement.purchase_orders` / `_lines`
+
+`order_number` (series `PO`), `partner_id`, `currency`, delivery `location_id`, `expected_at`,
+`status`, `version`, `amends_purchase_order_id`, `rfq_response_id`, and the who/when of approval,
+issue, closure and cancellation. `net_*`, `tax_*` and `gross_*` are the sum of the lines.
+
+**`currency` is on the order, not the line** (business rule 4). A line carries `unit_cost_currency`
+because `Money` is always paired with its currency, and `ck_purchase_order_lines_currency_matches_order`
+is what stops the two disagreeing — §4.13's lesson, that a document letting a currency in through a
+line is permanently broken, written as a constraint rather than as a convention.
+
+`ck_purchase_orders_version_positive` and `ix_purchase_orders_amends_purchase_order_id` are the
+amendment chain: an issued order is immutable (§7 rule 7), so a change is a new order at `version + 1`
+naming the one it supersedes, and the superseded one is cancelled.
+
+A line's `net_*` / `tax_*` / `gross_*` are computed **once, at authoring time**, through
+`ITaxCalculator` (ADR-075). Nothing downstream recomputes them — the three-way match compares against
+these stored figures, which is what makes the comparison reproducible after a tax rate changes.
+
+`received_quantity_*`, `rejected_quantity_*` and `invoiced_quantity_*` are maintained running totals.
+They are the exception to the rule that a running total is not trustworthy, and they are safe here for
+the reason `import_batches`' counters are not: they are only ever advanced inside the transaction that
+writes the receipt or releases the match, on the one node that owns the order.
+
+### `procurement.goods_receipts` / `_lines`
+
+`receipt_number` (series `GRN`), `purchase_order_id`, `partner_id`, `location_id`, `received_at`, the
+supplier's own `delivery_note_number`, `status`, and `received_value_*`.
+
+A line carries `accepted_quantity_*` and `rejected_quantity_*` **separately**, with
+`rejection_reason`: only the accepted quantity moves through the ledger and only the accepted quantity
+counts as received against the order (business rule 7). `unit_cost_*` is the order's cost, not today's
+average — that is what a purchase *is*, and it is the entry that moves the weighted average (ADR-068).
+
+`stock_posting`, `stock_ledger_entry_id` and `stock_posting_note` are ADR-073's surface: a movement the
+ledger refuses does not fail the receipt, because the goods are on the dock either way.
+`ix_goods_receipt_lines_stock_posting_refused` is **partial on refused rows only** — it exists to serve
+`GET /procurement/reconciliation/stock-issues`, which is a short list over a large table, and a full
+index on a column that is almost always `Posted` would earn nothing.
+
+`ux_goods_receipt_lines_receipt_id_order_line_id` is unique: one receipt records one line per order
+line. Receiving the same order line twice is two receipts, which is what makes cumulative
+over-receipt checking (ADR-083) meaningful.
+
+### `procurement.supplier_invoice_matches` / `_lines`
+
+The three-way match. `purchase_order_id`, `partner_id`, the supplier's own `supplier_invoice_number`
+and `invoice_date`, the `claimed_net_*` / `claimed_tax_*` / `claimed_gross_*` they are charging,
+`status`, `matched_at`, and the who/when of the release.
+
+**The row is written whatever the verdict, including `Blocked`** (ADR-082) — "why did we not pay this
+invoice" is a question somebody asks three weeks later.
+`ck_supplier_invoice_matches_blocked_not_released` is the database re-asserting that only a `Matched`
+or `MatchedWithinTolerance` document may be released.
+
+`price_tolerance_percentage` and `price_tolerance_floor_*` are **snapshotted onto the document**. Tenant
+policy changes, and a match that re-judged itself under this month's tolerance would be an audit record
+that changes its own story.
+
+A line carries ordered, received, invoiced and `previously_invoiced_quantity_*` side by side — the
+last is what makes "nothing is invoiced that was not received" cumulative across several invoices
+against one order (business rule 11) — plus the computed `quantity_variance_*` and `price_variance_*`
+and a per-line `status`. `ux_supplier_invoice_matches_order_id_invoice_number` stops the same supplier
+invoice being matched against the same order twice.
+
+`variances` is `jsonb` on both tables: a variance is a short list of reasons a human reads, and it is
+never queried by its contents.
+
+### `procurement.supplier_scorecards`
+
+A frozen snapshot for one supplier over one closed period: `orders_placed`, `lines_ordered`,
+`lines_delivered`, `lines_delivered_on_time`, `lines_with_rejections`, the three quantities, the
+`price_variance_*` total, and the four derived rates.
+
+`ux_supplier_scorecards_partner_period` is unique, which is the enforcement of ADR-084: **a period may
+be snapshotted once.** Recomputing yesterday's supplier rating from today's data restates history, and
+a rating that changes when nobody did anything is a rating nobody trusts. The derived rates are stored
+rather than computed on read for exactly the same reason.
+
+A period with no orders produces a snapshot of zeroes rather than no row — "we bought nothing from
+them" is an answer, and its absence is not.
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -928,6 +1061,19 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `ImportColumnMapping` | StoreToCloud | StoreWins | Follows its batch. |
 | `ImportRow` | StoreToCloud | StoreWins | Follows its batch. `StoreWins` rather than `AppendOnly` because a row is legitimately rewritten several times before it settles — a verdict at validation, an outcome at commit, a compensation at rollback — and all of it happens on the one node that owns the batch. |
 | `ImportMappingTemplate` | Bidirectional | CloudWins | The one entity here head office has a reason to own: a chain negotiating a supplier's file format once and pushing the mapping to every branch is the point of templates. A branch still saves its own for a local supplier, and the cloud settles a genuine collision — the same shape as `PriceList`. |
+| `PurchaseRequisition` | Bidirectional | CloudWins | Demand is raised in a shop that has run out and by a head-office buyer working an estate; both are normal. Head office reconciles, the same shape as `Item`. |
+| `PurchaseRequisitionLine` | Bidirectional | CloudWins | Follows its requisition. |
+| `Rfq` | Bidirectional | CloudWins | Sourcing is the act most likely to happen centrally — a chain asks three suppliers once for every branch — while a store still sources locally for a local line. |
+| `RfqLine` | Bidirectional | CloudWins | Follows its RFQ. |
+| `RfqResponse` | Bidirectional | CloudWins | A quote is frozen on submission (business rule 2), so the policy rarely arbitrates anything. `CloudWins` rather than `AppendOnly` because a response *is* legitimately edited before it is submitted, and Stage 21b will have a connected supplier authoring one over the network. |
+| `RfqResponseLine` | Bidirectional | CloudWins | Follows its response. |
+| `PurchaseOrder` | Bidirectional | CloudWins | The commitment, and the one document in this chain head office most needs to own — buying centrally is the ordinary reason a multi-store estate exists. A branch still raises its own. Frozen once issued (§7 rule 7), so the policy arbitrates only over drafts. |
+| `PurchaseOrderLine` | Bidirectional | CloudWins | Follows its order. Its `received_` and `invoiced_` running totals are advanced only on the node that owns the order, inside the transaction that writes the receipt or releases the match. |
+| `GoodsReceipt` | StoreToCloud | StoreWins | Goods physically arrive at one door, and the cloud observes it. The same shape as `SalesReturn`: legitimately mutable while it is a draft, frozen once completed, and only the store can be editing it. |
+| `GoodsReceiptLine` | StoreToCloud | StoreWins | Follows its receipt. |
+| `SupplierInvoiceMatch` | Bidirectional | CloudWins | Matching an invoice is an accounts-payable act, and AP is usually head office's — but a single-store shop does it at the back-office machine. Frozen once released (§7 rule 7). |
+| `SupplierInvoiceMatchLine` | Bidirectional | CloudWins | Follows its match. |
+| `SupplierScorecard` | Bidirectional | CloudWins | A snapshot over a closed period, written once and never edited (ADR-084), so the policy arbitrates nothing in practice. Head office is where an estate compares suppliers across branches. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

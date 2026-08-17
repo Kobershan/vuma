@@ -1256,3 +1256,123 @@ here" is a successful no-op, not a failure. A batch in that state now commits, a
 says so in its counters. The commit-time skip path stays, because it answers a different question — a
 row that became a duplicate *between* the preview and the commit, which is a real race and not a
 preview error.
+
+---
+
+## ADR-081 — A purchase order posts nothing to the general ledger — **LOCKED**
+**Context.** Stage 12 raises a document that says the shop will spend R9,200. It is tempting to post it
+— a commitment is a real thing a business wants to see, and "committed spend" is a report every buyer
+asks for. Doing it means either a journal against a commitments account or an encumbrance ledger, and
+either one makes the trial balance include money nobody has spent.
+**Decision.** A purchase order is a **promise, not a transaction**. It posts nothing. Value enters the
+books at *receipt*, through Stage 08's ledger and the existing `inventory.receipt.posted` rule, and the
+supplier liability crystallises at the *three-way match* (ADR-085). Committed spend is a **query** over
+open orders, not a ledger balance.
+**Consequences.** The trial balance only ever contains money that has actually moved, which is what a
+trial balance is for; a cancelled order needs no reversing journal, because there was nothing to
+reverse. An amendment (business rule 3) is likewise free — it cancels one document and opens another,
+and neither touches Finance. The cost is that "what have we committed to spend" has to be answered by
+reading `procurement.purchase_orders`, which is a report Stage 29 will write and not a number that
+falls out of the GL. That is the right trade: an encumbrance ledger is a real accounting technique and
+it belongs to a business that has asked for one, not to the module that first noticed it could.
+
+---
+
+## ADR-082 — A three-way match is a document, whatever its verdict — **LOCKED**
+**Context.** The obvious shape for a match is a check: compare, and refuse the invoice if it does not
+agree. That makes `POST /matches` return a 422 on a variance, and it stores nothing. Three weeks later
+somebody asks why a supplier has not been paid, and the only record of the comparison is in the memory
+of whoever ran it.
+**Decision.** `SupplierInvoiceMatch` is **written whatever the verdict**, including `Blocked`, with the
+per-line variances and the tolerances that were applied snapshotted onto it. Running a match is a `201`
+even when the answer is "do not pay this". Only *releasing* a blocked match refuses, with a 422, and
+the database re-asserts that with `ck_supplier_invoice_matches_blocked_not_released`.
+**Consequences.** "Why did we not pay this invoice" is answerable from the data, and so is the more
+valuable question behind it: which suppliers are systematically over-billing. `GET /procurement/matches
+?status=Blocked` is a real work queue rather than a report somebody has to reconstruct. The snapshotted
+tolerances are the other half — tenant policy changes, and a match that re-judged itself under this
+month's tolerance would be an audit record that changes its own story. The cost is rows for
+comparisons that were rejected, which is exactly the cost of having an audit trail at all.
+
+---
+
+## ADR-083 — Over-receipt is a per-line tolerance, and beyond it the line is refused — **LOCKED**
+**Context.** A supplier delivers 105 cases against an order for 100. Three options: accept it silently,
+refuse the whole delivery, or accept it up to a bound. Accepting silently means the shop pays for stock
+nobody agreed to buy and the three-way match has nothing to object to. Refusing outright means a
+loading dock argument over a 5% overage that most trades treat as normal.
+**Decision.** A tenant-configured `OverReceiptTolerancePercentage`, applied to the **cumulative**
+received quantity per order line, defaulting to **zero**. Within it the delivery is accepted; beyond
+it the line is refused with a message that says to amend the order or send the excess back. The
+comparison is rounded to `Quantity.Scale` on both sides before it is made.
+**Consequences.** A shop that has not thought about this gets the conservative answer rather than a
+silent liability, and one that has thought about it configures the number its trade actually uses. The
+cumulative check is what makes it real: two receipts of 60 against an order for 100 each pass on their
+own, and the pair does not. The rounding is not fussiness — 3 × 1.05 is not exactly 3.15 in decimal
+arithmetic, and without it a delivery of exactly the allowed quantity is refused at some quantities and
+not others, for a reason nobody on a loading dock could ever discover.
+
+---
+
+## ADR-084 — A supplier scorecard is a snapshot over a closed period, never a live figure — **LOCKED**
+**Context.** A supplier rating is naturally a query: count the deliveries, count the late ones, divide.
+It is also naturally wrong. A late delivery landing today silently restates last quarter, so the rating
+a buyer took into a negotiation is not the rating anybody can reproduce afterwards — and a number that
+moves when nobody did anything is one nobody trusts enough to act on.
+**Decision.** `SupplierScorecard` is a **frozen row**, taken once per supplier per period
+(`ux_supplier_scorecards_partner_period`), and only after the period has **closed** — a period ending
+today is still running and is refused. The raw counters are stored alongside the derived rates, because
+"80% on time" over five deliveries and over five hundred are different facts.
+**Consequences.** Last quarter's rating is last quarter's rating, permanently, and two people reading it
+on different days see the same number. A late delivery affects the period it lands in, which is where a
+supplier's failure to deliver on the promised date actually belongs. The cost is that the current
+period has no scorecard at all, which is correct and will still surprise somebody: what a buyer wants
+mid-month is a *live report* over open orders, and that is Stage 29's job, not this row's. The
+`OverallRating` is a deliberately plain average of the three service measures — a weighting is
+commercial policy, it differs by category, and inventing one inside a domain entity would be exactly the
+sort of unilateral cross-cutting decision `AGENTS.md` says a single stage does not get to make.
+
+---
+
+## ADR-085 — Procurement raises a matched fact; the AP invoice document stays Finance's — **LOCKED**
+**Context.** A released three-way match means the shop owes a supplier a specific amount. Stage 07
+already has `ApInvoice`, its ageing and its payment. The obvious move is for procurement to create one.
+That would put a second module in the business of authoring Finance's documents, and the two would
+share a table the moment anybody wanted to amend either.
+**Decision.** Procurement raises **`procurement.invoice.matched`** through
+`IProcurementFinancialEventPublisher`, carrying `Net`, `Tax` and `Gross` and the supplier's own invoice
+number as the source reference. The seeded posting rule relieves goods-received-not-invoiced, debits
+input VAT and credits trade creditors. The `ApInvoice` aggregate, its ageing and its payment remain
+Stage 07's, and the two modules share no table.
+**Consequences.** §7 rule 12 holds by construction — there is nowhere on the event to put an account —
+and Finance keeps sole authorship of its own documents. The publisher returns the journal id, unlike
+Stage 10's, because accounts payable reconciling a supplier dispute needs to get from the match to its
+journal without a search. The gap this leaves is honest and worth naming: a released match is a
+liability in the *ledger* and is not yet an AP *invoice*, so it does not appear in the AP ageing until
+somebody raises one. Closing that is a Stage 07 or Stage 29 job — a rule that turns a matched fact into
+an AP document — and doing it here would be procurement deciding how Finance ages its creditors.
+
+---
+
+## ADR-086 — Stock is valued at the net cost, never at a tax-inclusive one — **LOCKED**
+**Context.** Found while verifying Stage 12's seed against the ledger, not by a test. `CLAUDE.md` §9
+makes VAT-inclusive pricing the South African default, so a purchase order line's `UnitCost` is
+typically the **gross** figure a supplier quotes. The goods receipt valued stock at exactly that, which
+is wrong twice over: it capitalises recoverable input VAT into inventory — overstating the balance
+sheet by the VAT rate and cost of sales when the goods sell — and it strands the VAT in the clearing
+account forever, because the receipt credits goods-received-not-invoiced **gross** while the three-way
+match debits it **net**. On the demo tenant that was R279.91 left behind on a single R2,220 order, on
+every purchase, with nothing that would ever clear it.
+**Decision.** `PurchaseOrderLine.NetUnitCost` is the line's stored `Net` divided by its quantity, and
+that is what `GoodsReceiptLine.UnitCost` snapshots and what the stock ledger is posted at. It is derived
+from the **stored** net rather than recomputed through the tax engine, because ADR-075 says nothing
+downstream recomputes an order's tax. The three-way match still compares the supplier's invoiced unit
+cost against the *as-ordered* one — that comparison is like for like and unaffected.
+**Consequences.** Inventory is carried at cost, the clearing account clears, and a tenant who is not VAT
+registered has a rule that computes zero tax, so net equals gross and nothing changes for them. One
+residual is left and is named rather than hidden: `Net / Quantity` rounds to `Money.Scale`, so a receipt
+of 116 against an order for 120 clears the clearing account to within **under a cent** rather than
+exactly. That is an ordinary purchase price variance, it is bounded by the rounding scale rather than by
+the transaction size, and the right home for it is a purchase-price-variance account in a later Finance
+stage — not a fudge in this one. The broader lesson is recorded in `PROGRESS.md`: this defect built
+clean, passed every test, and was found only by reading the seeded journal.

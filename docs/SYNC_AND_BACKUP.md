@@ -106,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10 and 11)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11 and 12)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -178,6 +178,19 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ImportColumnMapping` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch |
 | `ImportRow` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch; rewritten at validate, commit and rollback, all on the owning node |
 | `ImportMappingTemplate` | `imports` | `Bidirectional` | `CloudWins` | Head office negotiates a supplier's format once and pushes it; a branch still saves its own |
+| `PurchaseRequisition` | `procurement` | `Bidirectional` | `CloudWins` | Demand is raised in a shop that has run out and by a head-office buyer; both are normal |
+| `PurchaseRequisitionLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its requisition |
+| `Rfq` | `procurement` | `Bidirectional` | `CloudWins` | A chain sources once for every branch; a store still sources a local line locally |
+| `RfqLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its RFQ |
+| `RfqResponse` | `procurement` | `Bidirectional` | `CloudWins` | Frozen on submission, so the policy arbitrates only over an unsubmitted quote — and Stage 21b has a connected supplier authoring one |
+| `RfqResponseLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its response |
+| `PurchaseOrder` | `procurement` | `Bidirectional` | `CloudWins` | Buying centrally is the ordinary reason an estate exists; a branch still raises its own. Frozen once issued |
+| `PurchaseOrderLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its order |
+| `GoodsReceipt` | `procurement` | `StoreToCloud` | `StoreWins` | Goods arrive at one door; the cloud observes. Same shape as `SalesReturn` |
+| `GoodsReceiptLine` | `procurement` | `StoreToCloud` | `StoreWins` | Follows its receipt |
+| `SupplierInvoiceMatch` | `procurement` | `Bidirectional` | `CloudWins` | Matching an invoice is an AP act, usually head office's; a single-store shop does it at the back office. Frozen once released |
+| `SupplierInvoiceMatchLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its match |
+| `SupplierScorecard` | `procurement` | `Bidirectional` | `CloudWins` | Written once over a closed period and never edited (ADR-084); head office compares suppliers across branches |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared
@@ -197,6 +210,18 @@ stage that declares a replicated entity, not once a module.
 the practice that lesson asks for. The count was checked the other way round as well: seven
 `[Replicated]` attributes in `src/VumaRetail.Domain/Sales/`, seven rows here, seven rows in
 `docs/DATA_MODEL.md` §5.
+
+**The thirteen `procurement` rows were added while closing Stage 12's exit checklist**, not in the
+commit that added the entities — which is the drift the lesson above predicts, caught this time by
+working the checklist rather than by someone noticing later. Counted all three ways: thirteen
+`[Replicated]` attributes in `src/VumaRetail.Domain/Procurement/`, thirteen rows here, thirteen rows in
+`docs/DATA_MODEL.md` §5, which also gained the `4j` module section the other eight schemas have.
+
+Ten of the thirteen are `Bidirectional`/`CloudWins` because **procurement is the first module whose
+centre of gravity is head office rather than the shop floor** — buying for an estate is the ordinary
+reason a multi-store business has a head office at all. Only the goods receipt is `StoreToCloud`, and
+for the physical reason `Sale` is: the goods arrive at one door. Several of the ten are frozen by their
+own state machine once issued or released, so `CloudWins` arbitrates over drafts and little else.
 
 Stage 06 (master data). None of the five `catalog`/`partners` entities is immutable — `Item`,
 `ItemVariant`, `Partner` and `UnitOfMeasure` deactivate rather than delete (§7 rule 8), and `Barcode` is

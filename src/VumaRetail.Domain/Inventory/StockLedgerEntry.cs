@@ -235,6 +235,27 @@ public enum StockReferenceType
     /// investigation. It is also what a rollback matches on to find the entries it must reverse.
     /// </remarks>
     Import = 5,
+
+    /// <summary>
+    /// Correlates to a <c>procurement.goods_receipts</c> document — a supplier delivery. Stage 12.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own reference type while sharing <see cref="StockMovementType.Receipt"/>, rather than a new
+    /// movement type. The <em>movement</em> is genuinely the one Stage 08 already had — stock arriving,
+    /// valued at what it cost, blended into the weighted average — and the existing
+    /// <c>inventory.receipt.posted</c> rule already debits inventory and credits
+    /// goods-received-not-invoiced, which is exactly what a supplier delivery does. A new movement type
+    /// would have needed a new posting rule to say the same thing.
+    /// </para>
+    /// <para>
+    /// What it does need is the reference, for the reason <see cref="Import"/> and
+    /// <see cref="SalesReturn"/> both have one: a receipt nobody can trace back to the delivery that
+    /// caused it is indistinguishable from a manual correction, and Stage 12's three-way match reads
+    /// these entries to answer "did this actually arrive".
+    /// </para>
+    /// </remarks>
+    GoodsReceipt = 6,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

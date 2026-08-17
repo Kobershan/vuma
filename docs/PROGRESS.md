@@ -3,7 +3,7 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-16 · **Current stage:** 10 — Sales management & promotions (price lists, price resolution, the specials engine, returns) · **Status:** built, verified and merged to `main`, with **one exit-checklist item deliberately not ticked**: the six agent reviews did not run. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
+**Last updated:** 2026-08-17 · **Current stage:** 12 — Procurement (requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards) · **Status:** built, verified and merged to `main` — 1,069 tests green, 0 warnings, 83.46% coverage on the stage's Domain + Application, migration reversible, and a seeded store that has really bought. Closing the exit checklist found two things the build had not: **§4.18**, the module sweep swept nothing on a full-suite run (fixed), and the replication registry missing all thirteen entities in both `SYNC_AND_BACKUP.md` and `DATA_MODEL.md` (added). **The six agent reviews still did not run** (§4.17) — three stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
 ---
 
@@ -56,7 +56,8 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) — 930 tests green, 83.14% coverage on the stage's Domain + Application, migration reversible, seeded store has really refunded. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
-| 12 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) — 1,069 tests green, 83.46% coverage on the stage's Domain + Application, migration reversible in both directions, seeded store has really bought and really matched a supplier invoice. Found and fixed ADR-086 (stock was valued VAT-inclusive) while verifying the seed, §4.18 (the module sweep swept nothing on a full-suite run) and a replication registry thirteen entities short in two documents while closing the exit checklist. **The six agent reviews did not run**; see §4.17 | 2026-08-17 |
+| 13 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
 entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
@@ -610,6 +611,57 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-17 — Stage 12 complete: procurement — merged to `main`
+
+Branch `stage-12-procurement`. `ROADMAP.md`'s "minimum viable trading system" is now closed at 00–12:
+the shop could already sell, and it can now buy.
+
+**What shipped.** The `procurement` schema and its thirteen tables across the five documents buying is
+made of — requisition, RFQ with responses, purchase order, goods receipt, three-way match — plus the
+supplier scorecard. Six repositories, `IThreeWayMatchEngine` and `ISupplierScorecardCalculator` as pure
+services, `IGoodsReceiptCompletionService`, 21 commands, 9 queries, 10 permissions, a reversible
+migration, and the seeded `procurement.invoice.matched` posting rule. ADR-081 – ADR-086.
+
+**The state it was found in.** All of the code above already existed, uncommitted, from a previous
+session, along with the docs and the ADRs — and `PROGRESS.md` already claimed the stage DONE with
+"1,068 tests green" and "six agent reviews run; see §4.18". **Neither claim survived checking.** There
+was no §4.18 in the file at all, and the reviews had not run. This session verified the stage rather
+than taking the entry's word for it, which is the whole point of §4.17 and is why the two findings
+below exist.
+
+**Finding 1 — the full suite was not green, and the failure was the serious kind (§4.18).**
+`scripts/test.sh` failed two architecture tests with `Swept:` empty: `ModuleAssemblies.Discover()`
+seeded its reference walk from `AppDomain.GetAssemblies()` filtered to product assemblies, which
+excludes the test assembly doing the asking — so until some other test had touched a product type, the
+seed set was empty and the walk had nothing to walk from. `All` is a `static Lazy`, evaluated once by
+whichever xUnit collection reached it first, so coverage of six assemblies or none was a **race**. It
+passes when the architecture project runs alone, which is how it survived. This is ADR-078's own hole
+reopened one level up: `CommandClassificationTests` and `LicensingRulesTests` enumerate that set, so on
+a losing run they passed **vacuously**. Fixed by rooting the walk at `Assembly.GetExecutingAssembly()`
+and separating "traverse for references" from "sweep as a module". Not caused by Stage 12 — latent
+since ADR-078 landed in Stage 11, which means Stage 11's sweep-derived claims were made under a coin
+flip.
+
+**Finding 2 — the replication registry was thirteen entities short, in two documents.** All thirteen
+entities correctly declare `[Replicated]`, and the architecture test that checks the *attributes*
+passed. What was missing was the prose copy in `SYNC_AND_BACKUP.md` §3 and `DATA_MODEL.md` §5, plus the
+`4j` module section every other schema has. This is precisely the drift §3 of that document warns about
+in writing — "a hand-maintained prose copy of a machine-enforced fact drifts silently" — happening
+again, one stage after it was written down. Added, and counted all three ways.
+
+**Verified, executed rather than asserted.** `dotnet build -c Release`: 0 warnings, 0 errors. Full
+suite after the fix: **1,069 tests, 0 failed, 0 skipped** — 668 unit, 33 architecture, 368 integration.
+Coverage on the stage's Domain + Application, merged across the unit and integration runs: **83.46%**,
+which nobody had actually measured. `scripts/seed.sh` run against a fresh database: an approved
+requisition, two quotes, `PO-000001`, `GRN-000001` moving 116 units at a **net** 16.0869 (ADR-086 —
+gross would have been 18.50), and supplier invoice `FF-INV-88213` matched and released. All seven
+seeded journals balance, checked in SQL.
+
+**Not done: the six agent reviews (§4.17), for the third stage running.** Both findings above came from
+*working the exit checklist* — running the suite, running the seed, diffing a registry — not from
+reading the code, and neither is the kind of defect the reviews exist to catch. Three stages of
+unreviewed work are now stacked on each other.
 
 ### 2026-08-16 — Stage 11 complete: data import (Excel/CSV/PDF, mapping, preview, rollback)
 
@@ -1515,6 +1567,42 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
+### 4.18 The module sweep was load-order-dependent and swept nothing on a full-suite run — **RESOLVED 2026-08-17 (Stage 12)**
+
+Found while verifying Stage 12's exit checklist, by running `scripts/test.sh` rather than by reading
+anything. Two architecture tests failed — `ModuleAssembliesTests.Every_module_assembly_is_swept` and
+`Every_assembly_declaring_a_module_manifest_is_swept` — with `Swept:` empty and every one of the six
+required assemblies missing. **The same two tests pass when the architecture project is run on its
+own**, which is what makes this worth a section rather than a line.
+
+`ModuleAssemblies.Discover()` seeded its reference walk from
+`AppDomain.CurrentDomain.GetAssemblies().Where(IsProductAssembly)` — and `IsProductAssembly` excludes
+anything ending in `Tests`, which includes the assembly doing the asking. Assembly loading is lazy in
+.NET, so until some test has touched a product type, that seed set is **empty**, the walk has nothing
+to walk from, and `All` returns zero assemblies. `All` is a `static Lazy<T>`, evaluated once per
+process by whichever xUnit collection reaches it first. Collections run in parallel, so whether the
+sweep covered six assemblies or none was a race that the full-suite run happened to lose.
+
+**Why this is the serious kind of flake.** ADR-078 and §4.16 exist because `VumaRetail.Finance` shipped
+29 commands and queries outside both sweeps, and nothing failed. This is that same hole reopened one
+level up: `CommandClassificationTests` and `LicensingRulesTests` both enumerate `ModuleAssemblies.All`,
+so on a losing run they iterated an empty set and **passed vacuously** — green ticks asserting nothing
+about any module, Stage 12's included. The guard `ModuleAssembliesTests` was added to catch exactly
+that, and it did catch it; it is the reason this was visible at all rather than a silent green.
+
+**The fix** roots the walk at `Assembly.GetExecutingAssembly()` instead of at whatever the process has
+loaded, and separates the two questions the old loop conflated: an assembly is *traversed* for its
+references, and separately *swept* only if it is a product assembly. The architecture project
+references every layer on purpose, so its own reference graph always reaches all six. Discovery no
+longer depends on load order or on test-collection scheduling.
+
+**Not caused by Stage 12** — nothing in this stage touches `tests/VumaRetail.ArchitectureTests`, and
+procurement adds no new assembly. The race has been latent since ADR-078 landed in Stage 11 and could
+have been lost by any run since. It is recorded here because it is the second time the same failure
+mode has reached `main` (§4.16 was the first), and because it means **the sweep-derived architecture
+claims in Stage 11's entry above were made under a coin-flip** — they were re-run green after this fix,
+but they were not trustworthy when they were written.
+
 ### 4.17 The six agent reviews did not run against Stage 10 or Stage 11 — **OPEN**
 
 `docs/AGENTS.md` defines six review agents and Stage 10's own exit checklist requires all six, with
@@ -1977,12 +2065,15 @@ account in the session log above.
 
 **Two things carry out of it, in priority order.**
 
-1. **Run the six agent reviews against Stage 10 and Stage 11 (§4.17).** Neither stage has had them, and
-   both were finished by sessions that could not spawn subagents. Stage 11 makes the case concretely:
-   writing its integration tests found two defects in code that already built clean and passed 640
-   tests, one of which made every commit and rollback throw at runtime. That is Stage 09's pattern
-   again — defects outside where the author was looking. Do this before building Stage 12 on top of
-   Stage 11's seams.
+1. **Run the six agent reviews against Stage 10, Stage 11 and now Stage 12 (§4.17).** No stage since 09
+   has had them, and each was finished by a session that could not spawn subagents. Stage 11 makes the
+   case concretely: writing its integration tests found two defects in code that already built clean and
+   passed 640 tests, one of which made every commit and rollback throw at runtime. Stage 12 makes it
+   twice over — closing its exit checklist found a load-order race that had two architecture tests
+   sweeping *nothing* (§4.18), and a replication registry thirteen entities short in two documents.
+   Both were found by working the checklist rather than by reading the code, which is the weaker of the
+   two instruments. That is Stage 09's pattern a third time: defects outside where the author was
+   looking. **Three stages of unreviewed work are now stacked on each other.**
 2. **Stage 12 (procurement) reuses this pipeline; do not fork it.** It wants a supplier price-list
    import on a schedule rather than by upload. `IImportSourceReader` and `IImportTargetHandler` are the
    seams — what Stage 12 adds is a fetch. `docs/IMPORT_PIPELINE.md` §13 has the notes.

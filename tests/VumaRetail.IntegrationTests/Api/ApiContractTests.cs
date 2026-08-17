@@ -177,6 +177,63 @@ public sealed class ApiContractTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Every_procurement_operation_reaches_the_openapi_document()
+    {
+        // R3 and CLAUDE.md §8: nothing exists in a UI that is not reachable over the versioned API
+        // first. Stage 12 ships no screen at all (PROGRESS.md §4.3), so this document is the entire
+        // deliverable a later WPF or Android client renders — an endpoint missing from it is a feature
+        // that does not exist.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/procurement/requisitions",
+            "/api/v1/procurement/requisitions/{requisitionId}",
+            "/api/v1/procurement/requisitions/{requisitionId}/lines",
+            "/api/v1/procurement/requisitions/{requisitionId}/submit",
+            "/api/v1/procurement/requisitions/{requisitionId}/decide",
+            "/api/v1/procurement/requisitions/{requisitionId}/cancel",
+            "/api/v1/procurement/rfqs",
+            "/api/v1/procurement/rfqs/{rfqId}",
+            "/api/v1/procurement/rfqs/{rfqId}/lines",
+            "/api/v1/procurement/rfqs/{rfqId}/issue",
+            "/api/v1/procurement/rfqs/{rfqId}/responses",
+            "/api/v1/procurement/rfqs/{rfqId}/responses/{responseId}/lines",
+            "/api/v1/procurement/rfqs/{rfqId}/award",
+            "/api/v1/procurement/rfqs/{rfqId}/close",
+            "/api/v1/procurement/purchase-orders",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/lines",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/lines/{lineId}",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/approve",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/issue",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/amend",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/close",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/receipts",
+            "/api/v1/procurement/purchase-orders/{purchaseOrderId}/matches",
+            "/api/v1/procurement/goods-receipts",
+            "/api/v1/procurement/goods-receipts/{goodsReceiptId}",
+            "/api/v1/procurement/goods-receipts/{goodsReceiptId}/lines",
+            "/api/v1/procurement/goods-receipts/{goodsReceiptId}/complete",
+            "/api/v1/procurement/goods-receipts/{goodsReceiptId}/cancel",
+            "/api/v1/procurement/reconciliation/stock-issues",
+            "/api/v1/procurement/matches",
+            "/api/v1/procurement/matches/{matchId}",
+            "/api/v1/procurement/matches/{matchId}/release",
+            "/api/v1/procurement/scorecards",
+            "/api/v1/procurement/scorecards/{partnerId}",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
+    [Fact]
     public async Task Every_operation_documents_the_standard_error_responses()
     {
         // CLAUDE.md §8 asks for error responses on every endpoint. Attaching them by transformer

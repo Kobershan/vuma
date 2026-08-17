@@ -12,7 +12,9 @@ using VumaRetail.Application.Inventory.Commands;
 using VumaRetail.Application.Partners.Commands;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Pos;
+using VumaRetail.Application.Procurement;
 using VumaRetail.Application.Pos.Commands;
+using VumaRetail.Application.Abstractions.Procurement;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Sales;
 using VumaRetail.Application.Sales.Commands;
@@ -26,6 +28,7 @@ using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Procurement;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Finance.Commands;
@@ -147,7 +150,7 @@ public static class DemoSeed
         await EnsureBarcodeAsync(provider, context, null, shirtLgeBlue, "6009880234578", BarcodeSymbology.Ean13, cancellationToken)
             .ConfigureAwait(false);
 
-        await EnsurePartnerAsync(
+        Guid freshFarm = await EnsurePartnerAsync(
             provider, context, "FRESHFARM", "Fresh Farm Distributors", PartnerType.Supplier, "orders@freshfarm.example", cancellationToken)
             .ConfigureAwait(false);
         await EnsurePartnerAsync(
@@ -160,6 +163,8 @@ public static class DemoSeed
         await SeedSalesAsync(
             provider, context, johannesburg.Id, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
+        await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -651,6 +656,261 @@ public static class DemoSeed
         await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
 
         Console.WriteLine($"Sale {sale.SaleNumber} completed: {sale.Gross} tendered, {sale.ChangeGiven} change.");
+    }
+
+    /// <summary>
+    /// Seeds Stage 12: one complete buying chain, from a requisition somebody raised to a supplier
+    /// invoice somebody released for payment.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Built through the aggregates and the completion service rather than through the dispatcher, for
+    /// the reason <see cref="SeedSalesAsync"/> and <see cref="SeedPosAsync"/> both give: approving a
+    /// requisition, awarding a quote and releasing an invoice are each attributed to the person who
+    /// authorised them (<c>ProcurementActor</c>), and the seed runs as a system principal. Going
+    /// through the completion service still exercises what matters — the stock really arrives at the
+    /// order's cost, and <c>procurement.invoice.matched</c> really posts through the rule below.
+    /// </para>
+    /// <para>
+    /// Two suppliers quote and one wins, because a demo with a single quote shows the tables without
+    /// showing the decision — and the losing quote is the only evidence a buyer compared anything.
+    /// </para>
+    /// <para>
+    /// The posting rule is the other half of <c>inventory.receipt.posted</c>: receiving debited
+    /// inventory and credited goods-received-not-invoiced, and this clears that liability into trade
+    /// creditors when the invoice is accepted (ADR-085). Nothing here names an account — the rule does
+    /// (§7 rule 12).
+    /// </para>
+    /// </remarks>
+    /// <param name="provider">The scoped provider.</param>
+    /// <param name="context">The database context.</param>
+    /// <param name="supplierId">The seeded supplier to buy from.</param>
+    /// <param name="itemId">The item to buy.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static async Task SeedProcurementAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid supplierId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        Guid grni = await EnsureAccountAsync(
+            provider, context, "2150", "Goods received not invoiced", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid creditors = await EnsureAccountAsync(
+            provider, context, "2100", "Trade creditors", AccountType.Liability,
+            ControlAccountType.AccountsPayable, cancellationToken).ConfigureAwait(false);
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, FinancialProcurementEventPublisher.SupplierInvoiceMatchedEventType,
+            "Supplier invoice matched and released",
+            [
+                new PostingRuleLineInput(grni, NormalBalance.Debit, "Net", InheritDimensions: false, "Goods received not invoiced"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Debit, "Tax", InheritDimensions: false, "Input VAT"),
+                new PostingRuleLineInput(creditors, NormalBalance.Credit, "Gross", InheritDimensions: false, "Trade creditors"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        if (await context.PurchaseOrders.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IClock clock = provider.GetRequiredService<IClock>();
+        IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
+        ITenantContext tenant = provider.GetRequiredService<ITenantContext>();
+        DateTimeOffset now = clock.UtcNow;
+
+        Domain.Identity.User? manager = await context.Users
+            .FirstOrDefaultAsync(user => user.UserName == "manager", cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid buyerId = manager?.Id ?? Guid.Empty;
+
+        StockLocation warehouse = await context.StockLocations
+            .FirstAsync(location => location.Code == "MAIN", cancellationToken)
+            .ConfigureAwait(false);
+
+        IDocumentNumberSequence numbers = provider.GetRequiredService<IDocumentNumberSequence>();
+
+        // 1. Somebody says they need something, and the manager agrees.
+        PurchaseRequisition requisition = PurchaseRequisition.Raise(
+            tenant.TenantId,
+            warehouse.StoreId,
+            await numbers.NextAsync("REQ", cancellationToken).ConfigureAwait(false),
+            buyerId,
+            warehouse.Id,
+            DateOnly.FromDateTime(now.UtcDateTime).AddDays(10),
+            "Milk is down to two days' cover on the floor.",
+            now);
+
+        PurchaseRequisitionLine requisitionLine = requisition.AddLine(
+            itemId, null, "Full cream milk 2L", new Quantity(120m, "EA"), new Money(19m, "ZAR"));
+
+        requisition.Submit(now);
+        requisition.Approve(buyerId, now);
+        context.PurchaseRequisitions.Add(requisition);
+
+        // 2. The buyer asks two suppliers. One is cheaper and slower; the buyer takes the cheaper.
+        Rfq rfq = Rfq.Raise(
+            tenant.TenantId,
+            warehouse.StoreId,
+            await numbers.NextAsync("RFQ", cancellationToken).ConfigureAwait(false),
+            "Milk, 120 units, weekly",
+            requisition.Id,
+            now.AddDays(3),
+            now);
+
+        RfqLine rfqLine = rfq.AddLine(
+            itemId, null, "Full cream milk 2L", new Quantity(120m, "EA"),
+            "Minimum five days' shelf life on delivery.", requisitionLine.Id);
+
+        rfq.Issue(now);
+
+        Domain.Partners.Partner? alternate = await context.Partners
+            .FirstOrDefaultAsync(partner => partner.Code == "CORPCLIENT", cancellationToken)
+            .ConfigureAwait(false);
+
+        RfqResponse winning = rfq.RecordResponse(supplierId, "ZAR", now, now.AddDays(30), 3, "Delivers Tuesdays.");
+        rfq.AddResponseLine(winning.Id, rfqLine.Id, new Money(18.50m, "ZAR"), null);
+
+        // A second, dearer quote — from a different partner id so the one-quote-per-supplier rule holds.
+        // It is declined by the award, which is what makes the demo show a comparison rather than a
+        // formality.
+        if (alternate is not null)
+        {
+            RfqResponse losing = rfq.RecordResponse(
+                alternate.Id, "ZAR", now, now.AddDays(14), 1, "Next-day delivery, higher price.");
+
+            rfq.AddResponseLine(losing.Id, rfqLine.Id, new Money(20.25m, "ZAR"), null);
+        }
+
+        rfq.Award(winning.Id, buyerId, now);
+        context.Rfqs.Add(rfq);
+
+        requisition.RecordLineSourced(requisitionLine.Id, rfq.Id, now);
+
+        // 3. The commitment, priced through the tenant's own tax rules (ADR-075).
+        ITaxCalculator tax = provider.GetRequiredService<ITaxCalculator>();
+
+        PurchaseOrder order = PurchaseOrder.Raise(
+            tenant.TenantId,
+            warehouse.StoreId,
+            await numbers.NextAsync("PO", cancellationToken).ConfigureAwait(false),
+            supplierId,
+            "ZAR",
+            warehouse.Id,
+            DateOnly.FromDateTime(now.UtcDateTime).AddDays(7),
+            winning.Id,
+            "Deliver to the back room before 10:00.",
+            now);
+
+        Money unitCost = new(18.50m, "ZAR");
+        Quantity ordered = new(120m, "EA");
+        Money extended = ordered.Extend(unitCost).RoundToCurrencyScale();
+
+        TaxCalculation calculated = await tax
+            .CalculateAsync("STANDARD", extended, DateOnly.FromDateTime(now.UtcDateTime), cancellationToken)
+            .ConfigureAwait(false);
+
+        PurchaseOrderLine orderLine = order.AddLine(
+            itemId, null, "Full cream milk 2L", ordered, unitCost, "STANDARD",
+            calculated.NetAmount, calculated.TaxAmount, requisitionLine.Id);
+
+        order.Approve(buyerId, now);
+        order.Issue(now);
+        context.PurchaseOrders.Add(order);
+
+        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // 4. The goods arrive. Four bottles are short-dated and go back, which is what gives the
+        // scorecard something other than a perfect score to report.
+        GoodsReceipt receipt = GoodsReceipt.Open(
+            order,
+            await numbers.NextAsync("GRN", cancellationToken).ConfigureAwait(false),
+            "FF-DN-4471",
+            buyerId,
+            now);
+
+        receipt.AddLine(
+            orderLine,
+            new Quantity(116m, "EA"),
+            new Quantity(4m, "EA"),
+            GoodsRejectionReason.Expired,
+            "Four bottles inside two days of their date.");
+
+        context.GoodsReceipts.Add(receipt);
+
+        await provider
+            .GetRequiredService<IGoodsReceiptCompletionService>()
+            .CompleteAsync(receipt, order, cancellationToken)
+            .ConfigureAwait(false);
+
+        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // 5. The supplier bills for what actually arrived, and it agrees.
+        Money invoicedNet = new Quantity(116m, "EA").Extend(unitCost).RoundToCurrencyScale();
+
+        TaxCalculation invoicedTax = await tax
+            .CalculateAsync("STANDARD", invoicedNet, DateOnly.FromDateTime(now.UtcDateTime), cancellationToken)
+            .ConfigureAwait(false);
+
+        SupplierInvoiceMatch match = await provider
+            .GetRequiredService<IThreeWayMatchEngine>()
+            .MatchAsync(
+                order,
+                "FF-INV-88213",
+                DateOnly.FromDateTime(now.UtcDateTime),
+                invoicedTax.NetAmount,
+                invoicedTax.TaxAmount,
+                [
+                    new Application.Procurement.SupplierInvoiceLine(
+                        orderLine.Id, "Full cream milk 2L", new Quantity(116m, "EA"), unitCost),
+                ],
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        context.SupplierInvoiceMatches.Add(match);
+
+        match.Release(buyerId, now);
+
+        foreach (SupplierInvoiceMatchLine matchLine in match.Lines
+            .Where(candidate => candidate.PurchaseOrderLineId is not null))
+        {
+            order.RecordInvoiced(matchLine.PurchaseOrderLineId!.Value, matchLine.InvoicedQuantity);
+        }
+
+        Guid? journalId = await provider
+            .GetRequiredService<IProcurementFinancialEventPublisher>()
+            .PublishAsync(
+                new SupplierInvoiceMatchedEvent(
+                    match.TenantId,
+                    match.StoreId,
+                    match.Id,
+                    order.Id,
+                    order.OrderNumber,
+                    match.PartnerId,
+                    match.SupplierInvoiceNumber,
+                    match.ClaimedNet,
+                    match.ClaimedTax,
+                    match.ClaimedGross,
+                    now),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (journalId is { } posted)
+        {
+            match.RecordJournal(posted);
+        }
+
+        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Purchase order {order.OrderNumber}: {receipt.ReceivedValue} received on {receipt.ReceiptNumber}, "
+            + $"supplier invoice {match.SupplierInvoiceNumber} {match.Status} and released.");
     }
 
     private static async Task<Guid> EnsureStockLocationAsync(
@@ -1162,7 +1422,7 @@ public static class DemoSeed
             .ConfigureAwait(false);
     }
 
-    private static async Task EnsurePartnerAsync(
+    private static async Task<Guid> EnsurePartnerAsync(
         IServiceProvider provider,
         VumaRetailDbContext context,
         string code,
@@ -1173,12 +1433,12 @@ public static class DemoSeed
     {
         if (await context.Partners
             .FirstOrDefaultAsync(partner => partner.Code == code, cancellationToken)
-            .ConfigureAwait(false) is not null)
+            .ConfigureAwait(false) is { } existing)
         {
-            return;
+            return existing.Id;
         }
 
-        await provider
+        return await provider
             .GetRequiredService<IDispatcher>()
             .SendAsync(new CreatePartnerCommand(code, name, type, Email: email), cancellationToken)
             .ConfigureAwait(false);

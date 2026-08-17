@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Imports;
+using VumaRetail.Application.Procurement;
 using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.DependencyInjection;
@@ -22,6 +23,7 @@ using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
+using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
 
@@ -118,6 +120,14 @@ builder.Services.AddVumaPos();
 // reads the sale it reverses, and after inventory because a completed return puts the stock back.
 builder.Services.AddVumaSales();
 
+// Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
+// validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
+// Like the two above it, the journal binding is resolved at build time, so this line only has to come
+// after the modules whose contracts it consumes.
+builder.Services.AddVumaProcurement(
+    builder.Configuration.GetSection(ProcurementOptions.SectionName).Get<ProcurementOptions>()
+        ?? new ProcurementOptions());
+
 // Stage 11. Excel/CSV/PDF ingestion. Last of the business modules because it is a caller of all of
 // them: its five target handlers write through catalog's, partners', inventory's and sales'
 // repositories rather than into their tables (ADR-079), and its batch numbers come from finance's
@@ -211,6 +221,7 @@ app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaPos();
 app.MapVumaSales();
+app.MapVumaProcurement();
 app.MapVumaImports();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is

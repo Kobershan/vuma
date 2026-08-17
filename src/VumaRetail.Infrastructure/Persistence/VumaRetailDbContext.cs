@@ -186,6 +186,53 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Imports.ImportMappingTemplate> ImportMappingTemplates
         => Set<Domain.Imports.ImportMappingTemplate>();
 
+    /// <summary>Internal demand — somebody saying they need something (Stage 12).</summary>
+    public DbSet<Domain.Procurement.PurchaseRequisition> PurchaseRequisitions
+        => Set<Domain.Procurement.PurchaseRequisition>();
+
+    /// <summary>One thing a requisition asks for.</summary>
+    public DbSet<Domain.Procurement.PurchaseRequisitionLine> PurchaseRequisitionLines
+        => Set<Domain.Procurement.PurchaseRequisitionLine>();
+
+    /// <summary>The buyer asking suppliers what they would charge.</summary>
+    public DbSet<Domain.Procurement.Rfq> Rfqs => Set<Domain.Procurement.Rfq>();
+
+    /// <summary>One thing suppliers are being asked to price.</summary>
+    public DbSet<Domain.Procurement.RfqLine> RfqLines => Set<Domain.Procurement.RfqLine>();
+
+    /// <summary>One supplier's quote, frozen on submission.</summary>
+    public DbSet<Domain.Procurement.RfqResponse> RfqResponses => Set<Domain.Procurement.RfqResponse>();
+
+    /// <summary>What one supplier charges for one RFQ line.</summary>
+    public DbSet<Domain.Procurement.RfqResponseLine> RfqResponseLines
+        => Set<Domain.Procurement.RfqResponseLine>();
+
+    /// <summary>The commitment — the document a supplier holds the shop to.</summary>
+    public DbSet<Domain.Procurement.PurchaseOrder> PurchaseOrders => Set<Domain.Procurement.PurchaseOrder>();
+
+    /// <summary>One thing the shop committed to buy, at a stated cost.</summary>
+    public DbSet<Domain.Procurement.PurchaseOrderLine> PurchaseOrderLines
+        => Set<Domain.Procurement.PurchaseOrderLine>();
+
+    /// <summary>The claim that the goods physically arrived.</summary>
+    public DbSet<Domain.Procurement.GoodsReceipt> GoodsReceipts => Set<Domain.Procurement.GoodsReceipt>();
+
+    /// <summary>What arrived against one order line, and what was sent back.</summary>
+    public DbSet<Domain.Procurement.GoodsReceiptLine> GoodsReceiptLines
+        => Set<Domain.Procurement.GoodsReceiptLine>();
+
+    /// <summary>The three-way match: ordered against received against invoiced (ADR-082).</summary>
+    public DbSet<Domain.Procurement.SupplierInvoiceMatch> SupplierInvoiceMatches
+        => Set<Domain.Procurement.SupplierInvoiceMatch>();
+
+    /// <summary>One line of the comparison, with its two variances.</summary>
+    public DbSet<Domain.Procurement.SupplierInvoiceMatchLine> SupplierInvoiceMatchLines
+        => Set<Domain.Procurement.SupplierInvoiceMatchLine>();
+
+    /// <summary>One supplier's performance over one closed period, frozen (ADR-084).</summary>
+    public DbSet<Domain.Procurement.SupplierScorecard> SupplierScorecards
+        => Set<Domain.Procurement.SupplierScorecard>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 
