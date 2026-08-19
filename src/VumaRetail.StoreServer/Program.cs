@@ -26,6 +26,7 @@ using VumaRetail.Web.Pos;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.Warehouse;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -128,6 +129,13 @@ builder.Services.AddVumaProcurement(
     builder.Configuration.GetSection(ProcurementOptions.SectionName).Get<ProcurementOptions>()
         ?? new ProcurementOptions());
 
+// Stage 13. Zones, bins, bin stock, putaway, pick/pack/ship and cycle counts. After AddVumaInventory:
+// every warehouse command validates a Stage 08 location and a cycle count variance posts through Stage
+// 08's IStockLedgerPoster, extended additively with an optional bin id (docs/DECISIONS.md ADR-087) — no
+// new financial event publisher, the existing inventory binding carries it (see the module's own DI
+// extension for why).
+builder.Services.AddVumaWarehouse();
+
 // Stage 11. Excel/CSV/PDF ingestion. Last of the business modules because it is a caller of all of
 // them: its five target handlers write through catalog's, partners', inventory's and sales'
 // repositories rather than into their tables (ADR-079), and its batch numbers come from finance's
@@ -222,6 +230,7 @@ app.MapVumaInventory();
 app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaProcurement();
+app.MapVumaWarehouse();
 app.MapVumaImports();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is

@@ -26,6 +26,10 @@ public interface IStockLedgerPoster
     /// <param name="unitCost">What it cost per unit.</param>
     /// <param name="note">An optional free-text note.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="binId">
+    /// The bin the stock landed in, when the caller knows one — <c>null</c> otherwise. Added in Stage
+    /// 13, additively: every caller that does not pass it keeps behaving exactly as before.
+    /// </param>
     Task<StockLedgerEntry> ReceiveAsync(
         StockLocation location,
         Guid? itemId,
@@ -33,7 +37,8 @@ public interface IStockLedgerPoster
         Quantity quantity,
         Money unitCost,
         string? note,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
 
     /// <summary>
     /// Posts a sale issue — stock leaving through a sale, valued at the current weighted-average cost.
@@ -135,6 +140,7 @@ public interface IStockLedgerPoster
     /// A positive adjustment with no existing balance and no supplied cost, or a negative adjustment
     /// beyond what is on hand.
     /// </exception>
+    /// <param name="binId">The bin an increase lands in, when the caller knows one — <c>null</c> otherwise. Stage 13.</param>
     Task<StockLedgerEntry> AdjustAsync(
         StockLocation location,
         Guid? itemId,
@@ -143,7 +149,8 @@ public interface IStockLedgerPoster
         AdjustmentReasonCode reasonCode,
         Money? unitCost,
         string? note,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
 
     /// <summary>
     /// Posts an adjustment that came out of a data import, referenced back to the batch that caused it.
@@ -217,6 +224,7 @@ public interface IStockLedgerPoster
     /// <param name="variance">The signed difference — counted minus system.</param>
     /// <param name="stocktakeSessionId">The session this variance belongs to.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="binId">The bin the count belonged to, when the caller knows one — <c>null</c> otherwise. Stage 13.</param>
     /// <returns>The posted entry, or <c>null</c> if the variance was zero.</returns>
     /// <exception cref="InventoryRuleException">
     /// A positive variance (more counted than expected) with no existing balance — found stock with no
@@ -228,6 +236,68 @@ public interface IStockLedgerPoster
         Guid? itemVariantId,
         Quantity variance,
         Guid stocktakeSessionId,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
+
+    /// <summary>
+    /// Posts an outbound shipment leaving the location — stock relieved at the current weighted-average
+    /// cost, the same economic event as a sale issue with its own document behind it.
+    /// </summary>
+    /// <param name="location">Where the stock left from.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="quantity">How much shipped. Must be positive.</param>
+    /// <param name="shipmentReferenceId">The <c>warehouse.shipment_confirmations</c> document this issue correlates to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="binId">The bin the stock was picked from, when the caller knows one — <c>null</c> otherwise.</param>
+    /// <remarks>
+    /// Added in Stage 13. A dedicated method rather than reusing <see cref="IssueForSaleAsync"/> for the
+    /// reason <see cref="ReceiveForPurchaseAsync"/> gives: an issue with no reference to the document
+    /// that caused it is untraceable, and Order Management (Stage 14) does not exist yet to originate a
+    /// real sale — a warehouse can ship without one.
+    /// </remarks>
+    /// <exception cref="InventoryRuleException">Insufficient stock is on hand.</exception>
+    Task<StockLedgerEntry> IssueForShipmentAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid shipmentReferenceId,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
+
+    /// <summary>
+    /// Posts a bin-level cycle count line's variance to the ledger, or does nothing if the line counted
+    /// exactly what the system expected.
+    /// </summary>
+    /// <param name="location">The location the counted bin belongs to.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="variance">The signed difference — counted minus system.</param>
+    /// <param name="cycleCountId">The <c>warehouse.cycle_counts</c> document this variance belongs to.</param>
+    /// <param name="binId">The bin that was counted.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The posted entry, or <c>null</c> if the variance was zero.</returns>
+    /// <remarks>
+    /// Added in Stage 13. Deliberately its own method rather than reusing
+    /// <see cref="PostStocktakeVarianceAsync"/> with a parameter, so a cycle count's variance is never
+    /// confused with a full Stage 08 stocktake's in the ledger's own <see cref="StockReferenceType"/> —
+    /// the same reasoning that gives <see cref="AdjustForImportAsync"/> its own reference type rather
+    /// than sharing <see cref="AdjustAsync"/>'s. The economics are identical (both raise
+    /// <see cref="StockMovementType.StocktakeVariance"/>, both reach the same seeded posting rules);
+    /// only the document behind the movement differs.
+    /// </remarks>
+    /// <exception cref="InventoryRuleException">
+    /// A positive variance (more counted than expected) with no existing balance — found stock with no
+    /// cost basis to value it at; receive it first.
+    /// </exception>
+    Task<StockLedgerEntry?> PostCycleCountVarianceAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity variance,
+        Guid cycleCountId,
+        Guid binId,
         CancellationToken cancellationToken = default);
 }
 
@@ -254,12 +324,13 @@ public sealed class StockLedgerPoster(
         Quantity quantity,
         Money unitCost,
         string? note,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostReceiptLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
+            location, binId, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
             StockReferenceType.Manual, referenceId: null, reasonCode: null, note, cancellationToken);
     }
 
@@ -275,8 +346,25 @@ public sealed class StockLedgerPoster(
         ArgumentNullException.ThrowIfNull(location);
 
         return PostIssueLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
+            location, binId: null, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
             StockReferenceType.Sale, saleReferenceId, reasonCode: null, note: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> IssueForShipmentAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid shipmentReferenceId,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostIssueLikeAsync(
+            location, binId, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
+            StockReferenceType.Shipment, shipmentReferenceId, reasonCode: null, note: null, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -292,7 +380,7 @@ public sealed class StockLedgerPoster(
         ArgumentNullException.ThrowIfNull(location);
 
         return PostReceiptLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.SalesReturn, quantity, unitCost,
+            location, binId: null, itemId, itemVariantId, StockMovementType.SalesReturn, quantity, unitCost,
             StockReferenceType.SalesReturn, salesReturnReferenceId, reasonCode: null, note: null,
             cancellationToken);
     }
@@ -310,7 +398,7 @@ public sealed class StockLedgerPoster(
         ArgumentNullException.ThrowIfNull(location);
 
         return PostReceiptLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
+            location, binId: null, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
             StockReferenceType.GoodsReceipt, goodsReceiptReferenceId, reasonCode: null, note: null,
             cancellationToken);
     }
@@ -324,7 +412,8 @@ public sealed class StockLedgerPoster(
         AdjustmentReasonCode reasonCode,
         Money? unitCost,
         string? note,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
@@ -342,13 +431,13 @@ public sealed class StockLedgerPoster(
             Money cost = unitCost ?? existing?.AverageCost ?? throw InventoryRuleException.UnitCostRequiredToOpenBalance();
 
             return await PostReceiptLikeAsync(
-                location, itemId, itemVariantId, StockMovementType.Adjustment, delta, cost,
+                location, binId, itemId, itemVariantId, StockMovementType.Adjustment, delta, cost,
                 StockReferenceType.Manual, referenceId: null, reasonCode, note, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         return await PostIssueLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
+            location, binId, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
             StockReferenceType.Manual, referenceId: null, reasonCode, note, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -380,14 +469,14 @@ public sealed class StockLedgerPoster(
             Money cost = unitCost ?? existing?.AverageCost ?? throw InventoryRuleException.UnitCostRequiredToOpenBalance();
 
             return await PostReceiptLikeAsync(
-                location, itemId, itemVariantId, StockMovementType.Adjustment, delta, cost,
+                location, binId: null, itemId, itemVariantId, StockMovementType.Adjustment, delta, cost,
                 StockReferenceType.Import, importBatchId, AdjustmentReasonCode.Correction, note,
                 cancellationToken)
                 .ConfigureAwait(false);
         }
 
         return await PostIssueLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
+            location, binId: null, itemId, itemVariantId, StockMovementType.Adjustment, -delta,
             StockReferenceType.Import, importBatchId, AdjustmentReasonCode.Correction, note,
             cancellationToken)
             .ConfigureAwait(false);
@@ -418,14 +507,14 @@ public sealed class StockLedgerPoster(
         }
 
         StockLedgerEntry outEntry = await PostIssueLikeAsync(
-            source, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
+            source, binId: null, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
             StockReferenceType.Transfer, transferId, reasonCode: null, note, cancellationToken)
             .ConfigureAwait(false);
 
         // The destination receives at exactly the cost that left the source — a transfer moves value,
         // it does not create or destroy it.
         StockLedgerEntry inEntry = await PostReceiptLikeAsync(
-            destination, itemId, itemVariantId, StockMovementType.TransferIn, quantity, outEntry.UnitCost,
+            destination, binId: null, itemId, itemVariantId, StockMovementType.TransferIn, quantity, outEntry.UnitCost,
             StockReferenceType.Transfer, transferId, reasonCode: null, note, cancellationToken)
             .ConfigureAwait(false);
 
@@ -439,7 +528,8 @@ public sealed class StockLedgerPoster(
         Guid? itemVariantId,
         Quantity variance,
         Guid stocktakeSessionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
@@ -460,14 +550,56 @@ public sealed class StockLedgerPoster(
             Money cost = existing?.AverageCost ?? throw InventoryRuleException.UnitCostRequiredToOpenBalance();
 
             return await PostReceiptLikeAsync(
-                location, itemId, itemVariantId, StockMovementType.StocktakeVariance, variance, cost,
+                location, binId, itemId, itemVariantId, StockMovementType.StocktakeVariance, variance, cost,
                 StockReferenceType.Stocktake, stocktakeSessionId, reasonCode: null, note: null, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         return await PostIssueLikeAsync(
-            location, itemId, itemVariantId, StockMovementType.StocktakeVariance, -variance,
+            location, binId, itemId, itemVariantId, StockMovementType.StocktakeVariance, -variance,
             StockReferenceType.Stocktake, stocktakeSessionId, reasonCode: null, note: null, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<StockLedgerEntry?> PostCycleCountVarianceAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity variance,
+        Guid cycleCountId,
+        Guid binId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        if (binId == Guid.Empty)
+        {
+            throw new ArgumentException("A cycle count variance must name the bin that was counted.", nameof(binId));
+        }
+
+        if (variance.IsZero)
+        {
+            return null;
+        }
+
+        if (!variance.IsNegative)
+        {
+            StockBalance? existing = await balances
+                .FindAsync(location.Id, itemId, itemVariantId, cancellationToken)
+                .ConfigureAwait(false);
+
+            Money cost = existing?.AverageCost ?? throw InventoryRuleException.UnitCostRequiredToOpenBalance();
+
+            return await PostReceiptLikeAsync(
+                location, binId, itemId, itemVariantId, StockMovementType.StocktakeVariance, variance, cost,
+                StockReferenceType.CycleCount, cycleCountId, reasonCode: null, note: null, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await PostIssueLikeAsync(
+            location, binId, itemId, itemVariantId, StockMovementType.StocktakeVariance, -variance,
+            StockReferenceType.CycleCount, cycleCountId, reasonCode: null, note: null, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -477,6 +609,7 @@ public sealed class StockLedgerPoster(
     /// </summary>
     private async Task<StockLedgerEntry> PostReceiptLikeAsync(
         StockLocation location,
+        Guid? binId,
         Guid? itemId,
         Guid? itemVariantId,
         StockMovementType movementType,
@@ -504,7 +637,7 @@ public sealed class StockLedgerPoster(
         balance.ApplyReceipt(quantity, unitCost);
 
         StockLedgerEntry entry = StockLedgerEntry.Post(
-            location.TenantId, location.StoreId, location.Id, itemId, itemVariantId, movementType,
+            location.TenantId, location.StoreId, location.Id, binId, itemId, itemVariantId, movementType,
             quantity, unitCost, referenceType, referenceId, reasonCode, note);
 
         ledger.Add(entry);
@@ -520,6 +653,7 @@ public sealed class StockLedgerPoster(
     /// </summary>
     private async Task<StockLedgerEntry> PostIssueLikeAsync(
         StockLocation location,
+        Guid? binId,
         Guid? itemId,
         Guid? itemVariantId,
         StockMovementType movementType,
@@ -544,7 +678,7 @@ public sealed class StockLedgerPoster(
         balance.ApplyIssue(quantity);
 
         StockLedgerEntry entry = StockLedgerEntry.Post(
-            location.TenantId, location.StoreId, location.Id, itemId, itemVariantId, movementType,
+            location.TenantId, location.StoreId, location.Id, binId, itemId, itemVariantId, movementType,
             -quantity, unitCost, referenceType, referenceId, reasonCode, note);
 
         ledger.Add(entry);

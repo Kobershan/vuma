@@ -115,4 +115,15 @@ public static class Schemas
     /// </para>
     /// </remarks>
     public const string Procurement = "procurement";
+
+    /// <summary>
+    /// Zones, bins, bin-level stock, putaway, pick/pack/ship and cycle counts. Stage 13.
+    /// </summary>
+    /// <remarks>
+    /// Subdivides <see cref="Inventory"/>'s locations rather than folding into that schema — a bin is
+    /// additive to the ledger, never a replacement for it (see <c>Inventory.StockLedgerEntry.BinId</c>'s
+    /// own remarks). Declaring the schema is also what puts the module into the daily metering rollup,
+    /// the same way every schema since <see cref="Pos"/> does.
+    /// </remarks>
+    public const string Warehouse = "warehouse";
 }

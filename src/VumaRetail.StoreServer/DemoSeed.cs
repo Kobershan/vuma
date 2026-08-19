@@ -18,6 +18,8 @@ using VumaRetail.Application.Abstractions.Procurement;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Sales;
 using VumaRetail.Application.Sales.Commands;
+using VumaRetail.Application.Warehouse.Commands;
+using VumaRetail.Application.Warehouse.Queries;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Sales;
 using VumaRetail.Domain.Catalog;
@@ -29,6 +31,7 @@ using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Procurement;
+using VumaRetail.Domain.Warehouse;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Finance.Commands;
@@ -165,6 +168,101 @@ public static class DemoSeed
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
             .ConfigureAwait(false);
+        await SeedWarehouseAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 13: a storage zone and three bins under <c>MAIN</c>, unbinned stock (from
+    /// <see cref="SeedInventoryAsync"/>'s opening receipt and <see cref="SeedProcurementAsync"/>'s GRN)
+    /// shelved into two of them, a wave picked, packed and shipped from the larger one, and a cycle
+    /// count on the other that finds three fewer than the system expects.
+    /// </summary>
+    /// <remarks>
+    /// Guarded on the zone table being empty rather than per-row, the same shape every other
+    /// <c>Seed*Async</c> method in this file uses.
+    /// </remarks>
+    private static async Task SeedWarehouseAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Zones.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        StockLocation warehouse = await context.StockLocations
+            .FirstAsync(location => location.Code == "MAIN", cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid zoneId = await dispatcher
+            .SendAsync(new CreateZoneCommand(warehouse.Id, "STOR-A", "Storage aisle A", ZoneType.Storage), cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid binA01 = await dispatcher
+            .SendAsync(new CreateBinCommand(zoneId, "A-01", "Aisle A, shelf 1", BinType.Shelf), cancellationToken)
+            .ConfigureAwait(false);
+        Guid binA02 = await dispatcher
+            .SendAsync(new CreateBinCommand(zoneId, "A-02", "Aisle A, shelf 2", BinType.Shelf), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher
+            .SendAsync(new CreateBinCommand(zoneId, "A-03", "Aisle A, shelf 3", BinType.Shelf), cancellationToken)
+            .ConfigureAwait(false);
+
+        // Shelve some of the unbinned stock SeedInventoryAsync and SeedProcurementAsync already put on
+        // the floor — 60 into the bin the pick wave below will draw from, 30 into the second, split
+        // across two confirmations against one task, which is what a picker splitting a pallet looks
+        // like (business rule 8 — the confirmed bin need not match any single suggestion).
+        Guid putawayId = await dispatcher
+            .SendAsync(
+                new OpenPutawayTaskCommand(
+                    warehouse.Id, itemId, null, new Quantity(90m, "EA"), PutawaySourceReferenceType.ManualReceipt),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ConfirmPutawayCommand(putawayId, binA01, new Quantity(60m, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new ConfirmPutawayCommand(putawayId, binA02, new Quantity(30m, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+
+        // Pick, pack and ship 25 units — Order Management (Stage 14) does not exist yet, so the demand
+        // is a caller-supplied line, exactly as the stage document's "what this stage does not own" says.
+        Guid waveId = await dispatcher.SendAsync(new OpenPickWaveCommand(warehouse.Id), cancellationToken)
+            .ConfigureAwait(false);
+        Guid pickTaskId = await dispatcher
+            .SendAsync(new AddPickTaskCommand(waveId, itemId, null, new Quantity(25m, "EA"), "SO-DEMO-3001"), cancellationToken)
+            .ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ReleasePickWaveCommand(waveId), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new ConfirmPickCommand(pickTaskId, new Quantity(25m, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new PackWaveCommand(waveId, 2, "Two cartons, one pallet"), cancellationToken)
+            .ConfigureAwait(false);
+        Guid shipmentId = await dispatcher
+            .SendAsync(new ShipWaveCommand(waveId, "Vuma Logistics", "TRK-DEMO-001"), cancellationToken)
+            .ConfigureAwait(false);
+
+        // A cycle count on the bin the wave never touched finds three fewer than the system expects —
+        // business rule 4: the variance corrects the location's own balance, not only the bin's.
+        Guid cycleCountId = await dispatcher.SendAsync(new OpenCycleCountCommand(warehouse.Id, zoneId), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher
+            .SendAsync(new RecordCycleCountCommand(cycleCountId, binA02, itemId, null, new Quantity(27m, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new FinalizeCycleCountCommand(cycleCountId), cancellationToken).ConfigureAwait(false);
+
+        BinStockResult binOneStock = await dispatcher.QueryAsync(new GetBinStockQuery(binA01, itemId, null), cancellationToken)
+            .ConfigureAwait(false);
+        BinStockResult binTwoStock = await dispatcher.QueryAsync(new GetBinStockQuery(binA02, itemId, null), cancellationToken)
+            .ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Warehouse: zone {zoneId} shelved into A-01 ({binOneStock.QuantityOnHand}) and A-02 "
+            + $"({binTwoStock.QuantityOnHand}); wave {waveId} shipped 25 EA as {shipmentId}; "
+            + $"cycle count {cycleCountId} found A-02 three short and posted the variance.");
     }
 
     /// <summary>

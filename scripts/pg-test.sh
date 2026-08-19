@@ -45,11 +45,35 @@ find_pg_bin() {
     return
   fi
 
+  # The EDB Windows installer (what this repo's Windows dev/build machines use, per
+  # docs/AUTONOMOUS_OPERATION.md) puts the server binaries here and does not add them to PATH.
+  candidate="$(ls -d "/c/Program Files/PostgreSQL"/*/bin 2>/dev/null | sort -V | tail -1 || true)"
+
+  if [[ -n "${candidate}" && -x "${candidate}/initdb.exe" ]]; then
+    echo "${candidate}"
+    return
+  fi
+
   echo "PostgreSQL server binaries not found. Install postgresql (not just the client)." >&2
   exit 1
 }
 
 PG_BIN="$(find_pg_bin)"
+
+# True on the native-Windows EDB build (postgres.exe rather than a Linux ELF binary). Its
+# argument parsing does not do Git Bash's automatic POSIX-to-Windows path translation for a path
+# embedded inside a single quoted -o "..." string, only for a path passed as its own argv entry
+# (which is why -D above works unmodified but -k below needs converting first).
+IS_WINDOWS_PG=0
+[[ -f "${PG_BIN}/initdb.exe" ]] && IS_WINDOWS_PG=1
+
+to_native_path() {
+  if [[ "${IS_WINDOWS_PG}" -eq 1 ]] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    echo "$1"
+  fi
+}
 
 conn_string() {
   echo "Host=127.0.0.1;Port=${PORT};Database=postgres;Username=${USER_NAME};Password=vuma"
@@ -68,8 +92,10 @@ case "${1:-start}" in
     # after the run. There is no credential here worth protecting and none is ever committed.
     "${PG_BIN}/initdb" -D "${DATA_DIR}" -U "${USER_NAME}" --auth=trust -E UTF8 >/dev/null
 
+    SOCKET_DIR="$(to_native_path "${DATA_DIR}")"
+
     "${PG_BIN}/pg_ctl" -D "${DATA_DIR}" -l "${DATA_DIR}/server.log" \
-      -o "-p ${PORT} -k ${DATA_DIR} -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
+      -o "-p ${PORT} -k \"${SOCKET_DIR}\" -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
       start >/dev/null
 
     # fsync off is safe and much faster here: the entire cluster is disposable, so durability

@@ -106,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11 and 12)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11, 12 and 13)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -191,6 +191,17 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SupplierInvoiceMatch` | `procurement` | `Bidirectional` | `CloudWins` | Matching an invoice is an AP act, usually head office's; a single-store shop does it at the back office. Frozen once released |
 | `SupplierInvoiceMatchLine` | `procurement` | `Bidirectional` | `CloudWins` | Follows its match |
 | `SupplierScorecard` | `procurement` | `Bidirectional` | `CloudWins` | Written once over a closed period and never edited (ADR-084); head office compares suppliers across branches |
+| `Zone` | `warehouse` | `Bidirectional` | `CloudWins` | A store names its own dock; head office lays out a new distribution centre. Same shape as `StockLocation` |
+| `Bin` | `warehouse` | `Bidirectional` | `CloudWins` | Follows its zone |
+| `BinStock` | `warehouse` | `NodeLocal` | `LastWriterWins` | A running total, not safely mergeable — same reasoning as `StockBalance` (ADR-069), one level down |
+| `BinStockMovement` | `warehouse` | `StoreToCloud` | `AppendOnly` | Bin-level stock moves at one store; the ledger accumulates, same shape as `StockLedgerEntry` |
+| `PutawayTask` | `warehouse` | `StoreToCloud` | `StoreWins` | Shelving happens at one store's floor and is legitimately mutable while pending |
+| `PickWave` | `warehouse` | `StoreToCloud` | `StoreWins` | Worked at one location, legitimately mutable while open; the store is the only node editing one |
+| `PickTask` | `warehouse` | `StoreToCloud` | `StoreWins` | Follows its wave |
+| `PackTask` | `warehouse` | `StoreToCloud` | `StoreWins` | One record per wave, written once by the store that packed it |
+| `ShipmentConfirmation` | `warehouse` | `StoreToCloud` | `AppendOnly` | The point stock leaves a store's door. Immutable — a correction is a new shipment, same shape as `StockTransfer` |
+| `CycleCount` | `warehouse` | `StoreToCloud` | `StoreWins` | A physical count happens on one store's floor; the cloud observes. Same shape as `StocktakeSession` |
+| `CycleCountLine` | `warehouse` | `StoreToCloud` | `StoreWins` | Follows its count |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

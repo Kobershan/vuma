@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -231,6 +232,82 @@ public sealed class ApiContractTests(PostgresFixture fixture)
         {
             paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
         }
+    }
+
+    [Fact]
+    public async Task Every_warehouse_operation_reaches_the_openapi_document()
+    {
+        // R3 and CLAUDE.md §8, exactly as Stage 12's own test above: Stage 13 ships no screen either
+        // (PROGRESS.md §4.3), and "handheld" means this API surface (the stage document's own words) —
+        // an endpoint missing from the document is a feature that does not exist for a scanner client.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/warehouse/zones",
+            "/api/v1/warehouse/zones/{zoneId}/deactivate",
+            "/api/v1/warehouse/zones/{zoneId}/bins",
+            "/api/v1/warehouse/bins",
+            "/api/v1/warehouse/bins/{binId}/deactivate",
+            "/api/v1/warehouse/bins/{binId}/stock",
+            "/api/v1/warehouse/bins/{binId}/stock/one",
+            "/api/v1/warehouse/bins/move",
+            "/api/v1/warehouse/locations/{locationId}/bins",
+            "/api/v1/warehouse/putaway",
+            "/api/v1/warehouse/putaway/{putawayTaskId}",
+            "/api/v1/warehouse/locations/{locationId}/putaway/pending",
+            "/api/v1/warehouse/putaway/{putawayTaskId}/confirm",
+            "/api/v1/warehouse/putaway/{putawayTaskId}/cancel",
+            "/api/v1/warehouse/pick-waves",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/tasks",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/release",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/cancel",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/pack",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/ship",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/shipment",
+            "/api/v1/warehouse/pick-tasks/{pickTaskId}/confirm",
+            "/api/v1/warehouse/pick-tasks/{pickTaskId}/cancel",
+            "/api/v1/warehouse/cycle-counts",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}/counts",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}/finalize",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
+    [Theory]
+    [InlineData("/api/v1/warehouse/putaway/{0}/confirm")]
+    [InlineData("/api/v1/warehouse/pick-tasks/{0}/confirm")]
+    [InlineData("/api/v1/warehouse/pick-waves/{0}/ship")]
+    [InlineData("/api/v1/warehouse/cycle-counts/{0}/finalize")]
+    public async Task A_caller_without_warehouse_permissions_is_forbidden_from_the_stages_four_high_risk_operations(
+        string pathTemplate)
+    {
+        // The stage document names these four by name: putaway confirm, pick confirm, ship confirm and
+        // cycle count finalize. Each is checked here rather than one standing in for the group — a
+        // permission that is declared, granted and never enforced is exactly the defect §4.15 recorded
+        // against Stage 09, and one representative endpoint would not have caught it.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("picker");
+
+        using HttpClient signedIn = await harness.SignInAsync("picker");
+
+        HttpResponseMessage response = await signedIn.PostAsync(
+            new Uri(string.Format(CultureInfo.InvariantCulture, pathTemplate, Guid.NewGuid()), UriKind.Relative),
+            JsonContent.Create(new { }));
+
+        response.StatusCode.Should().Be(
+            HttpStatusCode.Forbidden,
+            "the permission must be refused before the handler ever looks the document up");
+        (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().Be(ApiErrorCodes.Forbidden);
     }
 
     [Fact]

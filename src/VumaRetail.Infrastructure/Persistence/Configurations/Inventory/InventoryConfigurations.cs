@@ -53,6 +53,11 @@ internal sealed class StockLedgerEntryConfiguration : EntityConfiguration<StockL
     protected override void ConfigureEntity(EntityTypeBuilder<StockLedgerEntry> builder)
     {
         builder.Property(entry => entry.LocationId).IsRequired();
+
+        // Nullable, added in Stage 13, additively — see BinId's own remarks. No migration touches a
+        // row that predates it; every historical entry simply reads null here.
+        builder.Property(entry => entry.BinId);
+
         builder.Property(entry => entry.ItemId);
         builder.Property(entry => entry.ItemVariantId);
 
@@ -84,6 +89,10 @@ internal sealed class StockLedgerEntryConfiguration : EntityConfiguration<StockL
         builder.HasIndex(entry => new { entry.LocationId, entry.CreatedAt, entry.Id })
             .HasDatabaseName("ix_stock_ledger_entries_location_id_created_at_id")
             .IsDescending(false, true, true);
+
+        builder.HasIndex(entry => entry.BinId)
+            .HasDatabaseName("ix_stock_ledger_entries_bin_id")
+            .HasFilter("bin_id IS NOT NULL");
 
         builder.HasIndex(entry => entry.ItemId)
             .HasDatabaseName("ix_stock_ledger_entries_item_id");
