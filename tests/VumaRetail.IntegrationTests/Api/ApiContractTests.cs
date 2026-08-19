@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -282,22 +283,30 @@ public sealed class ApiContractTests(PostgresFixture fixture)
         }
     }
 
-    [Fact]
-    public async Task A_caller_without_warehouse_permissions_is_forbidden_from_confirming_a_shipment()
+    [Theory]
+    [InlineData("/api/v1/warehouse/putaway/{0}/confirm")]
+    [InlineData("/api/v1/warehouse/pick-tasks/{0}/confirm")]
+    [InlineData("/api/v1/warehouse/pick-waves/{0}/ship")]
+    [InlineData("/api/v1/warehouse/cycle-counts/{0}/finalize")]
+    public async Task A_caller_without_warehouse_permissions_is_forbidden_from_the_stages_four_high_risk_operations(
+        string pathTemplate)
     {
-        // The stage document's four high-risk operations (putaway confirm, pick confirm, ship
-        // confirm, cycle count finalize) all gate the same way; shipment is the one that moves stock
-        // out the door, so it stands in for the group here.
+        // The stage document names these four by name: putaway confirm, pick confirm, ship confirm and
+        // cycle count finalize. Each is checked here rather than one standing in for the group — a
+        // permission that is declared, granted and never enforced is exactly the defect §4.15 recorded
+        // against Stage 09, and one representative endpoint would not have caught it.
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
         await harness.CreateUserAsync("picker");
 
         using HttpClient signedIn = await harness.SignInAsync("picker");
 
         HttpResponseMessage response = await signedIn.PostAsync(
-            new Uri($"/api/v1/warehouse/pick-waves/{Guid.NewGuid()}/ship", UriKind.Relative),
-            JsonContent.Create(new { Carrier = (string?)null, TrackingNumber = (string?)null }));
+            new Uri(string.Format(CultureInfo.InvariantCulture, pathTemplate, Guid.NewGuid()), UriKind.Relative),
+            JsonContent.Create(new { }));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().Be(
+            HttpStatusCode.Forbidden,
+            "the permission must be refused before the handler ever looks the document up");
         (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().Be(ApiErrorCodes.Forbidden);
     }
 

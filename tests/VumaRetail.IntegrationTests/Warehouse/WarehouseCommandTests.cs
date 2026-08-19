@@ -1,3 +1,4 @@
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Inventory.Commands;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
@@ -278,6 +279,19 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         CycleCountResult count = await harness.QueryAsync(new GetCycleCountQuery(countId));
         count.Status.Should().Be(CycleCountStatus.Finalized);
         count.Lines.Should().ContainSingle(line => line.Variance.Value == -3m);
+
+        // The exit checklist's "reaches Stage 07 through Stage 08's existing rules, verified rather
+        // than assumed": the movement type is the whole of what picks the seeded rule key
+        // (`EventTypeFor` maps StocktakeVariance to inventory.stocktake.shortage / .surplus), so a
+        // cycle count raising StocktakeVariance is a cycle count reaching the rules Stage 08 seeded.
+        // If this stage had invented a movement type of its own, this assertion is what would fail.
+        InventoryValuationEvent variance = harness.ValuationEvents.Events
+            .Single(raised => raised.ReferenceType == StockReferenceType.CycleCount);
+
+        variance.MovementType.Should().Be(
+            StockMovementType.StocktakeVariance,
+            "no new posting rule is registered by this stage — a cycle count is economically a stocktake");
+        variance.Value.IsNegative.Should().BeTrue("a shortage, so inventory.stocktake.shortage is the rule it lands on");
     }
 
     [Fact]
@@ -350,5 +364,87 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
 
         StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
         locationBalance!.QuantityOnHand.Value.Should().Be(10m, "an internal move never changes what the location holds");
+    }
+
+    [Fact]
+    public async Task A_shipment_issues_one_ledger_entry_per_SKU_however_many_bins_it_was_picked_from()
+    {
+        // Business rule 3 and the stage document's ShipmentConfirmation acceptance: two pick lines for
+        // the same SKU in two different bins are one economic event at the location, so the wave must
+        // post one issue for their sum — not one per bin, and not one per line.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), new Money(10m, "ZAR"), null));
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(9m)));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binTwo, Each(6m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(12m), "SO-2005"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult released = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        released.Tasks.Should().HaveCount(2, "the demand spans two bins");
+
+        foreach (PickTaskResult task in released.Tasks)
+        {
+            await harness.SendAsync(new ConfirmPickCommand(task.Id, task.AllocatedQuantity!.Value));
+        }
+
+        await harness.SendAsync(new PackWaveCommand(waveId, 1, null));
+        Guid shipmentId = await harness.SendAsync(new ShipWaveCommand(waveId, "Courier Co", "TRK-005"));
+
+        StockLedgerEntry[] shipmentEntries = [.. harness.Context.StockLedgerEntries
+            .Where(entry => entry.ReferenceId == shipmentId)];
+
+        shipmentEntries.Should().ContainSingle("one issue per distinct SKU across the wave, not one per bin");
+        shipmentEntries[0].Quantity.Value.Should().Be(-12m, "the SKU's picked quantity is summed across both lines");
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(3m);
+
+        BinStockResult? fromBinOne = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        BinStockResult? fromBinTwo = await harness.QueryAsync(new GetBinStockQuery(binTwo, harness.ItemId, null));
+        (fromBinOne!.QuantityOnHand.Value + fromBinTwo!.QuantityOnHand.Value).Should().Be(3m,
+            "both bins were relieved, and between them they hold what the location still holds");
+    }
+
+    [Fact]
+    public async Task A_bin_tagged_post_carries_its_bin_onto_the_ledger_and_an_untagged_one_leaves_it_null()
+    {
+        // ADR-087's regression test: the bin id is additive. A Stage 08/09/10/12 call site that never
+        // passes one must keep producing exactly the entry it produced before this stage existed, and
+        // a Stage 13 call site that has one must record it.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+
+        StockLedgerEntry receipt = harness.Context.StockLedgerEntries
+            .Single(entry => entry.ReferenceType == StockReferenceType.Manual);
+
+        receipt.BinId.Should().BeNull("a Stage 08 receipt names no bin and must behave exactly as before");
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        harness.Context.StockLedgerEntries.Count().Should().Be(1, "business rule 2: putaway posts no ledger entry at all");
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(8m)));
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        StockLedgerEntry variance = harness.Context.StockLedgerEntries
+            .Single(entry => entry.ReferenceType == StockReferenceType.CycleCount);
+
+        variance.BinId.Should().Be(binId, "the count knew which bin disagreed, so the ledger records it");
+        variance.Quantity.Value.Should().Be(-2m);
     }
 }

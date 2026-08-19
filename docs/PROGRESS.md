@@ -3,13 +3,13 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-17 · **Current stage:** 12 — Procurement (requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards) · **Status:** built, verified and merged to `main` — 1,069 tests green, 0 warnings, 83.46% coverage on the stage's Domain + Application, migration reversible, and a seeded store that has really bought. Closing the exit checklist found two things the build had not: **§4.18**, the module sweep swept nothing on a full-suite run (fixed), and the replication registry missing all thirteen entities in both `SYNC_AND_BACKUP.md` and `DATA_MODEL.md` (added). **The six agent reviews still did not run** (§4.17) — three stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
+**Last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
 ---
 
 ## 1. Stage status
 
-`main` is at 10 and Stage 11 is finished on its own branch; between them they carry 00 through 04b plus 06, 07, 08, 09, 10 and 11 — every stage except 05. Stage 05
+`main` carries 00 through 04b plus 06, 07, 08, 09, 10, 11, 12 and 13 — every stage except 05. Stage 05
 was started in its own worktree so it could proceed in parallel without colliding on shared files,
 and is the one branch still holding unverified work; 07, 08 and 09 were all finished and merged ahead
 of it, out of the roadmap's documented order, because none of them needs 05's approval engine to
@@ -57,7 +57,8 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) — 1,069 tests green, 83.46% coverage on the stage's Domain + Application, migration reversible in both directions, seeded store has really bought and really matched a supplier invoice. Found and fixed ADR-086 (stock was valued VAT-inclusive) while verifying the seed, §4.18 (the module sweep swept nothing on a full-suite run) and a replication registry thirteen entities short in two documents while closing the exit checklist. **The six agent reviews did not run**; see §4.17 | 2026-08-17 |
-| 13 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **DONE** (main) — 1,157 tests green, 86.17% coverage on the stage's Domain + Application, migration reversible, seeded warehouse has really shelved and really shipped, and the cycle count variance really reached the GL through Stage 08's existing seeded rule (`JNL-000009`). Four test-coverage gaps against the stage's own acceptance list closed this session. **The six agent reviews did not run**; see §4.17 | 2026-08-19 |
+| 14 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
 entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
@@ -611,6 +612,72 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-19 — Stage 13 complete: warehouse management — merged to `main`
+
+Branch `stage-13-warehouse-management`. Stage 08 said what is on hand at one `StockLocation`; this
+stage says *where inside it*, and the four physical motions that follow — put it away, count it, pick
+it, ship it.
+
+**What shipped.** The `warehouse` schema and its eleven tables — `Zone`, `Bin`, `BinStock`,
+`BinStockMovement`, `PutawayTask`, `PickWave`, `PickTask`, `PackTask`, `ShipmentConfirmation`,
+`CycleCount`, `CycleCountLine` — nine repositories, `IBinStockMover` and `IPickAllocationStrategy`
+(one implementation, `LargestBinFirstAllocationStrategy`), 19 commands, 11 queries, 9 permissions, 30
+endpoints, a reversible migration and a demo seed. `IStockLedgerPoster` gained a nullable `binId` and
+two dedicated methods, `IssueForShipmentAsync` and `PostCycleCountVarianceAsync`. ADR-087 – ADR-091.
+
+**The state it was found in — and this time the found state held up.** All of the code above, the
+migration, the ADRs, `DATA_MODEL.md` §4k/§5 and `SYNC_AND_BACKUP.md` §3 already existed on the branch
+in two `wip` commits, with the stage document still marked IN_PROGRESS and its exit checklist
+untouched. Unlike Stage 12, nothing here claimed to be done that was not: `dotnet build -c Release`
+came back 0 warnings 0 errors on the first try and `scripts/test.sh` came back **1,147 green, 0
+failed, 0 skipped**. The unfinished part was the checklist itself, and four gaps in the stage's own
+acceptance list.
+
+**The four gaps, all in tests, all now closed.** They are worth naming because each is a case where
+the suite would have stayed green through a real regression:
+
+1. **The `ShipmentConfirmation` per-SKU aggregation was never actually shipped in a test.** The stage
+   document asks for "aggregates picked quantity per SKU correctly across multiple pick lines for the
+   same SKU in different bins". A test allocated a 12-unit demand line across two bins and stopped at
+   allocation; nothing picked and shipped it. So business rule 3's "one issue per distinct SKU across
+   the wave" — the `GroupBy` in `ShipWaveCommandHandler` — was unasserted. Now it is, and it posts one
+   entry of −12 rather than two of −9 and −3.
+2. **ADR-087's own regression test did not exist.** The decision this stage turns on is that `binId`
+   is *additive*: every Stage 08/09/10/12 call site keeps producing exactly the entry it produced
+   before. The existing tests were only mechanically updated to pass the new `null` argument, which
+   asserts nothing. There is now a test that a Stage 08 receipt leaves `BinId` null, that putaway
+   posts no ledger entry at all (business rule 2), and that a cycle count variance carries its bin.
+3. **`ShipmentConfirmation` had no domain unit tests at all** — every other Stage 13 aggregate had a
+   file, this one was skipped.
+4. **Permission enforcement tested one of four operations.** The stage document names putaway confirm,
+   pick confirm, ship confirm and cycle count finalize; the test covered shipment with a comment
+   arguing it "stands in for the group". §4.15 is a defect of exactly that shape — a declared, granted
+   permission that nothing enforces — and one representative endpoint is how you fail to catch it. Now
+   a `[Theory]` with a case each.
+
+**Verified, executed rather than asserted.** `dotnet build -c Release`: 0 warnings, 0 errors. Full
+suite after the additions: **1,157 tests, 0 failed, 0 skipped** — 736 unit, 33 architecture, 388
+integration. Coverage on the stage's Domain + Application, merged across the unit and integration
+runs: **86.17%** (Domain/Warehouse 89.00%, Application/Warehouse 84.27%). `scripts/seed.sh` run
+against a fresh database and then checked in SQL rather than read off the log: A-01 holds 35 EA and
+A-02 27 EA, `bin_stock_movements` carries two `PutawayIn` and one `PickReserve`, the wave shipped 25
+EA at a weighted-average 22.7328, and the location's own `StockBalance` really fell to 127.
+
+**The checklist item that most wanted verifying, verified.** "Cycle count variances reach Stage 07
+through Stage 08's existing seeded stocktake posting rules — no new posting rule needed" is the kind
+of claim that is comfortable to assume and cheap to get wrong. The seeded database really produced
+`JNL-000009 · inventory.stocktake.shortage · 68.1984 Dr = Cr` (3 × 22.7328), and the shipment really
+produced `JNL-000008 · inventory.sale.issued · 568.3200`. `finance.posting_rules` holds twelve event
+types after the seed and **not one of them is warehouse-named** — rule 12 held. All nine seeded
+journals balance, checked in SQL.
+
+**Not done: the six agent reviews (§4.17), for the fourth stage running.** This session was not asked
+to spawn subagents and did not. All four gaps above came from *reading the stage document's acceptance
+list against the test files* — a checklist instrument again, not a code-reading one — and every one of
+them is a hole in what the tests assert rather than a defect in what the code does. That is precisely
+the class of thing the reviews exist to find from the other direction, and four stages of it are now
+stacked up.
 
 ### 2026-08-17 — Stage 12 complete: procurement — merged to `main`
 
@@ -1603,7 +1670,7 @@ mode has reached `main` (§4.16 was the first), and because it means **the sweep
 claims in Stage 11's entry above were made under a coin-flip** — they were re-run green after this fix,
 but they were not trustworthy when they were written.
 
-### 4.17 The six agent reviews did not run against Stage 10 or Stage 11 — **OPEN**
+### 4.17 The six agent reviews have not run against Stage 10, 11, 12 or 13 — **OPEN**
 
 `docs/AGENTS.md` defines six review agents and Stage 10's own exit checklist requires all six, with
 the reason spelled out in it: *"Stage 09 was reopened because its reviews did not run; `UNVERIFIED` is
@@ -1632,9 +1699,21 @@ computed by five handlers and dropped by the layer above them. That is the same 
 eight — defects sitting outside where the author was looking — and it is the argument for running the
 six against both stages before either is trusted.
 
-**These reviews need either an interactive session or explicit authorisation to spawn subagents.** Two
-consecutive stages have now been finished by sessions that could not launch them, which is worth
-fixing at the process level rather than noting a third time.
+**These reviews need either an interactive session or explicit authorisation to spawn subagents.**
+**Four** consecutive stages have now been finished by sessions that did not launch them — 10, 11, 12
+and 13 — which is worth fixing at the process level rather than noting a fourth time. This is now the
+oldest open item in this file, and the only one whose cost compounds every stage it goes unaddressed.
+
+**Stage 13 (2026-08-19) adds a fourth data point, and it is the most pointed one yet.** That stage was
+found already built, building clean and passing 1,147 tests. Working its exit checklist found four
+holes — but every one of them was a hole in *what the tests assert*, not in what the code does: a
+`GroupBy` that implements business rule 3 and was never shipped through a test, ADR-087's own "the bin
+id is additive" regression test which did not exist (the existing tests had only been mechanically
+updated to pass the new `null` argument, which asserts nothing), an aggregate with no unit-test file
+at all, and permission enforcement checked on one of the four operations the stage document names with
+a comment arguing the one "stands in for the group". A green suite of 1,147 tests said nothing about
+any of them. That is the precise failure mode a reviewer reading the code against the stage document
+catches and a test run cannot: **the tests can only fail on what somebody thought to assert.**
 
 **This stage's own two defects are weak evidence in both directions.** Both were found and fixed
 before merge, which is better than Stage 09 managed. But both were found by *mechanical* means — a unit
@@ -2056,6 +2135,34 @@ the entitlement gate ships to a paying tenant having never once refused anything
 ---
 
 ## 5. Next session starts here
+
+**Update, 2026-08-19 (Stage 13): read this first.**
+
+Stage 13 (warehouse management) is **built, verified and merged to `main`** — 1,157 tests green, 0
+warnings, 0 skipped, 86.17% coverage on its Domain + Application, migration reversible, seed
+demonstrable and checked in SQL. Full account in the session log above. `ROADMAP.md`'s dependency
+graph now has 08 → 13 closed, which unblocks 14, 15, 17 and 24.
+
+**Three things carry out of it, in priority order.**
+
+1. **Run the six agent reviews against Stages 10, 11, 12 and 13 (§4.17).** Four stages, none reviewed,
+   each finished by a session that did not launch them. Stage 13 sharpens the argument rather than
+   repeating it: it arrived building clean and passing 1,147 tests, and four acceptance-list gaps were
+   still open — all of them in what the tests *assert*, not in what the code does. A green suite is
+   silent about an assertion nobody wrote. This is the oldest open item in this file and the only one
+   whose cost compounds with every stage stacked on top of it.
+2. **Stage 14 (Order management) is `PickWave`'s real demand source — do not fork the wave.**
+   `PickTask.OutboundReference` is free text today specifically so a real sales order id fills it later
+   without a shape change, and `AddPickTaskCommand` is the seam. What Stage 14 adds is a caller, not a
+   parallel pick model. The stage document's "Notes for later stages" has the detail.
+3. **Bin capacity is recorded and deliberately not enforced (ADR-091, business rule 9).** That is a real
+   gap for a dense warehouse and it is left for whichever stage adds bin dimensioning or weighing —
+   refusing a putaway on a capacity nobody has measured would be worse than not refusing one. Whoever
+   picks that up should read ADR-091 before assuming it was an oversight.
+
+**Everything below still stands, and the four Stage 09 fixes are still the higher priority if anything
+is to be built on POS.**
+
 
 **Update, 2026-08-16 (Stage 11): read this first.**
 

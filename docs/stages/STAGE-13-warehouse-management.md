@@ -1,6 +1,6 @@
 # STAGE 13 — Warehouse Management: zones, bins, putaway, pick/pack/ship, cycle counts
 
-**Status:** IN_PROGRESS · **Depends on:** 08 (stock ledger — a bin is a subdivision of a Stage 08
+**Status:** DONE (2026-08-19) · **Depends on:** 08 (stock ledger — a bin is a subdivision of a Stage 08
 `StockLocation`, never a parallel quantity system) · **Reference reading:** `docs/DATA_MODEL.md` §1–§3,
 `docs/CONVENTIONS.md` §1–§6, `docs/API_STANDARDS.md` §3–§5 and §8–§9, `docs/TESTING.md` §2–§3,
 `CLAUDE.md` §7 rules 2, 3, 4, 5, 6, 8, 9, 12, 13, ADR-005 (the append-only ledger this stage extends,
@@ -231,20 +231,40 @@ variance.
 
 ## Exit checklist
 
-- [ ] `dotnet build -c Release` — zero warnings, zero errors
-- [ ] `dotnet test` — all green, ≥ 80% line coverage on the stage's Domain + Application
-- [ ] `Warehouse` migration generated, applied and reversed
-- [ ] Every endpoint in `/openapi/v1.json` with summaries and error responses
-- [ ] Permissions registered in the RBAC catalogue (`IModulePermissions`)
-- [ ] Cycle count variances reach Stage 07 through Stage 08's existing seeded stocktake posting rules —
-      no new posting rule needed, verified rather than assumed
-- [ ] Module entitlement flag declared in the manifest
-- [ ] Usage counters — automatic, via the `warehouse` schema (`UsageCounterSource` groups by schema)
-- [ ] Replication scope declared on every new entity; `SYNC_AND_BACKUP.md` and `DATA_MODEL.md` updated
-- [ ] `scripts/seed.sh` produces a warehouse that has really shelved and really shipped
-- [ ] ADR-087 – ADR-091 appended to `docs/DECISIONS.md`
-- [ ] The six agent reviews run (or documented why not), findings acted on or recorded
-- [ ] `docs/PROGRESS.md` updated, committed
+- [x] `dotnet build -c Release` — zero warnings, zero errors
+- [x] `dotnet test` — all green (**1,157**: 736 unit, 33 architecture, 388 integration; 0 failed, 0
+      skipped) via `scripts/test.sh`. Line coverage on the stage's Domain + Application, merged across
+      the unit and integration runs: **86.17%** (Domain/Warehouse 89.00%, Application/Warehouse 84.27%)
+- [x] `Warehouse` migration generated, applied and reversed — `MigrationTests.Down_reverses_the_initial_migration`
+      migrates to EF's `"0"` state and back, which takes this migration down with it, and
+      `The_model_and_the_migrations_agree` proves the snapshot is not stale
+- [x] Every endpoint in `/openapi/v1.json` with summaries and error responses — all 28 paths asserted by
+      `ApiContractTests.Every_warehouse_operation_reaches_the_openapi_document`
+- [x] Permissions registered in the RBAC catalogue (`IModulePermissions`) — 9 permissions, and all four
+      high-risk operations (putaway confirm, pick confirm, ship confirm, cycle count finalize) are
+      asserted to 403 without them, one test case each rather than one standing in for the group
+- [x] Cycle count variances reach Stage 07 through Stage 08's existing seeded stocktake posting rules —
+      no new posting rule needed, **verified rather than assumed**: the finalize raises
+      `StockMovementType.StocktakeVariance` (asserted in `WarehouseCommandTests`), which
+      `EventTypeFor` maps to the already-seeded `inventory.stocktake.shortage`, and the seeded database
+      really produced `JNL-000009 · inventory.stocktake.shortage · 68.1984 Dr = Cr`. `finance.posting_rules`
+      holds twelve event types after the seed and not one of them is warehouse-named
+- [x] Module entitlement flag declared in the manifest — `WarehouseModuleManifest`, flag `warehouse`,
+      not core
+- [x] Usage counters — automatic, via the `warehouse` schema (`UsageCounterSource` groups by schema)
+- [x] Replication scope declared on every new entity; `SYNC_AND_BACKUP.md` and `DATA_MODEL.md` updated —
+      ten replicated entities in all three places (`[Replicated]`, `SYNC_AND_BACKUP.md` §3,
+      `DATA_MODEL.md` §5), which is the Stage 12 drift (§4.18's sibling finding) not repeated
+- [x] `scripts/seed.sh` produces a warehouse that has really shelved and really shipped — run against a
+      fresh database and checked in SQL: A-01 holds 35 EA and A-02 27 EA, wave shipped 25 EA at a
+      weighted-average 22.7328 (`JNL-000008`), the location's own balance really fell to 127, and the
+      cycle count found A-02 three short and posted the variance
+- [x] ADR-087 – ADR-091 appended to `docs/DECISIONS.md`
+- [ ] **The six agent reviews run, findings acted on or recorded** — *not done*, as for Stages 10, 11
+      and 12. This session was not asked to spawn subagents and did not. **Four stages of unreviewed
+      work are now stacked on each other**; see `PROGRESS.md` §4.17, which is now the oldest open item
+      in the file
+- [x] `docs/PROGRESS.md` updated, committed
 
 ## Notes for later stages
 
