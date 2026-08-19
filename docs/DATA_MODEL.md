@@ -1015,6 +1015,95 @@ rather than computed on read for exactly the same reason.
 A period with no orders produces a snapshot of zeroes rather than no row — "we bought nothing from
 them" is an answer, and its absence is not.
 
+## 4k. Tables in `warehouse`
+
+Built in Stage 13. Eleven tables subdividing a Stage 08 `inventory.stock_locations` row into zones and
+bins, plus the movements and tasks that shelve, count, pick, pack and ship at that granularity.
+
+Every location, item, variant and bin reference below is a bare `uuid` and **never** a foreign key out
+of this schema, with one deliberate exception: `bin_id` on `inventory.stock_ledger_entries`, added by
+this stage's migration as a plain nullable column (ADR-087) — additive to the table Stage 08 owns, not
+a new foreign key relationship, and every historical row simply reads `null` there.
+
+**No table here names a GL account** (§7 rule 12). A cycle count variance raises the same
+`InventoryValuationEvent` a Stage 08 stocktake does, through the same `IStockLedgerPoster` — no new
+posting rule exists for this module.
+
+### `warehouse.zones` / `warehouse.bins`
+
+`zones`: `location_id`, `code`, `name`, `type` (Receiving/Storage/Picking/Packing/Shipping/Returns),
+`is_active`. `ux_zones_location_id_code` is unique per location.
+
+`bins`: `location_id` (denormalised from the zone, the same shape `stock_ledger_entries.location_id`
+uses), `zone_id`, `code`, `name`, `type` (Shelf/Pallet/Bulk/Staging/Dock), `capacity_value` /
+`capacity_unit_of_measure` (plain nullable columns, not a complex property — EF Core 9 cannot configure
+one as optional, ADR-067, the same reason `finance.journal_lines.debit_amount` is a plain column),
+`is_active`. `ux_bins_location_id_code` is unique per location. Capacity is informational only — not
+enforced (ADR-091, business rule 9).
+
+### `warehouse.bin_stock` / `warehouse.bin_stock_movements`
+
+`bin_stock` is the projection: `bin_id`, item/variant, `quantity_on_hand_*`. Quantity only, no cost —
+valuation stays at the location level in `inventory.stock_balances`. Node-local, not replicated
+(ADR-069's reasoning applied one level down). `ux_bin_stock_bin_id_item_id` /
+`_item_variant_id` are unique per bin.
+
+`bin_stock_movements` is the append-only ledger the projection sums to, at bin granularity:
+`bin_id`, item/variant, `movement_type` (PutawayIn/PutawayOut/PickReserve/PickRelease/
+InternalTransferIn/InternalTransferOut), signed `quantity`, `reference_type`
+(Putaway/Pick/InternalTransfer), `reference_id`. `IImmutableRecord`, the same structural guarantee
+`stock_ledger_entries` has. Posted only for movements that redistribute stock **inside** a location —
+a movement that changes what the location holds goes through the extended `IStockLedgerPoster`
+instead (business rules 2–4).
+
+### `warehouse.putaway_tasks`
+
+One line of unbinned received stock: `location_id`, item/variant, `quantity_*`,
+`source_reference_type` (GoodsReceipt/ManualReceipt/Adjustment), `source_reference_id`,
+`suggested_bin_id`, `status`, `confirmed_bin_id`, `confirmed_quantity_*`, `confirmed_at`.
+
+May be confirmed more than once — `confirmed_quantity` accumulates and `status` becomes `Confirmed`
+only once it equals `quantity`, which is what lets a picker split a task across two bins.
+`ix_putaway_tasks_pending_by_location` is partial on `status = 'Pending'`, the same shape
+`ix_stocktake_sessions_open_by_location` uses.
+
+### `warehouse.pick_waves` / `warehouse.pick_tasks`
+
+`pick_waves`: `location_id`, `status` (Open/Released/Picked/Packed/Shipped/Cancelled), and the
+`released_at` / `picked_at` / `packed_at` / `shipped_at` timestamps of each transition.
+
+`pick_tasks`: `pick_wave_id`, item/variant, `requested_quantity_*`, `outbound_reference` (free text —
+Order Management, Stage 14, does not exist yet, see the stage document), `allocated_bin_id`,
+`allocated_quantity_value` / `picked_quantity_value` (plain nullable columns sharing
+`requested_quantity`'s own unit of measure, the same `ADR-067` shape `bins.capacity_value` uses),
+`status` (Pending/Allocated/Picked/ShortPicked/Cancelled).
+
+### `warehouse.pack_tasks` / `warehouse.shipment_confirmations`
+
+`pack_tasks`: `pick_wave_id` (unique — one pack record per wave), `package_count`, `note`, `packed_at`.
+
+`shipment_confirmations`: `pick_wave_id` (unique), `carrier`, `tracking_number`, `shipped_at`.
+`IImmutableRecord` — a correction is a new shipment document, not an edit. Its id is minted before the
+document exists (the same `Entity(id, tenantId, storeId)` shape `inventory.stock_transfers` uses) so
+the location-level `stock_ledger_entries` row(s) it produces can carry it as their `reference_id`.
+
+### `warehouse.cycle_counts` / `warehouse.cycle_count_lines`
+
+The bin-level mirror of `inventory.stocktake_sessions` / `_lines`: `cycle_counts` carries `location_id`,
+an optional `zone_id` narrowing the count, `status`, `scheduled_at`, `finalized_at`.
+`ix_cycle_counts_open_by_location` is the same partial-on-open shape stocktakes use.
+
+`cycle_count_lines` carries `bin_id`, item/variant, `system_quantity_*` (a `bin_stock` snapshot taken
+when the line is recorded, not read live at finalize — Stage 08's `StocktakeLine` reasoning, applied
+one level down) and `counted_quantity_*`. `ux_cycle_count_lines_count_bin_item_id` /
+`_item_variant_id` are unique per count per bin, so a recount replaces rather than adds.
+
+**Finalizing a cycle count posts through `inventory`, not only `warehouse`** (business rule 4): a
+non-zero line variance calls `IStockLedgerPoster.PostCycleCountVarianceAsync`, which corrects
+`inventory.stock_balances` and writes a bin-tagged `inventory.stock_ledger_entries` row, and the same
+delta is applied to the line's own `bin_stock` row. A bin-level count that disagrees with the system is
+real inventory variance at the location, not a bin reshuffle.
+
 ---
 
 ## 5. Replication registry
@@ -1074,6 +1163,17 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `SupplierInvoiceMatch` | Bidirectional | CloudWins | Matching an invoice is an accounts-payable act, and AP is usually head office's — but a single-store shop does it at the back-office machine. Frozen once released (§7 rule 7). |
 | `SupplierInvoiceMatchLine` | Bidirectional | CloudWins | Follows its match. |
 | `SupplierScorecard` | Bidirectional | CloudWins | A snapshot over a closed period, written once and never edited (ADR-084), so the policy arbitrates nothing in practice. Head office is where an estate compares suppliers across branches. |
+| `Zone` | Bidirectional | CloudWins | A store names its own receiving dock; head office lays out a new distribution centre's zones. Same shape as `StockLocation`. |
+| `Bin` | Bidirectional | CloudWins | Follows its zone. |
+| `BinStock` | NodeLocal | LastWriterWins | Deliberately not replicated as a value, for the same reason `StockBalance` is not (ADR-069 applied one level down): a running total is not safely mergeable, and each node rebuilds its own from the movements it has applied. |
+| `BinStockMovement` | StoreToCloud | AppendOnly | Bin-level stock physically moves at one store, and the ledger accumulates — the same reason `StockLedgerEntry` is append-only. |
+| `PutawayTask` | StoreToCloud | StoreWins | Shelving happens at one store's floor and is legitimately mutable while pending (a picker confirms it in more than one call); the cloud observes the outcome. |
+| `PickWave` | StoreToCloud | StoreWins | A wave is worked at one location and is legitimately mutable while open — lines are added, released, picked. The store is the only node that can be editing one. |
+| `PickTask` | StoreToCloud | StoreWins | Follows its wave. |
+| `PackTask` | StoreToCloud | StoreWins | One packing record per wave, written once the wave is picked; the store is the only node that can write it. |
+| `ShipmentConfirmation` | StoreToCloud | AppendOnly | The point stock leaves a store's door. `IImmutableRecord` — a correction is a new shipment, not an edit, the same shape `StockTransfer` uses. |
+| `CycleCount` | StoreToCloud | StoreWins | A physical count happens on one store's floor; the cloud observes the result. Same shape as `StocktakeSession`. |
+| `CycleCountLine` | StoreToCloud | StoreWins | Follows its count. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

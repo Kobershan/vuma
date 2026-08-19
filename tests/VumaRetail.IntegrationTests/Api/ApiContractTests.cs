@@ -234,6 +234,74 @@ public sealed class ApiContractTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Every_warehouse_operation_reaches_the_openapi_document()
+    {
+        // R3 and CLAUDE.md §8, exactly as Stage 12's own test above: Stage 13 ships no screen either
+        // (PROGRESS.md §4.3), and "handheld" means this API surface (the stage document's own words) —
+        // an endpoint missing from the document is a feature that does not exist for a scanner client.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/warehouse/zones",
+            "/api/v1/warehouse/zones/{zoneId}/deactivate",
+            "/api/v1/warehouse/zones/{zoneId}/bins",
+            "/api/v1/warehouse/bins",
+            "/api/v1/warehouse/bins/{binId}/deactivate",
+            "/api/v1/warehouse/bins/{binId}/stock",
+            "/api/v1/warehouse/bins/{binId}/stock/one",
+            "/api/v1/warehouse/bins/move",
+            "/api/v1/warehouse/locations/{locationId}/bins",
+            "/api/v1/warehouse/putaway",
+            "/api/v1/warehouse/putaway/{putawayTaskId}",
+            "/api/v1/warehouse/locations/{locationId}/putaway/pending",
+            "/api/v1/warehouse/putaway/{putawayTaskId}/confirm",
+            "/api/v1/warehouse/putaway/{putawayTaskId}/cancel",
+            "/api/v1/warehouse/pick-waves",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/tasks",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/release",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/cancel",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/pack",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/ship",
+            "/api/v1/warehouse/pick-waves/{pickWaveId}/shipment",
+            "/api/v1/warehouse/pick-tasks/{pickTaskId}/confirm",
+            "/api/v1/warehouse/pick-tasks/{pickTaskId}/cancel",
+            "/api/v1/warehouse/cycle-counts",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}/counts",
+            "/api/v1/warehouse/cycle-counts/{cycleCountId}/finalize",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
+    [Fact]
+    public async Task A_caller_without_warehouse_permissions_is_forbidden_from_confirming_a_shipment()
+    {
+        // The stage document's four high-risk operations (putaway confirm, pick confirm, ship
+        // confirm, cycle count finalize) all gate the same way; shipment is the one that moves stock
+        // out the door, so it stands in for the group here.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("picker");
+
+        using HttpClient signedIn = await harness.SignInAsync("picker");
+
+        HttpResponseMessage response = await signedIn.PostAsync(
+            new Uri($"/api/v1/warehouse/pick-waves/{Guid.NewGuid()}/ship", UriKind.Relative),
+            JsonContent.Create(new { Carrier = (string?)null, TrackingNumber = (string?)null }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().Be(ApiErrorCodes.Forbidden);
+    }
+
+    [Fact]
     public async Task Every_operation_documents_the_standard_error_responses()
     {
         // CLAUDE.md §8 asks for error responses on every endpoint. Attaching them by transformer

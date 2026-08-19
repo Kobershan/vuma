@@ -1376,3 +1376,98 @@ exactly. That is an ordinary purchase price variance, it is bounded by the round
 the transaction size, and the right home for it is a purchase-price-variance account in a later Finance
 stage — not a fudge in this one. The broader lesson is recorded in `PROGRESS.md`: this defect built
 clean, passed every test, and was found only by reading the seeded journal.
+
+---
+
+## ADR-087 — A bin id is an additive column on `StockLedgerEntry`, not a parallel ledger — **LOCKED**
+**Context.** Stage 08's own notes said this would happen: "Stage 13 subdivides a location into bins. The
+ledger's `LocationId` stays; a `BinId` beside it is additive." Stage 13 needs to know *which bin* some
+movements happened at (a shipment picked from, a cycle count counted) without inventing a second source
+of truth for quantity at location granularity. The alternative — a bin-scoped ledger that mirrors
+`StockLedgerEntry`'s shape and requires every reader to reconcile two tables — would let the two
+disagree about what a location holds, which is exactly the class of bug ADR-005 exists to prevent.
+**Decision.** `StockLedgerEntry` and `StockBalance` gain a nullable `BinId`, threaded through
+`IStockLedgerPoster` as an optional parameter (default `null`) on every method a bin-aware caller might
+use. Every existing call site — Stage 08's own commands, Stage 09's sale issue, Stage 10's return
+receipt, Stage 12's purchase receipt — compiles and behaves identically unchanged, because none of them
+pass it. Two new methods, `IssueForShipmentAsync` and `PostCycleCountVarianceAsync`, follow ADR-085's
+precedent: a new caller of an existing movement type gets its own method and its own
+`StockReferenceType` (`Shipment`, `CycleCount`) rather than overloading somebody else's.
+**Consequences.** One ledger, one balance, one source of truth for "what does this location hold" —
+Stage 13 only adds "and where inside it". A movement that does not change the location's total (a
+putaway, an internal bin move) never calls `IStockLedgerPoster` at all; it posts only to the new
+bin-level `BinStockMovement`/`BinStock` pair, which is where the actual net-new ledger this stage builds
+lives. The regression this decision creates a specific risk for — a future edit to `StockLedgerPoster`
+that forgets `BinId` is optional and breaks an old call site — is covered by a unit test asserting the
+column is `null` when nobody supplies it.
+
+---
+
+## ADR-088 — Bin-to-bin moves get their own append-only ledger, one level below the stock ledger — **LOCKED**
+**Context.** Putaway, and an internal bin-to-bin transfer, redistribute stock inside a location without
+changing what the location holds (business rule 2). They cannot go through `IStockLedgerPoster` — every
+path there changes `StockBalance` — so they need a bookkeeping mechanism of their own, and R6's audit
+trail requirement ("who moved what, when") applies to a bin reassignment exactly as it does to anything
+else that changes a number.
+**Decision.** `BinStockMovement`, an `IImmutableRecord` at bin granularity: signed quantity, a
+`BinStockMovementType` (PutawayIn/PutawayOut/PickReserve/PickRelease/InternalTransferIn/
+InternalTransferOut), and a `BinStockReferenceType` + `ReferenceId` correlating it to the task or
+transfer that caused it — the same shape `StockLedgerEntry` uses for its own correlation. `BinStock` is
+the projection it sums to, maintained transactionally alongside every insert, exactly as `StockBalance`
+is Stage 08's projection of `StockLedgerEntry`.
+**Consequences.** A picker who scans the wrong bin, a putaway split across two shelves, an ad-hoc
+bin-to-bin tidy-up — all of it is reconstructable after the fact from an append-only record, the same
+guarantee `CLAUDE.md` §7 rule 6 gives the location-level ledger, one level down. `IBinStockMover` is the
+one place a handler posts one, the same shape `IStockLedgerPoster` gives Stage 08's six posting paths
+(`CONVENTIONS.md` §4).
+
+---
+
+## ADR-089 — A cycle count variance posts through `IStockLedgerPoster`, not only into `BinStock` — **LOCKED**
+**Context.** A bin-level physical count that disagrees with the system is telling the shop it has more
+or less stock than it thought — the same fact a full Stage 08 stocktake discovers, at finer granularity.
+Posting the variance only into `BinStock` would make a cycle count a bin reshuffle rather than what it
+actually is, and would leave `inventory.stock_balances` silently wrong until somebody ran a full
+stocktake to notice.
+**Decision.** `FinalizeCycleCountCommand` posts every non-zero line variance through
+`IStockLedgerPoster.PostCycleCountVarianceAsync` — reusing `StockMovementType.StocktakeVariance` (the
+economics are identical to a Stage 08 stocktake's variance) under its own `StockReferenceType.CycleCount`
+(so the two counting workflows are never confused in an investigation, ADR-085's precedent again) — and
+applies the same signed delta to the bin's own `BinStock` row.
+**Consequences.** A cycle count variance reaches the general ledger through the exact posting rules
+Stage 08 already seeded (`inventory.stocktake.shortage` / `.surplus`); Stage 13 registers no posting rule
+of its own, which the exit checklist verifies rather than assumes. The location's `StockBalance` and the
+bin's `BinStock` can never drift apart after a finalize, because both are written from the one variance
+figure in the one command.
+
+---
+
+## ADR-090 — Pick allocation is largest-bin-first, behind a strategy interface — **LOCKED**
+**Context.** Something has to decide which bin(s) satisfy a pick line's demand when more than one bin
+holds the stock-keeping unit. A real slotting/wave-optimisation engine (pick-path routing, zone
+sequencing, FEFO/FIFO by lot) is a project in its own right and not this stage's to build — but shipping
+with no allocation logic at all is not an option either.
+**Decision.** `IPickAllocationStrategy.Allocate(requested, candidates)` returns one or more
+`BinAllocation`s. The one implementation, `LargestBinFirstAllocationStrategy`, tries the bin holding the
+most of the stock-keeping unit first and spills into the next largest only if the first cannot fully
+satisfy the demand. `ReleasePickWaveCommandHandler` creates one additional `PickTask` per extra bin the
+allocator draws on, rather than teaching `PickTask` to hold more than one bin.
+**Consequences.** A working, testable allocator ships today, and it is explicitly not claimed to be
+optimal — the stage document says so in words, and the interface seam is what lets Stage 15 or 24 replace
+it later without any caller changing. Minimising bin visits per line is the one easy win available with
+no routing data behind it; a picker touches the fewest possible shelves for one line's demand.
+
+---
+
+## ADR-091 — Bin capacity is recorded, not enforced — **LOCKED**
+**Context.** `Bin.Capacity` exists for reporting and a future slotting stage. Refusing a putaway that
+would exceed a capacity nobody has actually measured — no bin dimensioning, no item cube, no weighing —
+would block a legitimate putaway on a number that is frequently just wrong, which is worse for a shop
+than not enforcing one at all.
+**Decision.** Capacity is stored (`Bin.CapacityValue` / `CapacityUnitOfMeasure`, both nullable) and
+never checked by any command in this stage. `ConfirmPutawayCommand` and `MoveBinStockCommand` succeed
+regardless of what a bin's recorded capacity says.
+**Consequences.** A dense warehouse can genuinely overfill a bin with no warning from this stage — a real
+gap, named here rather than silently accepted. Whichever later stage adds bin dimensioning and weighing
+is the one that earns the right to enforce it; until then, a number nobody measured enforcing itself
+would be a worse failure mode than no enforcement.
