@@ -106,7 +106,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11, 12 and 13)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11, 12, 13 and 14)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -202,6 +202,10 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ShipmentConfirmation` | `warehouse` | `StoreToCloud` | `AppendOnly` | The point stock leaves a store's door. Immutable — a correction is a new shipment, same shape as `StockTransfer` |
 | `CycleCount` | `warehouse` | `StoreToCloud` | `StoreWins` | A physical count happens on one store's floor; the cloud observes. Same shape as `StocktakeSession` |
 | `CycleCountLine` | `warehouse` | `StoreToCloud` | `StoreWins` | Follows its count |
+| `SalesOrder` | `orders` | `StoreToCloud` | `StoreWins` | Taken at one counter or phone line, legitimately mutable while it allocates and fulfils; the store taking it is the only node editing it. Unlike `BinStock`/`StockBalance` this is the order itself and must sync |
+| `SalesOrderLine` | `orders` | `StoreToCloud` | `StoreWins` | Follows its order |
+| `SalesOrderReturn` | `orders` | `StoreToCloud` | `StoreWins` | Goods come back at one counter; frozen once completed. Same shape as `SalesReturn` and `GoodsReceipt` |
+| `SalesOrderReturnLine` | `orders` | `StoreToCloud` | `StoreWins` | Follows its return |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

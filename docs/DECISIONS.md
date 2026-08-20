@@ -1471,3 +1471,106 @@ regardless of what a bin's recorded capacity says.
 gap, named here rather than silently accepted. Whichever later stage adds bin dimensioning and weighing
 is the one that earns the right to enforce it; until then, a number nobody measured enforcing itself
 would be a worse failure mode than no enforcement.
+
+---
+
+## ADR-092 — Order allocation has no reservation ledger of its own; it is read live from `PickTask` — **LOCKED**
+**Context.** A `SalesOrder` needs to know how much of a line is promised and how much has shipped.
+Stage 13's `PickTask.AllocatedQuantity` and `PickedQuantity`, keyed by `OutboundReference`, already mean
+exactly that — `PROGRESS.md`'s own note when Stage 13 shipped named this the reason `OutboundReference`
+is free text rather than a typed foreign key. Persisting a second `AllocatedQuantity`/`FulfilledQuantity`
+column on `SalesOrderLine` would create two numbers that are supposed to always agree and occasionally
+would not — a stale order-side cache the moment a pick is short, a task is cancelled, or a wave ships
+outside the order's own transaction.
+**Decision.** `SalesOrderLine` persists only `BackorderedQuantity` — the one figure Stage 13 cannot ever
+report, because it is demand this stage never even attempted to allocate. Everything else is computed on
+demand by `IOrderFulfilmentReader`, summing `PickTask` state across every task carrying a line's id as
+`OutboundReference`: open (not shipped, not cancelled) tasks contribute to "allocated", tasks whose
+parent `PickWave` has shipped contribute to "fulfilled". `ConfirmOrderCommand` and
+`ReattemptBackorderedAllocationsCommand` go further than reading Stage 13's answer: the bin allocator's
+actual result, not `IOrderFulfilmentReader.GetAvailableToPromiseAsync`'s location-level estimate, decides
+what counts as allocated — a location can show stock on hand that has never been put away into any bin,
+and trusting the estimate over the allocator would silently promise stock nobody can actually pick.
+**Consequences.** `LineStatus` is always a true reflection of Stage 13's current state, never a value
+that needs reconciling against it — there is nothing to reconcile. The cost is an extra read per line on
+every query and every allocation attempt, which is the trade the stage document names explicitly: a
+second reservation concept next to `PickTask` was rejected because two numbers that must always agree
+and occasionally will not is exactly the class of bug this stage exists to avoid, not one it exists to
+add.
+
+---
+
+## ADR-093 — An order return receives stock back at the traced shipment's unit cost, under its own reference type sharing the sales-return movement — **LOCKED**
+**Context.** `CompleteOrderReturnCommand` puts stock back for goods that were fulfilled off a
+`SalesOrder`, never rung up as a Stage 09 `Sale`. Economically the movement is identical to a Stage 10
+sales return — stock coming back, valued at what it left at — but it has a different document behind it,
+and business rule 6 requires the two document families (`sales.sales_returns` reversing a till `Sale`,
+`orders.sales_order_returns` reversing a `SalesOrder` line) never be confused in an audit trail.
+**Decision.** `StockReferenceType.OrderReturn`, a new value sharing `StockMovementType.SalesReturn` —
+ADR-085's precedent (a new caller of an existing concept gets its own reference/event type, not a
+duplicate) applied here exactly as ADR-088/089 already applied it inside Stage 13. The unit cost is not
+read off the order line (which stores what the customer was charged, the wrong number for a stock
+receipt) but traced back through `IOrderFulfilmentReader.GetShipmentUnitCostAsync`, which finds the
+`ShipmentConfirmation` that actually fulfilled the line and reads the quantity-weighted average cost off
+the `StockLedgerEntry` that shipment produced.
+**Consequences.** The return reaches the general ledger through the *existing* `inventory.sale.returned`
+posting rule with no new rule needed on the stock-value side — reusing the movement type is what makes
+that true, and it is verified rather than assumed (the integration suite checks a real journal posts).
+When no shipment can be traced for a line — nothing ever actually shipped against it — the return still
+completes (`OrderStockReturnStatus.Refused`, ADR-070/073's precedent): inventing a cost basis for stock
+that, as far as the ledger is concerned, never left would be a worse defect than a refund with a
+reconciliation note attached to it.
+
+---
+
+## ADR-094 — Order revenue and order returns raise their own financial event types, not a reuse of Stage 09/10's — **LOCKED**
+**Context.** `CompleteOrderCommand` recognises revenue once per order (business rule 5); a completed
+`SalesOrderReturn` refunds a customer. Both look, at the amounts level, like `pos.sale.tendered` and
+`sales.return.completed` — same three named amounts, same shape of event.
+**Decision.** Two new event types: `orders.order.fulfilled` and `orders.return.completed`, each with its
+own posting rule seeded alongside the module. Neither reuses an existing rule.
+**Consequences.** This is the one place this stage's own posting-rule story differs from Stage 13's
+cycle-count variance (which reused Stage 08's stocktake rules): a till sale and an order's fulfilment are
+genuinely different business events with different triggers, different timing (a sale completes when
+tendered; an order's revenue is recognised only once every active line has shipped or been cancelled,
+which can be days after the first line moved) and — the sharper reason — a tenant may legitimately want
+them posted to different accounts (a till sale often settles in cash there and then; an order's revenue
+lands against a trade debtor until Stage 09/10b's settlement mechanism clears it). Collapsing the two
+into one event type would take that choice away from the tenant. The exit checklist verifies both rules
+actually reach a balanced journal against a seeded order rather than assuming the shape is right because
+it compiles.
+
+---
+
+## ADR-095 — `SalesOrderReturn` draws from its own `ORT` document series, never Stage 10's `RTN` — **LOCKED**
+**Context.** Business rule 6 draws a hard line between `sales.sales_returns` (reverses a Stage 09 till
+`Sale`) and `orders.sales_order_returns` (reverses a fulfilled `SalesOrder` line that was never rung up as
+a `Sale` at all) — the two document families must never be confused in an audit trail, and neither stage
+reads the other's table.
+**Decision.** `CreateOrderReturnCommandHandler.ReturnNumberSeries = "ORT"`, ADR-065's gap-free document
+number sequence under a series Stage 10's `RTN` never uses.
+**Consequences.** A credit document numbered `ORT-000042` is unambiguous at a glance, in a printed
+report, and in a search — nobody reconciling a shrinkage investigation has to open the row to find out
+which kind of return it is. This is ADR-085's precedent (a new caller of an existing concept gets its own
+identifier) applied to a document series instead of a stock movement or financial event type — the third
+time this stage applies the same shape of decision (ADR-093, ADR-094, and this one), because it is the
+same discipline every time: two things that are economically similar but institutionally distinct get
+distinguishable identifiers, not a shared one a query has to disambiguate after the fact.
+
+---
+
+## ADR-096 — Revenue is recognised once per order, at completion, not per partial shipment — **LOCKED**
+**Context.** An order can ship in more than one wave — the stage document's own seeded example
+deliberately backorders a line so the demo exercises exactly this. Two shipment events could each
+recognise their own share of revenue as they happen, or the order could recognise all of it once,
+in one place, when it is done.
+**Decision.** `SalesOrder.RecogniseRevenueIfDue` fires once, guarded by `IsRevenueRecognised`, when every
+active line has either shipped in full or been cancelled — never per shipment. A second
+`CompleteOrderCommand` call after the first is a no-op, asserted by a unit test and an integration test
+both.
+**Consequences.** This is a stated v1 simplification, named as one rather than discovered as a gap later.
+It is materially simpler to reason about and to test — one journal per order, one place `IsRevenueRecognised`
+can ever flip — at the cost of an order that ships 90% today and the remainder next month recognising
+nothing until the remainder ships, which does not match strict accrual accounting for a long-tailed
+order. A future stage that needs per-shipment recognition changes rule 5 deliberately, with its own ADR
+explaining the trade-off the other way; it is not an oversight this ADR is quietly correcting in advance.
