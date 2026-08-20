@@ -266,6 +266,18 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One counted bin/stock-keeping-unit pair within a cycle count. Stage 13.</summary>
     public DbSet<Domain.Warehouse.CycleCountLine> CycleCountLines => Set<Domain.Warehouse.CycleCountLine>();
 
+    /// <summary>A promise to fulfil what a customer wants, by delivery or click &amp; collect. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrder> SalesOrders => Set<Domain.Orders.SalesOrder>();
+
+    /// <summary>One demand line on a sales order. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderLine> SalesOrderLines => Set<Domain.Orders.SalesOrderLine>();
+
+    /// <summary>Goods fulfilled off a sales order coming back. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderReturn> SalesOrderReturns => Set<Domain.Orders.SalesOrderReturn>();
+
+    /// <summary>One line coming back on a sales order return. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderReturnLine> SalesOrderReturnLines => Set<Domain.Orders.SalesOrderReturnLine>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 
