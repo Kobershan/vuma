@@ -311,6 +311,68 @@ public sealed class ApiContractTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Every_orders_operation_reaches_the_openapi_document()
+    {
+        // R3 and CLAUDE.md §8, the same claim every other module-with-no-screen stage makes: Stage 14
+        // ships no order screen either (the stage document's own "what this stage does not own"), so
+        // this document is the whole of what a later client renders.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/orders",
+            "/api/v1/orders/backordered-lines",
+            "/api/v1/orders/reattempt-backordered-allocations",
+            "/api/v1/orders/{salesOrderId}",
+            "/api/v1/orders/{salesOrderId}/lines",
+            "/api/v1/orders/{salesOrderId}/confirm",
+            "/api/v1/orders/{salesOrderId}/lines/{salesOrderLineId}/cancel",
+            "/api/v1/orders/{salesOrderId}/cancel",
+            "/api/v1/orders/{salesOrderId}/refresh-fulfilment",
+            "/api/v1/orders/{salesOrderId}/complete",
+            "/api/v1/orders/{salesOrderId}/settlement",
+            "/api/v1/orders/returns",
+            "/api/v1/orders/returns/{salesOrderReturnId}",
+            "/api/v1/orders/returns/{salesOrderReturnId}/lines",
+            "/api/v1/orders/returns/{salesOrderReturnId}/complete",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
+    [Theory]
+    [InlineData("/api/v1/orders/{0}/confirm")]
+    [InlineData("/api/v1/orders/{0}/cancel")]
+    [InlineData("/api/v1/orders/{0}/complete")]
+    [InlineData("/api/v1/orders/returns/{0}/complete")]
+    public async Task A_caller_without_orders_permissions_is_forbidden_from_confirm_cancel_complete_and_return_complete(
+        string pathTemplate)
+    {
+        // The stage document's own exit checklist names these four by name — one test case per
+        // operation rather than one standing in for the group, the same discipline Stage 13's own
+        // review closed a gap on (PROGRESS.md).
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("counter-clerk");
+
+        using HttpClient signedIn = await harness.SignInAsync("counter-clerk");
+
+        HttpResponseMessage response = await signedIn.PostAsync(
+            new Uri(string.Format(CultureInfo.InvariantCulture, pathTemplate, Guid.NewGuid()), UriKind.Relative),
+            JsonContent.Create(new { }));
+
+        response.StatusCode.Should().Be(
+            HttpStatusCode.Forbidden,
+            "the permission must be refused before the handler ever looks the order up");
+        (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().Be(ApiErrorCodes.Forbidden);
+    }
+
+    [Fact]
     public async Task Every_operation_documents_the_standard_error_responses()
     {
         // CLAUDE.md §8 asks for error responses on every endpoint. Attaching them by transformer
