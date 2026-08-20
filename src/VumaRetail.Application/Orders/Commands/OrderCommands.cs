@@ -337,7 +337,7 @@ public sealed class ReattemptBackorderedAllocationsCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        IReadOnlyList<SalesOrder> backordered = await orders
+        IReadOnlyList<SalesOrder> backorderedSummaries = await orders
             .ListBackorderedOrdersAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -345,8 +345,17 @@ public sealed class ReattemptBackorderedAllocationsCommandHandler(
         int ordersReallocated = 0;
         int linesReallocated = 0;
 
-        foreach (SalesOrder order in backordered)
+        foreach (SalesOrder summary in backorderedSummaries)
         {
+            // Read-only above (the same convention every other List*Async in this codebase follows);
+            // re-fetch the aggregate to mutate it, exactly as ConfirmOrderCommandHandler does.
+            SalesOrder? order = await orders.FindAsync(summary.Id, cancellationToken).ConfigureAwait(false);
+
+            if (order is null)
+            {
+                continue;
+            }
+
             StockLocation? location = await locations
                 .FindAsync(order.FulfillingLocationId, cancellationToken)
                 .ConfigureAwait(false);

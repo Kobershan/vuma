@@ -11,28 +11,28 @@ namespace VumaRetail.Application.Orders.Permissions;
 public sealed class OrdersPermissions : IModulePermissions
 {
     /// <summary>See orders, their lines and their returns.</summary>
-    public const string View = "order.view";
+    public const string View = "orders.order.view";
 
     /// <summary>Raise a draft order and add lines to it.</summary>
-    public const string Create = "order.create";
+    public const string Create = "orders.order.create";
 
     /// <summary>Price and accept an order.</summary>
-    public const string Confirm = "order.confirm";
+    public const string Confirm = "orders.order.confirm";
 
     /// <summary>Reattempt backordered allocations.</summary>
-    public const string Allocate = "order.allocate";
+    public const string Allocate = "orders.order.allocate";
 
     /// <summary>Cancel an order or one of its lines.</summary>
-    public const string Cancel = "order.cancel";
+    public const string Cancel = "orders.order.cancel";
 
     /// <summary>Refresh fulfilment and complete an order, recognising its revenue.</summary>
-    public const string Complete = "order.complete";
+    public const string Complete = "orders.order.complete";
 
     /// <summary>Raise an order return.</summary>
-    public const string ReturnCreate = "order.return.create";
+    public const string ReturnCreate = "orders.return.create";
 
     /// <summary>Complete an order return, receiving stock back.</summary>
-    public const string ReturnComplete = "order.return.complete";
+    public const string ReturnComplete = "orders.return.complete";
 
     /// <inheritdoc />
     public string Module => "orders";

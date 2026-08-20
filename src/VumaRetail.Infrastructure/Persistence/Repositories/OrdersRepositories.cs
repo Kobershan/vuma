@@ -82,9 +82,13 @@ public sealed class SalesOrderRepository(VumaRetailDbContext context) : ISalesOr
     /// <inheritdoc />
     public async Task<IReadOnlyList<SalesOrder>> ListBackorderedOrdersAsync(CancellationToken cancellationToken = default)
     {
-        // A join against sales_order_lines rather than order.Lines.Any(...) — a correlated subquery
-        // over a complex property inside a private-backing-field collection is more than EF Core 9's
-        // translator needs to be asked to prove, and this is exactly as correct and easier to read.
+        // Read-only, like every other List*Async in this codebase — a caller that means to allocate
+        // against one of these re-fetches it through FindAsync first (the same convention
+        // ReattemptBackorderedAllocationsCommandHandler follows), never mutates what a list query
+        // handed back. A join against sales_order_lines rather than order.Lines.Any(...) — a
+        // correlated subquery over a complex property inside a private-backing-field collection is
+        // more than EF Core 9's translator needs to be asked to prove, and this is exactly as correct
+        // and easier to read.
         IQueryable<Guid> backorderedOrderIds = context.SalesOrderLines
             .AsNoTracking()
             .Where(line => line.BackorderedQuantity.Value > 0m)
@@ -92,6 +96,7 @@ public sealed class SalesOrderRepository(VumaRetailDbContext context) : ISalesOr
             .Distinct();
 
         return await context.SalesOrders
+            .AsNoTracking()
             .Include(order => order.Lines)
             .Where(order => backorderedOrderIds.Contains(order.Id))
             .OrderBy(order => order.OrderDate)
