@@ -293,6 +293,22 @@ public enum StockReferenceType
     /// investigation. Stage 13.
     /// </summary>
     CycleCount = 8,
+
+    /// <summary>
+    /// Correlates to an <c>orders.sales_order_returns</c> document — goods fulfilled off a
+    /// <c>SalesOrder</c> coming back. Stage 14.
+    /// </summary>
+    /// <remarks>
+    /// Shares <see cref="StockMovementType.SalesReturn"/> for the reason <see cref="GoodsReceipt"/>
+    /// shares <see cref="StockMovementType.Receipt"/> (ADR-085/ADR-088's precedent): the movement is
+    /// economically identical to a Stage 10 sales return — stock coming back, valued at what it left at
+    /// — it simply has a different document behind it, and the two document families must never be
+    /// confused in an audit trail (business rule 6). Reusing the movement type also means this reaches
+    /// the general ledger through the existing <c>inventory.sale.returned</c> posting rule with no new
+    /// rule needed on the stock-value side — only the two genuinely new business events
+    /// (<c>orders.order.fulfilled</c>, <c>orders.return.completed</c>) get new rules.
+    /// </remarks>
+    OrderReturn = 9,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

@@ -1,3 +1,4 @@
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
 
 namespace VumaRetail.Application.Warehouse;
@@ -94,6 +95,29 @@ public interface IPickWaveRepository
 
     /// <summary>Adds a new demand line to an existing wave.</summary>
     void AddTask(PickTask task);
+
+    /// <summary>
+    /// Every pick task, across any wave, carrying this <see cref="PickTask.OutboundReference"/> —
+    /// Stage 14's read of one order line's allocation and fulfilment. Added in Stage 14; a caller of the
+    /// unchanged seam <c>PickTask.OutboundReference</c>'s own remarks named, not a new pick model.
+    /// </summary>
+    /// <param name="outboundReference">The demand's own reference — a Stage 14 order line's id, as text.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<PickTask>> ListTasksByOutboundReferenceAsync(
+        string outboundReference, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The total quantity allocated to open (not shipped, not cancelled) tasks at a location for one
+    /// stock-keeping unit — what a new demand line cannot promise on top of. Added in Stage 14 for
+    /// <c>IOrderFulfilmentReader</c>'s available-to-promise read.
+    /// </summary>
+    /// <param name="locationId">The location.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="unitOfMeasure">The unit of measure to express the result in.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<Quantity> SumOpenAllocatedQuantityAsync(
+        Guid locationId, Guid? itemId, Guid? itemVariantId, string unitOfMeasure, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads and writes <see cref="PackTask"/> rows.</summary>
