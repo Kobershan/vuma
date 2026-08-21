@@ -16,10 +16,13 @@ using VumaRetail.Application.Procurement;
 using VumaRetail.Application.Pos.Commands;
 using VumaRetail.Application.Abstractions.Procurement;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Orders;
+using VumaRetail.Application.Orders.Commands;
 using VumaRetail.Application.Sales;
 using VumaRetail.Application.Sales.Commands;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
+using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Sales;
 using VumaRetail.Domain.Catalog;
@@ -156,7 +159,7 @@ public static class DemoSeed
         Guid freshFarm = await EnsurePartnerAsync(
             provider, context, "FRESHFARM", "Fresh Farm Distributors", PartnerType.Supplier, "orders@freshfarm.example", cancellationToken)
             .ConfigureAwait(false);
-        await EnsurePartnerAsync(
+        Guid corpClient = await EnsurePartnerAsync(
             provider, context, "CORPCLIENT", "Corporate Client (Pty) Ltd", PartnerType.Customer, "accounts@corpclient.example", cancellationToken)
             .ConfigureAwait(false);
 
@@ -169,6 +172,251 @@ public static class DemoSeed
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
             .ConfigureAwait(false);
         await SeedWarehouseAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
+        await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds Stage 14: one delivery order with two lines — one that allocates and ships straight off
+    /// existing bin stock, one that deliberately exceeds what is binned so it backorders — a top-up
+    /// receipt and putaway that clears the backorder on an explicit reattempt, a click &amp; collect
+    /// order collected end to end, and a return of the first order's shipped milk line.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>CreateOrderCommand</c>, <c>AddOrderLineCommand</c>, <c>ConfirmOrderCommand</c>,
+    /// <c>ReattemptBackorderedAllocationsCommand</c> and <c>CompleteOrderCommand</c> all go through the
+    /// real dispatcher, exactly like <see cref="SeedWarehouseAsync"/>'s pick/pack/ship — none of them
+    /// attributes anything to a person, so nothing here is refused by a principal check. The order
+    /// return is the one step built from the aggregate and <see cref="IOrderReturnCompletionService"/>
+    /// directly, for the same reason <see cref="SeedSalesAsync"/>'s return is: raising it is attributed
+    /// to the authorising user (<c>OrdersActor</c>), and the seed runs as a system principal.
+    /// </para>
+    /// <para>
+    /// <b>The backorder is real, not staged.</b> The shirt variant has never had a unit of stock
+    /// anywhere in this seed, so line 2 backorders in full on confirm. Clearing it needs both a
+    /// location-level receipt <em>and</em> a putaway into a bin — <c>OrderAllocation</c> only trusts
+    /// what a bin can actually hand over (see its own remarks), so a receipt alone would leave the
+    /// reattempt finding nothing to allocate, which is exactly the case this seed exists to exercise
+    /// honestly rather than assume.
+    /// </para>
+    /// </remarks>
+    /// <param name="provider">The scoped provider.</param>
+    /// <param name="context">The database context.</param>
+    /// <param name="customerId">The seeded corporate customer.</param>
+    /// <param name="milkItemId">The item for the line that allocates straight away.</param>
+    /// <param name="shirtVariantId">The variant for the line that backorders.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    private static async Task SeedOrdersAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        Guid shirtVariantId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.SalesOrders.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        // The two new financial events this stage raises (business rule 5, ADR-093/094). Reuses the
+        // accounts SeedFinanceAsync and SeedSalesAsync already opened — the debtor an order's revenue
+        // is recognised against, the same sales and VAT control accounts a till sale posts to, and the
+        // same sales-returns contra-revenue account a till return posts to. The stock side of the
+        // return needs no new rule at all: StockReferenceType.OrderReturn shares
+        // StockMovementType.SalesReturn, which already reaches the GL through
+        // inventory.sale.returned (see that type's own remarks).
+        Guid debtors = await EnsureAccountAsync(
+            provider, context, "1100", "Trade debtors", AccountType.Asset,
+            ControlAccountType.AccountsReceivable, cancellationToken).ConfigureAwait(false);
+        Guid sales = await EnsureAccountAsync(
+            provider, context, "4000", "Sales", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid salesReturns = await EnsureAccountAsync(
+            provider, context, "4010", "Sales returns", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, FinancialOrderFulfilmentEventPublisher.OrderFulfilledEventType,
+            "Order revenue recognised",
+            [
+                new PostingRuleLineInput(debtors, NormalBalance.Debit, "Gross", InheritDimensions: false, "Trade debtors"),
+                new PostingRuleLineInput(sales, NormalBalance.Credit, "Net", InheritDimensions: true, "Sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Credit, "Tax", InheritDimensions: false, "Output VAT"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, FinancialOrderReturnEventPublisher.OrderReturnCompletedEventType,
+            "Order return refund due",
+            [
+                new PostingRuleLineInput(salesReturns, NormalBalance.Debit, "Net", InheritDimensions: true, "Sales returns"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Debit, "Tax", InheritDimensions: false, "Output VAT reversed"),
+                new PostingRuleLineInput(debtors, NormalBalance.Credit, "Gross", InheritDimensions: false, "Trade debtors"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        StockLocation warehouse = await context.StockLocations
+            .FirstAsync(location => location.Code == "MAIN", cancellationToken)
+            .ConfigureAwait(false);
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+        IClock clock = provider.GetRequiredService<IClock>();
+
+        // Order 1: phone order, delivered, two lines. Milk has 62 EA already binned by
+        // SeedWarehouseAsync (35 in A-01, 27 in A-02) — five is comfortably inside that. The shirt
+        // variant has never been received anywhere in this seed, so it backorders in full.
+        Guid order1 = await dispatcher
+            .SendAsync(
+                new CreateOrderCommand(
+                    customerId, SalesChannel.Phone, OrderFulfilmentType.Delivery, warehouse.Id,
+                    "12 Rivonia Road", null, "Sandton", "Gauteng", "2196", "ZA", "ZAR", RequestedFulfilmentDate: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid milkLineId = await dispatcher
+            .SendAsync(new AddOrderLineCommand(order1, milkItemId, null, 5m, "EA"), cancellationToken)
+            .ConfigureAwait(false);
+        Guid shirtLineId = await dispatcher
+            .SendAsync(new AddOrderLineCommand(order1, null, shirtVariantId, 3m, "EA"), cancellationToken)
+            .ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ConfirmOrderCommand(order1), cancellationToken).ConfigureAwait(false);
+
+        PickTask milkTask = await context.PickTasks
+            .OrderByDescending(task => task.CreatedAt)
+            .FirstAsync(task => task.OutboundReference == milkLineId.ToString(), cancellationToken)
+            .ConfigureAwait(false);
+
+        await ShipPickTaskAsync(dispatcher, milkTask, 5m, "Vuma Delivery", "TRK-ORD-001", cancellationToken)
+            .ConfigureAwait(false);
+
+        // Clear the backorder: receive the shirt into stock, shelve it into the empty A-03 bin, then
+        // reattempt — an explicit call, exactly as business rule 3 requires.
+        await dispatcher
+            .SendAsync(
+                new ReceiveStockCommand(warehouse.Id, null, shirtVariantId, new Quantity(10m, "EA"), new Money(120.00m, "ZAR"), "Backorder top-up"),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        Domain.Warehouse.Bin sparseBin = await context.Bins.FirstAsync(bin => bin.Code == "A-03", cancellationToken).ConfigureAwait(false);
+
+        Guid shirtPutawayId = await dispatcher
+            .SendAsync(
+                new OpenPutawayTaskCommand(warehouse.Id, null, shirtVariantId, new Quantity(10m, "EA"), PutawaySourceReferenceType.ManualReceipt),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher
+            .SendAsync(new ConfirmPutawayCommand(shirtPutawayId, sparseBin.Id, new Quantity(10m, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+
+        ReattemptBackorderedAllocationsResult reattempt = await dispatcher
+            .SendAsync(new ReattemptBackorderedAllocationsCommand(), cancellationToken)
+            .ConfigureAwait(false);
+
+        PickTask shirtTask = await context.PickTasks
+            .OrderByDescending(task => task.CreatedAt)
+            .FirstAsync(task => task.OutboundReference == shirtLineId.ToString(), cancellationToken)
+            .ConfigureAwait(false);
+
+        await ShipPickTaskAsync(dispatcher, shirtTask, 3m, "Vuma Delivery", "TRK-ORD-002", cancellationToken)
+            .ConfigureAwait(false);
+
+        CompleteOrderResult completed1 = await dispatcher
+            .SendAsync(new CompleteOrderCommand(order1), cancellationToken)
+            .ConfigureAwait(false);
+
+        // Order 2: a walk-in counter order, collected rather than delivered. Same fulfilment pipeline
+        // as delivery (business rule 8) — the only difference is no delivery address and the shipment's
+        // own carrier label.
+        Guid order2 = await dispatcher
+            .SendAsync(
+                new CreateOrderCommand(
+                    PartnerId: null, SalesChannel.InStore, OrderFulfilmentType.ClickAndCollect, warehouse.Id,
+                    null, null, null, null, null, null, "ZAR", RequestedFulfilmentDate: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid collectLineId = await dispatcher
+            .SendAsync(new AddOrderLineCommand(order2, milkItemId, null, 3m, "EA"), cancellationToken)
+            .ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ConfirmOrderCommand(order2), cancellationToken).ConfigureAwait(false);
+
+        PickTask collectTask = await context.PickTasks
+            .OrderByDescending(task => task.CreatedAt)
+            .FirstAsync(task => task.OutboundReference == collectLineId.ToString(), cancellationToken)
+            .ConfigureAwait(false);
+
+        await ShipPickTaskAsync(dispatcher, collectTask, 3m, "Customer Collection", null, cancellationToken)
+            .ConfigureAwait(false);
+
+        CompleteOrderResult completed2 = await dispatcher
+            .SendAsync(new CompleteOrderCommand(order2), cancellationToken)
+            .ConfigureAwait(false);
+
+        // The return: 1 of the 5 EA milk shipped on order 1 comes back. Built from the aggregate and
+        // the completion service directly — see this method's own remarks on why.
+        SalesOrder orderedForReturn = await context.SalesOrders
+            .Include(order => order.Lines)
+            .FirstAsync(order => order.Id == order1, cancellationToken)
+            .ConfigureAwait(false);
+
+        SalesOrderLine returnedLine = orderedForReturn.RequireLine(milkLineId);
+
+        User cashier = await provider.GetRequiredService<IUserRepository>()
+            .FindByUserNameAsync("cashier1", cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Seeded user 'cashier1' was not found.");
+
+        IOrderFulfilmentReader fulfilmentReader = provider.GetRequiredService<IOrderFulfilmentReader>();
+
+        OrderLineFulfilmentSnapshot returnSnapshot = await fulfilmentReader
+            .GetLineFulfilmentAsync(returnedLine.Id, returnedLine.RequestedQuantity.UnitOfMeasure, cancellationToken)
+            .ConfigureAwait(false);
+
+        string orderReturnNumber = await provider.GetRequiredService<IDocumentNumberSequence>()
+            .NextAsync(CreateOrderReturnCommandHandler.ReturnNumberSeries, cancellationToken)
+            .ConfigureAwait(false);
+
+        SalesOrderReturn orderReturn = SalesOrderReturn.Raise(
+            orderedForReturn.Id, orderedForReturn.TenantId, orderedForReturn.StoreId, orderedForReturn.Currency,
+            orderReturnNumber, "Customer changed their mind", cashier.Id, clock.UtcNow);
+
+        orderReturn.AddLine(returnedLine, new Quantity(1m, "EA"), returnSnapshot.FulfilledQuantity, previouslyReturned: 0m);
+
+        provider.GetRequiredService<ISalesOrderReturnRepository>().Add(orderReturn);
+
+        await provider.GetRequiredService<IOrderReturnCompletionService>()
+            .CompleteAsync(orderReturn, cancellationToken)
+            .ConfigureAwait(false);
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Orders: {orderedForReturn.OrderNumber} confirmed with a real backorder and a real reattempt "
+            + $"({reattempt.OrdersReallocated} order(s), {reattempt.LinesReallocated} line(s) reallocated), "
+            + $"fulfilled and revenue-recognised ({completed1.RevenueRecognised}, {completed1.Gross}); "
+            + $"a click & collect order fulfilled and recognised ({completed2.RevenueRecognised}, {completed2.Gross}); "
+            + $"return {orderReturn.ReturnNumber} completed for {orderReturn.Gross}.");
+    }
+
+    /// <summary>Picks, packs and ships one order line's allocated task through Stage 13's own commands.</summary>
+    private static async Task ShipPickTaskAsync(
+        IDispatcher dispatcher, PickTask task, decimal pickedQuantity, string carrier, string? trackingNumber, CancellationToken cancellationToken)
+    {
+        await dispatcher
+            .SendAsync(new ConfirmPickCommand(task.Id, new Quantity(pickedQuantity, "EA")), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher
+            .SendAsync(new PackWaveCommand(task.PickWaveId, 1, "Order pick"), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher
+            .SendAsync(new ShipWaveCommand(task.PickWaveId, carrier, trackingNumber), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

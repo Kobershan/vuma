@@ -41,6 +41,17 @@ public interface IStockLedgerRepository
     /// <summary>Finds a ledger entry by id.</summary>
     Task<StockLedgerEntry?> FindAsync(Guid ledgerEntryId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every ledger entry correlating to one document — a shipment, a stocktake, a goods receipt. Added
+    /// in Stage 14 so <c>IOrderFulfilmentReader</c> can trace an order line's fulfilled quantity back to
+    /// the shipment(s) that produced it, to receive a return at the original unit cost (ADR-093).
+    /// </summary>
+    /// <param name="referenceType">What kind of document to match.</param>
+    /// <param name="referenceId">The document's id.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<StockLedgerEntry>> ListByReferenceAsync(
+        StockReferenceType referenceType, Guid referenceId, CancellationToken cancellationToken = default);
+
     /// <summary>Appends a new entry. Nothing already added through this method is ever updated or removed.</summary>
     void Add(StockLedgerEntry entry);
 }

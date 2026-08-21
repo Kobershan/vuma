@@ -21,6 +21,7 @@ using VumaRetail.Web.Identity;
 using VumaRetail.Web.Imports;
 using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
 using VumaRetail.Web.Procurement;
@@ -136,6 +137,14 @@ builder.Services.AddVumaProcurement(
 // extension for why).
 builder.Services.AddVumaWarehouse();
 
+// Stage 14. Sales orders, allocation, backorders, click & collect and order returns. After
+// AddVumaInventory (validates the fulfilling location), AddVumaWarehouse (allocates through Stage 13's
+// own PickWave/PickTask/bin-allocation seam), AddVumaSales (prices through IPriceResolver) and AddVumaPos
+// (resolves the item through ISellableItemResolver). Like the modules above it, the journal binding for
+// both new event types is resolved at build time, so this line only has to come after the modules whose
+// contracts it consumes.
+builder.Services.AddVumaOrders();
+
 // Stage 11. Excel/CSV/PDF ingestion. Last of the business modules because it is a caller of all of
 // them: its five target handlers write through catalog's, partners', inventory's and sales'
 // repositories rather than into their tables (ADR-079), and its batch numbers come from finance's
@@ -231,6 +240,7 @@ app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
+app.MapVumaOrders();
 app.MapVumaImports();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is

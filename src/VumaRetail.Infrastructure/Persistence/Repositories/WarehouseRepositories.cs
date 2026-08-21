@@ -163,6 +163,35 @@ public sealed class PickWaveRepository(VumaRetailDbContext context) : IPickWaveR
 
     /// <inheritdoc />
     public void AddTask(PickTask task) => context.PickTasks.Add(task);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PickTask>> ListTasksByOutboundReferenceAsync(
+        string outboundReference, CancellationToken cancellationToken = default)
+        => await context.PickTasks
+            .AsNoTracking()
+            .Where(task => task.OutboundReference == outboundReference)
+            .OrderBy(task => task.CreatedAt)
+            .ThenBy(task => task.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<Domain.Primitives.Quantity> SumOpenAllocatedQuantityAsync(
+        Guid locationId, Guid? itemId, Guid? itemVariantId, string unitOfMeasure, CancellationToken cancellationToken = default)
+    {
+        decimal total = await (
+            from task in context.PickTasks.AsNoTracking()
+            join wave in context.PickWaves.AsNoTracking() on task.PickWaveId equals wave.Id
+            where wave.LocationId == locationId
+                && task.ItemId == itemId && task.ItemVariantId == itemVariantId
+                && task.Status != PickTaskStatus.Cancelled
+                && wave.Status != PickWaveStatus.Shipped && wave.Status != PickWaveStatus.Cancelled
+            select task.AllocatedQuantityValue ?? 0m)
+            .SumAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return new Domain.Primitives.Quantity(total, unitOfMeasure);
+    }
 }
 
 /// <summary>EF Core implementation of <see cref="IPackTaskRepository"/>.</summary>

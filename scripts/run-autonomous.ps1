@@ -2,16 +2,43 @@
     Vuma Retail — unattended stage runner.
     Runs one stage per Claude Code invocation, verifies real progress, logs everything, stops cleanly.
     Read docs/AUTONOMOUS_OPERATION.md before first use — there is one-time setup.
+
+    Defaults target the intended cadence: Sonnet (not Opus - several times cheaper per token, and
+    Opus-tier judgement is rarely what a fully-specified stage document needs), 4 stages per run
+    (one daily batch), against main directly (no parallel worktrees - see CLAUDE.md S1a).
 #>
 param(
-    [int]$MaxStages = 99,
-    [string]$Model = "opus",
+    [int]$MaxStages = 4,
+    [string]$Model = "sonnet",
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
+
+# Refuse to run if a stage is checked out in some OTHER worktree - running stages in parallel across
+# worktrees was the biggest source of wasted tokens before this script was tightened up. (This repo's
+# own primary worktree is expected to be on a stage branch while a stage is in progress - that's fine.)
+$repoFull = (Resolve-Path $repo).Path.TrimEnd('\', '/').Replace('\', '/')
+$currentWorktree = $null
+$offenders = @()
+foreach ($line in (git worktree list --porcelain)) {
+    if ($line -match '^worktree (.+)$') {
+        $currentWorktree = $Matches[1].TrimEnd('\', '/').Replace('\', '/')
+    } elseif ($line -match '^branch refs/heads/((?:worktree-)?stage-\d\d[a-z]?-\S+)$') {
+        if ($currentWorktree -and $currentWorktree -ne $repoFull) {
+            $offenders += "$currentWorktree -> $($Matches[1])"
+        }
+    }
+}
+
+if ($offenders.Count -gt 0) {
+    Write-Host "Refusing to start: found stage branch(es) checked out in another worktree:" -ForegroundColor Yellow
+    $offenders | ForEach-Object { Write-Host "  $_" }
+    Write-Host "Merge or remove those first (git worktree list / git worktree remove). One stage, one worktree, one session at a time." -ForegroundColor Yellow
+    exit 1
+}
 
 $stamp   = Get-Date -Format "yyyyMMdd-HHmmss"
 $logDir  = Join-Path $repo "logs\autonomous\$stamp"
@@ -25,10 +52,14 @@ function Log($msg) {
 }
 
 function Get-NextStage {
+    # Status cells are markdown - "**NOT_STARTED** - blocked on ...", not a bare keyword - so the
+    # match must tolerate leading ** and trailing prose, not require the keyword to be the whole cell.
+    # (The original regex required an exact bare-keyword cell and so never matched anything here -
+    # this script silently did nothing on every previous run.)
     $board = Get-Content "docs\PROGRESS.md" -Raw
     foreach ($line in ($board -split "`n")) {
-        if ($line -match '^\|\s*(\d\d[b]?)\s*\|\s*([^|]+?)\s*\|\s*(NOT_STARTED|IN_PROGRESS)\s*\|') {
-            return @{ Number = $Matches[1]; Title = $Matches[2].Trim() }
+        if ($line -match '^\|\s*(\d\d[b]?)\s*\|\s*([^|]+?)\s*\|\s*\*{0,2}(NOT_STARTED|IN_PROGRESS|BLOCKED|REOPENED)\b') {
+            return @{ Number = $Matches[1]; Title = $Matches[2].Trim(); Status = $Matches[3] }
         }
     }
     return $null

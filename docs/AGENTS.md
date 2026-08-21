@@ -8,8 +8,7 @@ session judging it — the author is the least reliable judge of their own work.
 
 | Agent | Use it when | Writes code? |
 |---|---|---|
-| `architecture-guard` | A stage adds a project reference, a cross-module call, or a command handler. Before any stage is marked DONE. | No — reports only |
-| `stage-verifier` | End of every stage, before updating `PROGRESS.md` and committing. Runs the Exit Checklist and §8 Definition of Done for real. | No — reports only |
+| `stage-verifier` | End of every stage, before updating `PROGRESS.md` and committing. Runs the layering/architecture rules (§7, formerly the separate `architecture-guard`), the Exit Checklist and §8 Definition of Done, all in one pass. | No — reports only |
 | `licence-safety` | Anything touching licensing, entitlements, the enforcement ladder, heartbeats, leases, metering or the control plane. Every stage from 04b onward that adds a command. | No — reports only |
 | `money-and-tax` | Anything touching pricing, discounts, promotions, tax, cost, valuation, currency or GL posting. | No — reports only |
 | `sync-and-offline` | A stage adds a replicated entity or touches the outbox/inbox, HLC clock, conflict resolution, terminal SQLite cache, or a POS path that must survive network loss. | No — reports only |
@@ -21,16 +20,24 @@ The main session executes the stage. It calls agents at the points above and **a
 findings before committing**. An agent's report is advice, not a merge gate — but ignoring a
 finding requires a reason recorded in `PROGRESS.md`, not silence.
 
-Recommended end-of-stage sequence:
+Recommended end-of-stage sequence — kept deliberately short. Every unconditional agent pass is a full
+extra context load; only `stage-verifier` and `doc-scribe` run on every stage. The domain specialists
+run only when they actually apply, not as a default sweep:
 
 ```
 1. Build the stage to completion
-2. architecture-guard          → fix violations
-3. the domain specialists that apply (money-and-tax / sync-and-offline / licence-safety)
-4. stage-verifier              → fix failures, re-run until PASS or documented UNVERIFIED
-5. doc-scribe                  → PROGRESS.md handoff + ADRs
-6. commit:  feat(stage-NN): <stage title>
+2. the domain specialists that actually apply — usually 0-2 of money-and-tax / sync-and-offline /
+   licence-safety, judged from what the stage touched, not run as a matter of course
+3. stage-verifier              → architecture rules + Exit Checklist + Definition of Done, one pass;
+                                  fix failures, re-run until PASS or documented UNVERIFIED
+4. doc-scribe                  → PROGRESS.md handoff (short) + DECISIONS.md index entry (one line;
+                                  full rationale goes to docs/archive/DECISIONS-ARCHIVE.md)
+5. commit:  feat(stage-NN): <stage title>
 ```
+
+That is 2-4 subagent passes per stage, not 6. `architecture-guard` was merged into `stage-verifier` —
+both used to run unconditionally on every stage, so splitting them bought no extra coverage, only a
+second full read of the same diff.
 
 ## Rules that apply to every agent
 

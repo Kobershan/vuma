@@ -5,6 +5,14 @@ and extended by every stage that adds a schema.
 
 `CONVENTIONS.md` §2 covers naming. This file covers shape, and the reasons.
 
+> **How to read this file for a stage.** This file is long (it grows a section every stage) and it is
+> reference material, not narrative — you do not need to read it top to bottom. §1-3 (mandatory
+> columns, types, schema list) are short and worth reading once. After that, **jump straight to the
+> `§4x. Tables in <schema>` section(s) for the module your stage actually touches** — each is
+> self-contained — plus §5's replication registry only for the entities your stage replicates. Reading
+> all fifteen module sections to work on one is the single most common way a session burns context on
+> this file for no reason.
+
 ---
 
 ## 1. The mandatory columns
@@ -1073,7 +1081,8 @@ only once it equals `quantity`, which is what lets a picker split a task across 
 `released_at` / `picked_at` / `packed_at` / `shipped_at` timestamps of each transition.
 
 `pick_tasks`: `pick_wave_id`, item/variant, `requested_quantity_*`, `outbound_reference` (free text —
-Order Management, Stage 14, does not exist yet, see the stage document), `allocated_bin_id`,
+Stage 14's `SalesOrderLine.Id` as a string is its real caller now, unchanged shape exactly as this
+column's own remarks anticipated), `allocated_bin_id`,
 `allocated_quantity_value` / `picked_quantity_value` (plain nullable columns sharing
 `requested_quantity`'s own unit of measure, the same `ADR-067` shape `bins.capacity_value` uses),
 `status` (Pending/Allocated/Picked/ShortPicked/Cancelled).
@@ -1103,6 +1112,63 @@ non-zero line variance calls `IStockLedgerPoster.PostCycleCountVarianceAsync`, w
 `inventory.stock_balances` and writes a bin-tagged `inventory.stock_ledger_entries` row, and the same
 delta is applied to the line's own `bin_stock` row. A bin-level count that disagrees with the system is
 real inventory variance at the location, not a bin reshuffle.
+
+## 4l. Tables in `orders`
+
+Built in Stage 14. Four tables: a promise to fulfil what a customer wants (`sales_orders` /
+`sales_order_lines`), and what comes back once some of it shipped (`sales_order_returns` /
+`sales_order_return_lines`). Every partner, location, sale and customer-account reference below is a
+bare `uuid` and never a foreign key out of this schema (business rule 11); `sales_order_lines` and
+`sales_order_return_lines` do carry a real foreign key to their own parent table, the same in-schema
+aggregate shape `procurement.purchase_order_lines` uses.
+
+**No reservation ledger of its own, and no table names a GL account** (ADR-092, §7 rule 12).
+`sales_order_lines` has no `allocated_quantity` or `fulfilled_quantity` column at all — both are
+computed on demand from `warehouse.pick_tasks`, keyed by `outbound_reference = sales_order_lines.id`.
+The two genuinely new financial events this stage raises (`orders.order.fulfilled`,
+`orders.return.completed`) choose no account; the stock side of a return reuses
+`inventory.sale.returned` with no new rule (`StockReferenceType.OrderReturn`'s own remarks, ADR-093).
+
+### `orders.sales_orders` / `orders.sales_order_lines`
+
+`sales_orders`: `order_number` (ADR-065's `ORD` series), `partner_id` (nullable — business rule 10),
+`channel` (InStore/Phone/Online/Marketplace — only the first two have a real caller this stage),
+`fulfilment_type` (Delivery/ClickAndCollect), `fulfilling_location_id`, `delivery_address_*` (an owned
+`Address`, all columns null for click & collect — the same optional-owned-type shape
+`sales_orders.delivery_address_*` and `stores.address_*` both use), `status`
+(Draft/Confirmed/PartiallyAllocated/Allocated/PartiallyFulfilled/Fulfilled/Cancelled/Closed, always
+derived from its lines by `RecomputeStatus`, never set directly outside `Confirm`/`MarkCancelled`),
+`payment_status` (Unpaid/Paid/OnAccount — a flag, not a tender of its own), `settling_sale_id` /
+`settling_customer_account_id` (both nullable, no foreign key), `currency`, `order_date`,
+`requested_fulfilment_date`, `is_revenue_recognised` (guards the one-time-only event, business rule 5),
+`cancelled_at` / `cancelled_by` / `cancel_reason`, `net_amount` / `tax_amount` / `gross_amount`.
+`ux_sales_orders_tenant_id_order_number` is unique per tenant.
+
+`sales_order_lines`: `sales_order_id` (real FK, in-schema), item/variant, `requested_quantity_*`, the
+price snapshot (`unit_price_*`, `discount_amount_*`, `tax_amount_*`, `price_list_id`,
+`promotions_summary` — the same shape `sales.price_override_logs` and `sales.sale_lines` already
+snapshot pricing onto), `backordered_quantity_*` (the one figure this line keeps of its own — nothing
+in `warehouse` can say how much of a line was never even attempted), `line_status`
+(Pending/Allocated/PartiallyAllocated/Backordered/Fulfilled/PartiallyFulfilled/Cancelled).
+
+### `orders.sales_order_returns` / `orders.sales_order_return_lines`
+
+`sales_order_returns`: `sales_order_id` (no FK — cross-schema), `return_number` (ADR-065's `ORT`
+series, deliberately not `sales.sales_returns`' `RTN` — the two document families must never be
+confused in an audit trail, ADR-085's precedent applied to a series, business rule 6),  `reason`,
+`authorised_by_user_id`, `status` (Open/Completed), `refund_status` (the same `Unpaid`/`Paid`/
+`OnAccount` flag shape as `sales_orders.payment_status`), `net_amount` / `tax_amount` / `gross_amount`,
+`raised_at`, `completed_at`. `ux_sales_order_returns_tenant_id_return_number` is unique per tenant.
+
+`sales_order_return_lines`: `sales_order_return_id` (real FK, in-schema), `sales_order_line_id` (no
+FK — the parent order line lives in a sibling table of this same schema but the aggregate boundary
+stops at the return document), item/variant, `quantity_*` (never more than what was fulfilled less
+what earlier returns already took, business rule 6), `fulfilled_quantity_*` (a snapshot of what
+`IOrderFulfilmentReader` reported at the moment this line was raised), `previously_returned_quantity`,
+the pro-rata refund (`unit_price_*`, `net_amount`, `tax_amount`, `gross_amount` — the same
+cumulative-fraction arithmetic `sales.sales_return_lines` documents in full), `stock_return`
+(Pending/Posted/Refused — ADR-070/073's precedent, applied to an order return), `stock_ledger_entry_id`,
+`stock_return_note`.
 
 ---
 
@@ -1174,6 +1240,10 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `ShipmentConfirmation` | StoreToCloud | AppendOnly | The point stock leaves a store's door. `IImmutableRecord` — a correction is a new shipment, not an edit, the same shape `StockTransfer` uses. |
 | `CycleCount` | StoreToCloud | StoreWins | A physical count happens on one store's floor; the cloud observes the result. Same shape as `StocktakeSession`. |
 | `CycleCountLine` | StoreToCloud | StoreWins | Follows its count. |
+| `SalesOrder` | StoreToCloud | StoreWins | An order is taken at one counter or phone line and is legitimately mutable while it works through allocation and fulfilment — lines confirm, allocate, ship, backorder. The store taking it is the only node that can be editing it, the same shape `Sale` and `GoodsReceipt` both use. Unlike `BinStock`/`StockBalance`, this is the order itself, not a projection, and must sync. |
+| `SalesOrderLine` | StoreToCloud | StoreWins | Follows its order. |
+| `SalesOrderReturn` | StoreToCloud | StoreWins | Goods come back at one counter, and the document is frozen the moment it completes — the same shape `SalesReturn` and `GoodsReceipt` both use. |
+| `SalesOrderReturnLine` | StoreToCloud | StoreWins | Follows its return. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

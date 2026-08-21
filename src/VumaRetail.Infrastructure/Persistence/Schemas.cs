@@ -126,4 +126,17 @@ public static class Schemas
     /// the same way every schema since <see cref="Pos"/> does.
     /// </remarks>
     public const string Warehouse = "warehouse";
+
+    /// <summary>
+    /// Sales orders, their lines and their order returns — a promise to fulfil, tracked from placement
+    /// through allocation, backorder, shipment and return. Stage 14.
+    /// </summary>
+    /// <remarks>
+    /// Its own schema rather than a subdivision of <see cref="Sales"/> or <see cref="Warehouse"/> —
+    /// <c>SalesOrder</c> is a document in its own right, not a POS receipt or a warehouse task, even
+    /// though it drives both (business rule 1: allocation is read live from <see cref="Warehouse"/>'s
+    /// <c>PickTask</c>, never duplicated here). Declaring the schema is also what puts the module into
+    /// the daily metering rollup, the same way every schema since <see cref="Pos"/> does.
+    /// </remarks>
+    public const string Orders = "orders";
 }

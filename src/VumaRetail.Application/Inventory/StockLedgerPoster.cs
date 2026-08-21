@@ -299,6 +299,38 @@ public interface IStockLedgerPoster
         Guid cycleCountId,
         Guid binId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Posts a sales-order return — stock fulfilled off a <c>SalesOrder</c> coming back, valued at the
+    /// original shipment's unit cost.
+    /// </summary>
+    /// <param name="location">Where the stock comes back to.</param>
+    /// <param name="itemId">The item, when it has no variants.</param>
+    /// <param name="itemVariantId">The variant.</param>
+    /// <param name="quantity">How much came back. Must be positive.</param>
+    /// <param name="unitCost">
+    /// What it cost when it shipped — read off the shipment's own ledger entry, not off today's average.
+    /// The same discipline <see cref="ReceiveForSalesReturnAsync"/> applies to a till sale, applied to an
+    /// order's shipment instead.
+    /// </param>
+    /// <param name="orderReturnReferenceId">The <c>orders.sales_order_returns</c> document this receipt correlates to.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <remarks>
+    /// Added in Stage 14, its own method rather than a reference parameter on <see cref="ReceiveAsync"/>
+    /// or a reuse of <see cref="ReceiveForSalesReturnAsync"/>, for the reason every dedicated method on
+    /// this interface since <see cref="ReceiveForSalesReturnAsync"/> gives: a receipt nobody can trace
+    /// back to the document that caused it is indistinguishable from a shrinkage write-off, and this
+    /// stage's own <c>SalesOrderReturn</c> must never be confused with Stage 10's <c>SalesReturn</c> in
+    /// that trail (business rule 6, ADR-093).
+    /// </remarks>
+    Task<StockLedgerEntry> ReceiveForOrderReturnAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid orderReturnReferenceId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="IStockLedgerPoster" />
@@ -559,6 +591,24 @@ public sealed class StockLedgerPoster(
             location, binId, itemId, itemVariantId, StockMovementType.StocktakeVariance, -variance,
             StockReferenceType.Stocktake, stocktakeSessionId, reasonCode: null, note: null, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> ReceiveForOrderReturnAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid orderReturnReferenceId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostReceiptLikeAsync(
+            location, binId: null, itemId, itemVariantId, StockMovementType.SalesReturn, quantity, unitCost,
+            StockReferenceType.OrderReturn, orderReturnReferenceId, reasonCode: null, note: null,
+            cancellationToken);
     }
 
     /// <inheritdoc />
