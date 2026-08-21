@@ -33,5 +33,4 @@ public sealed class OrdersRulesTests
                 "Stage 13 (warehouse) must never depend on Stage 14 (orders) — orders is the caller of "
                 + "the unchanged PickTask/PickWave seam, not a peer warehouse grew a reference to.");
     }
-
 }

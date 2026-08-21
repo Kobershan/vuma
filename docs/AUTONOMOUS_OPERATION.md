@@ -40,15 +40,32 @@ That's it. From then on the runner script works unattended.
 ## 3. Running overnight
 
 ```powershell
-.\scripts\run-autonomous.ps1                 # runs until every stage is DONE or it stalls
-.\scripts\run-autonomous.ps1 -MaxStages 3    # stop after three stages
+.\scripts\run-autonomous.ps1                 # defaults to Sonnet, stops after 4 stages
+.\scripts\run-autonomous.ps1 -MaxStages 4    # explicit daily batch — the recommended way to run this
+.\scripts\run-autonomous.ps1 -MaxStages 3 -Model opus   # only if a specific run needs heavier judgement
 ```
 
-The script runs **one stage per Claude invocation** in headless mode. That matters: each stage gets a
-fresh context window, so quality does not decay across a long night the way it does in one enormous
-session. Between stages it verifies real progress was made (`docs/PROGRESS.md` changed **and** a commit
-landed **and** the build is green) and stops cleanly if not, rather than burning eight hours going in
+The script runs **one stage per Claude invocation** in headless mode, and never more than one worktree
+at a time — it works directly against `main`. That matters for two reasons: each stage gets a fresh
+context window, so quality does not decay across a long run the way it does in one enormous session;
+and it means you are only ever paying for one session's worth of tokens at once, not several
+overlapping ones. Between stages it verifies real progress was made (`docs/PROGRESS.md` changed **and**
+a commit landed **and** the build is green) and stops cleanly if not, rather than burning hours going in
 circles.
+
+**Do not run a second instance of this script, or a second manual `claude` session, against a
+different worktree of this repo at the same time.** This project previously had three stages
+in-flight simultaneously across separate worktrees (`stage-05`, `stage-06`, `stage-07`), which cost
+far more in total tokens than running them one after another and produced hours of extra work
+reconciling the branches against each other afterwards. One stage, one worktree (the main one), one
+session — see `CLAUDE.md` §1a. Target pace is 3-4 stages a day (one script run with `-MaxStages 4`),
+21-28 a week, achieved by running the batch daily rather than by parallelising within a day.
+
+**Model default is now Sonnet, not Opus.** Opus costs several times more per token for work that, on
+this project, is mostly executing an already-fully-specified stage document — it rarely buys enough
+extra judgement to be worth the multiplier across dozens of stages. Pass `-Model opus` explicitly for
+a stage you have reason to expect is genuinely ambiguous or architecturally tricky; leave it off
+otherwise.
 
 Everything is logged to `logs/autonomous/<timestamp>/stage-NN.log`. Read the summary in the morning.
 

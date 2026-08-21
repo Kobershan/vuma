@@ -5,6 +5,14 @@ and extended by every stage that adds a schema.
 
 `CONVENTIONS.md` §2 covers naming. This file covers shape, and the reasons.
 
+> **How to read this file for a stage.** This file is long (it grows a section every stage) and it is
+> reference material, not narrative — you do not need to read it top to bottom. §1-3 (mandatory
+> columns, types, schema list) are short and worth reading once. After that, **jump straight to the
+> `§4x. Tables in <schema>` section(s) for the module your stage actually touches** — each is
+> self-contained — plus §5's replication registry only for the entities your stage replicates. Reading
+> all fifteen module sections to work on one is the single most common way a session burns context on
+> this file for no reason.
+
 ---
 
 ## 1. The mandatory columns

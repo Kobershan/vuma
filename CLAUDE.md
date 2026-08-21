@@ -9,27 +9,87 @@
 
 ## 0. Session protocol (do this every time, no exceptions)
 
+**Both `docs/PROGRESS.md` and `docs/DECISIONS.md` are now lean, current-state-only files** (a
+one-line-per-ADR index and an open-issues-only state file). Their full history lives in
+`docs/archive/PROGRESS-ARCHIVE.md` and `docs/archive/DECISIONS-ARCHIVE.md` — **do not read the
+archives unless you specifically need historical detail on a past stage.** Reading them by default is
+the single biggest source of wasted tokens in this project's history; they are reference material, not
+required reading.
+
 ```
 1. Read  CLAUDE.md                      (this file)
-2. Read  docs/PROGRESS.md               (current state, next stage, blockers)
-3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
+2. Read  docs/PROGRESS.md               (current state, next stage, OPEN blockers only — short)
+3. Read  docs/DECISIONS.md              (one-line ADR index — never re-litigate a LOCKED one)
 4. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage whose status is NOT_STARTED or IN_PROGRESS)
-5. Read  the reference docs that stage lists under "Reference reading"
-6. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
+5. Read  ONLY the reference docs that stage lists under "Reference reading" — not the whole docs/ tree.
+   For the long, module-organised references (`DATA_MODEL.md`, `SYNC_AND_BACKUP.md`), jump to the
+   section(s) for the module your stage touches rather than reading the whole file — each has a
+   navigation note at the top explaining its section layout.
+6. EXECUTE the stage to completion, in THIS worktree, on a branch cut from an up-to-date `main`.
+   Do not stop halfway. Do not ask the user anything. Do not start a second stage in a second
+   worktree — see §1a.
 7. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
-8. Update docs/PROGRESS.md  (status, date, files touched, notes for the next session)
-9. Append any new architectural choices to docs/DECISIONS.md as an ADR
-10. Commit with:  feat(stage-NN): <stage title>
-11. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, and stop
-    cleanly at a green build. Never leave the repo in a non-compiling state.
+8. Merge the stage's branch to `main` before ending the session. A stage is not done while it sits
+   unmerged on a branch — see §1a.
+9. Update docs/PROGRESS.md  (status, date, files touched, notes for the next session — keep it short;
+   this is a state file, not a diary. Long narrative belongs in the archive, if anywhere.)
+10. Append any new architectural choices to docs/DECISIONS.md as a one-line index entry, with the full
+    Context/Decision/Consequences appended to docs/archive/DECISIONS-ARCHIVE.md.
+11. Commit with:  feat(stage-NN): <stage title>
+12. Stop. One stage is one session — do not pull the next stage into the same context even if there is
+    room left. A fresh session with a fresh context window verifies the previous stage's docs are
+    actually sufficient to resume from, which is the point.
 ```
 
 **Universal kickoff prompt** (the user pastes this into any fresh chat, nothing else needed):
 
 ```
-Read CLAUDE.md and docs/PROGRESS.md, then execute the next incomplete stage to completion
-following the session protocol. Do not ask me any questions.
+Read CLAUDE.md, docs/PROGRESS.md and docs/DECISIONS.md (not the archives) and follow the session
+protocol in CLAUDE.md section 0.
+
+Before picking anything new: if docs/PROGRESS.md's stage table shows a stage DONE but unmerged, or
+IN_PROGRESS on another worktree, resolve that first (merge it, or tell me exactly why you can't) -
+do not start a new stage while one is still open. See section 1a.
+
+Then execute exactly ONE stage to completion - the first one whose status is NOT_STARTED or
+IN_PROGRESS. Build it, verify it against its Exit Checklist, merge it to main, update PROGRESS.md
+and DECISIONS.md, and commit. Then STOP - do not continue to the next stage even if you have context
+left; a fresh session picking it up cleanly is the point, not a race to fit more in.
+
+Do not ask me anything. Do not propose options or wait for approval - decide, record the decision as
+an ADR if it's a real architectural choice, and keep going. If something is genuinely blocked (needs
+a credential you don't have, needs Windows/Docker you don't have), stub it, log it under "Deferred" in
+PROGRESS.md, and continue rather than stopping to ask.
+
+Don't narrate as you go or summarize back to me what CLAUDE.md/PROGRESS.md already say - I've read
+them. Just work. At the end, give me a short report: what shipped, what's still open, and the one
+thing (if any) I need to decide before the next session.
 ```
+
+---
+
+## 1a. One stage, one worktree, one session — NON-NEGOTIABLE
+
+This project previously ran multiple stages in parallel across separate git worktrees (e.g. Stage 05,
+06 and 07 all mid-flight at once). **Stop doing this.** It does not produce more finished stages per
+day — it produces multiple half-finished branches that then have to be rebased against each other,
+which `docs/archive/PROGRESS-ARCHIVE.md` documents costing entire sessions on its own. It also means
+you are paying for several concurrent sessions' token usage instead of one.
+
+- **Exactly one stage is ever in progress at a time.** Before starting a new stage, confirm the
+  previous stage's branch is merged to `main` and `docs/PROGRESS.md`'s stage-status table has no other
+  row marked `IN_PROGRESS`.
+- **Do not create a new worktree per stage.** Work directly on `main` (or a single short-lived branch
+  merged back the same session). If you find leftover worktrees under `.claude/worktrees/` from past
+  sessions, that is a sign this rule was broken before — flag it in `docs/PROGRESS.md`, do not add to it.
+- **Target cadence:** one stage per session, 3–4 sessions per day, 21–28 stages per week. If a single
+  stage is ballooning past that, it is a sign the stage is too large or the session is re-reading more
+  than it needs — stop, write a handoff, and let the next session start clean rather than pushing
+  through in the same context.
+- **Model choice:** default to Sonnet (`scripts/run-autonomous.ps1`'s default). Opus costs several
+  times more per token and this project's stage documents are already fully specified — most stages
+  don't need Opus-tier judgement to execute correctly. Reach for `-Model opus` only for a specific
+  stage you expect to be genuinely ambiguous, not as a standing default.
 
 ---
 
@@ -193,8 +253,11 @@ vuma/
 │   ├── settings.json             ← full-access permission config
 │   └── agents/                   ← subagent definitions (see docs/AGENTS.md)
 ├── docs/
-│   ├── PROGRESS.md               ← ★ THE STATE FILE. Read first, write last.
-│   ├── DECISIONS.md              ← ADR log
+│   ├── PROGRESS.md               ← ★ THE STATE FILE. Lean — current stage + OPEN items only.
+│   ├── DECISIONS.md              ← ADR index, one line per ADR. Never re-litigate a LOCKED one.
+│   ├── archive/                  ← full session-log & ADR history — NOT required reading, on-demand only
+│   │   ├── PROGRESS-ARCHIVE.md
+│   │   └── DECISIONS-ARCHIVE.md
 │   ├── ROADMAP.md                ← stage index
 │   ├── ARCHITECTURE.md
 │   ├── DATA_MODEL.md

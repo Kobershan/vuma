@@ -3,6 +3,11 @@
 > The replication protocol (ADR-006, ADR-007) and the cloud backup path (R4). Written by Stage 04.
 > **Every stage that adds a replicated entity updates §3.** That table is the registry the sync engine
 > reads at runtime, and an entity missing from it is an entity that has quietly stopped replicating.
+>
+> **How to read this for a stage:** §1-2 and §4-9 describe the fixed protocol and are worth reading in
+> full once. §3's "registry as built" grows a subsection per stage — you do not need to read every past
+> stage's entries, only skim §3's opening (Scopes/Conflict policies) and then append your own module's
+> row alongside the existing ones rather than reading each prior module's registry entry in detail.
 
 ---
 
