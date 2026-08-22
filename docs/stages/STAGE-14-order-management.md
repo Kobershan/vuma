@@ -54,6 +54,34 @@ and *how the goods get to the customer*, not what an order is.
 - **No order screen.** Every deliverable is an endpoint, for the reason Stages 09–13 all stopped at
   (`PROGRESS.md` §4.3, ADR-031): `VumaRetail.Desktop` cannot build or run on this machine.
 
+
+## Amendments — revision 4, 2026-08-22
+
+Three requirements arrived after this document was written. They are additive; nothing already
+specified above is withdrawn. Read `docs/MULTI_COMPANY.md` §4–§5 and ADR-103, ADR-111, ADR-113 first.
+
+1. **COD is a settlement term on the order** (ADR-111). `SettlementTerms` carries `CashOnDelivery`,
+   inherited by every invoice the order produces and printed on the delivery note. A COD order
+   **consumes no credit-group exposure**, and it cannot be released for dispatch without either a
+   captured payment or an explicit driver-collect authorisation naming who collects. The outstanding
+   COD amount reconciles against the delivery run when the driver returns.
+2. **Delivery geography is normalised at capture and snapshotted onto the order** (ADR-113) —
+   `Province`, `City`, `Suburb`, `PostalCode`, from a per-tenant reference list. Stage 13b builds
+   consolidated pick waves from this snapshot, and a later address edit must not change what a built
+   wave contains. This is three columns and a normaliser; leaving it to 13b means back-filling
+   geography onto orders that already exist.
+3. **Allocation reserves through Stage 08c's reservation ledger, not a local one** (ADR-103).
+   `OrderAllocation`/`OrderReservation` above predate 08c. Where 08c has landed, this stage consumes
+   `IReservationService` and `IAvailabilityService` rather than computing available-to-promise itself;
+   where it has not, build the local model behind those two interface names so 08c replaces the
+   implementation and no caller changes. **Available never goes negative in any company** is 08c's
+   rule and it applies here from the first line of allocation code.
+
+Also inherited, from stages either side of this one: order lines carry a **pack size** snapshot
+(ADR-112, printed by 10c), and an order sourced across companies produces **one invoice per supplying
+company** (ADR-102). Neither changes the order aggregate — both are line-level snapshot fields and a
+document-splitting step downstream.
+
 ## Deliverables
 
 **`orders` module** (schema `orders`, ten tables)

@@ -1,7 +1,13 @@
 # ROADMAP — Vuma Retail
 
-37 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
+42 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
 green build with the work demonstrable. Close the chat, open a new one, repeat.
+
+> **Revision 4 (2026-08-22).** Five stages were inserted — **06c**, **07c**, **08c**, **13b** and
+> **14b** — for multi-company operation, cross-company money, availability and reservations, consolidated
+> picking, and the field-sales (rep) module. Stages **10c** and **14** were amended rather than
+> renumbered. See ADR-099 – ADR-115, `docs/MULTI_COMPANY.md` and `docs/FIELD_SALES.md`. Nothing already
+> shipped was removed or renumbered.
 
 > **Revised.** The original 31-stage plan (00–31, no letters) was missing a design system, a
 > customer-money module and the supplier network. Stages **08b**, **10b** and **21b** were inserted
@@ -37,12 +43,15 @@ The minimum that makes a business able to trade *and* account for it.
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
 | 06 | Master Data | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
+| 06c | [Multi-Company Group Core](stages/STAGE-06c-multi-company.md) ◆ | 06, 07 | Companies between tenant and store, company scoping retrofitted everywhere, group barcode resolution, group credit limits for customers *and* suppliers |
 | 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
+| 07c | [Cross-Company Money](stages/STAGE-07c-cross-company-money.md) ◆ | 07, 06c | Capture one receipt, allocate it across companies; inter-company clearing; per-company statements plus a labelled consolidated view |
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
+| 08c | [Cross-Company Availability, Reservations & Split Fulfilment](stages/STAGE-08c-availability-sourcing.md) ◆ | 08, 06c | The reservation ledger, available-to-promise, sourcing across companies without ever going negative, one order → several invoices |
 | 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — API and hardware merged to `main` 2026-08-15; the WPF till screen is deferred with 08b. **REOPENED after the agent reviews of 2026-08-15: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. Eight open defects, see `PROGRESS.md` §4.10–§4.16** |
 | 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
-| 10c | Quotes, Invoices & Sales Analytics | 10, 14 | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it |
+| 10c | Quotes, Invoices & Sales Analytics | 10, 14, 08c | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it. **Amended (Rev 4):** invoice lines carry and print **pack sizes** (ADR-112), and an order sourced across companies produces one invoice per company (ADR-102) |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
 | 11 | [Data Import (Excel/CSV/PDF)](stages/STAGE-11-data-import.md) | 06 | Ingest suppliers, customers, inventory and specials with mapping, preview, validation and rollback — **DONE 2026-08-16**, branch `stage-11-data-import`. See `docs/IMPORT_PIPELINE.md`. Closes `PROGRESS.md` §4.16. **The six agent reviews have not run (§4.17)** |
 
@@ -51,8 +60,10 @@ The minimum that makes a business able to trade *and* account for it.
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
 | 12 | [Procurement](stages/STAGE-12-procurement.md) | 08, 11 | Requisitions, RFQs, POs, GRNs, three-way match, supplier scorecards — **DONE 2026-08-17**, merged to `main`. Closes the "minimum viable trading system" at 00–12: the shop can now buy as well as sell |
-| 13 | Warehouse Management | 08 | Zones/bins, putaway, pick/pack/ship, cycle counts, handheld flows |
-| 14 | Order Management | 10, 13 | Omnichannel orders, allocation, backorders, click & collect, returns |
+| 13 | Warehouse Management | 08 | Zones/bins, putaway, pick/pack/ship, cycle counts, handheld flows — **DONE 2026-08-19**, merged to `main` |
+| 13b | [Consolidated Picking Waves, Staging States & Interval Counts](stages/STAGE-13b-picking-waves-staging.md) ◆ | 13, 14 | Pick a whole town in one walk: waves by period + province/city/suburb grouped by SKU; consolidation/packing/dispatch as bins; scheduled counts of slow movers that warn when stock is in flight |
+| 14 | Order Management | 10, 13, 08c | Omnichannel orders, allocation, backorders, click & collect, returns — **IN_PROGRESS**, branch `stage-14-order-management`. **Amended (Rev 4):** COD settlement terms enforced at dispatch (ADR-111), geography snapshotted on the order for 13b's waves (ADR-113), and allocation goes through 08c's reservation ledger rather than a local one (ADR-103) |
+| 14b | [Field Sales — the Rep Module](stages/STAGE-14b-field-sales.md) ◆ | 14, 10c, 08c, 05 | Reps on the road: pro forma orders and credit notes, live availability, management approval before anything becomes an invoice, rep performance per month with comparison |
 | 15 | Merchandise Planning, Forecasting & Replenishment ★ | 12, 13, 14 | Forecasting, MRP/DRP, safety stock, open-to-buy, markdown planning |
 | 16 | BOM Setup | 06 | Multi-level BOMs, versions, alternates, routings, rolled-up costing |
 | 17 | Manufacturing | 16, 13 | Work orders, issue/receipt, WIP, scrap, capacity, genealogy |
@@ -90,23 +101,34 @@ The minimum that makes a business able to trade *and* account for it.
 
 ★ = added in the Revision 3 gap-closing pass (ADR-055 – ADR-059).
 
+◆ = added in Revision 4, 2026-08-22 (ADR-099 – ADR-115) — multi-company operation and field sales.
+
 ---
 
 ## Dependency graph (text)
 
 ```
-00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─┬─ 08 ─ 08b ─┬─ 09 ─ 10 ─┬─ 14 ─┬─ 21 ─ 21b ─ 22
-                                        │           │           │      ├─ 23
-                                        │           ├─ 12 ─ 15   │      └─ 24
-                                        │           └─ 13 ───────┘
-                                        ├─ 11 ─ 12
-                                        ├─ 16 ─ 17 ─ 18
-                                        ├─ 19 ─ 20 ─ 21
-                                        └─ 27, 28
+00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─ 06c ─ 07c
+                                              │
+        06c ─ 08 ─ 08c ─┬─ 08b ─ 09 ─ 10 ─┬─ 10c ─ 14b
+                        │                 └─ 10b
+                        └─ 14 ─┬─ 13 ─ 13b
+                               ├─ 21 ─ 21b ─ 22
+                               ├─ 23
+                               └─ 24
+   08 ─┬─ 12 ─ 15
+       ├─ 11 ─ 12
+       ├─ 16 ─ 17 ─ 18
+       ├─ 19 ─ 20 ─ 21
+       └─ 27, 28
                             02 ─ 25 ─ 26
               (all modules) ─ 29 ─ 30 ─ 30b ─ 31
                         04b ─────────────┘
 ```
+
+**06c is the one that must not be deferred.** Every stage after it writes business tables, and every
+business table needs `company_id` from the moment it is created. Retrofitting a company column across
+forty modules later is the single most expensive mistake available in this plan.
 
 ## Minimum viable trading system
 
@@ -142,6 +164,18 @@ than a giveaway.
 - **21b after 21.** Vuma Connect is a trading network on top of ecommerce's headless API and Finance's
   posting rules (ADR-056, ADR-057).
 - **31 last.** The DR drill (R4) must exercise a system that is actually complete.
+- **06c before everything that follows it, 07c and 08c straight after.** 06c adds `company_id` to every
+  business table and retrofits the scoping; 07c and 08c are the two group services the later stages
+  consume (money and stock). Doing 06c now costs one stage of retrofit across thirteen shipped ones;
+  doing it after Stage 21 costs a rewrite (ADR-099).
+- **13b after 14, not after 13.** A consolidated pick wave groups *orders*, and Stage 14 is what makes
+  orders exist. Stage 13's `PickTask.OutboundReference` is already the seam; 13b adds the wave builder
+  that fills it, and does not fork the pick model.
+- **14b last of the new five.** The rep module is a thin, high-value layer over 08c's availability,
+  14's orders, 10c's invoices and 05's approvals. Built before them it would have to fake all four.
+- **10c and 14 are amended, not renumbered.** Pack size on the invoice, COD on the order, geography on
+  the order, reservations through 08c. Both stage documents carry the amendments; whoever executes them
+  reads `docs/MULTI_COMPANY.md` and ADR-111, ADR-112, ADR-113 first.
 
 ## Rules of engagement
 

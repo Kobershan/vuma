@@ -69,6 +69,27 @@ Map money and quantity with `builder.HasMoney(...)` / `builder.HasQuantity(...)`
 
 ---
 
+## 2b. The company column (from Stage 06c)
+
+Every **business** table carries `company_id uuid NOT NULL` alongside `tenant_id`, and both are applied
+as global query filters by the DbContext. A company is the legal entity that owns the row: the books it
+posts to, the numbering it uses, the stock it holds, the statements it appears on (ADR-099, `CLAUDE.md`
+§7 rule 20, `docs/MULTI_COMPANY.md`).
+
+Exempt — genuinely tenant-wide, and the list is enumerated in an architecture test so a new exemption
+cannot be added quietly:
+
+| Schema | Why exempt |
+|---|---|
+| `platform` (tenants), `identity`, `licensing`, `sync`, `backup` | The tenant, its users, its licence and its replication machinery sit above the companies |
+| `platform.stores` | Carries `company_id` — a store belongs to exactly one company — and is listed here only because it is the join that gives most rows their company |
+| `group` | Group-level containers exist precisely to span companies; their *children* are company-scoped |
+
+**No foreign key crosses a company boundary within a business schema.** Cross-company references are by
+id and resolve through `ICompanyDataSource`, for the same reason no foreign key crosses a schema.
+
+---
+
 ## 3. Schemas
 
 Schema name = module name (ADR-010). Declared as constants on
@@ -85,7 +106,15 @@ table lands anywhere else — including `public`, which belongs to no module and
 | `catalog` | items, variants, barcodes, units of measure | 06 |
 | `partners` | suppliers, customers, and partners who are both | 06 |
 | `finance` | chart of accounts, GL, AR, AP, banking, tax, posting rules | 07 |
-| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes | 08 |
+| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes, **reservations** | 08, 08c |
+| `pos` | till sessions, sales, sale lines, tenders, receipt prints | 09 |
+| `sales` | price lists, promotions, returns, price override logs | 10 |
+| `imports` | import batches, mappings, rows, templates | 11 |
+| `procurement` | requisitions, RFQs, purchase orders, goods receipts, matches, scorecards | 12 |
+| `warehouse` | zones, bins, bin stock, putaway, waves, packing, shipments, counts | 13, 13b |
+| `orders` | sales orders, allocations, fulfilments, order returns | 14 |
+| `group` | companies, company groups, credit groups, the barcode index, group receipts and payments | 06c, 07c |
+| `fieldsales` | reps, territories, targets, pro formas, pro forma credit notes, performance snapshots | 14b |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -1106,6 +1135,105 @@ real inventory variance at the location, not a bin reshuffle.
 
 ---
 
+## 4l. Tables in `group` (Stages 06c, 07c)
+
+### `group.companies`
+The legal entity between tenant and store. `id`, `tenant_id`, `code`, `legal_name`, `trading_name`,
+`registration_number`, `tax_number`, `base_currency`, `locale`, `document_prefix`, `logo_uri`,
+`is_active`. `code` and `document_prefix` are unique per tenant.
+
+### `group.company_groups` / `group.company_group_members`
+An ordered set of companies for consolidation and group scope. A company belongs to at most one group.
+
+### `group.credit_groups` / `group.credit_group_members`
+`credit_groups`: `direction` (`Receivable` | `Payable`), `limit_amount` `decimal(18,4)` + currency,
+`exposure_policy`, `is_active`. `credit_group_members`: `company_id`, `partner_id`, optional
+`sub_limit_amount`. Available = limit − Σ member exposure; the member sub-limit narrows and never
+widens (ADR-101). The group row is the serialisation point for credit consumption — a
+`xmin`/`row_version` check is not sufficient, the transaction is serialisable.
+
+### `group.barcode_index`
+Projection over `catalog.barcodes`, maintained by the outbox. `(tenant_id, barcode, company_id)`
+unique; `(tenant_id, barcode)` for lookup; carries `item_id`, `variant_id`, `pack_size`,
+`pack_uom_id`. Never written by hand; rebuilt from source and tested against the incremental
+projection (ADR-100).
+
+### `group.group_receipts` / `group.group_receipt_allocations`
+The container that captures money once and splits it across companies. The receipt posts nothing; each
+allocation creates a `finance.ar_receipts` row in its own company and carries
+`(group_receipt_id, allocation_id)` for idempotency (ADR-104). Σ allocations ≤ captured amount, as a
+check constraint and in the aggregate.
+
+### `group.group_payments` / `group.group_payment_allocations`
+The same shape outbound, for a supplier several companies owe.
+
+### `group.inter_company_clearing_entries`
+The paired both-legs record connecting two companies' journals, with the group document that caused it.
+Append-only. Across a group these net to zero at every instant (ADR-105).
+
+---
+
+## 4m. Tables in `inventory`, added by Stage 08c
+
+### `inventory.stock_reservations`
+Append-only, immutable rows: `company_id`, `location_id`, `item_id`, `variant_id`, `quantity`
+`decimal(18,6)` + uom, `source_document_type`, `source_document_id`, `state`
+(`Held | Consumed | Released | Expired`), `expires_at`, `reason`. A release or expiry is a **new row**,
+never an update — the same shape as the stock ledger (ADR-103).
+
+### `inventory.available_balances`
+Projection: `on_hand`, `reserved`, `in_staging`, `available`, `as_at`. Rebuildable from
+`stock_ledger_entries` + `stock_reservations` + `warehouse.bin_stock`, and the rebuild must equal the
+incremental projection.
+
+---
+
+## 4n. Tables in `warehouse`, added by Stage 13b
+
+### `warehouse.bins` — extended
+`bin_type` gains `Consolidation`, `Packing`, `Dispatch`. Stock in one of these is on hand and **not**
+available; `StockLocationState` is derived from where the quantity sits, never stored (ADR-114).
+
+### `warehouse.pick_waves` — extended
+`geography_level` (`Province | City | Suburb`), `geography_value`, `period_from`, `period_to`,
+`company_scope`. Built from the order's **snapshotted** geography, not a live address join (ADR-113).
+
+### `warehouse.pick_wave_line_breakdowns`
+The per-order split of a grouped wave line: `pick_wave_line_id`, `order_id`, `order_line_id`,
+`quantity`. Sums exactly to the grouped quantity — a check the consolidation step depends on.
+
+### `warehouse.count_schedules`
+`cadence`, `scope` (zone / class / value band / supplier), `slow_mover_days`, `random_sample_size`,
+`next_run_at`. Generates Stage 13 `cycle_counts`; adds no second counting model (ADR-115).
+
+---
+
+## 4o. Tables in `fieldsales` (Stage 14b)
+
+### `fieldsales.reps` / `fieldsales.rep_territories` / `fieldsales.rep_companies`
+The user, the customers and/or geography they cover, the companies they may sell for, and their
+visibility profile (cost? margin?).
+
+### `fieldsales.pro_forma_orders` / `_lines`
+Proposal documents. Own `PF-` sequence per company. Lines carry quantity, uom, **pack size**, quoted
+price, the price-list and promotion snapshot, and the availability `as_at` shown to the rep. Status:
+`Draft | Submitted | Approved | Amended | Rejected | Expired | Converted`. Posts nothing, reserves
+nothing (ADR-107).
+
+### `fieldsales.pro_forma_credit_notes` / `_lines`
+The same, against a supplied invoice and its lines, with a reason code. Approves into a Stage 10 credit
+note inside the original invoice's company.
+
+### `fieldsales.rep_targets`
+Versioned per rep, per company, per period. A target change never restates a measured period.
+
+### `fieldsales.rep_performance_snapshots`
+Closed-period, immutable, per rep per company with the group roll-up: captured, converted, invoiced,
+credited, net, margin (where permitted), collections, customer coverage. A recomputation writes a new
+version with a reason (ADR-110).
+
+---
+
 ## 5. Replication registry
 
 Every persisted entity declares `[Replicated(scope, conflictPolicy)]` (ADR-007). An architecture test
@@ -1174,6 +1302,26 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `ShipmentConfirmation` | StoreToCloud | AppendOnly | The point stock leaves a store's door. `IImmutableRecord` — a correction is a new shipment, not an edit, the same shape `StockTransfer` uses. |
 | `CycleCount` | StoreToCloud | StoreWins | A physical count happens on one store's floor; the cloud observes the result. Same shape as `StocktakeSession`. |
 | `CycleCountLine` | StoreToCloud | StoreWins | Follows its count. |
+
+### Added by Stages 06c, 07c, 08c, 13b and 14b
+
+| Entity | Direction | Conflict policy | Why |
+|---|---|---|---|
+| `Company` | CloudToStore | CloudWins | A legal entity is head-office data. A store reads it; it does not invent one. |
+| `CompanyGroup` / `CompanyGroupMember` | CloudToStore | CloudWins | Group membership is a head-office decision. |
+| `CreditGroup` / `CreditGroupMember` | Bidirectional | CloudWins | Limits are set centrally; exposure accrues at stores. The cloud is authoritative on the limit, the store on what it has consumed — and the consumption that matters is serialised at whichever node holds the row, which is why an offline store trades on its last-known limit and reconciles on reconnect. |
+| `BarcodeIndexEntry` | CloudToStore | CloudWins | A projection of catalogue data, which is already CloudToStore. |
+| `GroupReceipt` / `GroupReceiptAllocation` | StoreToCloud | AppendOnly | Money is captured where the customer paid. `IImmutableRecord` once allocated — a correction is a reversal. |
+| `GroupPayment` / `GroupPaymentAllocation` | StoreToCloud | AppendOnly | Same, outbound. |
+| `InterCompanyClearingEntry` | StoreToCloud | AppendOnly | A posted pair, never edited. |
+| `StockReservation` | StoreToCloud | AppendOnly | A hold is taken where the stock is, and released by a new entry. The append-only shape is what makes it safe to replay. |
+| `CountSchedule` | CloudToStore | CloudWins | A counting policy is head office's; the counts it generates are the store's. |
+| `PickWaveLineBreakdown` | StoreToCloud | StoreWins | Follows its wave. |
+| `Rep` / `RepTerritory` / `RepCompany` | CloudToStore | CloudWins | Who a rep is and what they may sell is head-office data. |
+| `ProFormaOrder` / `_Line` | Bidirectional | StoreWins | Captured on a rep's device offline, approved at the back office. The capturing node owns the content; approval is a separate, server-side transition. Replayed through the idempotent sync batch path. |
+| `ProFormaCreditNote` / `_Line` | Bidirectional | StoreWins | Same. |
+| `RepTarget` | CloudToStore | CloudWins | Targets are set centrally and versioned. |
+| `RepPerformanceSnapshot` | StoreToCloud | AppendOnly | A closed period, immutable. A recomputation is a new version. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

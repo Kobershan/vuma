@@ -10,26 +10,35 @@
 ## 0. Session protocol (do this every time, no exceptions)
 
 ```
-1. Read  CLAUDE.md                      (this file)
-2. Read  docs/PROGRESS.md               (current state, next stage, blockers)
-3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
-4. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage whose status is NOT_STARTED or IN_PROGRESS)
-5. Read  the reference docs that stage lists under "Reference reading"
-6. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
-7. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
-8. Update docs/PROGRESS.md  (status, date, files touched, notes for the next session)
-9. Append any new architectural choices to docs/DECISIONS.md as an ADR
-10. Commit with:  feat(stage-NN): <stage title>
-11. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, and stop
-    cleanly at a green build. Never leave the repo in a non-compiling state.
+ 1. Read  CLAUDE.md                      (this file)
+ 2. Read  docs/PROGRESS.md               (§1 current state, §5 what the next session does)
+ 3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
+ 4. Read  docs/ROADMAP.md                (dependencies; PROGRESS.md §5 outranks it)
+ 5. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage that is NOT_STARTED or IN_PROGRESS and
+                                          whose dependencies are DONE. If the document does not
+                                          exist, WRITE IT FIRST, then build it.)
+ 6. Read  the reference docs that stage lists under "Reference reading"
+ 7. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
+ 8. Run   the agent panel — docs/AGENTS.md. architecture-guard, the specialists the stage's
+          subject matter calls for, stage-verifier until PASS or a documented UNVERIFIED,
+          doc-scribe. Act on every finding before committing.
+ 9. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
+10. Update docs/PROGRESS.md  (§1 status, session log, §4 for defects found, §5 rewritten)
+11. Append any new architectural choices to docs/DECISIONS.md as an ADR
+12. Commit with:  feat(stage-NN): <stage title>   — then PUSH, and update the parent
+    `ecosystem` superproject's vuma pointer
+13. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, push, and
+    stop cleanly at a green build. Never leave the repo in a non-compiling state.
 ```
 
-**Universal kickoff prompt** (the user pastes this into any fresh chat, nothing else needed):
+**Universal kickoff command** (the user types this into any fresh chat, nothing else needed):
 
 ```
-Read CLAUDE.md and docs/PROGRESS.md, then execute the next incomplete stage to completion
-following the session protocol. Do not ask me any questions.
+/next-stage
 ```
+
+It is defined at `.claude/commands/next-stage.md` and it is the whole of this protocol. If the host
+does not load project slash commands, `docs/SESSION_KICKOFF.md` carries the paste-able equivalent.
 
 ---
 
@@ -41,7 +50,10 @@ own. See `docs/AUTONOMOUS_OPERATION.md` for the environment setup.
 - **Never call `AskUserQuestion`.** It is denied in settings, but do not reach for it. There is no one
   to answer.
 - **Never write to `.claude/**`.** It is a protected path: writing there triggers a permission prompt
-  that will stall an unattended run until morning. Nothing in this build needs to touch it.
+  that will stall an unattended run until morning. Nothing in this build needs to touch it. That
+  directory — settings, agents, commands — belongs to the human operator; a session that concludes a
+  new agent or command is needed writes the brief into `docs/PROGRESS.md` and lets the operator create
+  the file.
 - **Never leave the repo broken.** Commit at green checkpoints throughout a stage, not once at the end.
   A run that dies mid-refactor wastes the whole night.
 - **If context is getting long, stop cleanly** at a green build with an honest handoff in
@@ -144,6 +156,8 @@ mobile access.
 | R8 | **Multi-store, multi-warehouse, multi-currency, multi-tax** from the data model up, even if v1 ships single-store. |
 | R9 | **Licensed SaaS on a recurring subscription.** Mandatory monthly signed licence, hardware-bound activation, entitlement gating, usage metering. A lapsed subscription drops the tenant to **read-only**: full read, report, reprint and export; no writes, including no sales. It must only ever be triggered by a known subscription state after completed dunning — never by a network fault, a vendor-side outage, a single failed charge or a hardware change. See `docs/LICENSING.md`. |
 | R10 | **Telemetry is counts and health only.** No customer names, sales detail, employee data or document content ever leaves a tenant's premises for vendor purposes. Vendor staff have no path to tenant business data without a tenant-granted, time-boxed, audited support grant. |
+| R11 | **Multi-company inside one installation.** A tenant runs several trading companies at once — separate books, stock, document numbering and financial statements — while credit limits, receipting, availability, scanning and reporting work *across* them. One order may be filled from more than one company's stock and split into one invoice per supplying company, and no company is ever drawn negative to do it. See `docs/MULTI_COMPANY.md`. |
+| R12 | **Field sales is a proposal, not a commitment.** Reps on the road capture pro forma orders and credit notes against live availability; nothing they capture posts or reserves anything until management approves it, and approval is what creates the document and commits the stock. See `docs/FIELD_SALES.md`. |
 
 ---
 
@@ -189,8 +203,9 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 vuma/
 ├── CLAUDE.md                     ← you are here
 ├── README.md
-├── .claude/
+├── .claude/                      ← the operator's, never written by a build session
 │   ├── settings.json             ← full-access permission config
+│   ├── commands/next-stage.md    ← the session kickoff command
 │   └── agents/                   ← subagent definitions (see docs/AGENTS.md)
 ├── docs/
 │   ├── PROGRESS.md               ← ★ THE STATE FILE. Read first, write last.
@@ -212,6 +227,9 @@ vuma/
 │   ├── API_CONNECT.md            ← supplier↔retailer trading network contract
 │   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
 │   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
+│   ├── MULTI_COMPANY.md          ← companies, group scope, credit groups, split documents (R11)
+│   ├── FIELD_SALES.md            ← the rep module: pro formas, approval, performance (R12)
+│   ├── SESSION_KICKOFF.md        ← the one command to start a session
 │   ├── AGENTS.md
 │   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
 ├── src/
@@ -274,6 +292,11 @@ vuma/
 | **Vendor control plane, usage analytics, SaaS billing** | **30b** (`docs/API_CONTROL_PLANE.md`) |
 | Android admin app | 29 (API), 30 (app) |
 | Excel/PDF ingest | 11 |
+| **Multi-company: companies, group scope, group credit limits** | **06c** (`docs/MULTI_COMPANY.md`) |
+| **Cross-company money: group receipting, inter-company clearing, consolidated reporting** | **07c** |
+| **Availability, reservations, cross-company sourcing, split invoicing** | **08c** |
+| **Consolidated picking waves, staging areas, interval counts** | **13b** |
+| **Field sales — the rep module** | **14b** (`docs/FIELD_SALES.md`) |
 
 ---
 
@@ -315,6 +338,20 @@ vuma/
     only the documents that connection created. A supplier never writes directly into a retailer's
     data — everything arrives as a proposal the retailer accepts.
 19. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
+20. **Every business row belongs to exactly one company**, and no query reaches another company's data
+    except through `ICompanyDataSource` with an explicit group scope and a permission behind it. No
+    journal, sub-ledger row or document names two companies; value between companies moves through
+    inter-company clearing, both legs, in one transaction (ADR-099, ADR-105).
+21. **`Available`, not `OnHand`, answers "can I sell this".** A reservation reduces available and
+    leaves on-hand alone; on-hand changes only when goods physically move. Available may never go
+    negative in any company under any interleaving, and every availability figure crossing an API
+    boundary carries its `AsAt` (ADR-103, ADR-102).
+22. **A proposal commits nothing.** A pro forma posts nothing and reserves nothing; only an approval
+    creates a document, and it reserves stock and consumes credit in one transaction or does neither
+    (ADR-107, ADR-108).
+23. **Snapshots, not re-derivations, on documents.** Price, tax, cost, pack size and delivery geography
+    are resolved at capture and stored on the line. A document reprinted a year later shows what was
+    actually sold and shipped (ADR-112, ADR-113).
 
 ---
 
@@ -332,7 +369,11 @@ vuma/
 - [ ] Module entitlement flag declared in the module manifest and gated through `IEntitlementService`
 - [ ] Usage counters for the module added to the daily metering rollup (counts only, no business data)
 - [ ] Seed/demo data added so the module is demonstrable with `scripts/seed.ps1`
-- [ ] `docs/PROGRESS.md` updated, ADRs appended, committed
+- [ ] `company_id` on every new business table, with the global filter and no hand-written company
+      filter outside `ICompanyDataSource` (§7 rule 20)
+- [ ] The agent panel ran (`docs/AGENTS.md`) and every finding is closed or has a written reason in
+      `docs/PROGRESS.md`
+- [ ] `docs/PROGRESS.md` updated, ADRs appended, committed **and pushed**
 
 ---
 

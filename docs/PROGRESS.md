@@ -3,7 +3,13 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
+**Last updated:** 2026-08-22 · **Planning revision 4 filed this session — no code changed.** Five
+stages inserted (06c, 07c, 08c, 13b, 14b), two amended (10c, 14), seventeen ADRs appended (ADR-099 –
+ADR-115), two reference documents written (`MULTI_COMPANY.md`, `FIELD_SALES.md`), three review agents
+added, and the session kickoff reduced to one command (`/next-stage`). See the 2026-08-22 session-log
+entry. **Nothing below about Stages 09–13 has changed.**
+
+**Previously — last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
 ---
 
@@ -49,8 +55,11 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
+| 06c | Multi-company group core — companies, company scoping, group barcode index, group credit limits | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099 – ADR-101). **Do this before any further business table is created**; it retrofits `company_id` across thirteen shipped stages and that cost only grows | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
+| 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
+| 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) — 930 tests green, 83.14% coverage on the stage's Domain + Application, migration reversible, seeded store has really refunded. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
@@ -58,7 +67,10 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) — 1,069 tests green, 83.46% coverage on the stage's Domain + Application, migration reversible in both directions, seeded store has really bought and really matched a supplier invoice. Found and fixed ADR-086 (stock was valued VAT-inclusive) while verifying the seed, §4.18 (the module sweep swept nothing on a full-suite run) and a replication registry thirteen entities short in two documents while closing the exit checklist. **The six agent reviews did not run**; see §4.17 | 2026-08-17 |
 | 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **DONE** (main) — 1,157 tests green, 86.17% coverage on the stage's Domain + Application, migration reversible, seeded warehouse has really shelved and really shipped, and the cycle count variance really reached the GL through Stage 08's existing seeded rule (`JNL-000009`). Four test-coverage gaps against the stage's own acceptance list closed this session. **The six agent reviews did not run**; see §4.17 | 2026-08-19 |
-| 14 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 13b | Consolidated picking waves, staging states & interval counts | **NOT_STARTED** — added 2026-08-22 (ADR-113 – ADR-115). Depends on 14, not on 13 alone: a wave groups orders | — |
+| 14 | Order management — omnichannel orders, allocation, backorders, click & collect, returns | **IN_PROGRESS** — branch `stage-14-order-management`, stage document written 2026-08-19. **Amended 2026-08-22**: COD terms (ADR-111), geography snapshot (ADR-113), reservations through 08c (ADR-103) | 2026-08-22 |
+| 14b | Field sales — the rep module | **NOT_STARTED** — added 2026-08-22 (R12, ADR-107 – ADR-110) | — |
+| 15 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
 entry below. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
@@ -612,6 +624,84 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-22 — Planning revision 4: multi-company, field sales, consolidated picking. No code changed.
+
+A requirements session, not a build session. The operator described eight things the product does not
+do, all of which land on the same two ideas — **several companies trading inside one installation**,
+and **reps proposing work that management commits**. Filed as five new stages, two amendments,
+seventeen ADRs, two reference documents and three review agents. Nothing was built and nothing was
+verified; this entry records a plan, and the next session is the one that starts executing it.
+
+**What the operator asked for, and where each piece went.**
+
+| Requirement | Where it lives now |
+|---|---|
+| Rep module: pro forma orders and pro forma credit notes | Stage **14b**, `docs/FIELD_SALES.md` §2, ADR-107 |
+| Reps see how much stock is available | Stage 14b via Stage **08c**'s availability service, ADR-109 |
+| Rep invoicing approved by management before it becomes an invoice | Stage 14b through Stage 05's `IApprovalService`, ADR-107, ADR-108 |
+| Rep performance per month, compared over a period | Stage 14b, ADR-110 |
+| Order can be set COD | Stage **14** (amended), ADR-111 |
+| Pack sizes on the invoice | Stage **10c** (amended), ADR-112 |
+| Run multiple companies simultaneously in one space | Stage **06c**, `docs/MULTI_COMPANY.md`, ADR-099 |
+| Scan a barcode and it knows which company/store | Stage 06c's group barcode index, ADR-100 |
+| Draw stock from whichever company has it, never negative | Stage **08c**, ADR-102, ADR-103 |
+| Split the invoice into one per company | Stage 08c's `ISplitDocumentBuilder`, ADR-102 |
+| Credit limits shared across companies, customers and suppliers | Stage 06c's credit groups, ADR-101 |
+| Receipt money once and allocate it across companies | Stage **07c**, ADR-104, ADR-105 |
+| Financials per company | Stage 07c, ADR-106 |
+| Picking list grouped by period and town/city, also province and suburb | Stage **13b**, ADR-113 |
+| Approved order sets stock aside and removes it from stock | Stage 08c reservations, ADR-103 — see the note below, this is the one place the request was not implemented literally |
+| Interval stock takes of items nobody is pulling | Stage 13b, ADR-115 |
+| Stock take warns when items are in consolidation, packing or dispatch | Stage 13b, ADR-114 |
+| Picker's confirm moves status shelved → consolidation → dispatch | Stage 13b — staging areas are bins, so state is derived rather than stored, ADR-114 |
+
+**Two requests were deliberately not taken literally, and both are worth reading before the build
+starts.**
+
+1. **"Whatever database."** Companies are **logical inside one tenant database**, not separate
+   databases (ADR-099). Separate databases would put a distributed transaction on every cross-company
+   receipt and a fan-out on every scan — and the group features the operator actually asked for
+   (one credit limit across three companies, one receipt split across three companies) are exactly
+   what that would make unreliable. The books, stock, numbering and statements are still fully
+   separate, which is what the operator can see. `ICompanyDataSource` is kept as the single seam so a
+   later stage can back one company with a physically separate database without a caller changing.
+2. **"Removed from stock" on approval.** Approval writes a **reservation** that reduces *available*
+   and leaves *on hand* alone (ADR-103). Literally deducting on-hand would either mutate a quantity
+   column — which `CLAUDE.md` §7 rule 6 forbids and ADR-005 settled — or write a stock issue for goods
+   that have not moved, recognising cost of sale for a sale that has not happened. The operator's
+   actual requirement (nobody else can sell that stock) is met in full. The cost is that two numbers
+   now exist where users expect one, so every screen and endpoint must show *available*, labelled,
+   with its `AsAt`.
+
+**Sequencing.** 06c → 07c → 08c → 14 → 10c → 13b → 14b. **06c is the one that cannot be deferred**:
+every stage after it creates business tables and every business table needs `company_id` from the
+moment it exists. Retrofitting it across thirteen shipped stages is one stage of work today; across
+forty modules later it is a rewrite. Stage 14 is already in progress on its branch — it should take
+its reservations from 08c rather than build a parallel model, which is why 08c is sequenced ahead of
+it and why ADR-103 is written the way it is.
+
+**Also filed this session.**
+
+- `/next-stage` (`.claude/commands/next-stage.md`) — one command that starts any session, runs the
+  whole protocol including the agent panel, and ends in a commit and a push. `docs/SESSION_KICKOFF.md`
+  carries the paste-able equivalent for hosts that do not load project commands. `CLAUDE.md` §0 was
+  rewritten to match, and now explicitly includes the agent panel and the push, which it did not.
+- Three review agents: `multi-company-guard`, `field-sales-guard`, `stock-availability-guard`, with a
+  stage → specialist mapping in `docs/AGENTS.md`. The roster is nine.
+- `CLAUDE.md`: R11 and R12 added; §7 gains rules 20–23 (company ownership, available-vs-on-hand,
+  proposals commit nothing, snapshots on documents); §8 gains the `company_id` check and the agent
+  panel; §5 layout updated.
+- `docs/DATA_MODEL.md`: §2b (the company column and its enumerated exemptions), the `group`,
+  `fieldsales` schemas and the additions to `inventory` and `warehouse`, plus fifteen new rows in the
+  replication registry. The schema table was also brought up to date — it was five schemas behind.
+- `docs/ROADMAP.md`: revision 4 header, the five stages, the amendments, a corrected dependency graph
+  and the ordering notes that explain why 13b sits after 14.
+
+**What this session did not do.** No code, no migration, no test. The six agent reviews still have not
+run against Stages 10–13 (§4.17), and this revision makes that worse rather than better: 06c will
+touch every table those stages created, and it is a poor idea to retrofit a column across code nobody
+has reviewed. **Run the panel against 10–13 before starting 06c.**
 
 ### 2026-08-19 — Stage 13 complete: warehouse management — merged to `main`
 
@@ -2135,6 +2225,32 @@ the entitlement gate ships to a paying tenant having never once refused anything
 ---
 
 ## 5. Next session starts here
+
+**Update, 2026-08-22 (planning revision 4): read this first.**
+
+No code changed this session. The plan did — five stages inserted, two amended, ADR-099 – ADR-115
+appended, `MULTI_COMPANY.md` and `FIELD_SALES.md` written, three agents added, `/next-stage` created.
+The full account is in the session log above, and the two places where the operator's request was
+deliberately not implemented literally are called out there. Read both before writing any code.
+
+**The order of work, and it is not the order the requirements arrived in.**
+
+1. **Run the agent panel against Stages 10, 11, 12 and 13 (§4.17).** Still the oldest open item, and
+   revision 4 raises its price: Stage 06c retrofits `company_id` across every table those four stages
+   created, and retrofitting a column across unreviewed code is how a defect becomes structural.
+2. **The four Stage 09 defects (§4.11 – §4.15)** remain higher priority than anything new if anything
+   is to be built on POS. §4.11 in particular — the rep module in 14b replays through the same sync
+   batch path, so fixing it once fixes it for both.
+3. **Then Stage 06c**, and it is the load-bearing one. Everything else in revision 4 sits on it.
+4. Then 07c → 08c → 14 (already in progress; take its reservations from 08c) → 10c → 13b → 14b.
+
+**One thing to decide early in 06c and not later:** what "exposure" means for a credit group —
+posted balance only, or posted plus open orders plus undelivered COD-exempt documents. The ADR leaves
+it as tenant configuration, but the *default* is a business decision that shapes the concurrency test,
+and changing it after the first customer is trading is not a code change, it is a renegotiation. Pick
+posted + open orders, seed it, and record it as an ADR line.
+
+**Everything below still stands.**
 
 **Update, 2026-08-19 (Stage 13): read this first.**
 

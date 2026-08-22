@@ -1471,3 +1471,248 @@ regardless of what a bin's recorded capacity says.
 gap, named here rather than silently accepted. Whichever later stage adds bin dimensioning and weighing
 is the one that earns the right to enforce it; until then, a number nobody measured enforcing itself
 would be a worse failure mode than no enforcement.
+
+---
+
+> **ADR-092 – ADR-098 are reserved by Stage 14 (order management), which is IN_PROGRESS on branch
+> `stage-14-order-management` and will append them when it lands.** The multi-company, field-sales and
+> picking decisions below therefore start at ADR-099. Do not fill the gap with anything else.
+
+---
+
+## ADR-099 — Companies are logical inside one tenant database, behind `ICompanyDataSource` — **PROPOSED**
+**Context.** A tenant must be able to run several trading companies at once — a hardware business, a
+distribution centre and a grocery business in one installation — each with its own books, stock,
+numbering and financial statements, while credit limits, receipting, availability and scanning work
+*across* them. The operator's words were "whatever database". Physically separate databases per company
+would put a distributed transaction on every cross-company receipt, a fan-out on every barcode scan, and
+N migration chains, N sync cursors and N backup sets behind every other feature in this document.
+**Decision.** A `Company` is a new level between tenant and store, and it is logical: one tenant database,
+`company_id` on every business row, filtered globally alongside `tenant_id`. Separation that the operator
+can see — ledgers, numbering, stock ownership, statements — is enforced in the model, not by the file the
+data sits in. All cross-company reads go through `ICompanyDataSource` with an explicit group scope and a
+permission; an architecture test fails the build on any hand-written `company_id` filter outside it.
+**Consequences.** Group features are one indexed query rather than a distributed one, and a single-company
+tenant is unaffected — the 06c migration backfills every existing row to a default company and behaves
+exactly as before. The seam is kept deliberately: because every cross-company read is already funnelled
+through one interface, a later stage can back a company with a physically separate database without any
+caller changing. The cost is that isolation is a filter, not a wall, which is why the guard agent's first
+rule is that nothing bypasses the interface.
+
+## ADR-100 — A scan resolves group-wide through one index, and never guesses a company — **PROPOSED**
+**Context.** "You scan and it will pick up automatically which store it is." A till, a handheld and a
+rep's tablet all scan one barcode and must be told which company owns the item — fast, and without
+querying each company in turn.
+**Decision.** `group.barcode_index` is a projection over `catalog.barcodes`, maintained by the outbox,
+with a lookup index on `(tenant_id, barcode)`. A scan is one index probe returning company, item,
+variant, pack size and availability. Where a barcode exists in more than one company, resolution is:
+the terminal session's company, then the company with available stock at the scanning location, then —
+if still ambiguous — a `MultipleCompanyMatches` result carrying every candidate for the operator to pick.
+In-house barcodes are namespaced per company on issue.
+**Consequences.** Scan latency is independent of how many companies exist. The projection can lag its
+source, so it is rebuilt from `catalog.barcodes` and there is a test that the rebuild equals the
+incremental projection. The explicit refusal to guess is the important half: a silently wrong company on
+a scan is a sale posted to the wrong set of books, which is far more expensive than one extra tap.
+
+## ADR-101 — A shared credit limit lives on a credit group and is consumed under a serialisable transaction — **PROPOSED**
+**Context.** One customer trades with three of a tenant's companies and must have R150 000 of credit in
+total, spread however the trading falls. The same is true of a supplier facility in the other direction.
+Per-company limits alone let three companies each grant the full amount.
+**Decision.** `CreditGroup` holds the limit and a direction (`Receivable`/`Payable`); `CreditGroupMember`
+attaches one company's customer or supplier account and may carry a narrower sub-limit. Available =
+group limit − Σ exposure across members, and a sale must pass both the group check and the member's own
+sub-limit. Consumption and the check happen in **one serialisable transaction on the credit-group row**.
+**Consequences.** Two tills in two companies invoicing the same customer in the same second cannot both
+spend the last of a limit — and this is proved by a concurrency test against a real database, not a mock,
+because a mock cannot fail the way this fails. A sub-limit can narrow but never widen the group ceiling.
+Serialisation puts one hot row in front of high-volume credit sales; it is the correct trade, and if it
+ever hurts, the fix is a reservation queue, not a weaker guarantee.
+
+## ADR-102 — Sourcing splits a document by supplying company and never drives a company negative — **PROPOSED**
+**Context.** "Whichever stock is available on whatever database, without going into a negative, draw it
+from that one, and separate the invoices into two."
+**Decision.** `ICompanySourcingStrategy` allocates each order line across the companies that actually have
+*available* stock, defaulting to ordering company → nearest store → most available. What group-wide
+availability cannot cover becomes a **backorder line**, never a negative allocation. The plan is a dry-run
+projection until committed; committing takes every reservation in one transaction or none. The committed
+plan then produces **one document per supplying company** — each with that company's letterhead, VAT
+number, number sequence, GL and AR sub-ledger — linked by a shared `GroupDocumentRef`.
+**Consequences.** The customer receives one delivery and two invoices, which is the correct legal outcome:
+each company sells its own stock, so there is no inter-company sale to unwind and no transfer pricing to
+invent. `ISplitDocumentBuilder` must assert that the split reconciles to the source line for line and cent
+for cent; a split that loses a rounding cent is the defect this rule exists to catch.
+
+## ADR-103 — Reservations reduce *available*; only physical movement touches on hand — **PROPOSED**
+**Context.** The operator asks that an approved order "set the stock for that order and remove it from
+stock". Literally deducting on-hand at approval would either mutate a quantity column — forbidden by
+`CLAUDE.md` §7 rule 6 and ADR-005 — or write a stock issue for goods that have not moved, recognising a
+cost of sale for a sale that has not happened.
+**Decision.** `inventory.stock_reservations` is an append-only ledger of holds. A reservation reduces
+`Available` immediately (`Available = OnHand − Reserved − InStaging`) and leaves `OnHand` alone until the
+goods physically ship. Release, consumption and expiry are new entries, never edits.
+**Consequences.** The operator gets what they actually want — nobody else can sell that stock the moment
+the order is approved — without a false ledger movement or a mutable balance. It does mean two numbers
+exist where users may expect one, so every API and screen must show *available*, labelled, with its
+`AsAt`; showing on-hand where a user reads "can I sell it" is a reportable defect.
+
+## ADR-104 — A group receipt is a container that posts nothing; its allocations post per company — **PROPOSED**
+**Context.** A customer pays R9 000 once against accounts in three companies, and the operator wants to
+capture the total and then split it — R1 000, R3 000, R5 000. A single financial document spanning three
+companies would breach the rule that no ledger entry crosses a company.
+**Decision.** `GroupReceipt` records the tender, the reference and the receiving bank account and **posts
+nothing**. Each `GroupReceiptAllocation` creates a real `finance.ar_receipts` row in its own company,
+posting through that company's posting rules like any other receipt. Allocation is idempotent by
+`(groupReceiptId, allocationId)`. An unallocated remainder sits on the container, in nobody's ledger,
+visible and ageing on an unallocated report. Supplier payment runs use the same shape.
+**Consequences.** Every company's books balance on their own, and the group screen still shows the one
+payment the customer actually made. Money can sit unallocated, which is a real control risk — hence the
+ageing report and the fact that an unallocated remainder is not revenue, not cash in a company, and not
+a customer credit until somebody allocates it.
+
+## ADR-105 — Value between companies moves through inter-company clearing, both legs, one transaction — **PROPOSED**
+**Context.** The cash from a group receipt lands in one company's bank account, but part of it settles a
+sister company's invoice. Something must connect the two sets of books without a journal that spans them.
+**Decision.** The receiving company debits bank and credits **inter-company clearing**; the benefiting
+company debits inter-company clearing and credits its customer. Both legs post in the same transaction,
+through the posting-rules engine, with the group document as their shared cause. Clearing accounts are
+created per company-pair direction from a chart-of-accounts template on first use. Across a group, clearing
+must net to zero at every instant — asserted by a randomised property test and by a standing reconciliation
+report.
+**Consequences.** Each company's trial balance stands alone and the group reconciles. A half-posted pair is
+the one failure that would corrupt both companies at once, which is why it is one transaction and why the
+net-to-zero assertion is a test rather than a report somebody reads on Fridays.
+
+## ADR-106 — Consolidated reporting is a labelled read model that cannot be posted to — **PROPOSED**
+**Context.** A group owner wants one view across three companies; the tax authority wants three sets of
+statements. Both are legitimate and they are not the same artefact.
+**Decision.** Every statutory statement — trial balance, income statement, balance sheet, VAT return, age
+analysis, cash book — is per company, always. Consolidation is a separate read model that sums the
+companies in a group, eliminates inter-company clearing, carries `IsConsolidated`, and is watermarked
+*Consolidated — management information, not a statutory statement*. Nothing posts to it. Period close is
+per company; a "group close" is every member closed.
+**Consequences.** No consolidated number can ever be mistaken for a filing, and no VAT return is computed
+across companies — which would be wrong in every jurisdiction this product targets. The cost is that a
+group owner reads two artefacts instead of one, and that is the correct cost.
+
+## ADR-107 — A pro forma posts nothing and reserves nothing; approval creates the document — **PROPOSED**
+**Context.** Reps on the road capture orders and credit notes against customers, offline, at prices and
+quantities nobody has yet checked. If those documents committed anything, an unreviewed rep would be able
+to move stock, grant credit and recognise revenue from a phone.
+**Decision.** `ProFormaOrder` and `ProFormaCreditNote` are proposals: no GL posting, no AR, no stock
+ledger, no reservation, their own `PF-`/`PFC-` sequences per company, and an expiry (7 days by default).
+They carry a price-list and promotion snapshot plus the availability `AsAt` shown to the rep. Approval —
+through Stage 05's `IApprovalService`, never a local implementation — converts a pro forma into a Stage 14
+sales order or a Stage 10 credit note. An expired pro forma must be re-priced before it can be approved.
+**Consequences.** Availability quoted to a customer is explicitly indicative, and the rep's client must say
+so; the alternative — reserving on capture — would let one rep's speculative order paralyse a warehouse.
+The guard agent proves the absence of the poster and reserver dependencies rather than reading the happy
+path, because "it doesn't post today" is a property that regresses quietly.
+
+## ADR-108 — Approval reserves stock and consumes group credit in one transaction, or does neither — **PROPOSED**
+**Context.** Approving a rep's pro forma does four things at once: re-price, source across companies,
+reserve, and consume the customer's group credit. Any of them can fail — stock moved since capture, the
+sister company exhausted the limit — and a partial result leaves either stock held against nothing or
+credit consumed for an order that does not exist.
+**Decision.** The approval handler performs re-pricing, sourcing, reservation and credit consumption inside
+one transaction. A failure at any step rolls back all of them and returns the reason with the current
+position — the group credit figures, or what availability actually is. A partially approved pro forma is
+not a state the model can represent.
+**Consequences.** Approval is a heavier transaction than a capture, touching the reservation ledger and a
+serialised credit-group row; that is acceptable because approvals are low-volume and management-initiated.
+The approver's screen must therefore show the delta between what the rep quoted and what is true now,
+because the transaction will refuse rather than quietly approve something different.
+
+## ADR-109 — A rep sees *available*, stamped, and never on-hand or cost by default — **PROPOSED**
+**Context.** "All orders by reps, they should be able to see how much stock is available." A rep with a
+stale, confident number promises what does not exist; a rep with the on-hand number promises what is
+already sold.
+**Decision.** The rep API returns `Available` per company, group-wide within the rep's permitted
+companies, always with `AsAt`. Cost, margin and other territories' customers are unreachable without the
+permission that grants them — structurally, not by a filter a caller may forget. A device that has been
+offline shows the timestamp of what it holds rather than presenting it as current.
+**Consequences.** The rep's app shows an honest number that is sometimes old, instead of a fresh-looking
+number that is sometimes wrong. Territory enforcement is server-side, so a guessed customer id returns
+403 rather than a filtered empty result that would confirm the customer exists.
+
+## ADR-110 — Rep performance is a closed-period snapshot with an explicit comparison period — **PROPOSED**
+**Context.** "Check how much reps do per month and compare that over a time period." A live-computed
+figure changes under a manager who printed it yesterday, and a rep paid or judged on a number that moves
+has a legitimate grievance.
+**Decision.** `RepPerformanceSnapshot` is computed once for a **closed** period and stored — the same shape
+as the supplier scorecard (ADR-084) — per rep, per company, with the group roll-up. Metrics: pro formas
+captured, conversion (approved/rejected/expired), invoiced, credited, net, margin where permitted,
+collections, and customer coverage. Every query takes a comparison period and returns both sets plus the
+variance, so the desktop and the Android app cannot disagree. Targets are versioned; changing one never
+restates a measured period. A recomputation creates a new version with a reason, never a silent overwrite.
+**Consequences.** Month-on-month and year-on-year comparison is a first-class API rather than a
+spreadsheet job. The current, open period is explicitly a running estimate and labelled as one. Commission
+is deliberately not built here — it belongs with payroll in Stages 25/26; what this owes them is a clean,
+auditable net figure.
+
+## ADR-111 — COD is a settlement term on the order, enforced at dispatch, and consumes no credit — **PROPOSED**
+**Context.** An order can be cash on delivery, and that changes two things: the customer's credit is not
+at stake, and the goods must not leave without the money being accounted for.
+**Decision.** `SettlementTerms` on the order carries `CashOnDelivery`, inherited by every invoice the order
+produces and printed on the delivery note and the invoice. A COD order **consumes no credit-group
+exposure**. Dispatch is gated: a COD order cannot be released for dispatch without either a captured
+payment or an explicit driver-collect authorisation naming who is collecting on delivery, and the
+outstanding COD amount is reconciled against the delivery run when the driver returns.
+**Consequences.** COD becomes a genuine control rather than a note in a comments field — the two ways it
+fails in practice are goods leaving with no money expected and a driver's collections never reconciling,
+and both are closed here. A tenant that does not want the dispatch gate can configure driver-collect as
+the default, which records the decision rather than removing it.
+
+## ADR-112 — Pack size is resolved at capture and snapshotted onto the document line — **PROPOSED**
+**Context.** "On the invoice we need pack sizes." An item sells as a single, a six-pack and a case, and the
+pack size is a property of the barcode/unit-of-measure the operator actually scanned. Re-deriving it when
+the invoice prints would print today's packaging on last month's document.
+**Decision.** The resolved pack size — quantity per pack, its unit of measure, and the packs-vs-units
+breakdown — is snapshotted onto the order, pro forma and invoice line at capture, exactly as price and tax
+already are (ADR-075's rule). The invoice prints packs and units both; picking waves group by pack size,
+because two pack sizes of one item are two different things to pick (ADR-113).
+**Consequences.** An invoice reprinted a year later shows what was actually sold. Changing an item's
+packaging cannot restate history. The line carries one more snapshotted field, which is the same trade
+already made for price, tax and cost.
+
+## ADR-113 — A consolidated pick wave groups by SKU over a geography snapshot and a period — **PROPOSED**
+**Context.** "Everything for that town pulled out one time — ten customers from Durban, five need two hot
+plates each, three need five gloves each." Picking each order separately walks the same aisle ten times.
+**Decision.** `BuildConsolidatedWaveCommand` takes a period, a geography level (`Province | City |
+Suburb`) and a value, and groups every qualifying open order line by **(item, variant, uom, pack size)**
+into one pick list, carrying the per-order breakdown alongside each grouped line so consolidation splits
+it back without a second query. The geography is normalised at order capture and **snapshotted onto the
+order**, so editing an address later cannot silently change what a built wave contains. An order line may
+be in exactly one open wave. A wave may span companies; the pick consolidates, the documents do not.
+**Consequences.** One walk of the aisle for ten orders, and a wave that is reproducible from its own
+snapshot rather than from live customer data. The per-line breakdown is what makes consolidation possible
+at all — without it, a picker returns with 15 gloves and no idea whose they are.
+
+## ADR-114 — Staging areas are bins; location state is derived from where the quantity sits — **PROPOSED**
+**Context.** "Stock take should notify checkers if items are currently in the consolidating area, packing
+area or dispatch area — when the picker picks the item, status moves from shelved to consolidation." A
+status flag on an item would be one more thing to remember to set, and would immediately disagree with
+the bin ledger Stage 13 already keeps.
+**Decision.** `Consolidation`, `Packing` and `Dispatch` are **bin types**. A pick moves stock from a shelf
+bin into the wave's consolidation bin through Stage 13's existing `bin_stock_movements` ledger; packing and
+dispatch are further moves; shipment confirmation posts the stock ledger issue as it already does.
+`StockLocationState` (`Shelved | Consolidation | Packing | Dispatch | Shipped`) is therefore **derived**
+from where the quantity is, never stored as a flag. Stock in a staging bin is on hand and **not** available.
+**Consequences.** No new machinery, no parallel state to drift, and a movement history that explains
+itself. Every existing bin report gains staging visibility for free. Stage 13's handheld flows must write
+the staging move at pick confirmation rather than at shipment, which is the one behavioural change 13b
+makes to already-shipped code.
+
+## ADR-115 — An interval count targets slow movers and warns when stock is in flight, rather than blocking — **PROPOSED**
+**Context.** "Stock takes can be set at intervals where random items which are not being pulled are counted
+and checked." The stock most likely to be wrong is the stock nobody has touched, and it is exactly the
+stock a movement-triggered count never reaches.
+**Decision.** `CountSchedule` generates Stage 13 `CycleCount`s on a cadence, selecting by **last-movement
+date** — least-touched first — plus a random sample so the selection cannot be gamed. Where a selected
+SKU has quantity sitting in a consolidation, packing or dispatch bin, the count sheet shows that quantity
+and its wave/shipment reference, and variance is computed against on-hand **including** staging. The
+checker is told, not blocked. A line whose shelf bin is being drawn by an open wave is deferred to the next
+run with the reason recorded.
+**Consequences.** Slow-moving error is found by design rather than by luck, and the classic false variance
+— counting a shelf while six units sit on the packing bench — stops being a variance at all. Deferring
+actively picked lines means a schedule can under-deliver on a busy day; that is preferable to a count that
+fights the pickers, and the deferral is visible.

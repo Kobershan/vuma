@@ -39,6 +39,7 @@ Full table with rationale: [CLAUDE.md §4](CLAUDE.md). Substitutions require an 
 CLAUDE.md            the build contract — read it before touching anything
 docs/                PROGRESS (state), DECISIONS (ADRs), ROADMAP, LICENSING, TESTING, API specs
 docs/stages/         one document per stage, 00 → 31
+.claude/commands/    /next-stage — the one command that starts a session
 .claude/agents/      specialist review subagents (see docs/AGENTS.md)
 src/                 Domain ← Application ← Infrastructure ← hosts
 android/             Vuma Admin
@@ -48,9 +49,10 @@ deploy/ scripts/     docker-compose, WiX, Velopack, DR and seed scripts
 
 ## How this repo is built
 
-Vuma is built stage-by-stage by autonomous Claude Code sessions. Each session reads `CLAUDE.md`
-and `docs/PROGRESS.md`, executes the next incomplete stage to completion, runs its exit checklist,
-and writes a handoff for the next session. Stages are dependency-ordered — Finance (07) precedes
+Vuma is built stage-by-stage by autonomous Claude Code sessions. Each session starts with one
+command — `/next-stage` — which reads `CLAUDE.md` and `docs/PROGRESS.md`, executes the next incomplete
+stage to completion, runs the review agents and the exit checklist, writes a handoff for the next
+session, and pushes. See [docs/SESSION_KICKOFF.md](docs/SESSION_KICKOFF.md). Stages are dependency-ordered — Finance (07) precedes
 Inventory (08) precedes POS (09), because those modules post to the ledger.
 
 Current state, blockers and what happens next: [docs/PROGRESS.md](docs/PROGRESS.md).
