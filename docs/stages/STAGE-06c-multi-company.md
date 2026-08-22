@@ -1,93 +1,106 @@
-# STAGE 06c — Multi-company group core
+# STAGE 06c — Multi-company foundation: the registry, database-per-company, routing and migration fan-out
 
-**Status:** NOT_STARTED · **Depends on:** 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1–§3, §6, `CLAUDE.md` §3 (R11, R12), §7 rules 3, 12, 18, `docs/DATA_MODEL.md` §3, §4d, `docs/DECISIONS.md` ADR-099, ADR-100, ADR-101
+**Status:** NOT_STARTED · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
 
 ## Objective
 
-Introduce the **company** as a first-class level between tenant and store, retrofit company scoping
-across every existing module, and build the two group-level services that later stages consume: the
-group barcode/catalogue resolver and the group credit limit.
+Turn a one-database product into a many-database one **without changing what any existing module
+believes about the database it is talking to**. Every handler still opens one `VumaRetailDbContext` and
+still sees one company's data; what changes is who decides which database that context points at.
 
-This stage writes little business logic and touches almost every file. That is the point: doing it now
-costs one stage, and doing it after 14b, 21 and 29 costs a rewrite.
+This stage builds the registry, the connection routing, the provisioning lifecycle and the migration
+fan-out. It builds **no group features** — those are 06d. Splitting them is deliberate: the plumbing
+here must be boring, complete and verified before anything interesting is built on top of it.
 
 ## Deliverables
 
-**Domain**
-- `Company` — legal name, trading name, company registration number, VAT number, base currency, locale,
-  logo, letterhead, document-number prefix, `IsActive`. Belongs to a tenant.
-- `CompanyGroup` — an ordered set of companies for consolidation and group scope. A tenant may have
-  more than one group; a company may be in one group.
-- `CreditGroup` / `CreditGroupMember` — the shared limit and its per-company members, for **both**
-  customers and suppliers (`Direction: Receivable | Payable`). Members hold optional sub-limits.
-- `CompanyScope` value object — `Company(id)` or `Group(ids)`. There is no "all data" scope.
+**The registry database**
+- Its own `VumaRegistryDbContext`, its own migration chain, its own connection string, migrated first.
+- `registry.companies` — code, legal name, trading name, registration number, tax number, base currency,
+  locale, document prefix, connection details (encrypted at rest), `schema_version`, `lifecycle_state`,
+  `is_active`.
+- `registry.company_groups` / `_members` — the sets consolidation and group scope operate over.
+- `registry.saga_intents` / `registry.saga_legs` / the registry outbox — the machinery 06d, 07c and 08c
+  all dispatch through. Built here, used there.
 
-**Application**
-- `ICompanyContext` — resolves the acting company from the session/terminal/device, the way
-  `ITenantContext` resolves the tenant. Never a parameter a caller may forget.
-- `ICompanyDataSource` — the only way to read another company's data. Group-scoped, permission-gated,
-  audited. An architecture test fails the build on any repository query that filters `company_id`
-  by hand outside this service.
-- `IGroupCreditService` — `GetPosition(creditGroupId)`, `TryConsume(...)`, `Release(...)`. Consumption
-  is a serialisable transaction on the credit-group row (ADR-101).
-- `IBarcodeResolver` — `Resolve(barcode, scanningContext)` → one match, or `MultipleCompanyMatches`
-  with every candidate. Never guesses (ADR-100).
-- Commands: create/update company, activate/deactivate, create credit group, add/remove member, set
-  group limit, set member sub-limit. All through command handlers, all permission-gated.
+**Routing**
+- `ICompanyConnectionResolver` — company id → connection details, from the registry, cached with an
+  invalidation path. **Never from a config file** (ADR-118).
+- `ICompanyDbContextFactory` — opens a context against exactly one company.
+- `ICompanyContext` — resolves the acting company from the session, terminal or device, the way
+  `ITenantContext` resolves the tenant. Not a parameter a caller can forget.
+- `ICompanyFanOut` — bounded-parallelism read across several companies, returning **per-company results
+  including failures**. One company down returns four answers and one error, never a 500.
+- **Architecture test: no command handler resolves two companies' contexts.** This is the enforcement
+  behind "there is no cross-database transaction" (ADR-116) and it is the most important test in the
+  stage.
 
-**Infrastructure**
-- `company_id uuid` added to every business table, with a global query filter alongside the tenant
-  filter. Nullable only on platform/identity/licensing/sync tables that are genuinely tenant-wide;
-  an architecture test enumerates the exemptions so a new one cannot be added silently.
-- `group.barcode_index` — projection over `catalog.barcodes` maintained by the outbox, unique index on
-  `(tenant_id, barcode, company_id)`, lookup index on `(tenant_id, barcode)`.
-- Document number counters keyed by `(company_id, document_type)` — `finance.document_number_counters`
-  gains `company_id` and the existing per-tenant rows migrate to the tenant's default company.
-- Migration: additive, reversible, and it **backfills** every existing row to a default company created
-  per tenant from the existing tenant record. An existing single-company installation must come out of
-  this migration behaving exactly as it did going in.
+**Provisioning** (ADR-118)
+- `ProvisionCompanyCommand`: create database → apply migration chain → seed chart of accounts, document
+  numbering, tax rules, permissions → register connection → activate. Lifecycle
+  `Provisioning → Seeding → Registered → Active`, recorded, re-runnable from the failed step.
+- Business operations see `Active` companies only. `DeactivateCompanyCommand` makes a company read-only;
+  removal is separate, deliberate and export-first.
 
-**API** — `/api/v1/companies`, `/api/v1/credit-groups`, `/api/v1/scan/{barcode}`; `X-Vuma-Company`
-header (or terminal binding) selects the acting company, and group-scoped endpoints declare it in
-OpenAPI.
+**Migration fan-out** (ADR-117)
+- The runner iterates every company database, registry first, recording `schema_version` and
+  `migration_state` per company, with bounded parallelism and progress output.
+- **A company behind the running binary is not served** — its endpoints return an actionable failure
+  naming the company and the pending migration.
+- `Down` is exercised per company database in the test suite exactly as it is today.
 
-**Permissions** — `company.view/manage`, `group.view`, `group.credit.view/manage`, `group.report`.
+**Backup / sync per database** (ADR-120)
+- Snapshot schedules, retention and encryption per company database plus the registry; the snapshot
+  ledger records the set. Restore of one company database is supported on its own.
+- Sync cursors, outbox and inbox are per company database; the cloud mirrors the layout.
 
-**Entitlement** — `MultiCompany` module flag. Not entitled → exactly one company, every group endpoint
-404s, and nothing else changes. Metering counter: companies active, group-scoped queries per day.
+**Retrofit**
+- `company_id` on every business row, backfilled. Redundant given the database boundary, and kept
+  anyway: it makes a restored or exported database self-describing and it is the key the 06d
+  projections use.
+- The existing single-tenant installation migrates to **one company** and behaves exactly as before.
+
+**API** — `/api/v1/companies` (list, provision, activate, deactivate), `X-Vuma-Company` header or
+terminal binding selecting the acting company, and `/api/v1/admin/migrations` reporting per-company state.
+
+**Permissions** — `company.view`, `company.provision`, `company.manage`, `platform.migrate`.
+
+**Entitlement** — `MultiCompany` flag; not entitled → exactly one company and provisioning 404s. Metering:
+active company count.
 
 ## Business rules
 
-1. A store belongs to exactly one company; a company has zero or more stores.
-2. Every business row has a company. There is no "shared" business data.
-3. A document number sequence is per company. Two companies may legitimately both have `INV-000001`.
-4. Group scope requires a permission and is written to the audit trail with the scope used.
-5. Group credit available = group limit − Σ member exposure; a member sub-limit narrows, never widens.
-6. Concurrent consumption of the same credit group is serialised. Two sales cannot both take the last
-   of a limit.
-7. Barcode collisions across companies resolve by session company → availability at the scanning
-   location → operator choice. Never silently.
-8. Deactivating a company blocks new documents and leaves existing ones readable and reportable.
+1. No command handler opens a transaction against more than one database. Enforced by test, not by care.
+2. A company is visible to business operations only at `Active`.
+3. Connection details live in the registry, encrypted, and never appear in a support export, a log or a
+   telemetry payload (R10).
+4. A company whose schema is behind the binary is refused with a named reason, never served.
+5. Provisioning is re-runnable; there is no half-registered company.
+6. A fan-out read degrades per company; the caller is told which company failed.
+7. The registry is snapshotted more often than the companies it points at — losing it is
+   disproportionate.
 
 ## Tests / acceptance
 
-- A tenant with three companies: a document raised in each gets three independent number sequences.
-- The migration applied to a seeded single-company database leaves every existing test green.
-- `Down` runs and the database returns to the pre-company shape.
-- Two parallel `TryConsume` calls against a group with R5 000 available and two R4 000 demands: exactly
-  one succeeds. Real database, real transactions, not a mock.
-- A barcode present in two companies returns both candidates when the scanning context cannot decide.
-- A barcode present in one company resolves in a single index probe — asserted with a query counter.
-- An architecture test proves no repository outside `ICompanyDataSource` filters `company_id` manually.
+- Provision three companies (hardware, DC, groceries) from empty; each gets its own database, its own
+  numbering starting at 1, and its own seeded chart of accounts.
+- The existing seeded single-company database migrates to one company and **every existing test stays
+  green**. This is the stage's real bar.
+- Kill the provisioning step after "database created": re-running completes it, and the company was
+  never `Active` in between.
+- Migrate a tenant where one company database is unreachable: the others migrate, that one is recorded
+  as pending, and its endpoints refuse with the named migration.
+- A fan-out over three companies with one database stopped returns two results and one error.
+- The architecture test fails a deliberately introduced two-context handler.
+- Restore one company database from a snapshot while the other two keep trading.
 - Coverage ≥ 80% on the stage's Domain + Application.
 
 ## Exit checklist
 
 - [ ] `CLAUDE.md` §8 in full
-- [ ] Every existing stage's tests still green after the retrofit — this is the stage's real bar
-- [ ] Migration reversible, backfill verified against a seeded database
-- [ ] `docs/DATA_MODEL.md` §3 and §4 updated with `group` schema and the `company_id` column rule
-- [ ] `docs/SYNC_AND_BACKUP.md` registry updated for `Company`, `CompanyGroup`, `CreditGroup`,
-      `CreditGroupMember`, `BarcodeIndexEntry`
-- [ ] `multi-company-guard` and `architecture-guard` run and their findings closed
-- [ ] Seed data: three companies (hardware, DC, groceries), one shared customer with a group limit
+- [ ] Every existing stage's tests green after the retrofit
+- [ ] Migration reversible per company database, `Down` executed
+- [ ] `docs/DATA_MODEL.md` §2b and §3 reflect the per-database layout
+- [ ] `docs/SYNC_AND_BACKUP.md` updated for per-database cursors, snapshots and restore
+- [ ] `multi-company-guard` and `architecture-guard` run, findings closed
+- [ ] Seed: three provisioned companies, demonstrable with `scripts/seed.ps1`

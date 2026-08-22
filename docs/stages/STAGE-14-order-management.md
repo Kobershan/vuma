@@ -70,12 +70,15 @@ specified above is withdrawn. Read `docs/MULTI_COMPANY.md` §4–§5 and ADR-103
    consolidated pick waves from this snapshot, and a later address edit must not change what a built
    wave contains. This is three columns and a normaliser; leaving it to 13b means back-filling
    geography onto orders that already exist.
-3. **Allocation reserves through Stage 08c's reservation ledger, not a local one** (ADR-103).
+3. **Allocation reserves through Stage 08c's reservation ledger, which lives in each company's own
+   database** (ADR-099, ADR-103).
    `OrderAllocation`/`OrderReservation` above predate 08c. Where 08c has landed, this stage consumes
    `IReservationService` and `IAvailabilityService` rather than computing available-to-promise itself;
    where it has not, build the local model behind those two interface names so 08c replaces the
-   implementation and no caller changes. **Available never goes negative in any company** is 08c's
-   rule and it applies here from the first line of allocation code.
+   implementation and no caller changes. **Available never goes negative in any company** is 08c's rule
+   and it applies here from the first line of allocation code. An order sourced from two companies takes
+   two reservations in two databases, coordinated as a saga — this stage never opens a transaction
+   against more than one company (ADR-116).
 
 Also inherited, from stages either side of this one: order lines carry a **pack size** snapshot
 (ADR-112, printed by 10c), and an order sourced across companies produces **one invoice per supplying

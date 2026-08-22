@@ -1480,119 +1480,150 @@ would be a worse failure mode than no enforcement.
 
 ---
 
-## ADR-099 — Companies are logical inside one tenant database, behind `ICompanyDataSource` — **PROPOSED**
-**Context.** A tenant must be able to run several trading companies at once — a hardware business, a
-distribution centre and a grocery business in one installation — each with its own books, stock,
-numbering and financial statements, while credit limits, receipting, availability and scanning work
-*across* them. The operator's words were "whatever database". Physically separate databases per company
-would put a distributed transaction on every cross-company receipt, a fan-out on every barcode scan, and
-N migration chains, N sync cursors and N backup sets behind every other feature in this document.
-**Decision.** A `Company` is a new level between tenant and store, and it is logical: one tenant database,
-`company_id` on every business row, filtered globally alongside `tenant_id`. Separation that the operator
-can see — ledgers, numbering, stock ownership, statements — is enforced in the model, not by the file the
-data sits in. All cross-company reads go through `ICompanyDataSource` with an explicit group scope and a
-permission; an architecture test fails the build on any hand-written `company_id` filter outside it.
-**Consequences.** Group features are one indexed query rather than a distributed one, and a single-company
-tenant is unaffected — the 06c migration backfills every existing row to a default company and behaves
-exactly as before. The seam is kept deliberately: because every cross-company read is already funnelled
-through one interface, a later stage can back a company with a physically separate database without any
-caller changing. The cost is that isolation is a filter, not a wall, which is why the guard agent's first
-rule is that nothing bypasses the interface.
+## ADR-099 — Every company is its own database; a per-tenant registry database holds what spans them — **PROPOSED, supersedes the logical-company form of this ADR filed earlier the same day**
+**Context.** A tenant runs several trading companies — a hardware business, a distribution centre, a
+grocery business — and the operator's requirement is physical separation: *each company will have their
+own database*. The first form of this ADR proposed logical separation inside one database on
+engineering grounds (no distributed transactions, cheaper group queries). **The operator overruled it,
+and this is the decision that stands.** Physical separation is also what a customer buying "three
+companies" reasonably expects: one company's data can be backed up, restored, exported, audited, sold
+or shut down without touching another's.
+**Decision.** Per tenant: **one database per company**, plus **one registry database** holding what
+genuinely spans them — the company list and their connection details, company groups, credit groups and
+their exposure ledger, the catalogue routing index, group receipts and payments, and the group-level
+read models. Company databases all carry the same schema and the same migration chain; the registry has
+its own. Nothing in a company database references a row in another company database, and **there is no
+cross-database transaction anywhere in this product** (ADR-116). Reads that span companies go through
+registry read models or a bounded fan-out; writes that span companies are sagas.
+**Consequences.** Isolation is a wall rather than a filter, and per-company backup, restore, export and
+retention become trivial — a real gain for R4 and for POPIA. The price is paid in five places, each of
+which gets its own ADR because each is a place this design can go wrong: cross-company writes are
+eventually consistent (ADR-116), group reads are stale by design and every figure carries `AsAt`
+(ADR-119), migrations must fan out and can be partially applied (ADR-117), a company's lifecycle now
+includes provisioning a database (ADR-118), and correctness under stale group data depends on the
+authoritative check always re-running in the owning company database (ADR-102). `postgres_fdw` was
+considered and rejected: it would make the registry unable to answer while any one company database is
+down, which is the opposite of what physical separation is for.
 
-## ADR-100 — A scan resolves group-wide through one index, and never guesses a company — **PROPOSED**
-**Context.** "You scan and it will pick up automatically which store it is." A till, a handheld and a
-rep's tablet all scan one barcode and must be told which company owns the item — fast, and without
-querying each company in turn.
-**Decision.** `group.barcode_index` is a projection over `catalog.barcodes`, maintained by the outbox,
-with a lookup index on `(tenant_id, barcode)`. A scan is one index probe returning company, item,
-variant, pack size and availability. Where a barcode exists in more than one company, resolution is:
-the terminal session's company, then the company with available stock at the scanning location, then —
-if still ambiguous — a `MultipleCompanyMatches` result carrying every candidate for the operator to pick.
-In-house barcodes are namespaced per company on issue.
-**Consequences.** Scan latency is independent of how many companies exist. The projection can lag its
-source, so it is rebuilt from `catalog.barcodes` and there is a test that the rebuild equals the
-incremental projection. The explicit refusal to guess is the important half: a silently wrong company on
-a scan is a sale posted to the wrong set of books, which is far more expensive than one extra tap.
+## ADR-100 — A scan resolves through the registry's routing index, and never guesses a company — **PROPOSED**
+**Context.** "You scan and it will pick up automatically which store it is." With one database per
+company, the till cannot query every company's catalogue on each scan — that is N round trips against N
+databases, any of which may be offline, on the hot path of every sale.
+**Decision.** The registry holds `registry.catalog_routing_index`: `(tenant_id, barcode)` → company id,
+item id, variant id, pack size, and a cached description. It is a **projection**, fed by each company
+database's outbox whenever a barcode is created, changed or retired, and rebuildable by asking every
+company database to republish. A scan is one probe against the registry, then the item detail is read
+from the owning company's database. Collisions resolve by the terminal session's company, then the
+company with available stock at the scanning location, then a `MultipleCompanyMatches` result carrying
+every candidate — it never picks one silently. In-house barcodes are namespaced per company on issue.
+**Consequences.** Scan latency is one indexed probe plus one company read, independent of how many
+companies exist. The index is eventually consistent, so a barcode created seconds ago in another company
+may not resolve yet; the fallback is the scanning company's own catalogue, and the operator is told the
+lookup was local rather than group-wide. If the registry is unreachable the till degrades to its own
+company and keeps trading (R1 outranks group convenience), and the receipt still prints — it simply
+cannot sell a sister company's stock until the registry is back.
 
-## ADR-101 — A shared credit limit lives on a credit group and is consumed under a serialisable transaction — **PROPOSED**
-**Context.** One customer trades with three of a tenant's companies and must have R150 000 of credit in
-total, spread however the trading falls. The same is true of a supplier facility in the other direction.
-Per-company limits alone let three companies each grant the full amount.
-**Decision.** `CreditGroup` holds the limit and a direction (`Receivable`/`Payable`); `CreditGroupMember`
-attaches one company's customer or supplier account and may carry a narrower sub-limit. Available =
-group limit − Σ exposure across members, and a sale must pass both the group check and the member's own
-sub-limit. Consumption and the check happen in **one serialisable transaction on the credit-group row**.
-**Consequences.** Two tills in two companies invoicing the same customer in the same second cannot both
-spend the last of a limit — and this is proved by a concurrency test against a real database, not a mock,
-because a mock cannot fail the way this fails. A sub-limit can narrow but never widen the group ceiling.
-Serialisation puts one hot row in front of high-volume credit sales; it is the correct trade, and if it
-ever hurts, the fix is a reservation queue, not a weaker guarantee.
+## ADR-101 — The group credit limit lives in the registry and is consumed by a hold token, not a shared transaction — **PROPOSED**
+**Context.** One customer must have R150 000 across three companies, and the three companies are now
+three databases. The invoice is written in a company database; the limit lives in the registry. They
+cannot commit together, and a check in one followed by a write in the other is precisely the race that
+lets two companies both spend the last of a limit.
+**Decision.** `registry.credit_groups` holds the limit and an append-only exposure ledger.
+Consuming credit is a **serialisable transaction in the registry alone**, which issues a **hold token**:
+an amount, a company, a document reference and an expiry. The company database then writes its document
+carrying that token, and its outbox confirms the consumption back to the registry idempotently. If the
+document is never written — the session died, the till lost power — the hold **expires by itself** and
+the credit returns. Exposure is therefore the sum of confirmed consumption plus unexpired holds, and it
+is never inflated by a document that does not exist.
+**Consequences.** Two tills in two companies cannot both spend the last R5 000: whichever transaction
+serialises second gets a refusal, not a stale yes. A crash between hold and document costs the customer
+that credit only until the hold expires, which is the correct failure direction — briefly too strict
+rather than briefly overdrawn. A held-but-unconfirmed report is an operational necessity, not a nicety,
+and there is a concurrency test against a real registry database, not a mock. If the registry is
+unreachable, credit sales are refused for that customer while cash sales continue — a store that cannot
+reach the ledger of record must not grant credit against it.
 
-## ADR-102 — Sourcing splits a document by supplying company and never drives a company negative — **PROPOSED**
-**Context.** "Whichever stock is available on whatever database, without going into a negative, draw it
-from that one, and separate the invoices into two."
-**Decision.** `ICompanySourcingStrategy` allocates each order line across the companies that actually have
-*available* stock, defaulting to ordering company → nearest store → most available. What group-wide
-availability cannot cover becomes a **backorder line**, never a negative allocation. The plan is a dry-run
-projection until committed; committing takes every reservation in one transaction or none. The committed
-plan then produces **one document per supplying company** — each with that company's letterhead, VAT
-number, number sequence, GL and AR sub-ledger — linked by a shared `GroupDocumentRef`.
-**Consequences.** The customer receives one delivery and two invoices, which is the correct legal outcome:
-each company sells its own stock, so there is no inter-company sale to unwind and no transfer pricing to
-invent. `ISplitDocumentBuilder` must assert that the split reconciles to the source line for line and cent
-for cent; a split that loses a rounding cent is the defect this rule exists to catch.
+## ADR-102 — The plan is built from group data; the reservation is always taken in the owning company's database — **PROPOSED**
+**Context.** "Whichever stock is available on whatever database, without going into a negative." Group
+availability is now a read model in the registry, and it is stale by construction. Sourcing an order
+from a stale number is exactly how two orders both take the last unit.
+**Decision.** Sourcing is two steps and the second one is authoritative. `ICompanySourcingStrategy`
+builds a **plan** from the registry's availability read model — a projection, explicitly labelled with
+its `AsAt`. Committing that plan opens a **local, serialisable transaction in each named company's own
+database**, which re-reads that company's real availability and reserves what is actually there. A leg
+that cannot fully satisfy its share reserves what it can and reports short; the saga re-sources the
+shortfall against the remaining companies once, and whatever is still uncovered becomes a backorder line.
+**Consequences.** Stale group data can cause a re-plan; it can never cause a negative, because no
+company's stock is ever committed by anything other than a transaction inside that company's own
+database. That is the single correctness argument this whole design rests on, and it is tested by
+deliberately serving the planner a stale read model and asserting the outcome is a backorder, not an
+oversell. The cost is that an order can take two rounds to source and that a customer may be told
+"we had it a second ago" — which is true, and better than shipping a promise nobody can fill.
 
-## ADR-103 — Reservations reduce *available*; only physical movement touches on hand — **PROPOSED**
+## ADR-103 — A reservation reduces *available* and is local to its company's database — **PROPOSED**
 **Context.** The operator asks that an approved order "set the stock for that order and remove it from
-stock". Literally deducting on-hand at approval would either mutate a quantity column — forbidden by
-`CLAUDE.md` §7 rule 6 and ADR-005 — or write a stock issue for goods that have not moved, recognising a
-cost of sale for a sale that has not happened.
-**Decision.** `inventory.stock_reservations` is an append-only ledger of holds. A reservation reduces
-`Available` immediately (`Available = OnHand − Reserved − InStaging`) and leaves `OnHand` alone until the
-goods physically ship. Release, consumption and expiry are new entries, never edits.
-**Consequences.** The operator gets what they actually want — nobody else can sell that stock the moment
-the order is approved — without a false ledger movement or a mutable balance. It does mean two numbers
-exist where users may expect one, so every API and screen must show *available*, labelled, with its
-`AsAt`; showing on-hand where a user reads "can I sell it" is a reportable defect.
+stock". Deducting on-hand would either mutate a quantity column — forbidden by `CLAUDE.md` §7 rule 6 and
+settled by ADR-005 — or write a stock issue for goods that have not moved, recognising cost of sale for
+a sale that has not happened.
+**Decision.** `inventory.stock_reservations` is an append-only ledger **inside each company's database**.
+A reservation reduces that company's `Available` (`OnHand − Reserved − InStaging`) immediately and leaves
+`OnHand` alone until goods physically ship. Release, consumption and expiry are new rows, never edits.
+No reservation ever spans companies: an order needing two companies' stock holds two reservations, one
+in each database, tied together only by the group document reference.
+**Consequences.** The operator gets what they want — nobody else can sell that stock the moment the
+order is approved — without a false ledger movement, and each company's stock position stands alone and
+restores alone. Two numbers now exist where users expect one, so every API and screen shows *available*,
+labelled, with its `AsAt`; showing on-hand where a user reads "can I sell it" is a reportable defect.
 
-## ADR-104 — A group receipt is a container that posts nothing; its allocations post per company — **PROPOSED**
-**Context.** A customer pays R9 000 once against accounts in three companies, and the operator wants to
-capture the total and then split it — R1 000, R3 000, R5 000. A single financial document spanning three
-companies would breach the rule that no ledger entry crosses a company.
-**Decision.** `GroupReceipt` records the tender, the reference and the receiving bank account and **posts
-nothing**. Each `GroupReceiptAllocation` creates a real `finance.ar_receipts` row in its own company,
-posting through that company's posting rules like any other receipt. Allocation is idempotent by
-`(groupReceiptId, allocationId)`. An unallocated remainder sits on the container, in nobody's ledger,
-visible and ageing on an unallocated report. Supplier payment runs use the same shape.
+## ADR-104 — A group receipt lives in the registry, posts nothing, and dispatches allocations to company databases — **PROPOSED**
+**Context.** A customer pays R9 000 once against accounts in three companies and the operator wants to
+capture the total and split it — R1 000, R3 000, R5 000. Those are three databases; one financial
+document cannot span them, and one transaction cannot write them.
+**Decision.** `registry.group_receipts` records the tender, the reference and the receiving bank account,
+and **posts nothing**. Each allocation is dispatched to its company's database through the registry's
+outbox as an idempotent command keyed by `(group_receipt_id, allocation_id)`, where it creates a real
+`finance.ar_receipts` row and posts through that company's own posting rules. An allocation is `Pending`
+until its company acknowledges, then `Applied`; a leg that has not been acknowledged inside its timeout
+raises an operational alarm and appears on the unapplied-legs report. An unallocated remainder sits on
+the registry container, in nobody's ledger, visible and ageing. Group supplier payments use the same shape.
 **Consequences.** Every company's books balance on their own, and the group screen still shows the one
-payment the customer actually made. Money can sit unallocated, which is a real control risk — hence the
-ageing report and the fact that an unallocated remainder is not revenue, not cash in a company, and not
-a customer credit until somebody allocates it.
+payment the customer made. Between capture and acknowledgement the money is visibly in flight, which is
+honest — and the unapplied-legs report is the control that stops "in flight" from quietly meaning "lost".
+Replaying a leg is safe by construction, so recovery after a company database outage is to retry, never
+to re-key.
 
-## ADR-105 — Value between companies moves through inter-company clearing, both legs, one transaction — **PROPOSED**
-**Context.** The cash from a group receipt lands in one company's bank account, but part of it settles a
-sister company's invoice. Something must connect the two sets of books without a journal that spans them.
-**Decision.** The receiving company debits bank and credits **inter-company clearing**; the benefiting
-company debits inter-company clearing and credits its customer. Both legs post in the same transaction,
-through the posting-rules engine, with the group document as their shared cause. Clearing accounts are
-created per company-pair direction from a chart-of-accounts template on first use. Across a group, clearing
-must net to zero at every instant — asserted by a randomised property test and by a standing reconciliation
-report.
-**Consequences.** Each company's trial balance stands alone and the group reconciles. A half-posted pair is
-the one failure that would corrupt both companies at once, which is why it is one transaction and why the
-net-to-zero assertion is a test rather than a report somebody reads on Fridays.
+## ADR-105 — Inter-company clearing is a paired saga with a standing reconciliation, not a two-legged transaction — **PROPOSED**
+**Context.** Cash from a group receipt lands in one company's bank account and settles a sister company's
+invoice. Both companies must post, and they are two databases: there is no transaction that can hold both.
+**Decision.** The registry raises one `InterCompanyClearingIntent` — immutable, carrying both legs — and
+dispatches each leg to its own company database, idempotently. The receiving company debits bank and
+credits inter-company clearing; the benefiting company debits clearing and credits its customer. Each leg
+posts locally through the posting-rules engine. The intent is `Settled` only when both legs acknowledge.
+**Net-zero is enforced by a standing reconciliation across the databases, run on a schedule and after
+every intent**, not by a transactional assertion — because there is no longer one to make. An intent with
+one leg outstanding past its timeout is an alarm with a named owner, and clearing accounts carry the
+intent id so an unmatched leg is identifiable by document, not by guesswork.
+**Consequences.** This is the sharpest edge in the multi-company design and it is named as such: a
+half-applied intent is a real state that can exist for seconds and, if a database is down, for longer.
+The mitigations are that legs are idempotent (retry is always safe), that the outstanding set is small
+and visible, and that a reversal reverses the intent rather than a leg. What is explicitly **not**
+acceptable is a period being closed with an intent outstanding — Stage 07c's close refuses it and names it.
 
-## ADR-106 — Consolidated reporting is a labelled read model that cannot be posted to — **PROPOSED**
+## ADR-106 — Consolidated reporting reads every company and is a labelled read model that cannot be posted to — **PROPOSED**
 **Context.** A group owner wants one view across three companies; the tax authority wants three sets of
-statements. Both are legitimate and they are not the same artefact.
+statements. With three databases, "one view" is now an aggregation across three sources rather than a
+`GROUP BY`.
 **Decision.** Every statutory statement — trial balance, income statement, balance sheet, VAT return, age
-analysis, cash book — is per company, always. Consolidation is a separate read model that sums the
-companies in a group, eliminates inter-company clearing, carries `IsConsolidated`, and is watermarked
-*Consolidated — management information, not a statutory statement*. Nothing posts to it. Period close is
-per company; a "group close" is every member closed.
-**Consequences.** No consolidated number can ever be mistaken for a filing, and no VAT return is computed
-across companies — which would be wrong in every jurisdiction this product targets. The cost is that a
-group owner reads two artefacts instead of one, and that is the correct cost.
+analysis, cash book — is produced **inside one company's database**, always. Consolidation is a separate
+read model assembled in the registry from each company's published period figures, eliminating
+inter-company clearing, carrying `IsConsolidated`, the `AsAt` of each contributing company, and the
+watermark *Consolidated — management information, not a statutory statement.* A consolidated report whose
+contributing companies are not all current says which are stale rather than quietly summing old figures.
+Nothing posts to it. Period close is per company; a group close is every member closed, and it refuses to
+complete with an inter-company intent outstanding (ADR-105).
+**Consequences.** No consolidated number can be mistaken for a filing, and no VAT return is ever computed
+across companies. The staleness disclosure is what makes the consolidated view trustworthy: a group owner
+reading it during a company outage sees which third of it is old, instead of being quietly misled.
 
 ## ADR-107 — A pro forma posts nothing and reserves nothing; approval creates the document — **PROPOSED**
 **Context.** Reps on the road capture orders and credit notes against customers, offline, at prices and
@@ -1608,19 +1639,32 @@ so; the alternative — reserving on capture — would let one rep's speculative
 The guard agent proves the absence of the poster and reserver dependencies rather than reading the happy
 path, because "it doesn't post today" is a property that regresses quietly.
 
-## ADR-108 — Approval reserves stock and consumes group credit in one transaction, or does neither — **PROPOSED**
-**Context.** Approving a rep's pro forma does four things at once: re-price, source across companies,
-reserve, and consume the customer's group credit. Any of them can fail — stock moved since capture, the
-sister company exhausted the limit — and a partial result leaves either stock held against nothing or
-credit consumed for an order that does not exist.
-**Decision.** The approval handler performs re-pricing, sourcing, reservation and credit consumption inside
-one transaction. A failure at any step rolls back all of them and returns the reason with the current
-position — the group credit figures, or what availability actually is. A partially approved pro forma is
-not a state the model can represent.
-**Consequences.** Approval is a heavier transaction than a capture, touching the reservation ledger and a
-serialised credit-group row; that is acceptable because approvals are low-volume and management-initiated.
-The approver's screen must therefore show the delta between what the rep quoted and what is true now,
-because the transaction will refuse rather than quietly approve something different.
+## ADR-108 — Approval is a saga: credit hold, then per-company reservations, then the order — and it compensates — **PROPOSED**
+**Context.** Approving a rep's pro forma re-prices, sources across companies, reserves stock and consumes
+group credit. Under ADR-099 those touch the registry and one or more company databases, so the earlier
+"all in one transaction" form of this ADR is not implementable. What must survive is its guarantee: an
+approval never leaves stock held against nothing, or credit consumed for an order that does not exist.
+**Decision.** Approval runs in a fixed order, each step locally transactional, each step compensatable,
+and the whole thing driven by an immutable `ApprovalIntent` in the registry so a crashed approval resumes
+rather than restarts:
+1. **Re-price** in the ordering company's database, and show the approver the delta against what the rep
+   quoted. No side effects.
+2. **Take the credit hold** in the registry (ADR-101) — the step that expires by itself if everything
+   after it fails.
+3. **Reserve** in each sourcing company's database, one local serialisable transaction each (ADR-102,
+   ADR-103). A short leg re-sources once, then backorders.
+4. **Create the order** in the ordering company's database, carrying the hold token and the reservation
+   references.
+5. **Confirm** the hold to the registry; the intent completes.
+A failure at any step compensates every completed step in reverse — reservations are released by a new
+ledger row, the hold is released or left to expire — and the pro forma returns to `Submitted` with the
+reason. There is no partially approved state.
+**Consequences.** The guarantee is preserved without a distributed transaction, and the ordering is
+deliberate: credit is held before stock is reserved, so the expensive, contended resource is checked
+first and released automatically if anything downstream dies. The window in which stock is reserved and
+the order does not yet exist is one step wide, bounded by the reservation's own expiry, and visible on
+the in-flight approvals report. Approval is now resumable, which matters more than it sounds: a
+back-office session that dies mid-approval is a Saturday-morning support call otherwise.
 
 ## ADR-109 — A rep sees *available*, stamped, and never on-hand or cost by default — **PROPOSED**
 **Context.** "All orders by reps, they should be able to see how much stock is available." A rep with a
@@ -1716,3 +1760,93 @@ run with the reason recorded.
 — counting a shelf while six units sit on the packing bench — stops being a variance at all. Deferring
 actively picked lines means a schedule can under-deliver on a busy day; that is preferable to a count that
 fights the pickers, and the deferral is visible.
+
+## ADR-116 — Cross-database work is a saga with idempotent legs and compensations; there is no two-phase commit — **PROPOSED**
+**Context.** ADR-099 makes each company a separate database. Every operation the operator asked for that
+spans companies — split invoicing, group receipting, inter-company clearing, approval — therefore spans
+databases. PostgreSQL prepared transactions (2PC) exist, and are rejected: a prepared transaction left
+dangling by a crashed coordinator holds locks indefinitely and requires manual DBA intervention, which is
+not an operating model for shops with no DBA.
+**Decision.** Every cross-database operation is a **saga** coordinated by the registry:
+- an immutable **intent** row records what is to happen, in full, before anything happens;
+- each **leg** is dispatched through the registry outbox to exactly one company database and is
+  **idempotent**, keyed by `(intent_id, leg_id)`, so a retry can never double-apply;
+- a leg either acknowledges or is retried with backoff, forever, until it acknowledges or is compensated;
+- **compensation is a new document, never a delete or an edit** — a reservation release, a reversing
+  journal, a credit-note — consistent with `CLAUDE.md` §7 rule 7;
+- an intent whose legs are not all acknowledged inside its timeout raises an alarm with a named owner and
+  appears on an in-flight report. Nothing silently gives up.
+No command handler may open a transaction against two databases. There is an architecture test that fails
+the build if a handler resolves more than one company's `DbContext`.
+**Consequences.** The product is eventually consistent across companies and strictly consistent inside
+each one, which is the correct split: everything a customer, a cashier or an auditor experiences as
+atomic — a sale, an invoice, a receipt, a journal — is inside one database. What is eventually consistent
+is the group-level view and the second leg of a cross-company operation, both of which are visible,
+reconciled and alarmed. The operational cost is real and is accepted deliberately: in-flight intents must
+be monitored, and a period cannot close over one.
+
+## ADR-117 — Migrations fan out across every company database, and a partially migrated tenant is a first-class state — **PROPOSED**
+**Context.** One schema now lives in N databases. An upgrade that migrates three of five companies and
+then fails must not leave the product guessing which shape it is talking to.
+**Decision.** The migration runner iterates every company database in the registry, applying the same
+chain, and records `schema_version` and `migration_state` per company in the registry. The registry has
+its own separate chain and is always migrated first. A company whose version is behind the running binary
+is **not served**: its endpoints return a specific, actionable failure naming the company and the pending
+migration, rather than executing against a schema the code does not expect. Migration is resumable and
+re-runnable; `Down` is exercised per company database in the test suite exactly as it is today.
+**Consequences.** An upgrade can be partial and the system stays truthful about it, which is far better
+than a half-upgraded tenant that mostly works. Upgrade time now scales with company count — a hundred
+companies is a hundred migrations — so the runner reports progress and can run companies in parallel with
+a bounded degree. A company being restored from backup arrives at whatever version it was taken at and is
+migrated forward before it is served, by the same path.
+
+## ADR-118 — Creating a company provisions a database, and the lifecycle has no half-registered state — **PROPOSED**
+**Context.** "Add a company" is now "create a database". That can fail halfway, and a company that exists
+in the registry but has no working database would break every group query that walks the company list.
+**Decision.** Provisioning is an explicit lifecycle: `Provisioning` → `Seeding` → `Registered` →
+`Active`, recorded in the registry, and a company is only visible to business operations at `Active`. The
+steps are: create the database, apply the migration chain, seed the chart of accounts, document numbering,
+tax rules and permissions, register the connection, then activate. A failure leaves the company at the
+step it reached with the error recorded, and the operation is re-runnable from there. Deactivation makes a
+company read-only rather than removing it; removal is a separate, deliberate, exported-first operation.
+**Consequences.** Group queries walk `Active` companies only and can never trip over a shell. Connection
+details live in the registry rather than in configuration files, so adding a company needs no redeploy —
+which also means the registry holds credentials and must be encrypted at rest and excluded from any
+support export (`docs/SECURITY.md`). Per-company export before removal falls out of the design for free,
+and is exactly what a customer selling one of their businesses will ask for.
+
+## ADR-119 — Group read models live in the registry, are stale by design, and never answer an authoritative question — **PROPOSED**
+**Context.** "When placing orders it will show stock across companies in one view, but separated at
+transaction level when saved to each company's financials." That view cannot query five databases on
+every keystroke, and it must not be the thing that decides what is committed.
+**Decision.** Each company database publishes to the registry through its existing outbox: availability
+by item, customer exposure, catalogue routing, period figures. The registry serves the unified views —
+group stock lookup, group availability, credit position, consolidated reporting — from those projections.
+**Every group figure carries `AsAt` and every UI surface shows it.** No group read model is ever the basis
+for a commit: reservations re-check in the owning company database (ADR-102), credit consumes in the
+registry under serialisation (ADR-101), and postings happen in the owning company database. A projection
+is rebuildable on demand by asking each company to republish, and there is a test that the rebuild equals
+the incremental projection.
+**Consequences.** The single-view experience the operator asked for is fast and survives one company being
+briefly unreachable — that company's slice is shown as stale rather than the whole screen failing. The
+discipline this ADR really enforces is negative: any code path that reads a registry projection and then
+writes a business decision from it, without re-checking in the owning database, is a defect regardless of
+how well it appears to work.
+
+## ADR-120 — Backup, restore and sync are per database, and a restored company replays what it missed — **PROPOSED**
+**Context.** R4 says a store that burns down comes back from backup. With one database per company, a
+restore is now per company — and a company restored to an earlier point may have missed cross-company legs
+that the registry believes were delivered.
+**Decision.** Snapshots are taken per company database and for the registry, each with its own schedule,
+retention and encryption, and the snapshot ledger records the set. A restore of one company database is a
+supported operation on its own. After a restore, the registry **re-drives every intent leg** for that
+company whose acknowledgement is older than the restore point; because legs are idempotent (ADR-116),
+re-driving is safe whether the leg survived the restore or not. The three-tier sync (terminal → store →
+cloud) runs per company database with its own outbox, inbox and cursors, and the cloud replica mirrors the
+same layout: a registry and N company databases.
+**Consequences.** One company can be restored without stopping the others — which is the strongest
+practical argument for this whole topology, and worth stating plainly since the costs have been stated at
+length. The DR drill in Stage 31 grows a case it did not have: restore one company of three, re-drive the
+outstanding legs, and prove the group reconciles afterwards. Backup volume and scheduling scale with
+company count, and the registry is the one database whose loss is disproportionate — it is snapshotted
+more often than the companies it points at.

@@ -3,11 +3,13 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-22 · **Planning revision 4 filed this session — no code changed.** Five
-stages inserted (06c, 07c, 08c, 13b, 14b), two amended (10c, 14), seventeen ADRs appended (ADR-099 –
-ADR-115), two reference documents written (`MULTI_COMPANY.md`, `FIELD_SALES.md`), three review agents
-added, and the session kickoff reduced to one command (`/next-stage`). See the 2026-08-22 session-log
-entry. **Nothing below about Stages 09–13 has changed.**
+**Last updated:** 2026-08-22 · **Planning revision 4 filed this session, then revised the same day — no
+code changed.** Six stages inserted (06c, 06d, 07c, 08c, 13b, 14b), two amended (10c, 14), twenty-two
+ADRs appended (ADR-099 – ADR-120), two reference documents written (`MULTI_COMPANY.md`,
+`FIELD_SALES.md`), three review agents added, and the session kickoff reduced to one command
+(`/next-stage`). **ADR-099 was rewritten within the session at the operator's instruction: each company
+gets its own physical database.** See the two 2026-08-22 session-log entries — read the second one
+first. **Nothing below about Stages 09–13 has changed.**
 
 **Previously — last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
@@ -55,7 +57,8 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
-| 06c | Multi-company group core — companies, company scoping, group barcode index, group credit limits | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099 – ADR-101). **Do this before any further business table is created**; it retrofits `company_id` across thirteen shipped stages and that cost only grows | — |
+| 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099, ADR-116 – ADR-120). **Do this before anything else is built.** It changes where every module's `DbContext` comes from; retrofitting it later is a rewrite, not a refactor | — |
+| 06d | Group services — saga coordinator, credit groups with hold tokens, barcode routing index, group read models | **NOT_STARTED** — added 2026-08-22 (ADR-100, ADR-101, ADR-116, ADR-119). Split from 06c: 06c is plumbing, this is everything that spans databases, and 07c/08c/13b/14b all dispatch through it | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
@@ -625,7 +628,83 @@ permissions/security change, not a docs filing — flagged to the user rather th
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
 
+### 2026-08-22 (later) — ADR-099 reversed by the operator: each company gets its own physical database
+
+The revision-4 entry below proposed **logical** companies inside one database and argued the engineering
+case for it. **The operator overruled that, and physical separation is the decision**: "each company will
+have their own database". Their reasoning is sound and worth recording, because it is not the reasoning
+the rejected ADR was arguing against — a customer buying three companies expects three separable assets,
+each of which can be backed up, restored, exported, audited or sold without touching the others, and that
+is a property no query filter provides.
+
+**ADR-099 was rewritten rather than superseded** — it was filed hours earlier in the same session, never
+built against, and a superseding ADR one hour after the original would be archaeology, not history. The
+rewrite states plainly that the operator overruled the first form. ADR-100 – ADR-106 were rewritten to
+match, ADR-108 with them, and five new ADRs cover the machinery physical separation requires:
+
+| ADR | What it settles |
+|---|---|
+| **099** | One database per company, plus a per-tenant registry database for what spans them |
+| **100** | A scan resolves through the registry's routing index — one probe, then one company read |
+| **101** | The group credit limit lives in the registry and is consumed by a **hold token** that expires by itself |
+| **102** | Plan from the group projection; **commit in the owning company's own database** |
+| **103** | Reservations are local to their company's database |
+| **104** | A group receipt is a registry container that dispatches idempotent legs to company databases |
+| **105** | Inter-company clearing is a paired saga with a standing reconciliation, not a two-legged transaction |
+| **106** | Consolidated reporting assembles from published period figures and discloses stale contributors |
+| **108** | Approval is a saga — credit hold, then per-company reservations, then the order — that compensates and resumes |
+| **116** | Cross-database work is a saga with idempotent legs and compensations. **No 2PC, no FDW** |
+| **117** | Migrations fan out; a partially migrated tenant is a first-class, reportable state |
+| **118** | Creating a company provisions a database; the lifecycle has no half-registered state |
+| **119** | Group read models are stale by design and never answer an authoritative question |
+| **120** | Backup, restore and sync are per database; a restored company replays what it missed |
+
+**The one thing whoever builds this must understand before writing a line.** The correctness of the whole
+design rests on a single rule: *a group read model plans, and the owning company's database commits*
+(ADR-102, ADR-119). Group availability is a projection fed by company outboxes and is stale by
+construction. Sourcing may read it. **Reserving may not.** Every reservation re-checks inside the owning
+company's own database in a serialisable transaction, which is why stale group data can cause a re-plan
+and can never cause an oversell. A path that reserves on the strength of a group read is a defect even
+when it passes every test, because it fails exactly when the projection lags — which is always, briefly.
+
+**Stage 06c was split into 06c and 06d**, per the roadmap's own rule about stages too big for one session.
+06c is plumbing — the registry, connection routing, the provisioning lifecycle, the migration fan-out,
+per-database backup and sync — and must be boring and complete before anything sits on it. 06d is
+everything that spans databases: the saga coordinator, credit groups and holds, the barcode routing
+index, the group read models. 07c, 08c, 13b and 14b all dispatch through 06d.
+
+**What got harder, stated honestly, because the next session should not discover it by surprise:**
+
+- **Every cross-company operation is now eventually consistent**, with an in-flight window that is
+  visible but real. Four things have to be monitored that did not exist before: outstanding intents,
+  unapplied legs, unconfirmed credit holds, stale projections. They are dashboards with named owners, not
+  log lines.
+- **A period cannot be closed over an outstanding inter-company intent.** Stage 07c's close refuses and
+  names it. This is the control that stops eventual consistency from becoming an accounting problem.
+- **Upgrade time scales with company count**, and a partially migrated tenant is now a state the product
+  must describe rather than a bug (ADR-117).
+- **The registry holds connection credentials.** Encrypted at rest, never in a support export, never in
+  telemetry. This is a new item for `docs/SECURITY.md` and Stage 31's security pass.
+- **Stage 31's DR drill grows a case**: restore one company of three, re-drive its outstanding legs,
+  prove the group reconciles afterwards.
+
+**What got better, and it is not a consolation prize:** per-company backup, restore, export and retention
+are now trivial rather than a project, one company can be restored while the others keep trading, a
+company's data can be handed over intact when a customer sells that business, and POPIA scoping is a
+database boundary rather than an argument about query filters.
+
+Documents updated to match: `docs/MULTI_COMPANY.md` (rewritten — topology, routing seams, the two-step
+sourcing rule, hold tokens, saga receipting, operations), `docs/DATA_MODEL.md` §2b, §3, §4l, the
+replication registry and §6 migrations, `CLAUDE.md` R11, §4 (database row), §7 rule 20 and §8,
+`docs/ROADMAP.md`, the stage documents for 06c, 06d, 07c, 08c, 13b, 14b and 14's amendments, and all
+three of the new review agents. `multi-company-guard` now leads with the boundary check, because a
+transaction spanning two databases is the one defect here that cannot be recovered from after the fact.
+
 ### 2026-08-22 — Planning revision 4: multi-company, field sales, consolidated picking. No code changed.
+
+> **Read the entry above this one first.** Its ADR-099 — logical companies in one database — was
+> overruled by the operator the same day. Everything else in this entry stands; the requirement mapping
+> below is still where each piece of the request lives.
 
 A requirements session, not a build session. The operator described eight things the product does not
 do, all of which land on the same two ideas — **several companies trading inside one installation**,
@@ -659,13 +738,9 @@ verified; this entry records a plan, and the next session is the one that starts
 **Two requests were deliberately not taken literally, and both are worth reading before the build
 starts.**
 
-1. **"Whatever database."** Companies are **logical inside one tenant database**, not separate
-   databases (ADR-099). Separate databases would put a distributed transaction on every cross-company
-   receipt and a fan-out on every scan — and the group features the operator actually asked for
-   (one credit limit across three companies, one receipt split across three companies) are exactly
-   what that would make unreliable. The books, stock, numbering and statements are still fully
-   separate, which is what the operator can see. `ICompanyDataSource` is kept as the single seam so a
-   later stage can back one company with a physically separate database without a caller changing.
+1. ~~**"Whatever database."** Companies are logical inside one tenant database, not separate
+   databases.~~ **Overruled by the operator the same day — see the entry above.** Each company has its
+   own database (ADR-099), and the cross-company machinery that decision requires is ADR-116 – ADR-120.
 2. **"Removed from stock" on approval.** Approval writes a **reservation** that reduces *available*
    and leaves *on hand* alone (ADR-103). Literally deducting on-hand would either mutate a quantity
    column — which `CLAUDE.md` §7 rule 6 forbids and ADR-005 settled — or write a stock issue for goods
@@ -674,7 +749,7 @@ starts.**
    now exist where users expect one, so every screen and endpoint must show *available*, labelled,
    with its `AsAt`.
 
-**Sequencing.** 06c → 07c → 08c → 14 → 10c → 13b → 14b. **06c is the one that cannot be deferred**:
+**Sequencing** (revised with the split of 06c). 06c → 06d → 07c → 08c → 14 → 10c → 13b → 14b. **06c is the one that cannot be deferred**:
 every stage after it creates business tables and every business table needs `company_id` from the
 moment it exists. Retrofitting it across thirteen shipped stages is one stage of work today; across
 forty modules later it is a rewrite. Stage 14 is already in progress on its branch — it should take
@@ -2226,12 +2301,19 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-22 (planning revision 4): read this first.**
+**Update, 2026-08-22 (planning revision 4, as revised): read this first.**
 
-No code changed this session. The plan did — five stages inserted, two amended, ADR-099 – ADR-115
+No code changed this session. The plan did — six stages inserted, two amended, ADR-099 – ADR-120
 appended, `MULTI_COMPANY.md` and `FIELD_SALES.md` written, three agents added, `/next-stage` created.
-The full account is in the session log above, and the two places where the operator's request was
-deliberately not implemented literally are called out there. Read both before writing any code.
+**ADR-099 was rewritten within the session at the operator's instruction: each company gets its own
+physical database, and ADR-116 – ADR-120 are the machinery that requires.** Read both 2026-08-22
+session-log entries, later one first, before writing any code.
+
+**The rule the whole design rests on**, and the one to hold in mind while building 06c through 14b: a
+group read model **plans**; the owning company's database **commits**. Group availability is a
+projection and is stale by construction. Sourcing may read it; reserving may not. Every reservation
+re-checks inside the owning company's own database in a serialisable transaction — which is why stale
+group data can cause a re-plan and can never cause an oversell.
 
 **The order of work, and it is not the order the requirements arrived in.**
 
@@ -2241,14 +2323,21 @@ deliberately not implemented literally are called out there. Read both before wr
 2. **The four Stage 09 defects (§4.11 – §4.15)** remain higher priority than anything new if anything
    is to be built on POS. §4.11 in particular — the rep module in 14b replays through the same sync
    batch path, so fixing it once fixes it for both.
-3. **Then Stage 06c**, and it is the load-bearing one. Everything else in revision 4 sits on it.
+3. **Then Stage 06c**, and it is the load-bearing one — it changes where every module's `DbContext`
+   comes from. Then **06d**, which everything after it dispatches through.
 4. Then 07c → 08c → 14 (already in progress; take its reservations from 08c) → 10c → 13b → 14b.
 
-**One thing to decide early in 06c and not later:** what "exposure" means for a credit group —
-posted balance only, or posted plus open orders plus undelivered COD-exempt documents. The ADR leaves
-it as tenant configuration, but the *default* is a business decision that shapes the concurrency test,
-and changing it after the first customer is trading is not a code change, it is a renegotiation. Pick
-posted + open orders, seed it, and record it as an ADR line.
+**Two things to decide early in 06d and not later.**
+
+*What "exposure" means for a credit group* — posted balance only, or posted plus open orders plus
+undelivered COD-exempt documents. ADR-101 leaves it as tenant configuration, but the *default* is a
+business decision that shapes the concurrency test, and changing it once a customer is trading is a
+renegotiation, not a code change. Pick posted + open orders + unexpired holds, seed it, record it.
+
+*How long a credit hold lives.* Too short and a slow back-office approval loses its credit mid-flight;
+too long and a crashed till locks a customer's limit until it expires. Fifteen minutes is the suggested
+default with an explicit release on every failure path, and the held-but-unconfirmed report is what makes
+a wrong choice visible rather than mysterious.
 
 **Everything below still stands.**
 

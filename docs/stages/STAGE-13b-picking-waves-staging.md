@@ -33,7 +33,13 @@ Three things, all extensions of Stage 13 rather than new machinery:
     Stage 13's existing `IPickAllocationStrategy`,
   - the **breakdown per order/customer** carried alongside each grouped line, so consolidation can
     split it back without a second query.
-- A wave may span companies (`MULTI_COMPANY.md` §5). The pick consolidates; the documents do not.
+- **A wave may span companies, and companies are separate databases** (ADR-099). A cross-company wave is
+  coordinated in the registry — the wave header and its grouped lines — while every `PickTask`,
+  `BinStockMovement` and `ShipmentConfirmation` stays inside its own company's database. Building one is
+  a saga (ADR-116): one leg per company, compensated by cancelling that company's tasks if a later leg
+  fails. The pick consolidates; the documents, the stock and the books do not.
+- A single-company wave — which is most of them — touches the registry not at all and behaves exactly as
+  Stage 13's does today. Do not make the common case pay for the cross-company one.
 
 **Staging states**
 - Staging areas are **bins of a special type** — `Consolidation`, `Packing`, `Dispatch` — so movement
@@ -66,7 +72,8 @@ Three things, all extensions of Stage 13 rather than new machinery:
 2. Grouping is by (item, variant, uom, **pack size**) — two orders for the same item in different pack
    sizes are two grouped lines, because that is two different things to pick.
 3. Every grouped line carries its per-order breakdown. Consolidation cannot guess.
-4. An order line may be in exactly one open wave. A second wave build skips what is already waved.
+4. An order line may be in exactly one open wave, and that uniqueness is enforced in the line's own
+   company database — the registry coordinates, it does not own the constraint.
 5. Stock in staging is on hand and not available. Never the other way round.
 6. A count sheet shows in-flight quantity per line where it exists, and the variance is computed
    against on-hand including staging, not against shelf quantity.
@@ -81,6 +88,8 @@ Three things, all extensions of Stage 13 rather than new machinery:
 - The same filter at `Province = KwaZulu-Natal` picks up the Durban orders plus Pietermaritzburg's; at
   `Suburb = Umhlanga` it picks up only that suburb's.
 - An address edited after the wave is built does not change the wave.
+- A cross-company Durban wave over two databases: two sets of pick tasks, one consolidated pick list, and
+  a failed second leg leaves the first company's tasks cancelled and no wave.
 - Pick → consolidation → packing → dispatch → ship: available drops at reservation, on hand drops at
   ship, and the bin movement ledger tells the whole story with no gaps.
 - A cycle count on an item with 6 units in the dispatch bin warns the checker and computes variance

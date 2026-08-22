@@ -69,24 +69,34 @@ Map money and quantity with `builder.HasMoney(...)` / `builder.HasQuantity(...)`
 
 ---
 
-## 2b. The company column (from Stage 06c)
+## 2b. One database per company (from Stage 06c)
 
-Every **business** table carries `company_id uuid NOT NULL` alongside `tenant_id`, and both are applied
-as global query filters by the DbContext. A company is the legal entity that owns the row: the books it
-posts to, the numbering it uses, the stock it holds, the statements it appears on (ADR-099, `CLAUDE.md`
-§7 rule 20, `docs/MULTI_COMPANY.md`).
+A tenant's data lives in **one database per company**, plus **one registry database** holding what spans
+them (ADR-099, `docs/MULTI_COMPANY.md` §1). Every company database carries the same schema — the whole
+of §4 below — and the same migration chain. The registry has its own chain and is migrated first.
 
-Exempt — genuinely tenant-wide, and the list is enumerated in an architecture test so a new exemption
-cannot be added quietly:
+```
+vuma_<tenant>_registry            companies + connections, company groups, credit groups + holds
+                                  + exposure ledger, catalogue routing index, group receipts/payments,
+                                  saga intents + legs + outbox, group read models
+vuma_<tenant>_<company_code>      the whole Vuma schema, once per company
+```
 
-| Schema | Why exempt |
-|---|---|
-| `platform` (tenants), `identity`, `licensing`, `sync`, `backup` | The tenant, its users, its licence and its replication machinery sit above the companies |
-| `platform.stores` | Carries `company_id` — a store belongs to exactly one company — and is listed here only because it is the join that gives most rows their company |
-| `group` | Group-level containers exist precisely to span companies; their *children* are company-scoped |
+Consequences that every table design has to respect:
 
-**No foreign key crosses a company boundary within a business schema.** Cross-company references are by
-id and resolve through `ICompanyDataSource`, for the same reason no foreign key crosses a schema.
+1. **No foreign key crosses a database**, which means no foreign key between companies. A cross-company
+   reference is an id plus the group document that ties them, resolved through the registry.
+2. **No transaction crosses a database** (ADR-116). Anything spanning companies is a saga: an immutable
+   intent in the registry, idempotent legs keyed by `(intent_id, leg_id)`, compensation by a new
+   document.
+3. **`company_id` stays on every business row** even though the database already implies it. It costs
+   nothing, it makes a restored or exported database self-describing, and it is the key the registry's
+   projections are built on.
+4. **Group read models are projections, never sources.** They are fed by each company's outbox, they
+   carry `AsAt`, and no commit is ever decided from one (ADR-119).
+
+`tenant_id` remains on every row for the same reasons it always was: the cloud tier holds many tenants'
+data side by side, and a restored database must be self-describing.
 
 ---
 
@@ -96,8 +106,12 @@ Schema name = module name (ADR-010). Declared as constants on
 `VumaRetail.Infrastructure.Persistence.Schemas`, and an architecture test fails the build if a
 table lands anywhere else — including `public`, which belongs to no module and therefore to everyone.
 
+**Schemas below are the schemas *inside one company database*, except `registry`, which is the whole of
+the registry database.**
+
 | Schema | Owns | Stage |
 |---|---|---|
+| `registry` | **(registry database)** companies and connections, company groups, credit groups, holds and exposure, catalogue routing index, group receipts and payments, saga intents and legs, group read models | 06c, 06d, 07c |
 | `platform` | tenants, stores, the audit trail | 01 |
 | `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
@@ -113,7 +127,6 @@ table lands anywhere else — including `public`, which belongs to no module and
 | `procurement` | requisitions, RFQs, purchase orders, goods receipts, matches, scorecards | 12 |
 | `warehouse` | zones, bins, bin stock, putaway, waves, packing, shipments, counts | 13, 13b |
 | `orders` | sales orders, allocations, fulfilments, order returns | 14 |
-| `group` | companies, company groups, credit groups, the barcode index, group receipts and payments | 06c, 07c |
 | `fieldsales` | reps, territories, targets, pro formas, pro forma credit notes, performance snapshots | 14b |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
@@ -1135,48 +1148,66 @@ real inventory variance at the location, not a bin reshuffle.
 
 ---
 
-## 4l. Tables in `group` (Stages 06c, 07c)
+## 4l. Tables in `registry` — the registry database (Stages 06c, 06d, 07c)
 
-### `group.companies`
-The legal entity between tenant and store. `id`, `tenant_id`, `code`, `legal_name`, `trading_name`,
-`registration_number`, `tax_number`, `base_currency`, `locale`, `document_prefix`, `logo_uri`,
-`is_active`. `code` and `document_prefix` are unique per tenant.
+### `registry.companies`
+One row per company, and the only place its connection details live. `id`, `tenant_id`, `code`,
+`legal_name`, `trading_name`, `registration_number`, `tax_number`, `base_currency`, `locale`,
+`document_prefix`, `connection_secret_ref` (**encrypted at rest, never exported, never logged**),
+`schema_version`, `migration_state`, `lifecycle_state` (`Provisioning | Seeding | Registered | Active |
+Deactivated`), `is_active`. `code` and `document_prefix` unique per tenant. Business operations see
+`Active` rows only (ADR-118).
 
-### `group.company_groups` / `group.company_group_members`
-An ordered set of companies for consolidation and group scope. A company belongs to at most one group.
+### `registry.company_groups` / `registry.company_group_members`
+The sets consolidation and group scope operate over. A company belongs to at most one group.
 
-### `group.credit_groups` / `group.credit_group_members`
+### `registry.saga_intents` / `registry.saga_legs`
+The whole of a cross-company operation, written **before** anything happens. An intent is immutable; a
+leg carries `company_id`, `leg_id`, payload, `state` (`Pending | Applied | Failed | Compensated`),
+attempt count, `acknowledged_at`, and is idempotent on `(intent_id, leg_id)`. An intent past its timeout
+is an alarm with a named owner (ADR-116).
+
+### `registry.credit_groups` / `registry.credit_group_members`
 `credit_groups`: `direction` (`Receivable` | `Payable`), `limit_amount` `decimal(18,4)` + currency,
-`exposure_policy`, `is_active`. `credit_group_members`: `company_id`, `partner_id`, optional
-`sub_limit_amount`. Available = limit − Σ member exposure; the member sub-limit narrows and never
-widens (ADR-101). The group row is the serialisation point for credit consumption — a
-`xmin`/`row_version` check is not sufficient, the transaction is serialisable.
+`exposure_policy`, `is_active`. Members carry `company_id`, `partner_id`, optional `sub_limit_amount`.
+The group row is the serialisation point — a `row_version` check is not sufficient, the transaction is
+**serialisable** (ADR-101).
 
-### `group.barcode_index`
-Projection over `catalog.barcodes`, maintained by the outbox. `(tenant_id, barcode, company_id)`
-unique; `(tenant_id, barcode)` for lookup; carries `item_id`, `variant_id`, `pack_size`,
-`pack_uom_id`. Never written by hand; rebuilt from source and tested against the incremental
-projection (ADR-100).
+### `registry.credit_holds` / `registry.credit_exposure_entries`
+`credit_holds`: amount, company, document reference, `expires_at`, state. Append-only; a hold that is
+never confirmed expires by itself and the credit returns. `credit_exposure_entries`: append-only
+confirmed consumption, idempotent per document. **Exposure = confirmed + unexpired holds.**
 
-### `group.group_receipts` / `group.group_receipt_allocations`
-The container that captures money once and splits it across companies. The receipt posts nothing; each
-allocation creates a `finance.ar_receipts` row in its own company and carries
-`(group_receipt_id, allocation_id)` for idempotency (ADR-104). Σ allocations ≤ captured amount, as a
-check constraint and in the aggregate.
+### `registry.catalog_routing_index`
+`(tenant_id, barcode)` → `company_id`, `item_id`, `variant_id`, `pack_size`, `pack_uom_id`, cached
+description, `published_at`. Fed by each company's outbox on barcode create/change/retire; rebuildable
+by asking every company to republish; tested against the incremental projection (ADR-100).
 
-### `group.group_payments` / `group.group_payment_allocations`
+### `registry.group_receipts` / `registry.group_receipt_allocations`
+Captures money once and splits it across companies. **The receipt posts nothing.** Each allocation is a
+saga leg keyed by `(group_receipt_id, allocation_id)` that creates a `finance.ar_receipts` row inside
+its own company's database; leg state is `Pending → Applied | Compensated`. Σ allocations ≤ captured
+amount, as a check constraint and in the aggregate (ADR-104).
+
+### `registry.group_payments` / `registry.group_payment_allocations`
 The same shape outbound, for a supplier several companies owe.
 
-### `group.inter_company_clearing_entries`
-The paired both-legs record connecting two companies' journals, with the group document that caused it.
-Append-only. Across a group these net to zero at every instant (ADR-105).
+### `registry.inter_company_clearing_intents`
+Immutable, carrying both legs and the group document that caused them. `Settled` only when both
+companies acknowledge. Net-zero is proven by a **scheduled reconciliation across the databases**, not by
+a transaction, and a period close refuses over an outstanding intent (ADR-105).
+
+### `registry.group_availability` / `registry.group_partner_exposure` / `registry.company_period_figures`
+The group read models. Each row carries the contributing company and its `AsAt`. Planning inputs only —
+no commit is ever decided from one, and a stale contributor is disclosed rather than silently summed
+(ADR-119).
 
 ---
 
 ## 4m. Tables in `inventory`, added by Stage 08c
 
 ### `inventory.stock_reservations`
-Append-only, immutable rows: `company_id`, `location_id`, `item_id`, `variant_id`, `quantity`
+**Inside each company's own database.** Append-only, immutable rows: `company_id`, `location_id`, `item_id`, `variant_id`, `quantity`
 `decimal(18,6)` + uom, `source_document_type`, `source_document_id`, `state`
 (`Held | Consumed | Released | Expired`), `expires_at`, `reason`. A release or expiry is a **new row**,
 never an update — the same shape as the stock ledger (ADR-103).
@@ -1307,14 +1338,16 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 
 | Entity | Direction | Conflict policy | Why |
 |---|---|---|---|
-| `Company` | CloudToStore | CloudWins | A legal entity is head-office data. A store reads it; it does not invent one. |
-| `CompanyGroup` / `CompanyGroupMember` | CloudToStore | CloudWins | Group membership is a head-office decision. |
-| `CreditGroup` / `CreditGroupMember` | Bidirectional | CloudWins | Limits are set centrally; exposure accrues at stores. The cloud is authoritative on the limit, the store on what it has consumed — and the consumption that matters is serialised at whichever node holds the row, which is why an offline store trades on its last-known limit and reconciles on reconnect. |
-| `BarcodeIndexEntry` | CloudToStore | CloudWins | A projection of catalogue data, which is already CloudToStore. |
-| `GroupReceipt` / `GroupReceiptAllocation` | StoreToCloud | AppendOnly | Money is captured where the customer paid. `IImmutableRecord` once allocated — a correction is a reversal. |
+| `Company` | CloudToStore | CloudWins | A legal entity and its connection details are head-office data. A store reads them; it does not invent a company. Registry-database entity. |
+| `CompanyGroup` / `CompanyGroupMember` | CloudToStore | CloudWins | Group membership is a head-office decision. Registry. |
+| `SagaIntent` / `SagaLeg` | StoreToCloud | AppendOnly | The record of a cross-company operation, written where it was initiated. Immutable; a leg's acknowledgement is a new state, and re-driving after a restore is safe because legs are idempotent (ADR-120). Registry. |
+| `CreditGroup` / `CreditGroupMember` | CloudToStore | CloudWins | The limit is set centrally. Registry. |
+| `CreditHold` / `CreditExposureEntry` | StoreToCloud | AppendOnly | Exposure accrues where trade happens; holds expire on their own. Append-only is what makes replay after an outage safe. Registry. |
+| `CatalogRoutingIndexEntry` | CloudToStore | CloudWins | A projection of catalogue data, which is already CloudToStore. Registry. |
+| `GroupReceipt` / `GroupReceiptAllocation` | StoreToCloud | AppendOnly | Money is captured where the customer paid. `IImmutableRecord` once allocated — a correction is a reversal. Registry; the AR receipts its legs create replicate from their own company databases as normal. |
 | `GroupPayment` / `GroupPaymentAllocation` | StoreToCloud | AppendOnly | Same, outbound. |
-| `InterCompanyClearingEntry` | StoreToCloud | AppendOnly | A posted pair, never edited. |
-| `StockReservation` | StoreToCloud | AppendOnly | A hold is taken where the stock is, and released by a new entry. The append-only shape is what makes it safe to replay. |
+| `InterCompanyClearingIntent` | StoreToCloud | AppendOnly | A posted pair, never edited; settled only when both companies acknowledge. Registry. |
+| `StockReservation` | StoreToCloud | AppendOnly | A hold is taken where the stock is, in that company's own database, and released by a new entry. The append-only shape is what makes it safe to replay after a restore. |
 | `CountSchedule` | CloudToStore | CloudWins | A counting policy is head office's; the counts it generates are the store's. |
 | `PickWaveLineBreakdown` | StoreToCloud | StoreWins | Follows its wave. |
 | `Rep` / `RepTerritory` / `RepCompany` | CloudToStore | CloudWins | Who a rep is and what they may sell is head-office data. |
@@ -1327,6 +1360,11 @@ Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_B
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
 one-line rationale per entity.
 
+**Replication runs per database.** Each company database has its own outbox, inbox and cursors, and the
+cloud tier mirrors the store's layout — a registry and N company databases (ADR-120). A restore of one
+company database is a supported operation on its own; afterwards the registry re-drives that company's
+outstanding intent legs, which is safe because every leg is idempotent.
+
 **The uploaded file itself is deliberately absent from this registry.** `IImportFileStore` keeps the
 bytes outside the database entirely, and they do not replicate: the store server is where an import
 happens and where the file was uploaded, and the cloud gets the batch, the rows and the outcome, which
@@ -1337,7 +1375,16 @@ document that has no business leaving the premises for vendor purposes.
 
 ## 6. Migrations
 
-`src/VumaRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`.
+`src/VumaRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`. The
+registry database has its own chain and its own history table, and is always migrated first.
+
+**Migrations fan out** (ADR-117). The runner iterates every company database in the registry, applying
+the same chain with bounded parallelism, recording `schema_version` and `migration_state` per company. A
+company whose version is behind the running binary is **not served** — its endpoints return an
+actionable failure naming the company and the pending migration, rather than executing against a schema
+the code does not expect. A partially migrated tenant is a first-class, reportable state, and migration
+is resumable and re-runnable. A company restored from backup arrives at whatever version it was taken at
+and is migrated forward by the same path before it is served.
 
 Every migration is reversible and its `Down` is **run** in the test suite, not assumed —
 `MigrationTests` applies the chain to an empty database, reverses it to nothing, and re-applies it.

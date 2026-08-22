@@ -19,7 +19,7 @@ authority to commit the business to a price or to release stock. Everything a re
 ```
 Rep (on the road, phone/tablet)          Management (back office)
 ────────────────────────────────         ─────────────────────────
- sees group-wide available stock
+ sees group-wide available stock (as-at stamped)
  captures a PRO FORMA ORDER      ──────▶  reviews, prices, approves
                                           ├─ approve → SALES ORDER (stock reserved)
                                           ├─ amend   → back to rep with a reason
@@ -56,9 +56,10 @@ its own (`CLAUDE.md` §7 rule 13).
 - The approver sees, on one screen: the quoted price vs the current price, the margin, the customer's
   **group** credit position (`MULTI_COMPANY.md` §6), current availability per company, and what the
   approval will reserve.
-- **Approval is the moment stock is committed.** On approval the resulting sales order takes a
-  reservation against the sourcing companies (§4), and a credit-group consumption if the order is on
-  account.
+- **Approval is the moment stock is committed**, and with one database per company it is a saga, not a
+  transaction (ADR-108, ADR-116): a credit hold in the registry, then one local reservation inside each
+  sourcing company's own database, then the order, then confirmation of the hold. Any failure
+  compensates in reverse — releases, never deletions — and a crashed approval resumes from its intent.
 - Approval is per document, not per rep, and it is audited: who, when, from where, and what changed
   between what the rep quoted and what was approved.
 - Rejection and amendment both return to the rep with a reason. A rep is never left guessing why.
@@ -112,7 +113,9 @@ its own (`CLAUDE.md` §7 rule 13).
    the poster/reserver dependency, not by reading the happy path.
 2. No pro forma can become an invoice without an approval record, including through the sync replay
    path, the import pipeline and any admin endpoint.
-3. Approval reserves before it commits credit, and both are inside one transaction.
+3. Approval holds credit first, then reserves per company, then creates the order — each step local to
+   one database, each compensatable, the whole resumable. A different order, or a transaction spanning
+   two databases, is a finding.
 4. A rep cannot read cost, margin or another territory's customers without the permission that grants
    it — structurally, not by a filter a caller may forget.
 5. Availability shown to a rep is *available*, not on-hand, and carries its as-at timestamp.

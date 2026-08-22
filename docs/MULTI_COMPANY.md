@@ -1,245 +1,276 @@
-# MULTI-COMPANY — running several trading companies in one installation
+# MULTI-COMPANY — running several trading companies, each in its own database
 
-> **The requirement, in the operator's words.** "We need to be able to run multiple companies
-> simultaneously, and when invoicing, whichever stock is available on whatever database — without
-> going into a negative — draw it from that one, and separate the invoices into two. So two companies
-> can operate in one space: one sells hardware and one sells groceries. You scan and it picks up
-> automatically which store it is."
+> **The requirement, in the operator's words.** "Each company will have their own database. As you scan
+> items they should check which company it belongs to and create separate invoices for them. When
+> placing orders it will show stock across companies in one view, but will be separated at transaction
+> level when being saved to each company's financials." And: one credit limit spread across companies,
+> for customers and suppliers; one receipt captured and allocated across companies; financials per
+> company.
 
 This document is the contract for that. It is referenced by Stages **06c**, **07c**, **08c**, **10c**,
-**13b** and **14b**, and by requirements **R11** and **R12** in `CLAUDE.md` §3.
+**13b** and **14b**, by requirements **R11** and **R12** in `CLAUDE.md` §3, and by ADR-099 – ADR-106 and
+ADR-116 – ADR-120.
 
 ---
 
-## 1. The shape: one tenant, many companies, many stores
+## 1. The topology
 
 ```
-Tenant  (the customer of Vuma Retail — one licence, one subscription, one database)
- └── Company        e.g. "Siyaya Hardware"   "Siyaya DC"   "Trade Rite Groceries"
-      ├── legal identity: registered name, company reg no, VAT no, own document numbering
-      ├── own chart of accounts, own general ledger, own financial statements
-      ├── own stock, own price lists, own AR and AP sub-ledgers
-      └── Store / warehouse (physical premises, already `platform.stores`)
+TENANT  (one customer of Vuma Retail — one licence, one subscription)
+│
+├── REGISTRY DATABASE   vuma_<tenant>_registry
+│     companies + their connection details      credit groups + exposure ledger
+│     company groups                            catalogue routing index (barcode → company)
+│     group receipts / payments + allocations    group availability read model
+│     saga intents + outbox + in-flight state    consolidated period figures
+│
+├── COMPANY DATABASE    vuma_<tenant>_siyaya_hardware
+│     the whole Vuma schema: catalog, partners, finance, inventory, pos, sales,
+│     procurement, warehouse, orders, fieldsales — its own GL, its own numbering,
+│     its own stock, its own outbox, its own backups
+│
+├── COMPANY DATABASE    vuma_<tenant>_siyaya_dc
+└── COMPANY DATABASE    vuma_<tenant>_trade_rite
 ```
 
-A **company** is a new level between tenant and store. It is what a customer or supplier contracts
-with, what invoices are issued by, what a set of financial statements belongs to, and what owns stock.
-A **store** stays what it always was: a physical place. One company may have many stores; a store
-belongs to exactly one company.
+Every company database carries **the same schema and the same migration chain**. The registry has its
+own. A store may host several companies' databases on one PostgreSQL instance; nothing assumes it, and
+one company can be moved to its own instance by changing its connection details in the registry
+(ADR-118).
 
-### Why companies are logical, not separate databases
+**A store belongs to exactly one company** and lives in that company's database. A company may have many
+stores.
 
-The operator says "whatever database". Physically separate databases per company would mean a
-distributed transaction on every cross-company receipt, a fan-out query on every barcode scan, N
-migration chains, N sync cursors and N backup sets — and would make the *group* features that are the
-entire point (one credit limit across three companies, one receipt allocated across three companies)
-either impossible or unreliable.
+### The three rules that follow from this and are never bent
 
-**Decision (ADR-099): companies are logical inside one tenant database.** Every business row already
-carries `tenant_id`; it now also carries `company_id`, filtered globally the same way. To the operator
-this is indistinguishable from separate databases — the books, the stock, the documents and the
-numbering are all separate — while a cross-company question is one indexed query rather than three
-round trips.
-
-The seam is kept open: group-level reads go through `ICompanyDataSource`, so a later stage can back
-one company with a physically separate database without any caller changing. Nothing in Stages 06c–14b
-may bypass that interface to reach another company's tables directly.
+1. **There is no cross-database transaction.** Not two-phase commit, not `postgres_fdw`, not a clever
+   wrapper. Anything spanning companies is a saga (ADR-116).
+2. **Strict consistency inside a company; eventual consistency across them.** Everything a cashier, a
+   customer or an auditor experiences as atomic — a sale, an invoice, a receipt, a journal, a stock
+   movement — happens inside one database. What is eventually consistent is the group *view* and the
+   second leg of a cross-company operation, and both are visible, reconciled and alarmed.
+3. **A group read model never decides a commit.** It plans; the owning company database commits
+   (ADR-119).
 
 ---
 
-## 2. Scoping rules
+## 2. How the code reaches a database
 
-| Scope | Means | Used by |
-|---|---|---|
-| **Company-scoped** (the default) | The query sees exactly one company. `company_id` filter is applied by the DbContext, not by the caller. | Every module. All financial reporting. |
-| **Group-scoped** | The query sees every company in the tenant the user is *entitled to see*. Must be requested explicitly and is auditable. | Barcode resolution, availability, credit exposure, receipting, rep dashboards, consolidated reporting. |
+| Seam | What it does |
+|---|---|
+| `ICompanyConnectionResolver` | company id → connection details, from the registry, cached, refreshed on change. Never from a config file. |
+| `ICompanyDbContextFactory` | opens a `VumaRetailDbContext` against **one** company. Every command handler uses exactly one. |
+| `IRegistryDbContext` | the registry. Group containers, credit, routing, intents, read models. |
+| `ICompanyFanOut` | bounded-parallelism read across several company databases, for the rare case where a live figure is needed rather than a projection. Returns per-company results **including failures** — a fan-out where one company is down returns four answers and one error, never a 500. |
+| `ISagaCoordinator` | writes an intent, dispatches idempotent legs, tracks acknowledgement, compensates, alarms. |
 
-Rules that hold everywhere:
+**An architecture test fails the build if one command handler resolves two companies' `DbContext`s.**
+That test is the enforcement behind rule 1 above; everything else is convention.
 
-1. **A document belongs to exactly one company.** There is no such thing as a group invoice, a group
-   journal or a group stock ledger entry. Group objects are *containers* that point at company
-   documents (ADR-102, ADR-104).
-2. **No general ledger entry ever crosses a company.** Value moving between companies posts to that
-   company's inter-company clearing account, on both sides (ADR-105).
-3. **Group scope is a permission, not a role.** `group.view`, `group.receipt`, `group.credit.manage`,
-   `group.report`. A user with access to one company sees one company.
-4. **A consolidated view is labelled as consolidated and posts nothing** (ADR-106).
+`company_id` is still a column on every business row, even though the database already implies it. It
+costs nothing, it makes a restored or exported database self-describing, and it is what the group
+projections are keyed by.
 
 ---
 
 ## 3. Scanning across companies
 
-The till, the handheld and the rep's tablet all scan the same way, and the scan says which company
-owns the item.
-
 ```
 scan "6001234567890"
-   → group.barcode_index  (tenant_id, barcode) → company_id, item_id, variant_id, pack_size, uom
-   → returns { company: "Trade Rite Groceries", item: "Sugar 2.5kg", packSize: 6, available: 143 }
+  → registry.catalog_routing_index  (tenant_id, barcode)
+        → company: Trade Rite Groceries, item, variant, pack size
+  → read the item detail from the Trade Rite database
+  → { company: "Trade Rite Groceries", item: "Sugar 2.5kg", packSize: 6, available: 143, asAt: 09:41 }
 ```
 
-- **One index, group-wide, covering `(tenant_id, barcode)`.** A scan is a single index probe. It does
-  not fan out across companies, and it does not care how many companies exist (ADR-100).
-- **The index is a projection**, rebuilt from `catalog.barcodes` by the same outbox that replicates
-  them. It is never written by hand.
-- **Collisions are resolved, never guessed.** If a barcode exists in more than one company:
-  1. prefer the company of the terminal's active session,
-  2. then the company that has available stock at the scanning location,
-  3. if still ambiguous, return **all** candidates and make the operator choose. The API returns a
-     `MultipleCompanyMatches` result — it never picks one silently.
-- **Private label vs GS1.** In-house barcodes are namespaced per company on issue so the common case
-  never collides in the first place.
+- **One indexed probe, then one company read** — not a query per company (ADR-100).
+- The routing index is a **projection**, published by each company database's outbox whenever a barcode
+  is created, changed or retired, and rebuildable by asking every company to republish.
+- **Collisions resolve, never guess:** the terminal session's company, then the company with available
+  stock at the scanning location, then `MultipleCompanyMatches` with every candidate for the operator.
+- **Eventual consistency is disclosed.** A barcode created in another company seconds ago may not resolve
+  yet; the fallback is the scanning company's own catalogue and the operator is told the lookup was local.
+- **Registry down → the till keeps trading** on its own company (R1 outranks group convenience). It
+  simply cannot sell a sister company's stock until the registry is back, and it says so.
 
 ---
 
-## 4. Availability and sourcing: which company supplies the line
+## 4. One view of stock, separated at transaction level
 
-The rule the operator gave is the whole rule: **draw it from whichever company has it, and never draw
-a company negative.**
+This is the operator's sentence made concrete.
+
+**The view** — group availability from the registry projection, one row per item per company, each with
+its `AsAt`. A company that has not published recently is shown as stale rather than silently summed.
+
+**The transaction** — sourcing is two steps, and the second is authoritative (ADR-102):
 
 ```
-Sales order line: 20 × hot plate
-  ├─ Siyaya Hardware   available 12  → allocate 12
-  ├─ Siyaya DC          available 30 → allocate 8
-  └─ Trade Rite         available 0  → skip
-Result: 2 allocations, 2 invoices, 0 backorder
+1. PLAN     from registry projection      "Hardware 12, DC 30, Trade Rite 0"   ← may be stale
+2. COMMIT   local serialisable transaction in EACH named company's own database
+            re-reads that company's real availability and reserves what is actually there
+            short leg → re-source once → still short → backorder line
 ```
 
-- **Available ≠ on hand.** `available = on_hand − reserved − in_staging_not_yet_shipped`. Sourcing
-  reads *available*, always (ADR-103, ADR-109).
-- **Sourcing order** is configurable per tenant and defaults to: the ordering company first, then
-  nearest store, then most available. Behind `ICompanySourcingStrategy` so a later stage can add cost
-  or margin rules without touching callers.
-- **A short line is a backorder, never a negative.** If group-wide availability cannot cover a line,
-  what exists is allocated and the remainder becomes a backorder line on the order. No company is ever
-  driven below zero, in any scenario, including concurrent orders — the reservation is taken inside the
-  same transaction as the allocation (ADR-102, ADR-103).
-- **Reservation, not deduction.** Allocation writes an append-only reservation, which reduces
-  *available* immediately and leaves *on hand* alone until the goods actually ship. Stock is still the
-  projection of an append-only ledger (`CLAUDE.md` §7 rule 6); nothing mutates a quantity column.
+Stale group data can therefore cause a **re-plan**; it can never cause a negative, because nothing
+commits a company's stock except a transaction inside that company's own database. That is the single
+correctness argument this design rests on, and the test for it feeds the planner a deliberately stale
+projection and asserts a backorder rather than an oversell.
+
+**Reservations are local** (ADR-103): an order drawing on two companies holds two reservations, one in
+each database, tied together only by the group document reference. `Available = OnHand − Reserved −
+InStaging`, computed per company, always.
 
 ---
 
-## 5. One order, several invoices
-
-An order allocated across two companies produces **two invoices** — one per supplying company, each
-with that company's letterhead, VAT number, document number sequence, GL and AR sub-ledger.
+## 5. One order, one invoice per company
 
 ```
-SO-2026-000412  (captured against Trade Rite, customer: Mkhize Spaza)
- ├── INV-TR-000188   Trade Rite Groceries   3 lines   R 4 210.00
- └── INV-SH-000094   Siyaya Hardware        1 line    R 1 899.00
-        both carry GroupDocumentRef = SO-2026-000412
+SO-2026-000412  captured against Trade Rite, customer Mkhize Spaza
+ ├── Trade Rite database   → INV-TR-000188   3 lines   R 4 210.00
+ └── Hardware database     → INV-SH-000094   1 line    R 1 899.00
+       both carry GroupDocumentRef = SO-2026-000412
 ```
 
-- The customer sees both invoices and one delivery. The picking, packing and delivery run consolidate
-  across companies (Stage 13b); the *money* never does.
-- Credit is checked once, against the group limit, before the split (§6).
-- A credit note reverses within its own invoice's company. There is no cross-company credit note.
-- COD applies per order and is inherited by every invoice the order produces (ADR-111).
+- Each invoice is written **entirely inside its own company's database**, by that company's numbering,
+  posting rules, GL and AR sub-ledger. Nothing about it is shared.
+- The customer receives one delivery and two invoices. Picking, packing and the delivery run consolidate
+  across companies (Stage 13b); the money never does.
+- The split is by **seller**, so each company sells only its own stock — there is no inter-company sale
+  to unwind and no transfer pricing to invent.
+- `ISplitDocumentBuilder` asserts the split reconciles to the source line for line and cent for cent,
+  and that every line lands on exactly one invoice.
+- A credit note reverses inside its own invoice's company. There is no cross-company credit note.
+- COD applies per order and is inherited by every invoice it produces (ADR-111).
 
 ---
 
 ## 6. Credit limits across companies
 
 > "A user has three companies and each company has a client — that client must have a total credit
-> available of 150k, that can be spread over all companies. Same with suppliers."
+> available of 150k, spread over all companies. Same with suppliers."
 
-**A credit group holds the limit. Company accounts are members and consume it.**
+The limit lives in the **registry**; the invoice lives in a **company database**; they cannot commit
+together. So credit is consumed by a **hold token** (ADR-101):
 
 ```
-Credit group: "Mkhize Spaza Group"     limit R150 000
- ├── Trade Rite      A/R account   exposure R 62 400   sub-limit R100 000
- ├── Siyaya Hardware A/R account   exposure R 31 000   sub-limit none
- └── Siyaya DC       A/R account   exposure R  9 800   sub-limit R 40 000
-Group exposure R103 200 · group available R46 800
+1. registry, serialisable:  check group limit → issue HOLD  (amount, company, doc ref, expires 15 min)
+2. company database:        write the document carrying the hold token
+3. company outbox:          confirm consumption to the registry, idempotently
+   …never got to step 2?    the hold EXPIRES and the credit comes back
 ```
 
-- **Available = group limit − Σ exposure across every member**, and a member may additionally carry
-  its own sub-limit. A sale must pass **both** checks. A sub-limit can never raise the group ceiling.
-- **Exposure** = posted balance + open orders reserved + undelivered COD-exempt documents, per the
-  policy configured on the group. What counts is configuration; that it is the same definition in
-  every company is not.
-- **Concurrency is the hard part and is treated as such.** Two tills in two companies invoicing the
-  same customer at the same instant must not both consume the last R5 000. The check and the
-  consumption happen in one serialisable transaction against the group row (ADR-101). There is a
-  concurrency test for exactly this, and it is not allowed to be a mock.
-- **Suppliers are the same object with the sign reversed.** A supplier credit group caps what the
-  whole tenant may owe one supplier across all its companies, so three companies cannot each quietly
-  take R100 000 of stock on the same R150 000 facility.
-- A customer or supplier may exist in one company only — a credit group of one member is normal and is
-  not a special case in the code.
+```
+Credit group "Mkhize Spaza Group"        limit R150 000
+ ├── Trade Rite       confirmed R62 400   sub-limit R100 000
+ ├── Siyaya Hardware  confirmed R31 000   sub-limit none
+ ├── Siyaya DC        confirmed R 9 800   sub-limit R 40 000
+ └── unexpired holds  R 4 000
+Group exposure R107 200 · available R42 800
+```
+
+- Exposure = confirmed consumption **plus unexpired holds**, so it is never inflated by a document that
+  does not exist and never understated while one is being written.
+- Two tills in two companies cannot both take the last of a limit: the second serialises and is refused.
+  There is a concurrency test against a real registry database — a mock cannot fail the way this fails.
+- A member sub-limit narrows; it can never widen the group ceiling.
+- **Suppliers are the same object with the direction reversed** — one facility, capped across every
+  company that buys on it.
+- **Registry unreachable → credit sales refused, cash sales continue.** A store that cannot reach the
+  ledger of record must not grant credit against it.
+- A held-but-unconfirmed report is an operational necessity, not a nicety.
 
 ---
 
 ## 7. Receipting across companies
 
-> "A customer has an account with three of the companies. Capture the total receipted, then allocate
-> it — 1k to Siyaya, 3k to Siyaya DC, 5k to Trade Rite."
+> "Capture the total receipted, then allocate it — 1k to Siyaya, 3k to Siyaya DC, 5k to Trade Rite."
 
 ```
-Group receipt GR-000231   R9 000   EFT   ref "MKHIZE 22/08"
- ├── R1 000 → Siyaya Hardware   → AR receipt SH-RC-000410 → allocated to INV-SH-000091
- ├── R3 000 → Siyaya DC         → AR receipt DC-RC-000122 → on account
- └── R5 000 → Trade Rite        → AR receipt TR-RC-000377 → allocated to INV-TR-000188, INV-TR-000190
+registry: GROUP RECEIPT GR-000231   R9 000   EFT   ref "MKHIZE 22/08"   posts NOTHING
+ ├── leg → Hardware db    R1 000  → AR receipt SH-RC-000410 → INV-SH-000091      [Applied]
+ ├── leg → DC db          R3 000  → AR receipt DC-RC-000122 → on account         [Applied]
+ └── leg → Trade Rite db  R5 000  → AR receipt TR-RC-000377 → INV-TR-000188/190  [Pending]
 ```
 
-- **The group receipt is a container, not a financial document.** It posts nothing. Each allocation
-  creates a real `finance.ar_receipts` row in that company, which posts through that company's posting
-  rules like any other receipt (ADR-104).
-- **Unallocated money posts nowhere.** A group receipt may be captured with a remainder unallocated;
-  that remainder is not in anybody's ledger until it is allocated. It is visible, it is reportable, and
-  it ages.
-- **The bank is one company's.** The cash landed in the bank account of one company. That company
-  debits bank and credits inter-company clearing for every cent allocated to a sister company; the
-  sister company debits inter-company clearing and credits its customer (ADR-105). Both sides post in
-  the same transaction, and the clearing accounts must net to zero across the group — asserted by a
-  test, and by a standing reconciliation report.
-- The same shape serves supplier payments: one payment run, allocated across the companies that owe.
+- Each leg is an **idempotent command** keyed by `(group_receipt_id, allocation_id)`. Retry is always
+  safe; recovery after an outage is to retry, never to re-key (ADR-104).
+- A leg is `Pending` until its company acknowledges. Legs outstanding past their timeout raise an alarm
+  and appear on the **unapplied-legs report** — the control that stops "in flight" from meaning "lost".
+- An unallocated remainder sits on the registry container, in nobody's ledger, visible and ageing.
+- **The bank is one company's.** That company debits bank and credits inter-company clearing; the
+  benefiting company debits clearing and credits its customer. Two legs of one intent, each posting
+  locally (ADR-105).
+- **Net-zero is a standing reconciliation across databases**, run on a schedule and after every intent —
+  not a transactional assertion, because there is no longer one to make. Clearing lines carry the intent
+  id, so an unmatched leg is identifiable by document.
+- **A period cannot be closed with an intent outstanding.** Stage 07c's close refuses and names it.
 
 ---
 
 ## 8. Financial reporting
 
-- **Every statement is per company.** Trial balance, income statement, balance sheet, VAT return, age
-  analysis, cash book — each belongs to one company and reconciles on its own.
-- **Consolidated is a separate, labelled read model.** It sums the companies in a group, eliminates
-  inter-company clearing balances, and is watermarked *Consolidated — management information, not a
-  statutory statement.* It cannot be posted to, and it is not a tax document (ADR-106).
-- **A company's books close on their own calendar.** Period close is per company; a group close is
-  every member closed, not a separate concept.
+- **Every statutory statement is produced inside one company's database.** Trial balance, income
+  statement, balance sheet, VAT return, age analysis, cash book — each belongs to one company and
+  reconciles on its own. There is no group VAT return.
+- **Consolidated is a registry read model** assembled from each company's published period figures,
+  eliminating inter-company clearing, watermarked *Consolidated — management information, not a
+  statutory statement*, and carrying the `AsAt` of every contributing company. Where a company is stale,
+  it says which — it never quietly sums old figures (ADR-106).
+- **Period close is per company.** A group close is every member closed, and it refuses over an
+  outstanding inter-company intent.
 
 ---
 
-## 9. What this changes in existing modules
+## 9. Operations — the parts that only exist because of this topology
+
+| Concern | How it works |
+|---|---|
+| **Adding a company** | `Provisioning → Seeding → Registered → Active` (ADR-118). Create database, migrate, seed chart of accounts/numbering/tax/permissions, register the connection, activate. Re-runnable from the step that failed. Business operations see `Active` companies only. |
+| **Migrations** | The runner fans out over every company database, registry first, recording `schema_version` per company. A company behind the binary is **not served** — it returns an actionable error naming the pending migration rather than executing against an unexpected schema (ADR-117). |
+| **Backup / restore** | Per database, own schedule and retention, registry snapshotted most often. One company can be restored without stopping the others; afterwards the registry **re-drives** that company's intent legs, which is safe because legs are idempotent (ADR-120). |
+| **Sync** | Three-tier sync runs per company database with its own outbox, inbox and cursors. The cloud mirrors the layout: a registry and N company databases. |
+| **In-flight monitoring** | Outstanding intents, unapplied legs, unconfirmed credit holds and stale projections are four dashboards with named owners. They are not optional extras — they are how this topology is kept honest. |
+| **Security** | The registry holds connection credentials: encrypted at rest, never in a support export, never in telemetry (R10, `docs/SECURITY.md`). |
+| **Licensing** | One licence, one tenant, N companies. Company count is a metered, entitled dimension (Stage 04b). |
+
+---
+
+## 10. What this changes in existing modules
 
 | Module | Change |
 |---|---|
-| Master data (06) | `company_id` on items, price lists, partners; a partner may be shared across companies through a credit group |
-| Finance (07) | Chart of accounts, numbering, periods and statements are per company; inter-company clearing accounts; group receipt container |
-| Inventory (08) | Stock is owned by a company; availability is a group-wide read; reservations are new |
-| POS (09) | The till belongs to a company but scans group-wide, and may sell a sister company's stock — which splits the sale into two documents |
-| Sales (10 / 10c) | Price resolution is per company; invoices carry pack size; a document may be one of several from one order |
-| Warehouse (13 / 13b) | A pick wave may consolidate across companies; each shipment confirmation stays company-scoped |
+| Persistence (01) | `DbContext` resolution moves behind `ICompanyDbContextFactory`; the registry context is new |
+| Master data (06) | Catalogue is per company; the routing index projects from it |
+| Finance (07) | Already per database and therefore already separate; adds clearing accounts and the group containers' legs |
+| Inventory (08) | Reservations and availability per company; the group availability projection publishes from here |
+| POS (09) | The till belongs to one company, scans group-wide via the registry, and a sister-company line splits the sale into two documents |
+| Sales (10 / 10c) | Pack size on invoice lines; one invoice per supplying company |
+| Warehouse (13 / 13b) | A pick wave may span companies — the wave is registry-coordinated, each pick task local to its company |
 | Order management (14) | Sourcing, splitting, COD, reservation on approval |
-| Field sales (14b) | A rep sells for one company or several; targets and performance roll up per company and per group |
+| Field sales (14b) | A rep sells for one or several companies; performance rolls up in the registry |
+| Sync & backup (04) | Per-database cursors, per-database snapshots, intent re-drive after restore |
 
 ---
 
-## 10. The rules a reviewer checks
+## 11. The rules a reviewer checks
 
 `multi-company-guard` (`.claude/agents/multi-company-guard.md`) reviews every stage that touches this
 document against exactly these:
 
-1. No query reaches another company's data except through `ICompanyDataSource` with group scope and a
-   permission behind it.
-2. No GL entry, no journal, no sub-ledger row crosses a company. Value between companies moves through
-   inter-company clearing, both sides, same transaction.
-3. No document number sequence is shared between companies.
-4. Credit checks read the group and consume it under a serialisable transaction. A test proves two
-   concurrent sales cannot both spend the last of a limit.
-5. Sourcing never produces a negative available quantity in any company, under concurrency.
-6. A split document set reconciles: the sum of the invoices equals the order, line for line and cent
-   for cent, and every line is on exactly one invoice.
-7. A group receipt's allocations sum to its captured amount, and the clearing accounts net to zero.
-8. Consolidated output is labelled and read-only.
+1. **No command handler opens transactions against two databases.** No 2PC, no FDW, no wrapper that
+   makes it look like one. Cross-database work is a saga with idempotent legs.
+2. Every saga leg is idempotent, keyed by `(intent_id, leg_id)`, and safe to retry indefinitely.
+3. Compensation is a new document — a release, a reversal, a credit note — never a delete or an edit.
+4. No group read model is the basis for a commit. Reservations re-check in the owning company database;
+   credit consumes in the registry under serialisation.
+5. Every group figure crossing an API boundary carries `AsAt`, and a stale contributor is disclosed.
+6. Credit holds expire, and exposure counts confirmed consumption plus unexpired holds.
+7. Sourcing never produces a negative available quantity in any company, including when the planner is
+   fed a stale projection.
+8. A split document set reconciles to its source line for line and cent for cent, and every line is on
+   exactly one document.
+9. Number sequences are per company. A shared counter is a finding even if it currently looks unique.
+10. Inter-company clearing nets to zero across databases, an outstanding intent blocks a period close,
+    and every clearing line carries its intent id.
+11. Consolidated output is labelled, read-only, and never a VAT return.
+12. A fan-out read degrades — one company down returns that company as an error, not the whole call.

@@ -26,9 +26,12 @@ stock. Then measure what each rep does, per month, comparably over time.
 - **Approval path**: `IApprovalService` (Stage 05) decides; on approve the handler
   1. re-prices against today's price list and reports the delta to the approver,
   2. builds a sourcing plan (Stage 08c) across the companies the rep may sell for,
-  3. takes reservations and consumes group credit **in one transaction**,
+  3. takes the **credit hold** in the registry, then one **local reservation per sourcing company**, as
+     saga legs that compensate in reverse on any failure (ADR-101, ADR-108, ADR-116),
   4. creates the sales order (Stage 14), which invoices through Stage 10c and splits per company.
-  Any step failing rolls back all of them. A partially approved pro forma does not exist.
+  Any step failing compensates every completed step in reverse — releases, not deletions — and returns
+  the pro forma to `Submitted` with the reason. A partially approved pro forma does not exist, and a
+  crashed approval **resumes** from its intent rather than restarting.
 - `IRepAvailabilityQuery` — group-wide *available*, per company, with `AsAt`, filtered to what the
   rep's visibility profile permits.
 - `IRepPerformanceService` — snapshot a closed period; query a period with a comparison period and
@@ -56,7 +59,9 @@ captured, approvals, active reps.
    and are labelled as such wherever they are shown.
 2. Nothing becomes an invoice without an approval record — including via sync replay, the import
    pipeline, or any admin endpoint.
-3. Approval reserves stock and consumes group credit in one transaction, or does neither (ADR-108).
+3. Approval holds credit, then reserves, then creates the order — each step local, each compensatable,
+   the whole driven by a resumable intent. It never leaves stock held against nothing or credit consumed
+   for an order that does not exist (ADR-108).
 4. A pro forma past its expiry cannot be approved until it is re-priced.
 5. A rep may only read customers, companies and figures their territory and visibility profile allow,
    enforced server-side.
@@ -72,7 +77,9 @@ captured, approvals, active reps.
 - Approval where availability moved between capture and approval: the approver sees the delta, and the
   approval reserves only what exists, backordering the rest.
 - Approval where the customer's **group** credit is exhausted across sister companies is refused with
-  the group position in the error, and reserves nothing.
+  the group position in the error, and reserves nothing — the hold is never issued.
+- Approval that dies after the reservation leg and before the order: re-running the intent completes it
+  exactly once; abandoning it releases the reservations and expires the hold.
 - Approval sources across two companies → one sales order, two invoices, reconciling to the pro forma.
 - A rejected pro forma leaves zero reservations and zero postings — asserted by ledger and reservation
   counts, not by reading the code.

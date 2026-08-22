@@ -1,11 +1,12 @@
 # ROADMAP — Vuma Retail
 
-42 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
+43 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
 green build with the work demonstrable. Close the chat, open a new one, repeat.
 
-> **Revision 4 (2026-08-22).** Five stages were inserted — **06c**, **07c**, **08c**, **13b** and
+> **Revision 4 (2026-08-22).** Six stages were inserted — **06c**, **06d**, **07c**, **08c**, **13b** and
 > **14b** — for multi-company operation, cross-company money, availability and reservations, consolidated
-> picking, and the field-sales (rep) module. Stages **10c** and **14** were amended rather than
+> picking, and the field-sales (rep) module. **Each company gets its own database** (ADR-099, revised the
+> same day at the operator's instruction after the first form of that ADR proposed logical separation). Stages **10c** and **14** were amended rather than
 > renumbered. See ADR-099 – ADR-115, `docs/MULTI_COMPANY.md` and `docs/FIELD_SALES.md`. Nothing already
 > shipped was removed or renumbered.
 
@@ -43,12 +44,13 @@ The minimum that makes a business able to trade *and* account for it.
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
 | 06 | Master Data | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
-| 06c | [Multi-Company Group Core](stages/STAGE-06c-multi-company.md) ◆ | 06, 07 | Companies between tenant and store, company scoping retrofitted everywhere, group barcode resolution, group credit limits for customers *and* suppliers |
+| 06c | [Multi-Company Foundation](stages/STAGE-06c-multi-company.md) ◆ | 01, 04, 06, 07 | **One database per company** plus a tenant registry: connection routing, provisioning lifecycle, migration fan-out, per-database backup and sync |
+| 06d | [Group Services](stages/STAGE-06d-group-services.md) ◆ | 06c | The saga coordinator, credit groups with hold tokens, the barcode routing index, the group read models — everything that spans databases |
 | 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
-| 07c | [Cross-Company Money](stages/STAGE-07c-cross-company-money.md) ◆ | 07, 06c | Capture one receipt, allocate it across companies; inter-company clearing; per-company statements plus a labelled consolidated view |
+| 07c | [Cross-Company Money](stages/STAGE-07c-cross-company-money.md) ◆ | 07, 06d | Capture one receipt, allocate it across companies; inter-company clearing; per-company statements plus a labelled consolidated view |
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
-| 08c | [Cross-Company Availability, Reservations & Split Fulfilment](stages/STAGE-08c-availability-sourcing.md) ◆ | 08, 06c | The reservation ledger, available-to-promise, sourcing across companies without ever going negative, one order → several invoices |
+| 08c | [Cross-Company Availability, Reservations & Split Fulfilment](stages/STAGE-08c-availability-sourcing.md) ◆ | 08, 06d | The reservation ledger, available-to-promise, sourcing across companies without ever going negative, one order → several invoices |
 | 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — API and hardware merged to `main` 2026-08-15; the WPF till screen is deferred with 08b. **REOPENED after the agent reviews of 2026-08-15: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. Eight open defects, see `PROGRESS.md` §4.10–§4.16** |
 | 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
 | 10c | Quotes, Invoices & Sales Analytics | 10, 14, 08c | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it. **Amended (Rev 4):** invoice lines carry and print **pack sizes** (ADR-112), and an order sourced across companies produces one invoice per company (ADR-102) |
@@ -108,9 +110,9 @@ The minimum that makes a business able to trade *and* account for it.
 ## Dependency graph (text)
 
 ```
-00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─ 06c ─ 07c
-                                              │
-        06c ─ 08 ─ 08c ─┬─ 08b ─ 09 ─ 10 ─┬─ 10c ─ 14b
+00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─ 06c ─ 06d ─ 07c
+                                                    │
+        06d ─ 08 ─ 08c ─┬─ 08b ─ 09 ─ 10 ─┬─ 10c ─ 14b
                         │                 └─ 10b
                         └─ 14 ─┬─ 13 ─ 13b
                                ├─ 21 ─ 21b ─ 22
@@ -126,9 +128,10 @@ The minimum that makes a business able to trade *and* account for it.
                         04b ─────────────┘
 ```
 
-**06c is the one that must not be deferred.** Every stage after it writes business tables, and every
-business table needs `company_id` from the moment it is created. Retrofitting a company column across
-forty modules later is the single most expensive mistake available in this plan.
+**06c is the one that must not be deferred.** It changes where every module's `DbContext` comes from.
+Every stage after it writes business tables and opens database connections, and retrofitting
+one-database-per-company across forty modules later is not a refactor, it is a rewrite. 06d follows
+immediately because 07c, 08c, 13b and 14b all dispatch through its saga coordinator.
 
 ## Minimum viable trading system
 
@@ -164,10 +167,12 @@ than a giveaway.
 - **21b after 21.** Vuma Connect is a trading network on top of ecommerce's headless API and Finance's
   posting rules (ADR-056, ADR-057).
 - **31 last.** The DR drill (R4) must exercise a system that is actually complete.
-- **06c before everything that follows it, 07c and 08c straight after.** 06c adds `company_id` to every
-  business table and retrofits the scoping; 07c and 08c are the two group services the later stages
-  consume (money and stock). Doing 06c now costs one stage of retrofit across thirteen shipped ones;
-  doing it after Stage 21 costs a rewrite (ADR-099).
+- **06c and 06d before everything that follows them.** 06c makes each company its own database and
+  routes every context through the registry; 06d builds the saga coordinator, the credit group, the
+  routing index and the group read models that 07c, 08c, 13b and 14b all consume. They are split because
+  06c is plumbing that must be boring and complete before anything interesting sits on it. Doing them now
+  costs two stages of retrofit across thirteen shipped ones; doing them after Stage 21 costs a rewrite
+  (ADR-099, ADR-116).
 - **13b after 14, not after 13.** A consolidated pick wave groups *orders*, and Stage 14 is what makes
   orders exist. Stage 13's `PickTask.OutboundReference` is already the seam; 13b adds the wave builder
   that fills it, and does not fork the pick model.

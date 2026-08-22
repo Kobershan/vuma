@@ -22,12 +22,20 @@ On hand versus available:
 
 Never negative, under concurrency:
 
-- The availability check and the reservation are in one transaction. A check-then-act gap is the defect
-  this area exists to prevent — report it with the interleaving that oversells the last unit.
+- The availability check and the reservation are in one serialisable transaction **inside the owning
+  company's own database**. A check-then-act gap is the defect this area exists to prevent — report it
+  with the interleaving that oversells the last unit.
+- **A plan built from the registry's group projection is never the thing that commits** (ADR-102,
+  ADR-119). Find the re-check. If a sourcing path reserves on the strength of a group read, that is
+  critical: it oversells whenever the projection lags, which is by design and therefore always.
+- The stale-projection test exists — the planner is fed a projection that overstates a company, and the
+  outcome is a backorder, not an oversell.
 - There is a concurrency test against a real database, with genuinely parallel transactions. A
   sequential test named "concurrent" is a finding in itself.
 - A short line backorders; it never allocates against a company or location with nothing (ADR-102).
-- A committed sourcing plan takes every reservation or none.
+- A committed sourcing plan across companies is a saga: one local reservation leg per company,
+  compensated by **release rows** if a later leg fails. No transaction spans two databases, and no
+  compensation deletes anything.
 - The rebuilt availability projection equals the incremental one after a long random sequence — confirm
   that test exists and that its sequence includes releases and expiries, not only reserves.
 

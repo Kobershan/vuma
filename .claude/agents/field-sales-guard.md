@@ -26,9 +26,13 @@ Nothing becomes a document without an approval record:
   ships in a non-test assembly. Each one must go through `IApprovalService`.
 - The rep module implements no approval logic of its own (`CLAUDE.md` §7 rule 13). A local threshold
   check, even a helpful one, is a finding.
-- Approval reserves stock and consumes group credit inside one transaction, or does neither (ADR-108).
-  A partial-failure path that leaves a reservation with no order — or credit consumed with no order — is
-  critical. Report the exact failure point that produces it.
+- Approval is a saga in a fixed order: credit hold in the registry, then one local reservation per
+  sourcing company, then the order, then confirm (ADR-108). A different order is a finding. A
+  partial-failure path that leaves a reservation with no order — or credit consumed with no order — is
+  critical; report the exact failure point that produces it, and check the compensation is a release
+  row rather than a delete.
+- A crashed approval resumes from its intent rather than restarting, and resuming applies each leg
+  exactly once.
 
 What a rep can see:
 

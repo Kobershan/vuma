@@ -156,7 +156,7 @@ mobile access.
 | R8 | **Multi-store, multi-warehouse, multi-currency, multi-tax** from the data model up, even if v1 ships single-store. |
 | R9 | **Licensed SaaS on a recurring subscription.** Mandatory monthly signed licence, hardware-bound activation, entitlement gating, usage metering. A lapsed subscription drops the tenant to **read-only**: full read, report, reprint and export; no writes, including no sales. It must only ever be triggered by a known subscription state after completed dunning — never by a network fault, a vendor-side outage, a single failed charge or a hardware change. See `docs/LICENSING.md`. |
 | R10 | **Telemetry is counts and health only.** No customer names, sales detail, employee data or document content ever leaves a tenant's premises for vendor purposes. Vendor staff have no path to tenant business data without a tenant-granted, time-boxed, audited support grant. |
-| R11 | **Multi-company inside one installation.** A tenant runs several trading companies at once — separate books, stock, document numbering and financial statements — while credit limits, receipting, availability, scanning and reporting work *across* them. One order may be filled from more than one company's stock and split into one invoice per supplying company, and no company is ever drawn negative to do it. See `docs/MULTI_COMPANY.md`. |
+| R11 | **Multi-company, one database each.** A tenant runs several trading companies at once and **each company has its own database** — its own books, stock, numbering, statements, backups and restore. A per-tenant registry database holds only what spans them. Credit limits, receipting, scanning and stock lookup work *across* companies through group read models and sagas; **there is no cross-database transaction anywhere in this product**. One order may be filled from more than one company's stock, shown in one view and split into one invoice per supplying company, saved separately into each company's financials, and no company is ever drawn negative to do it. See `docs/MULTI_COMPANY.md`. |
 | R12 | **Field sales is a proposal, not a commitment.** Reps on the road capture pro forma orders and credit notes against live availability; nothing they capture posts or reserves anything until management approves it, and approval is what creates the document and commits the stock. See `docs/FIELD_SALES.md`. |
 
 ---
@@ -173,7 +173,7 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 | Desktop UI kit | WPF-UI (Fluent) + custom Vuma theme; touch-first POS layouts |
 | Store server | ASP.NET Core 9 Minimal APIs + Windows Service host |
 | Cloud API | ASP.NET Core 9, container-deployable (Docker) |
-| Database | PostgreSQL 16 (store + cloud), schema-per-module |
+| Database | PostgreSQL 16 (store + cloud), schema-per-module, **one database per company plus a per-tenant registry database** (ADR-099). No cross-database transaction, no 2PC, no FDW — cross-company work is a saga (ADR-116) |
 | Terminal-local store | SQLite (`Microsoft.Data.Sqlite`) — offline cache + outbound queue |
 | ORM | EF Core 9 + Npgsql; migrations checked into `src/VumaRetail.Infrastructure/Migrations` |
 | IDs | **UUID v7** everywhere (sortable, offline-safe generation) |
@@ -227,7 +227,7 @@ vuma/
 │   ├── API_CONNECT.md            ← supplier↔retailer trading network contract
 │   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
 │   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
-│   ├── MULTI_COMPANY.md          ← companies, group scope, credit groups, split documents (R11)
+│   ├── MULTI_COMPANY.md          ← database-per-company, registry, sagas, credit groups (R11)
 │   ├── FIELD_SALES.md            ← the rep module: pro formas, approval, performance (R12)
 │   ├── SESSION_KICKOFF.md        ← the one command to start a session
 │   ├── AGENTS.md
@@ -338,10 +338,12 @@ vuma/
     only the documents that connection created. A supplier never writes directly into a retailer's
     data — everything arrives as a proposal the retailer accepts.
 19. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
-20. **Every business row belongs to exactly one company**, and no query reaches another company's data
-    except through `ICompanyDataSource` with an explicit group scope and a permission behind it. No
-    journal, sub-ledger row or document names two companies; value between companies moves through
-    inter-company clearing, both legs, in one transaction (ADR-099, ADR-105).
+20. **One company, one database, one transaction.** No command handler opens a transaction against more
+    than one database — there is an architecture test, and 2PC and FDW are both rejected (ADR-099,
+    ADR-116). Cross-company work is a saga: an immutable intent, idempotent legs keyed by
+    `(intent_id, leg_id)`, compensation by a **new** document, and an alarm on a leg that does not
+    acknowledge. Group read models plan; the owning company's database commits (ADR-119). Every group
+    figure crossing an API boundary carries `AsAt` and discloses a stale contributor.
 21. **`Available`, not `OnHand`, answers "can I sell this".** A reservation reduces available and
     leaves on-hand alone; on-hand changes only when goods physically move. Available may never go
     negative in any company under any interleaving, and every availability figure crossing an API
@@ -369,8 +371,8 @@ vuma/
 - [ ] Module entitlement flag declared in the module manifest and gated through `IEntitlementService`
 - [ ] Usage counters for the module added to the daily metering rollup (counts only, no business data)
 - [ ] Seed/demo data added so the module is demonstrable with `scripts/seed.ps1`
-- [ ] `company_id` on every new business table, with the global filter and no hand-written company
-      filter outside `ICompanyDataSource` (§7 rule 20)
+- [ ] `company_id` on every new business table; no handler touching two databases; any cross-company
+      operation implemented as an idempotent, compensatable saga (§7 rule 20)
 - [ ] The agent panel ran (`docs/AGENTS.md`) and every finding is closed or has a written reason in
       `docs/PROGRESS.md`
 - [ ] `docs/PROGRESS.md` updated, ADRs appended, committed **and pushed**
