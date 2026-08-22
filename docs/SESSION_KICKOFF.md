@@ -17,13 +17,45 @@ Some hosts (headless runs, the web client, an older CLI) do not load project com
 instead — it is the same instruction, compressed:
 
 ```
-Read CLAUDE.md, docs/PROGRESS.md (§1 and §5), docs/ROADMAP.md and docs/DECISIONS.md, then execute
-the next incomplete stage to completion in this session, following the session protocol in
-CLAUDE.md §0. Write the stage document first if docs/stages/ does not have one. Run the agent panel
-from docs/AGENTS.md before committing — architecture-guard, the specialists that apply,
-stage-verifier until PASS or a documented UNVERIFIED, then doc-scribe. Update PROGRESS.md,
-DECISIONS.md and ROADMAP.md, commit as feat(stage-NN): <title>, and push. Do not ask me any
-questions.
+Build one stage of Vuma Retail, start to finish, in this session. Work these phases in order and
+tick each as you go. Never ask me a question — decide, write an ADR, continue. Never leave the repo
+broken. Verify by executing, never by asserting.
+
+1. READ: CLAUDE.md in full. docs/EXECUTION_STANDARD.md in full. docs/PROGRESS.md §1 and §5 (§5 names
+   the stage and wins over everything). docs/ROADMAP.md. docs/DECISIONS.md (LOCKED means settled).
+2. CHOOSE: the first NOT_STARTED/IN_PROGRESS stage whose dependencies are all DONE, unless §5 says
+   otherwise. If a dependency is not DONE, STOP and write why into §5. Say in one line which stage
+   you are building, then continue without waiting.
+3. STAGE DOC: read docs/stages/STAGE-NN-*.md. If it does not exist, write it first to
+   EXECUTION_STANDARD.md Part 1 — every type, file path and test named, every default a number, an
+   ordered checkboxed build list — then commit it. Read everything under its "Reference reading".
+   Branch: git checkout -b stage-NN-<slug>.
+4. BUILD: work the build list in order. For each part — code it, test it, dotnet build -c Release
+   (zero warnings in Domain/Application), dotnet test (all green), tick the box IN the stage
+   document, commit feat(stage-NN): <part>. Do not start the next part until this one is green. Do
+   not add anything the document does not ask for. If document and code disagree, the document wins.
+5. AGENTS: launch architecture-guard, then the specialists for what this stage touched (see
+   docs/AGENTS.md), then stage-verifier until PASS or documented UNVERIFIED. Fix every finding, or
+   write the reason into PROGRESS.md. UNVERIFIED is not PASS. "It builds" is not PASS.
+6. VERIFY BY EXECUTING: state the warning count, the test count, the measured coverage figure; RUN
+   the migration Down then Up; RUN the seed and quote the rows; confirm the endpoints are in
+   openapi/v1.json; confirm a permission test per high-risk operation. Anything you could not run
+   here is "UNVERIFIED — needs <machine>", never ticked.
+7. DOCUMENT: PROGRESS.md §1 row, a session-log entry carrying the evidence above, §4 for defects
+   found, §5 rewritten for the next session. ADRs in DECISIONS.md. ROADMAP.md row. DATA_MODEL.md /
+   SYNC_AND_BACKUP.md / TESTING.md where changed. Tick the exit checklist only where executed.
+8. LAND: commit feat(stage-NN): <stage title>, merge to main if the exit checklist passes, push,
+   then update the parent ecosystem superproject's vuma pointer and push that. Report what shipped,
+   the test count, the coverage, what is UNVERIFIED and where.
+
+GUARDRAILS — check before step 5: company_id on every business table and no handler touching two
+databases; no cross-company operation without RequireLink; Available not OnHand answers "can I sell
+this", and group projections plan while the owning company's database commits; tax per company per
+document, rounded once; no module names a GL account; no module implements its own approval logic;
+every replay path idempotent on a stable key proven by a constraint; a declared permission that
+nothing checks is a defect; stock is never a mutable column; posted documents are immutable; a
+language model classifies and phrases but never computes or reads data; nothing hard-coded that is
+configuration.
 ```
 
 ## Aiming it at something specific
