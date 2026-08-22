@@ -158,6 +158,8 @@ mobile access.
 | R10 | **Telemetry is counts and health only.** No customer names, sales detail, employee data or document content ever leaves a tenant's premises for vendor purposes. Vendor staff have no path to tenant business data without a tenant-granted, time-boxed, audited support grant. |
 | R11 | **Multi-company, one database each.** A tenant runs several trading companies at once and **each company has its own database** — its own books, stock, numbering, statements, backups and restore. A per-tenant registry database holds only what spans them. Credit limits, receipting, scanning and stock lookup work *across* companies through group read models and sagas; **there is no cross-database transaction anywhere in this product**. One order may be filled from more than one company's stock, shown in one view and split into one invoice per supplying company, saved separately into each company's financials, and no company is ever drawn negative to do it. See `docs/MULTI_COMPANY.md`. |
 | R12 | **Field sales is a proposal, not a commitment.** Reps on the road capture pro forma orders and credit notes against live availability; nothing they capture posts or reserves anything until management approves it, and approval is what creates the document and commits the stock. See `docs/FIELD_SALES.md`. |
+| R13 | **Companies link only through the Operator ID, and a shared floor stays separate in the books.** Two companies may share a premises, a shelf, a till and a customer's single payment — but only where they carry the same vendor-issued **Operator ID** and an active, scoped `CompanyLink`, checked at the point of every cross-company operation. A mixed basket produces **one tax invoice per company**, taxed and rounded per company, with a non-fiscal basket summary tying them together. Billing is per company, per named user, per till. See `docs/TRADING_GROUP.md`. |
+| R14 | **The assistant classifies and phrases; it never computes.** The WhatsApp and email assistant takes orders and requests for statements, invoices, PODs and credit notes. Every figure it states comes from an API result — the model classifies intent and phrases a supplied result, and has no data access. Nothing leaves without a tenant-created contact binding and a fresh verification. See `docs/CHATBOT.md`. |
 
 ---
 
@@ -228,7 +230,10 @@ vuma/
 │   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
 │   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
 │   ├── MULTI_COMPANY.md          ← database-per-company, registry, sagas, credit groups (R11)
+│   ├── TRADING_GROUP.md          ← Operator ID, company links, shared floors, mixed baskets (R13)
 │   ├── FIELD_SALES.md            ← the rep module: pro formas, approval, performance (R12)
+│   ├── CHATBOT.md                ← the WhatsApp/email assistant contract (R14)
+│   ├── EXECUTION_STANDARD.md     ← how a stage document is written and executed
 │   ├── SESSION_KICKOFF.md        ← the one command to start a session
 │   ├── AGENTS.md
 │   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
@@ -297,6 +302,9 @@ vuma/
 | **Availability, reservations, cross-company sourcing, split invoicing** | **08c** |
 | **Consolidated picking waves, staging areas, interval counts** | **13b** |
 | **Field sales — the rep module** | **14b** (`docs/FIELD_SALES.md`) |
+| **Trading group: Operator ID, company links, shared premises, cross-company users and tills** | **06e** (`docs/TRADING_GROUP.md`) |
+| **Mixed basket — one till selling for two companies** | **09b** |
+| **Conversational commerce — WhatsApp and email assistant** | **22b** (`docs/CHATBOT.md`) |
 
 ---
 
@@ -351,7 +359,19 @@ vuma/
 22. **A proposal commits nothing.** A pro forma posts nothing and reserves nothing; only an approval
     creates a document, and it reserves stock and consumes credit in one transaction or does neither
     (ADR-107, ADR-108).
-23. **Snapshots, not re-derivations, on documents.** Price, tax, cost, pack size and delivery geography
+23. **No cross-company operation without a link.** Two companies may only interact where they share an
+    Operator ID and hold an `Active` `CompanyLink` carrying the specific scope for that operation, and
+    the check happens **at the point of use**, every time — never only at configuration (ADR-121,
+    ADR-122). An architecture test enumerates every cross-company entry point and asserts each one calls
+    `RequireLink`.
+24. **Tax is computed per company, per document, never on a basket.** Where one transaction produces
+    documents for two companies, each segment prices, taxes and rounds inside its own company's database;
+    the customer-facing total is the sum of rounded segment totals, never the rounding of a sum
+    (ADR-125).
+25. **A language model classifies and phrases; it never computes and never reads data.** Every figure in
+    any generated message comes verbatim from an API result, asserted by a post-check. A model with a
+    repository, a `DbContext` or a tool surface is a defect (ADR-129).
+26. **Snapshots, not re-derivations, on documents.** Price, tax, cost, pack size and delivery geography
     are resolved at capture and stored on the line. A document reprinted a year later shows what was
     actually sold and shipped (ADR-112, ADR-113).
 

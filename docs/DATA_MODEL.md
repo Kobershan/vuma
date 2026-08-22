@@ -128,6 +128,7 @@ the registry database.**
 | `warehouse` | zones, bins, bin stock, putaway, waves, packing, shipments, counts | 13, 13b |
 | `orders` | sales orders, allocations, fulfilments, order returns | 14 |
 | `fieldsales` | reps, territories, targets, pro formas, pro forma credit notes, performance snapshots | 14b |
+| `conversations` | conversation state, turns, bot order drafts (bindings live in the registry) | 22b |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -1197,6 +1198,47 @@ Immutable, carrying both legs and the group document that caused them. `Settled`
 companies acknowledge. Net-zero is proven by a **scheduled reconciliation across the databases**, not by
 a transaction, and a period close refuses over an outstanding intent (ADR-105).
 
+### `registry.operators` (Stage 06e)
+The vendor-issued ownership identity, **projected from the signed licence and never created by a tenant
+command**: `operator_id` (e.g. `OP-4K2X-9QN7`), display name, licence fingerprint, `is_active`. Every
+`registry.companies` row carries `operator_id` (ADR-121).
+
+### `registry.company_links` (Stage 06e)
+`company_a_id`, `company_b_id` (stored smaller-GUID-first so a pair has one row), `operator_id`,
+`scopes` (`[Flags]`: `SharedFloor, SharedTill, SharedCredit, SharedReceipting, SharedSourcing,
+SharedPicking, SharedReporting`), `status` (`Proposed | Accepted | Active | Suspended | Revoked`),
+`accepted_by_a`/`_b` + timestamps + licence fingerprint at acceptance, `effective_from`/`_to`,
+`revoked_reason`. **Unique on `(company_a_id, company_b_id)`. Check constraint: `operator_id` equals both
+companies' `operator_id`** (ADR-121, ADR-122).
+
+### `registry.premises` / `registry.premises_occupancies` / `registry.premises_bin_layouts` (Stage 06e)
+The physical site, the companies occupying it (one store each, that store's row living in its own
+company's database), and the zone/bin layout mastered at the premises and mirrored into each occupant's
+`warehouse` schema. **A quantity never spans companies**; a shelf may hold both companies' goods
+(ADR-124).
+
+### `registry.users` / `registry.user_company_access` (Stage 06e)
+The user directory: one row per human, one login, owned by an `operator_id`. Access grants roles **per
+company**; the JWT carries the companies and the roles in each, and a request naming a company absent
+from the token is 403 (ADR-127). A user may only be granted companies under the same Operator ID.
+
+### `registry.terminals` (Stage 06e)
+Terminal id, `premises_id`, the companies it may sell for, device certificate thumbprint. Selling for a
+sister company requires `SharedTill`, checked per transaction.
+
+### `registry.trading_sessions` / `_segments` / `_lines` / `_tenders` / `_tender_allocations` (Stage 09b)
+The mixed basket. One session per customer visit; **one segment per company**, each pricing, taxing and
+rounding inside its own company's database; lines carry the resolved `company_id` from the routing index
+and a **pack size snapshot**; one tender captured against the session and allocated across segments,
+cent-exact. Completion is a saga producing one tax invoice per company, and is idempotent on the
+session's `idempotency_key` (ADR-125, ADR-126).
+
+### `registry.contact_bindings` (Stage 22b)
+Channel address (E.164 phone or email) → contact → the companies it may reach, with
+`verification_state`, `verified_at`, `consent_state`, `locked_until`. **Created tenant-side only** — never
+by a requester asserting an identity (ADR-130). OTP challenges are stored hashed with a 10-minute expiry
+and a 3-attempt limit.
+
 ### `registry.group_availability` / `registry.group_partner_exposure` / `registry.company_period_figures`
 The group read models. Each row carries the contributing company and its `AsAt`. Planning inputs only —
 no commit is ever decided from one, and a stale contributor is disclosed rather than silently summed
@@ -1355,6 +1397,14 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `ProFormaCreditNote` / `_Line` | Bidirectional | StoreWins | Same. |
 | `RepTarget` | CloudToStore | CloudWins | Targets are set centrally and versioned. |
 | `RepPerformanceSnapshot` | StoreToCloud | AppendOnly | A closed period, immutable. A recomputation is a new version. |
+| `Operator` | CloudToStore | CloudWins | Projected from the signed licence. A store never mints one. Registry. |
+| `CompanyLink` | Bidirectional | CloudWins | Proposed and accepted at either end; the cloud is authoritative on status so a revocation propagates even if one store is offline. Registry. |
+| `Premises` / `PremisesOccupancy` / `PremisesBinLayout` | CloudToStore | CloudWins | Site and layout are head-office data; the mirror into each company's `warehouse` schema is a saga leg, not replication. Registry. |
+| `RegistryUser` / `RegistryUserCompanyAccess` | CloudToStore | CloudWins | The directory and its grants are central; per-company role catalogues stay where Stage 02 put them. Registry. |
+| `RegistryTerminal` | Bidirectional | CloudWins | Registered at a store, entitled centrally. Registry. |
+| `TradingSession` / `_Segment` / `_Line` / `_Tender` | StoreToCloud | AppendOnly | A basket happens at one till. Immutable once completed; a correction is a return. The session id is the replay idempotency key (ADR-125). Registry. |
+| `ContactBinding` | Bidirectional | CloudWins | Created tenant-side, usable at any node; revocation must propagate promptly, so the cloud wins. Registry. |
+| `Conversation` / `ConversationTurn` | StoreToCloud | AppendOnly | Append-only transcript, retained per the tenant's policy. Company database. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

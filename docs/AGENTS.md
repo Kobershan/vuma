@@ -16,6 +16,7 @@ session judging it — the author is the least reliable judge of their own work.
 | `multi-company-guard` | Company scoping, group scope, credit groups, cross-company receipting or payment, inter-company clearing, document splitting, group barcode resolution, consolidated reporting. Every stage from 06c onward that adds a business table. | No — reports only |
 | `field-sales-guard` | Reps, territories, pro forma orders and credit notes, the approval-to-invoice path, rep stock visibility, rep performance reporting. | No — reports only |
 | `stock-availability-guard` | Reservations, available-to-promise, cross-company sourcing, pick waves, staging areas, stock location state, cycle and interval counts. | No — reports only |
+| `conversation-safety` | The WhatsApp/email assistant: inbound messages, intent classification, reply composition, contact bindings and OTP, document delivery links, bot-placed orders. | No — reports only |
 | `doc-scribe` | End of a stage, or when context runs low and the session must stop cleanly. | Docs only, never source |
 
 ## How the main session uses them
@@ -36,6 +37,7 @@ Recommended end-of-stage sequence:
       multi-company-guard       company scoping, group credit, cross-company money, split documents
       field-sales-guard         reps, pro formas, approval-to-invoice, rep performance
       stock-availability-guard  reservations, availability, staging states, waves, counts
+      conversation-safety       the assistant: invented figures, identity, injection, consent
 4. stage-verifier              → fix failures, re-run until PASS or documented UNVERIFIED
 5. doc-scribe                  → PROGRESS.md handoff + ADRs
 6. commit:  feat(stage-NN): <stage title>   then push
@@ -61,18 +63,22 @@ is not DONE — see `PROGRESS.md` §4.17, which is the standing record of what s
 
 ## Which specialists a stage actually needs
 
-Running all six specialists on every stage wastes context and dulls the reports. Run the ones whose
+Running all seven specialists on every stage wastes context and dulls the reports. Run the ones whose
 subject the stage touched — and when in doubt, run it. The mapping for the stages currently planned:
 
 | Stage | Specialists |
 |---|---|
-| 06c multi-company core | `multi-company-guard`, `architecture-guard` |
+| 06c multi-company foundation | `multi-company-guard`, `architecture-guard`, `sync-and-offline` |
+| 06d group services | `multi-company-guard`, `money-and-tax` (credit exposure) |
+| 06e trading group | `multi-company-guard`, `licence-safety`, `architecture-guard` |
 | 07c cross-company money | `multi-company-guard`, `money-and-tax` |
 | 08c availability & sourcing | `stock-availability-guard`, `multi-company-guard` |
 | 10c quotes & invoices | `money-and-tax`, `multi-company-guard` |
 | 13b picking waves & staging | `stock-availability-guard`, `sync-and-offline` |
 | 14 order management | `stock-availability-guard`, `money-and-tax`, `sync-and-offline` |
+| 09b mixed basket | `money-and-tax` (per-segment tax and rounding), `multi-company-guard`, `stock-availability-guard`, `sync-and-offline` |
 | 14b field sales | `field-sales-guard`, `stock-availability-guard`, `multi-company-guard`, `money-and-tax`, `sync-and-offline` |
+| 22b conversational commerce | `conversation-safety`, `multi-company-guard`, `licence-safety` |
 
 ## Adding an agent
 

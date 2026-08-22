@@ -1,9 +1,9 @@
 # ROADMAP — Vuma Retail
 
-43 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
+46 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
 green build with the work demonstrable. Close the chat, open a new one, repeat.
 
-> **Revision 4 (2026-08-22).** Six stages were inserted — **06c**, **06d**, **07c**, **08c**, **13b** and
+> **Revision 4 (2026-08-22).** Nine stages were inserted — **06c**, **06d**, **07c**, **08c**, **13b** and
 > **14b** — for multi-company operation, cross-company money, availability and reservations, consolidated
 > picking, and the field-sales (rep) module. **Each company gets its own database** (ADR-099, revised the
 > same day at the operator's instruction after the first form of that ADR proposed logical separation). Stages **10c** and **14** were amended rather than
@@ -46,12 +46,14 @@ The minimum that makes a business able to trade *and* account for it.
 | 06 | Master Data | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
 | 06c | [Multi-Company Foundation](stages/STAGE-06c-multi-company.md) ◆ | 01, 04, 06, 07 | **One database per company** plus a tenant registry: connection routing, provisioning lifecycle, migration fan-out, per-database backup and sync |
 | 06d | [Group Services](stages/STAGE-06d-group-services.md) ◆ | 06c | The saga coordinator, credit groups with hold tokens, the barcode routing index, the group read models — everything that spans databases |
+| 06e | [Trading Group](stages/STAGE-06e-trading-group.md) ◆ | 04b, 06c, 06d | **The Operator ID and the company link** — which companies may cooperate at all, scoped and checked at every point of use; shared premises; cross-company users and tills; the billing dimensions |
 | 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
 | 07c | [Cross-Company Money](stages/STAGE-07c-cross-company-money.md) ◆ | 07, 06d | Capture one receipt, allocate it across companies; inter-company clearing; per-company statements plus a labelled consolidated view |
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
 | 08c | [Cross-Company Availability, Reservations & Split Fulfilment](stages/STAGE-08c-availability-sourcing.md) ◆ | 08, 06d | The reservation ledger, available-to-promise, sourcing across companies without ever going negative, one order → several invoices |
 | 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — API and hardware merged to `main` 2026-08-15; the WPF till screen is deferred with 08b. **REOPENED after the agent reviews of 2026-08-15: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. Eight open defects, see `PROGRESS.md` §4.10–§4.16** |
+| 09b | [The Mixed Basket](stages/STAGE-09b-mixed-basket.md) ◆ | 09, 06e, 07c, 08c, 10c | One till, one customer, two companies' goods → **one tax invoice per company**, taxed and rounded per company, one payment allocated across them, one non-fiscal basket summary |
 | 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
 | 10c | Quotes, Invoices & Sales Analytics | 10, 14, 08c | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it. **Amended (Rev 4):** invoice lines carry and print **pack sizes** (ADR-112), and an order sourced across companies produces one invoice per company (ADR-102) |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
@@ -80,6 +82,7 @@ The minimum that makes a business able to trade *and* account for it.
 | 21 | Ecommerce, Storefront API & Channels ★ | 14, 20 | Headless commerce API, PIM content, marketplace and EDI connectors |
 | 21b | [Vuma Connect: Supplier Network & B2B](stages/STAGE-21b-vuma-connect.md) ★ | 12, 14, 21, 07 | Suppliers publish prices, retailers order and pay in-app — the ecosystem |
 | 22 | Marketing Automation | 19 | Campaigns, journeys, email/SMS/WhatsApp, specials targeting, attribution |
+| 22b | [Conversational Commerce](stages/STAGE-22b-conversational-commerce.md) ◆ | 22, 19, 14b, 10c, 07, 24 | The **WhatsApp and email assistant**: takes orders, sends statements, invoice copies, PODs and credit notes. Six intents, verified identity, and a model that classifies and phrases but never computes |
 | 23 | Service Management | 14 | Tickets, repairs/RMA, warranties, SLAs, service jobs and parts |
 | 24 | Logistics Management | 14, 13 | Shipments, carriers, routes, delivery runs, PODs, tracking |
 
@@ -103,29 +106,35 @@ The minimum that makes a business able to trade *and* account for it.
 
 ★ = added in the Revision 3 gap-closing pass (ADR-055 – ADR-059).
 
-◆ = added in Revision 4, 2026-08-22 (ADR-099 – ADR-115) — multi-company operation and field sales.
+◆ = added in Revision 4, 2026-08-22 (ADR-099 – ADR-133) — multi-company operation, the trading group and
+shared floors, field sales, and the conversational assistant.
 
 ---
 
 ## Dependency graph (text)
 
 ```
-00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─ 06c ─ 06d ─ 07c
-                                                    │
-        06d ─ 08 ─ 08c ─┬─ 08b ─ 09 ─ 10 ─┬─ 10c ─ 14b
-                        │                 └─ 10b
-                        └─ 14 ─┬─ 13 ─ 13b
-                               ├─ 21 ─ 21b ─ 22
-                               ├─ 23
-                               └─ 24
+00 ─ 01 ─ 02 ─ 03 ─ 04 ─ 04b ─ 05 ─ 06 ─ 07 ─ 06c ─ 06d ─┬─ 06e ─┐
+                                                           └─ 07c  │
+                                                                   │
+   06d ─ 08 ─ 08c ─┬─ 08b ─ 09 ──────────────┬─ 09b ◄────────────────┘
+                   │                         │   ▲
+                   │           09 ─ 10 ─┬─ 10c ───┘
+                   │                    └─ 10b
+                   └─ 14 ─┬─ 13 ─ 13b
+                          ├─ 10c ─ 14b
+                          ├─ 21 ─ 21b ─ 22 ─ 22b ◄─ 24
+                          ├─ 23
+                          └─ 24
    08 ─┬─ 12 ─ 15
        ├─ 11 ─ 12
        ├─ 16 ─ 17 ─ 18
-       ├─ 19 ─ 20 ─ 21
+       ├─ 19 ─ 20 ─ 21 ─ 22b
        └─ 27, 28
                             02 ─ 25 ─ 26
               (all modules) ─ 29 ─ 30 ─ 30b ─ 31
-                        04b ─────────────┘
+                        04b ─┬───────────┘
+                             └─ 06e
 ```
 
 **06c is the one that must not be deferred.** It changes where every module's `DbContext` comes from.
@@ -176,6 +185,17 @@ than a giveaway.
 - **13b after 14, not after 13.** A consolidated pick wave groups *orders*, and Stage 14 is what makes
   orders exist. Stage 13's `PickTask.OutboundReference` is already the seam; 13b adds the wave builder
   that fills it, and does not fork the pick model.
+- **06e straight after 06d, and before anything that trades across companies.** 06d gives companies the
+  ability to cooperate; 06e decides which ones are *allowed* to, and wires the check into every
+  cross-company entry point. Building 07c, 08c, 13b or 14b before it means retrofitting a permission
+  check into paths that already work without one — which is how a check gets missed (ADR-122).
+- **09b needs Stage 09's open defects fixed first.** The mixed basket doubles the blast radius of
+  §4.11's non-idempotent replay: one bad replay becomes two companies' books wrong instead of one. The
+  stage document says so in its first build-list item.
+- **22b after 22, and it contains no transport of its own.** Stage 22 already builds WhatsApp and email
+  sending, templates and opt-out. A second sender would mean two opt-out lists and a customer who
+  unsubscribed from one but not the other (ADR-132). If 24 has not landed, 22b ships every intent except
+  POD and records the deferral.
 - **14b last of the new five.** The rep module is a thin, high-value layer over 08c's availability,
   14's orders, 10c's invoices and 05's approvals. Built before them it would have to fake all four.
 - **10c and 14 are amended, not renumbered.** Pack size on the invoice, COD on the order, geography on

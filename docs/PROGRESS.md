@@ -3,13 +3,14 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-22 · **Planning revision 4 filed this session, then revised the same day — no
-code changed.** Six stages inserted (06c, 06d, 07c, 08c, 13b, 14b), two amended (10c, 14), twenty-two
-ADRs appended (ADR-099 – ADR-120), two reference documents written (`MULTI_COMPANY.md`,
-`FIELD_SALES.md`), three review agents added, and the session kickoff reduced to one command
-(`/next-stage`). **ADR-099 was rewritten within the session at the operator's instruction: each company
-gets its own physical database.** See the two 2026-08-22 session-log entries — read the second one
-first. **Nothing below about Stages 09–13 has changed.**
+**Last updated:** 2026-08-22 · **Planning revision 4, in three passes, all the same day — no code
+changed.** Nine stages inserted (06c, 06d, 06e, 07c, 08c, 09b, 13b, 14b, 22b), two amended (10c, 14),
+thirty-five ADRs appended (ADR-099 – ADR-133), five reference documents written (`MULTI_COMPANY.md`,
+`TRADING_GROUP.md`, `FIELD_SALES.md`, `CHATBOT.md`, `EXECUTION_STANDARD.md`), four review agents added,
+and the session kickoff reduced to one command (`/next-stage`). **Read the three 2026-08-22 session-log
+entries newest-first** — pass 2 reversed pass 1's ADR-099 (each company gets its own physical database),
+and pass 3 added the trading group, the mixed basket and the assistant. **Nothing below about Stages
+09–13 has changed.**
 
 **Previously — last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
@@ -59,12 +60,14 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
 | 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099, ADR-116 – ADR-120). **Do this before anything else is built.** It changes where every module's `DbContext` comes from; retrofitting it later is a rewrite, not a refactor | — |
 | 06d | Group services — saga coordinator, credit groups with hold tokens, barcode routing index, group read models | **NOT_STARTED** — added 2026-08-22 (ADR-100, ADR-101, ADR-116, ADR-119). Split from 06c: 06c is plumbing, this is everything that spans databases, and 07c/08c/13b/14b all dispatch through it | — |
+| 06e | Trading group — Operator ID, company links and scopes, shared premises, cross-company users and tills, billing dimensions | **NOT_STARTED** — added 2026-08-22 (R13, ADR-121 – ADR-124, ADR-127). **Build it before 07c, 08c, 13b or 14b**: it wires the link check into every cross-company entry point, and retrofitting a permission check into paths that already work without one is how a check gets missed | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
 | 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
+| 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) — 930 tests green, 83.14% coverage on the stage's Domain + Application, migration reversible, seeded store has really refunded. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
@@ -73,6 +76,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 13b | Consolidated picking waves, staging states & interval counts | **NOT_STARTED** — added 2026-08-22 (ADR-113 – ADR-115). Depends on 14, not on 13 alone: a wave groups orders | — |
 | 14 | Order management — omnichannel orders, allocation, backorders, click & collect, returns | **IN_PROGRESS** — branch `stage-14-order-management`, stage document written 2026-08-19. **Amended 2026-08-22**: COD terms (ADR-111), geography snapshot (ADR-113), reservations through 08c (ADR-103) | 2026-08-22 |
 | 14b | Field sales — the rep module | **NOT_STARTED** — added 2026-08-22 (R12, ADR-107 – ADR-110) | — |
+| 22b | Conversational commerce — the WhatsApp and email assistant | **NOT_STARTED** — added 2026-08-22 (R14, ADR-129 – ADR-132). Needs 22's transport; ships without POD if 24 has not landed | — |
 | 15 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main` this session** — see the 2026-08-15
@@ -627,6 +631,75 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-22 (pass 3) — the trading group, the mixed basket, the assistant, and a documentation standard
+
+Three things the operator added, and one thing they said about how this repository is built.
+
+**1. Shared floors, and the ID that makes linking possible.** Siyaya Cash and Carry holds Noortgats
+Hardware's stock on its own shelves. A customer brings a mixed basket to one till; it scans as one basket
+and must invoice and account as two companies. The operator's requirement for the linking mechanism was
+explicit: *"some sort of ID to say which companies belong together — like a user ID… they can't be linked
+without this user ID."*
+
+That is now the **Operator ID** (ADR-121): vendor-minted, **signed into the monthly licence**, projected
+into `registry.operators`, and impossible to set from any tenant-side command. A `CompanyLink` may only
+exist between companies whose `operator_id` is identical — enforced in the aggregate *and* by a database
+check constraint. Links are **scoped** (`SharedFloor`, `SharedTill`, `SharedCredit`, `SharedReceipting`,
+`SharedSourcing`, `SharedPicking`, `SharedReporting`), mutually accepted, revocable, and **checked at the
+point of use, every time** (ADR-122). `docs/TRADING_GROUP.md` §2 has the table of which operation checks
+which scope, and Stage 06e's build list part E7 is an architecture test that enumerates every
+cross-company entry point and asserts each one calls `RequireLink` — so the *next* stage cannot add an
+unguarded one quietly.
+
+This also answers the commercial half: metering is **company × named user × till** (ADR-123), a user or
+till entitled for two companies counts once in each, and a lapsed company drops out of its links for
+writes without taking the shared floor down.
+
+**2. The mixed basket — Stage 09b, and the sharpest arithmetic in the product.** One session, one segment
+per company, and **tax computed per segment, never on the basket** (ADR-125). Each company prices,
+discounts, taxes and rounds inside its own database; the customer-facing total is the sum of rounded
+segment totals, never the rounding of a sum. Two complete tax invoices, each valid standing alone, plus a
+**basket summary that states on its face that it is not a tax invoice**. The single tender is allocated
+across segments through the group receipt machinery rather than a parallel path (ADR-126) — a
+mixed-basket payment *is* a group receipt whose legs are immediate. Returns credit the origin invoice's
+company (ADR-128); there is no cross-company credit note, ever.
+
+**09b is blocked behind Stage 09's §4.11 defect and its stage document says so as build-list item A1.**
+A non-idempotent replay currently corrupts one company's books; through a mixed basket it corrupts two.
+
+**3. The assistant — Stage 22b.** WhatsApp and email, six intents: place an order, order status,
+statement, invoice copy, POD, credit-note request. Two rules carry the stage. **The model classifies and
+phrases; it never computes and never touches data** (ADR-129) — `IIntentClassifier` and `IReplyComposer`
+have no repository, no `DbContext`, no tool surface, and a post-check asserts every number and date in
+outbound text appears verbatim in the API result, falling back to a template when it does not. And
+**nothing leaves without a tenant-created contact binding and a fresh OTP** (ADR-130); an unbound sender
+gets onboarding and not even a confirmation that the number matches an account. Bot orders land as pro
+formas awaiting approval (ADR-131) — the same path as a rep's. Transport is Stage 22's; a second WhatsApp
+or SMTP client in 22b is a review finding (ADR-132).
+
+**4. The documentation standard, because Sonnet executes these stages.** The operator's point:
+*"docs should be very detailed as Sonnet will be running the Claude Code, not Opus."* Correct, and the
+existing stage documents were written for a reader who would fill gaps with judgement.
+`docs/EXECUTION_STANDARD.md` now defines the standard (ADR-133): eight required sections, **every type,
+file path and test named**, every default given as a number, acceptance written as concrete inputs and
+expected outputs, an ordered checkboxed build list whose parts each compile and commit alone, an explicit
+"what this stage does not own", and no sentence containing "decide whether". Part 2 is the executing
+session's working method — tick the list as you go, build and test after every part, verify by executing
+rather than asserting. Part 3 lists the ten mistakes this repository has actually made, drawn from §4.
+
+`STAGE-06e-trading-group.md`, `STAGE-09b-mixed-basket.md` and `STAGE-22b-conversational-commerce.md` are
+written to that standard and are the worked examples alongside Stage 14's.
+
+**Also filed:** `conversation-safety` (the fifth new agent, and the only one whose whole brief is one
+stage), `CLAUDE.md` R13 and R14 plus §7 rules 23–25, `docs/DATA_MODEL.md` registry tables for links,
+premises, users, terminals, trading sessions and contact bindings with nine new replication rows,
+`docs/ROADMAP.md` revision-4 header, three stage rows, a redrawn graph and three ordering notes, and
+`/next-stage` now points the session at the execution standard before it writes or builds anything.
+
+**What this session did not do.** No code. Still no agent panel against Stages 10–13 (§4.17) — and the
+argument for running it first is now stronger again, because 06c through 06e will touch every table those
+stages created.
 
 ### 2026-08-22 (later) — ADR-099 reversed by the operator: each company gets its own physical database
 
@@ -2301,7 +2374,23 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-22 (planning revision 4, as revised): read this first.**
+**Update, 2026-08-22 (planning revision 4, pass 3): read this first.**
+
+Three passes in one day. Pass 1 planned multi-company and field sales; pass 2 reversed its ADR-099 to
+one database per company; pass 3 added the trading group (Operator ID and company links), the mixed
+basket, the conversational assistant, and `docs/EXECUTION_STANDARD.md`. **Read
+`docs/EXECUTION_STANDARD.md` before writing or executing any stage document** — it is the standard every
+new stage document conforms to, and Part 3 is the list of mistakes this repository has already made.
+
+**The order that matters most:** 06c (databases) → 06d (group services) → **06e (who may link at all)** →
+then everything else. 06e wires the link check into every cross-company entry point. Every stage built
+before it would have to have the check retrofitted, and a retrofitted check is a missed check.
+
+**Do not start 09b until Stage 09's §4.11 replay defect is fixed.** It is item A1 of that stage's build
+list for a reason: the defect currently corrupts one company's books and through a mixed basket would
+corrupt two.
+
+
 
 No code changed this session. The plan did — six stages inserted, two amended, ADR-099 – ADR-120
 appended, `MULTI_COMPANY.md` and `FIELD_SALES.md` written, three agents added, `/next-stage` created.

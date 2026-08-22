@@ -1850,3 +1850,185 @@ length. The DR drill in Stage 31 grows a case it did not have: restore one compa
 outstanding legs, and prove the group reconciles afterwards. Backup volume and scheduling scale with
 company count, and the registry is the one database whose loss is disproportionate — it is snapshotted
 more often than the companies it points at.
+
+## ADR-121 — The Operator ID is issued in the licence and is the only thing that can link two companies — **PROPOSED**
+**Context.** Two companies sharing a floor, a till, a credit limit and a customer's payment is a powerful
+arrangement, and a dangerous one if anything can be linked to anything. Two unrelated businesses on one
+server must not be able to see each other's stock, share a credit facility or issue each other's
+invoices — whatever a misconfiguration, a support session or a malicious admin attempts. Something above
+the tenant has to say which companies belong together.
+**Decision.** The **Operator ID** — the operator's own words were "like a user ID" — is minted by the
+vendor control plane (Stage 30b) and **signed into the monthly licence** (Stage 04b). Every company is
+provisioned under exactly one Operator ID. A `CompanyLink` may only exist between two companies whose
+`operator_id` is identical, enforced in the aggregate **and** by a database check constraint, and the
+Operator ID cannot be set by any tenant-side command — it is projected from the signed licence.
+**Consequences.** Linking becomes a commercial fact rather than a configuration option, which is what
+makes it safe: the vendor knows who owns what, bills accordingly, and can revoke. One tenant may hold
+several Operator IDs — a bookkeeper running two clients on one box — and those clients can never be
+linked, no matter what anyone configures. The cost is that changing ownership of a company is a
+vendor-side operation, not a checkbox; that is the correct place for it.
+
+## ADR-122 — A company link is mutual, scoped, revocable, and checked at the point of use — **PROPOSED**
+**Context.** "These two companies are linked" is too coarse. Siyaya and Noortgats share a floor and a
+till; Siyaya and Siyaya DC share a credit limit but not a shelf. And a link checked only when it is
+created keeps granting access after it is suspended.
+**Decision.** `CompanyLink` carries a `[Flags]` scope set — `SharedFloor`, `SharedTill`, `SharedCredit`,
+`SharedReceipting`, `SharedSourcing`, `SharedPicking`, `SharedReporting` — and a status machine
+(`Proposed → Accepted → Active → Suspended → Revoked`) in which both companies must accept. **Every
+cross-company operation calls `ICompanyLinkService.RequireLink(a, b, scope)` at the moment it runs**, and
+an architecture test enumerates every cross-company entry point and asserts each one does. Revocation
+does not touch documents already created; history stands.
+**Consequences.** The blast radius of a mistaken link is exactly one scope, and suspending a link stops
+new activity within a cache-invalidation window rather than at the next restart. The enumerating
+architecture test is the load-bearing part — without it, the next stage adds an entry point and nobody
+notices the missing check until a customer does.
+
+## ADR-123 — Metering is company × named user × till, and a lapsed company drops out of links for writes — **PROPOSED**
+**Context.** The operator's commercial model is "pay per company, per user and per till". Linked
+companies must not create a way to run six companies' worth of business on one company's licence, and a
+single company falling behind on payment must not take a shared floor down with it.
+**Decision.** Three metered dimensions with three entitlements: `MaxCompanies`, `MaxUsersPerCompany`,
+`MaxTillsPerCompany` (plus `MaxActiveLinks`). A user or till entitled for two companies counts **once in
+each**, stated that way on the invoice rather than discovered. Exceeding an entitlement blocks the new
+grant with a named error and never disables what already exists. A company whose subscription has lapsed
+to read-only (ADR-028) **drops out of every link for writes**: a sister till cannot sell its stock, and
+the refusal names the lapse rather than the link. Its own reads, reprints and exports continue.
+**Consequences.** The commercial model survives linking, and the failure is proportionate: one company's
+billing problem stops that company trading, not the shop. Metering stays counts-only (R10) — company
+count, user count, till count, link count, and nothing about turnover.
+
+## ADR-124 — A premises is registry data; a shared floor is many companies' stores at one site — **PROPOSED**
+**Context.** Siyaya's and Noortgats' goods sit on the same shelves. A store belongs to exactly one company
+(and lives in that company's database), so nothing in the model could express "one building, two
+companies" — and a bin code had to mean the same physical shelf to both.
+**Decision.** `registry.premises` is the physical site. `registry.premises_occupancies` names one store
+per occupying company. The **zone and bin layout is mastered at the premises** and mirrored into each
+occupying company's `warehouse` schema, so Stage 13's bins, putaway and pick tasks work unchanged and a
+bin code is unambiguous. **A quantity never spans companies** — a shelf may hold both companies' goods;
+a stock figure belongs to exactly one. Holding a sister company's stock at a premises requires
+`SharedFloor`.
+**Consequences.** One walk of the aisle can pick, count or putaway for two companies while every quantity
+stays in its own database and its own books. The mirror is a saga leg, so a layout change is eventually
+consistent across occupants; a bin created seconds ago in the master may not exist yet in one company,
+which fails clearly rather than silently mis-shelving.
+
+## ADR-125 — A mixed basket is a trading session of per-company segments; tax is computed per segment — **PROPOSED**
+**Context.** One customer, one till, one payment, two companies' goods. A single document is not legally
+possible — each company must issue its own tax invoice under its own VAT number — and computing VAT on
+the basket total then splitting it produces a different, wrong number on both invoices.
+**Decision.** `TradingSession` holds one `TradingSessionSegment` per company. **Each segment prices,
+discounts, taxes and rounds entirely inside its own company's database**; the basket total is the sum of
+rounded segment totals, never the rounding of a sum. Promotions apply within a segment only. Completion
+produces one complete, independent tax invoice per company, plus a **basket summary** that carries both
+invoice numbers and states on its face that it is not a tax invoice.
+**Consequences.** Both invoices are legally valid standing alone, and the customer still gets one piece
+of paper with one total. The rounding rule is the sharp edge: it is asserted by a test that names the
+wrong alternative in a comment, because "simplifying" it back is exactly the kind of tidy-up a later
+session would attempt.
+
+## ADR-126 — A mixed-basket tender is a group receipt whose legs are immediate — **PROPOSED**
+**Context.** The customer pays R2 113.00 once, and two companies must each record their share. Stage 07c
+already built exactly this — capture once, allocate across companies, post per company — for accounts
+receivable.
+**Decision.** The till's tender allocation **reuses the group receipt machinery** rather than growing a
+parallel one: one captured tender, an allocation per segment (proportional by segment total by default,
+cashier-overridable, cent-exact with the remainder cent deterministically to the largest segment), each
+allocation posting an `finance.ar_receipt` inside its own company's database as a saga leg.
+**Consequences.** One implementation of "money captured once, allocated across companies", one set of
+reconciliation reports, one place to fix a bug. The difference from a back-office group receipt is only
+that the legs are dispatched immediately and the session waits for them — which the saga coordinator
+already supports. Cash-up therefore reports per company as well as in total: one drawer, reconciled once,
+accountability split.
+
+## ADR-127 — Users are mastered in the registry; roles are per company; the token carries both — **PROPOSED**
+**Context.** One person works at a shared floor and must act in two companies without two logins — while
+a role in one company must confer nothing in the other, and identity is currently per company database.
+**Decision.** `registry.users` is the directory: one row per human, one login, owned by an Operator ID.
+`registry.user_company_access` grants roles **per company**. The access token carries the companies the
+user may act in and their roles in each; a request naming a company absent from the token is **403**, not
+a filtered result. A user may only be granted companies under the same Operator ID.
+**Consequences.** One login, correct separation, and an authorisation failure that is honest rather than
+one that pretends the data does not exist. Per-company role catalogues stay where they are (Stage 02);
+what moved is the directory and the grant. Token size grows with company count, which is bounded by the
+`MaxCompanies` entitlement and is not a practical concern at the scales this product targets.
+
+## ADR-128 — A return from a mixed basket credits the origin invoice's company — **PROPOSED**
+**Context.** A customer returns a hot plate and a bag of maize from one basket. The hot plate was
+Noortgats', the maize was Siyaya's. A single credit note would have to span two companies' books.
+**Decision.** A mixed-basket return splits by origin: one credit note per company, each against **that
+company's own original invoice**, through Stage 10's existing credit-note path. Attempting to credit a
+line against another company's invoice is refused, with both invoice numbers named in the error. There is
+no cross-company credit note, in any circumstance.
+**Consequences.** The customer hands back one bag of goods and receives two credit notes, which is what
+the law requires and what the books require. The refusal message names both invoices because the person
+hitting it is a cashier who needs to know which document to use, not a developer.
+
+## ADR-129 — The assistant classifies and phrases; it never computes — **PROPOSED**
+**Context.** A conversational assistant that can state a balance, a price or a stock figure is one
+hallucination away from telling a customer they owe R4 000 when they owe R40 000. This product's entire
+value is that its numbers are right.
+**Decision.** The model does exactly two jobs, behind two interfaces: `IIntentClassifier` (message text →
+one of six intents + entities + confidence) and `IReplyComposer` (a strict result DTO → prose). **Neither
+has data access, tools, or a repository.** Every figure, document, date and balance comes from an API
+result, and a post-check asserts that every number and date in composed output appears **verbatim** in
+the source DTO — a mismatch falls back to a templated reply and logs a defect. Below a confidence
+threshold (default 0.7) the bot shows a keyword menu instead of guessing. If the model provider is
+unavailable, the keyword menu is the whole product and it still works.
+**Consequences.** The assistant cannot invent a number, and the property test that proves it is the
+stage's most important test. The trade is a narrower, more mechanical assistant than a general model
+would give — which is the correct trade for something that speaks to customers about money.
+
+## ADR-130 — A conversational requester is bound and verified before anything leaves — **PROPOSED**
+**Context.** Statements, PODs and invoices are exactly the documents an attacker wants, and WhatsApp
+numbers and email addresses are trivially claimed. "I'm Mkhize Spaza, send my statement" must never work.
+**Decision.** A `ContactBinding` is created **by the tenant**, from inside the product, against a specific
+contact of a specific customer in a specific company — never by the requester asserting an identity. An
+unbound sender receives an onboarding message and no data, and specifically no confirmation that any
+account matches the number. Sensitive intents require a **fresh OTP** (valid 10 minutes; re-required after
+24 hours of inactivity; three attempts then lockout and a tenant notification). Documents are delivered as
+**short-lived signed links** (24 hours, revocable, every fetch audited) rather than as unauthenticated
+attachments, unless the tenant chooses otherwise per channel. Scoping is structural: an intent handler's
+query cannot express another contact's account.
+**Consequences.** Identity failures stop the conversation rather than degrading gracefully, which is the
+one place in this product where a hard failure is the friendly behaviour. Rate limits, lockout and the
+audit trail make an attack visible to the tenant rather than silent.
+
+## ADR-131 — A bot order lands as a pro forma requiring approval unless the customer is allow-listed — **PROPOSED**
+**Context.** An order placed over WhatsApp by a customer is the same thing a rep captures on the road: a
+proposal from outside the business, at prices and quantities nobody has checked, possibly against an
+exhausted credit limit.
+**Decision.** A bot order creates a Stage 14b `ProFormaOrder` and goes through the same approval path
+(ADR-107, ADR-108). It posts nothing and reserves nothing until approved. A tenant may allow-list an
+individual customer for straight-through ordering; that setting is per customer, off by default, and
+audited. The customer is told, in the confirmation, that the order awaits approval.
+**Consequences.** One approval path for every proposal channel — rep, bot, and any later one — instead of
+a second, weaker one for the channel with the least verification. A tenant who wants speed for a trusted
+customer can have it, deliberately and visibly.
+
+## ADR-132 — The assistant owns conversation state; Stage 22 owns transport — **PROPOSED**
+**Context.** Stage 22 (marketing automation) already builds WhatsApp and email sending, templates,
+opt-out and deliverability. A conversational stage that builds its own would produce two senders, two
+opt-out lists and a customer who unsubscribed from one but not the other.
+**Decision.** Stage 22b contains **no** WhatsApp client and **no** SMTP client. It owns conversation
+state, intent handling and document assembly, and sends through Stage 22's transport. Consent is checked
+against Stage 22's opt-out state before every outbound message, and `STOP` on either path stops both.
+**Consequences.** One opt-out list, one deliverability reputation, one place where WhatsApp's 24-hour
+service window and template rules are implemented. If the transport lacks something the assistant needs,
+it is extended in Stage 22 rather than worked around in 22b — and a second client appearing in 22b is a
+review finding, not a shortcut.
+
+## ADR-133 — Stage documents are written to be executed by a smaller model — **PROPOSED**
+**Context.** The sessions that build this product are not always the model that planned it. A stage
+document that leaves a choice open gets a different choice each time it is read, and the cost surfaces two
+stages later as an inconsistency nobody can attribute.
+**Decision.** `docs/EXECUTION_STANDARD.md` defines the standard, and every stage document from here on
+conforms: eight required sections; **every type, file path and test named**; every default, timeout,
+expiry and tolerance given as a number; acceptance criteria written as concrete inputs and expected
+outputs; an ordered, checkboxed build list whose parts each compile and commit on their own; and an
+explicit "what this stage does not own". A document containing the words "decide whether" is unfinished.
+Where two designs were considered, the ADR records the rejected one and the stage document carries only
+the winner.
+**Consequences.** Stage documents are longer and take longer to write, and they are executed the same way
+by any session. The standard also makes review cheap: a reviewer checks the built code against named
+types and named tests rather than against an interpretation. `STAGE-14-order-management.md` and
+`STAGE-06e-trading-group.md` are the worked examples.

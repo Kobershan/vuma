@@ -10,13 +10,18 @@ anything — decide, record the decision as an ADR, and carry on (`CLAUDE.md` §
 Read, in this order, before touching code:
 
 1. `CLAUDE.md` — the contract, in full
+1b. `docs/EXECUTION_STANDARD.md` — how a stage document is written and how you execute one. Part 2 is
+    your working method; Part 3 is the ten mistakes this repository has already made
 2. `docs/PROGRESS.md` §1 (stage status) and §5 (next session starts here) — **§5 names the stage; it
    wins over any other source**
 3. `docs/ROADMAP.md` — dependencies and the stage's place in the plan
 4. `docs/DECISIONS.md` — LOCKED decisions. Never re-litigate one; supersede it with a new ADR or
    conform to it
 5. `docs/stages/STAGE-NN-*.md` for the stage you are about to build. **If it does not exist, write it
-   first** — objective, deliverables, business rules, tests/acceptance, exit checklist — then build it
+   first, to `docs/EXECUTION_STANDARD.md` Part 1** — eight sections, every type and file path named,
+   every default given as a number, an ordered checkboxed build list, concrete acceptance scenarios —
+   then build it. `STAGE-06e-trading-group.md` and `STAGE-14-order-management.md` are the worked
+   examples
 6. Whatever that stage lists under "Reference reading"
 
 ## 2. Pick the stage
@@ -33,6 +38,16 @@ seed data, permissions, sync registration, posting rules, approval policies, ent
 metering counters. `CLAUDE.md` §8 is the bar. Commit at green checkpoints as you go — never leave the
 repo non-compiling.
 
+**Tick the build list in the stage document as you go**, not at the end. Run
+`dotnet build -c Release` and `dotnet test` after every part. Where the document and the code disagree,
+the document wins — unless the document is wrong, in which case fix it in the same commit and say so in
+`PROGRESS.md`.
+
+**Verify by executing, never by asserting.** "Migration is reversible" means `Down` ran. "Tests pass"
+means a count. "It is demonstrable" means the seed ran and you can quote the rows. A box you could not
+execute on this machine is `UNVERIFIED — needs <machine>`, never ticked
+(`docs/EXECUTION_STANDARD.md` Part 2).
+
 ## 4. Run the agent panel — this is not optional
 
 The author is the least reliable judge of their own work. Launch these as subagents (`docs/AGENTS.md`),
@@ -47,6 +62,7 @@ and **act on every finding before committing**; ignoring one requires a written 
    - `multi-company-guard` — company scoping, group credit, cross-company money, split documents
    - `field-sales-guard` — reps, pro formas, approval-to-invoice, rep performance
    - `stock-availability-guard` — reservations, available-to-promise, staging states, waves, counts
+   - `conversation-safety` — the assistant: invented figures, identity, injection, consent
 3. `stage-verifier` — runs the Exit Checklist and §8 for real. Re-run until PASS or a documented
    UNVERIFIED. **`UNVERIFIED` is not `PASS`, and neither is "merged".**
 4. `doc-scribe` — the handoff
