@@ -368,7 +368,16 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        // Stage 06c: VumaRegistryDbContext lives in this same assembly, and its own configurations
+        // (Configurations.Registry.*) apply to a different, physically separate database (ADR-099).
+        // An unfiltered scan would silently fold the registry's tables into every company database's
+        // own model — exactly the cross-database confusion ADR-116 exists to rule out — so registry
+        // configurations are excluded here by namespace, the same way VumaRegistryDbContext applies its
+        // own configurations one by one rather than by scanning this assembly back.
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            Assembly.GetExecutingAssembly(),
+            type => type.Namespace is null
+                || !type.Namespace.StartsWith(RegistryConfigurationsNamespace, StringComparison.Ordinal));
 
         foreach (Assembly assembly in AdditionalModelAssemblies)
         {
@@ -390,6 +399,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// inventing a business table that nothing uses.
     /// </remarks>
     protected virtual IReadOnlyCollection<Assembly> AdditionalModelAssemblies => [];
+
+    /// <summary>The namespace <c>VumaRegistryDbContext</c>'s own configurations live in, excluded from this context's scan.</summary>
+    private const string RegistryConfigurationsNamespace = "VumaRetail.Infrastructure.Persistence.Configurations.Registry";
 
     private void ApplyGlobalQueryFilters(ModelBuilder modelBuilder)
     {

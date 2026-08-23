@@ -94,3 +94,12 @@ dotnet_naming_rule.public_members_pascal.severity = none
 dotnet_diagnostic.CA1062.severity = none
 dotnet_diagnostic.IDE0161.severity = none
 dotnet_diagnostic.CS1591.severity = none
+
+[src/**/Migrations/**/*.cs]
+# The same exemption, one level deeper: Stage 06c gives the registry its own migration chain in a
+# `Migrations/Registry/` subfolder (ADR-117 — a separate chain, migrated first). `Migrations/*.cs`
+# above and `Migrations/**/*.cs` here are both needed — in this editorconfig glob dialect, `**` requires
+# at least one directory segment, so neither pattern alone covers both a flat chain and a nested one.
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CS1591.severity = none

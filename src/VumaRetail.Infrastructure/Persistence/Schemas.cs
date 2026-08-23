@@ -126,4 +126,15 @@ public static class Schemas
     /// the same way every schema since <see cref="Pos"/> does.
     /// </remarks>
     public const string Warehouse = "warehouse";
+
+    /// <summary>
+    /// Companies, company groups, saga intents and legs, the registry outbox. Stage 06c.
+    /// </summary>
+    /// <remarks>
+    /// The one schema that does not live in <c>VumaRetailDbContext</c> — it belongs to
+    /// <c>VumaRegistryDbContext</c>, a separate database entirely (ADR-099). Declared here anyway so
+    /// every schema name in the product has exactly one source, the same reason every other constant in
+    /// this class exists.
+    /// </remarks>
+    public const string Registry = "registry";
 }
