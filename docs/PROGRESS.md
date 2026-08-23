@@ -3,8 +3,64 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-23 (night) · **The agent panel against the whole 2026-08-23 fix pass is now
-genuinely complete — all four relevant agents have reported, two found real defects, both fixed.**
+**Last updated:** 2026-08-24 · **§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed — every remaining
+open defect against Stage 09 except the mechanical DoD sweeps (§4.20's mislabel, §4.22's OpenAPI
+examples, §4.24's coverage gap on Stage 11).** Branch `stage-09-defect-closure-2`, three commits
+(`39e8783` §4.13/§4.14/§4.15, `6b014ce` §4.11, `86f8dbd` §4.10 — the largest), merged to `main` and
+pushed. Full suite: 740 unit (+4), 34 architecture (unchanged count, one rule narrowed with a named,
+justified exception), 417 integration (+10), all green, no new migration needed (no persisted shape
+changed). ADR-135 through ADR-138 record the four decisions.
+
+**What closed, briefly — full detail in each commit and in §4 below:**
+- **§4.13** — a sale's currency is no longer independently client-supplied; `Sale.Open` derives it from
+  the till session it opens against and refuses a mismatch, and the session's own currency is resolved
+  once from the store then the tenant (mirroring `ImportBatchContextFactory`'s identical precedent),
+  never from the request body. The specific till-bricking scenario is now structurally unreachable.
+- **§4.14** — `AddSaleLineCommandHandler` rounded a weighed line's price twice; fixed to round once,
+  from the full-precision product straight to the currency's presentation scale.
+- **§4.15** — a new `IPermissionChecker` port (ADR-137) lets `RecordReceiptPrintCommandHandler` check
+  `pos.receipt.reprint` in-handler, since whether a print is a reprint is only known after the log is
+  read, which an endpoint filter cannot see.
+- **§4.11 (CRITICAL)** — `AddSaleLineCommand`, `TenderSaleCommand` and `RecordReceiptPrintCommand` are
+  now idempotent on a client-supplied id, the same shape `OpenSaleCommand` already had and this week's
+  earlier session lifted into four other modules; `CompleteSaleCommand` is idempotent by checking
+  `sale.Status` before re-running completion. A full-sequence replay test reproduces the original worked
+  example end to end. Left open and documented: `RecordSaleIssueCommand`'s own `SaleReferenceId` dedupe
+  (an Inventory-module command POS's real completion path never calls — see the commit and the doc
+  comment on that command).
+- **§4.10 (the largest)** — the open-session read-only carve-out, fully built in Stage 04b and fully
+  dead in production (nothing ever called `IOpenSessionRegistry.Open`/`.Close`, no real POS command
+  implemented `ISessionScopedCommand`), is now wired: six commands (`AddSaleLineCommand`,
+  `VoidSaleLineCommand`, `TenderSaleCommand`, `CompleteSaleCommand`, `VoidSaleCommand`,
+  `CloseTillSessionCommand`) carry it; `OpenSaleCommand`/`OpenTillSessionCommand`/`ParkSaleCommand`/
+  `ResumeSaleCommand` deliberately do not. Two hard deadlines (30 min sale, 12 hr cash-up,
+  `IOpenSessionWindows`) close the hole the naive wiring would have left — a tenant who never finishes a
+  sale no longer trades on it forever. A fourth `ReadOnlyExemption` kind, `ReceiptReprint`, makes
+  reprinting an already-completed sale work again, bounded in the handler against a first print of an
+  `Open` sale. ADR-135 is the full design record — read it before touching any of this again.
+- **The tax-per-line ADR (ADR-138)** — recorded as a locked decision what the code already did
+  (`SaleLine`/`PurchaseOrderLine` snapshot tax at capture); no code changed.
+
+**Agent panel status — genuinely could not run this session, not skipped.** `architecture-guard` and
+`licence-safety` were each launched twice (once plain, once explicitly told not to reach for
+Docker/Testcontainers after the first pair stalled) and both retries failed on the account hitting its
+session usage limit (resets 19:00 UTC), not on anything about this branch. `sync-and-offline` got partway
+through a review (confirmed the idempotent-replay pattern is applied correctly, was checking outbox/
+replication behaviour) before the same limit killed it mid-run. **Reviewed directly instead**, the same
+fallback this file's 2026-08-23 (night) entry used for `money-and-tax` after three stalls: re-read the
+final `ReadOnlyGuardBehaviour`/`OpenSessionRegistry` against ADR-135's own spec, confirmed every one of
+the six in-flight commands is wired and closes at the right point, confirmed `ParkSaleCommand`/
+`ResumeSaleCommand`'s exclusion holds, confirmed the reprint handler's `IEnforcementStatusReader` check
+only ever reads and only ever fires for an `Open` sale, and confirmed a replay's early-return branches
+never touch EF's change tracker (so a replay raises zero outbox events, not a duplicate). **The next
+session should still run the real agent panel against this branch** once the session limit resets —
+this is a real, not a synthetic, gap in the trail, the same honesty this file used for `money-and-tax`.
+
+---
+
+**Previously — last updated:** 2026-08-23 (night) · **The agent panel against the whole 2026-08-23 fix
+pass is now genuinely complete — all four relevant agents have reported, two found real defects, both
+fixed.**
 Thirteen commits today: `be301ae` `cefe371` `1027592` `46625f6` `26a2a3d` `bd7e42b` `69900e6` `dd63e94`
 `959af51` `8d4adcb` `a8823ff` `d68e713` `f256479` — each its own green checkpoint, ending at 736 unit +
 34 architecture + 407 integration tests, three new reversible migrations, all pushed.
@@ -153,7 +209,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
 | 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
-| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. §4.12 (module entitlement gate) is **fixed and closed 2026-08-23 (evening)** — the fail-closed lease fallback fixed, `RequireModule` wired onto `pos` (and Sales/Imports/Procurement/Warehouse), proven with a real end-to-end HTTP test. **§4.11 itself is still open** — this session lifted `OpenSaleCommand`'s existing idempotent-replay pattern into five *other* modules' commands (§4.19–§4.21, §4.26) as the structural template, but did not touch the rest of POS's own sale sequence, which is what §4.11 actually names. 7 open defects (§4.11, §4.13–§4.16, §4.10), 3 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
+| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`; `stage-verifier` has not been re-run since 2026-08-24's fix pass. §4.10, §4.11, §4.12, §4.13, §4.14 and §4.15 are all **closed** as of `86f8dbd` (ADR-135–ADR-138 record the design). Still open: §4.16-shaped mechanical gaps carried from the review round — §4.20's `MatchedNet` mislabel (Procurement, low severity, not POS's own), §4.22 OpenAPI examples (dozens of endpoints across every reopened stage, not POS-specific), and Stage 11's coverage floor. The agent panel against 2026-08-24's fix pass could not run (account session limit, see the entry at the top of this file) — reviewed directly instead; **still owed a real run once the limit resets.** *WPF shell deferred.* Build/tests (740 unit/34 architecture/417 integration, all green) independently verified; no migration needed | 2026-08-24 |
 | 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. §4.21's CRITICAL (returns double-refunded by a genuine concurrency race and separately by an unprotected retry) and §4.23 (entitlement gate) are **fixed 2026-08-23 (evening)** — `CreateSalesReturnCommand` takes a client-supplied id, `CompleteSalesReturnCommand` takes a real row lock, `RequireModule("sales")` wired onto all 5 route groups. §4.21's fix is **still agent-unreviewed** (`money-and-tax`'s pass failed twice on an infra error and was not retried again); §4.23's fix, being mechanical wiring, was proven with tests rather than needing the same review. Still open: OpenAPI-example and replication-coverage gaps (§4.22, §4.24) | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
@@ -718,6 +774,100 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-24 — Stage 09's remaining defects closed: §4.10, §4.11, §4.13, §4.14, §4.15
+
+Picked up exactly where the 2026-08-23 (night) entry's order-of-work note said to: §4.10 and the
+tax-per-line ADR first. Ended up closing every open Stage 09 defect except the mechanical DoD sweeps.
+Branch `stage-09-defect-closure-2`, three commits, merged to `main` and pushed:
+
+**`39e8783` — §4.13, §4.14, §4.15.** §4.13: `Sale.Open` now derives its currency from the `TillSession`
+it opens against and refuses a mismatch (`PosRuleException.CurrencyMismatch`); `OpenSaleCommand` dropped
+its own `Currency` parameter entirely rather than keep a field that would be silently ignored. The till
+session's own currency is resolved once, from `Store.CurrencyOverride` then `Tenant.BaseCurrency`
+(`OpenTillSessionCommandHandler`), mirroring `ImportBatchContextFactory`'s identical precedent on the
+Imports side — the same bug, same fix, different module. `CloseTillSessionCommandHandler` also gained a
+safety-net guard, now provably unreachable but there as defence in depth. §4.14: `AddSaleLineCommandHandler`
+was rounding a weighed line's price twice (once implicitly at `Money`'s 4dp storage scale, once
+explicitly to 2dp) — fixed to round once, from the full-precision product straight to 2dp. §4.15: new
+`IPermissionChecker` port (`Application.Abstractions.Identity`, implementation over the same
+`IRoleRepository`/`IPermissionCatalogue` lookup `GetEffectivePermissionsQueryHandler` uses), consumed by
+`RecordReceiptPrintCommandHandler` to check `pos.receipt.reprint` in-handler — the endpoint's
+`RequirePermission` structurally cannot see "is this a reprint", since that's derived from the print log
+the handler is about to read. ADR-136 and ADR-137 record the two design decisions.
+
+**`6b014ce` — §4.11 (CRITICAL).** The worked example from the original finding, closed end to end:
+`AddSaleLineCommand`, `TenderSaleCommand` and `RecordReceiptPrintCommand` gained an optional
+client-supplied id and the same find-and-return-if-it-already-exists pattern `OpenSaleCommand` already
+had (and this week's earlier session lifted into Procurement/Warehouse/Sales/Imports, §4.19–§4.21,
+§4.26) — `SaleLine.Ring`, `SaleTender.Capture` and `ReceiptPrint.Record` all gained a matching optional
+`id` parameter. `CompleteSaleCommand` is idempotent by checking `sale.Status` before re-running
+`ISaleCompletionService`, so a lost acknowledgement on the final step no longer re-relieves stock or
+re-raises the financial event. New integration test replays the whole queued offline sequence
+(open → two lines → tender → complete) twice and asserts exactly 2 lines, 1 tender, 1 financial event,
+correct totals — the CRITICAL worked example, reproduced and proven closed. Left open, documented in a
+stale-doc-comment fix on the command itself rather than silently: `RecordSaleIssueCommand` (an
+Inventory-module command) still has no dedupe on its own `SaleReferenceId` — POS's real completion path
+never calls it (`SaleCompletionService` goes straight through `IStockLedgerPoster`, per `CONVENTIONS.md`
+§4), so the path this fix closes doesn't reach it, and a correct fix there needs a line-level key since
+every line of one sale shares one `SaleReferenceId`. Narrower, separate follow-on work.
+
+**`86f8dbd` — §4.10, the largest of the three.** Read `docs/PROGRESS.md`'s §4.10 entry and ADR-135 in
+full before touching this again — the summary here is necessarily incomplete. In short: the open-session
+carve-out was fully built and tested in Stage 04b against a fake command, and was completely dead in
+production — no real POS command implemented `ISessionScopedCommand`, and `IOpenSessionRegistry.Open`/
+`.Close` were called from nowhere. Wired for real: six commands (`AddSaleLineCommand`,
+`VoidSaleLineCommand`, `TenderSaleCommand`, `CompleteSaleCommand`, `VoidSaleCommand`,
+`CloseTillSessionCommand`) now carry it; `OpenSaleCommand`/`OpenTillSessionCommand` stay out ("no new
+sale may start"); `ParkSaleCommand`/`ResumeSaleCommand` stay out deliberately, because exempting Resume
+would turn the whole pool of parked sales into a trading allowance the instant read-only fell due. Two
+hard deadlines (`LicensingOptions.InFlightSaleWindow` = 30 min, `InFlightCashUpWindow` = 12 hours,
+published to POS via a new `IOpenSessionWindows` port so POS never references `VumaRetail.Licensing`
+directly) close the hole `licence-safety`'s original 2026-08-15 adjudication flagged in the naive
+wiring — evaluated against `decision.EvaluatedAt`, the same watermarked instant the enforcement decision
+itself was computed from, not a fresh clock read, so winding the system clock back buys nothing here
+either. A fourth `ReadOnlyExemption` kind, `ReceiptReprint`, makes reprinting an already-completed sale
+work again (the "cannot originate trade" argument), bounded in the handler — not the guard, which is
+unconditional once exempt — against a first print of a still-`Open` sale, via a new named, narrow
+exception to the architecture rule that only `VumaRetail.Licensing` may read `IEnforcementStatusReader`
+directly (`LicensingRulesTests.SanctionedEnforcementStatusReaders`). `ReadOnlyCorrectnessTests.cs`
+rewritten to exercise the real POS command types instead of the `FinishSaleCommand` test double the
+adjudication itself flagged, with new coverage for the exact deadline boundary (the adjudication's own
+"single most important new test") and the clock-wound-back case. `docs/LICENSING.md` and
+`docs/TESTING.md` §7 updated to match.
+
+**Verification.** `dotnet build -c Release` — 0 warnings, 0 errors, throughout (warnings-as-errors on
+Domain/Application caught two real XML-doc-cref mistakes during development, both fixed before
+committing). Full suites run, not filtered subsets: 740 unit (+4 over the 2026-08-23 baseline), 34
+architecture (same count — one blanket rule narrowed with a named, scoped exception rather than a new
+test), 417 integration (+10). No new EF migration — nothing persisted changed shape, only how ids are
+assigned and which optional parameters commands carry. `PosHarness`/`SalesHarness` both needed new
+registrations for the dependencies the fix added (`IOpenSessionRegistry`, `IOpenSessionWindows`,
+`IEnforcementStatusReader`, and `PosHarness` additionally `IPermissionChecker`/`IRoleRepository`/
+`IPermissionCatalogue` with a seeded `pos.receipt.reprint` grant for its default operator) — both
+harnesses' existing tests kept passing unchanged once wired. One operational incident, not a code
+defect, hit and resolved mid-session exactly as documented in §4.7/the 2026-08-23 (night) entry: the
+`pg-test.sh` cluster's data directory had filled the disk again (93GB used, 0 available) from the day's
+accumulated `dotnet test` runs, producing spurious "No space left on device" failures on the first full
+suite run; `scripts/pg-test.sh stop` then `start` reclaimed 43GB and the suite came back genuinely green.
+
+**The agent panel could not be run this session — an external, not a quality, gap.** `architecture-guard`
+and `licence-safety` were each launched twice against the finished branch (the second time explicitly
+told not to reach for Docker/Testcontainers, after the first pair stalled the same way `money-and-tax`
+did on 2026-08-23); both retries failed on the Claude account's own session usage limit (resets 19:00
+UTC), not on anything about the branch. `sync-and-offline` was mid-review (had confirmed the
+idempotent-replay pattern was applied correctly and was checking outbox/replication behaviour) when the
+same limit killed it. Reviewed directly instead, the same fallback this file used for `money-and-tax` on
+2026-08-23 after three stalls: re-read `ReadOnlyGuardBehaviour`/`OpenSessionRegistry` against ADR-135's
+own specification line by line, confirmed all six in-flight commands are wired and every handler closes
+its registry entry at the right point (and only the right point), confirmed the `ParkSaleCommand`/
+`ResumeSaleCommand` exclusion reasoning holds under a second read, confirmed `RecordReceiptPrintCommandHandler`'s
+`IEnforcementStatusReader` use only ever reads and only ever refuses for an `Open` sale, and confirmed
+by inspection that every idempotent-replay early-return branch returns before touching any tracked
+entity, so a replay raises zero outbox events rather than a duplicate. This is a genuine gap in the
+trail, recorded honestly rather than papered over — **the next session should run the real panel against
+this branch's four commits once the session limit resets**, the same way `money-and-tax`'s manual review
+was later treated as provisional until confirmed. Nothing here is asserted as agent-reviewed that was not.
 
 ### 2026-08-23 — The agent panel finally ran against Stages 10, 11, 12 and 13: all four reopened
 
@@ -2504,7 +2654,7 @@ it, so the two can no longer disagree. `ModuleAssembliesTests` asserts that ever
 `IModuleManifest` is in the result, so a module that escapes the walk fails a test rather than escaping
 the sweep. `VumaRetail.Finance` and its 18 commands are covered for the first time.
 
-### 4.15 `pos.receipt.reprint` is a permission nothing checks — **OPEN, found in Stage 09**
+### 4.15 `pos.receipt.reprint` is a permission nothing checks — **RESOLVED 2026-08-24 (Stage 09 defect closure, `39e8783`)**
 
 Found by `stage-verifier`; one of its two failing boxes. The permission is declared, catalogued,
 granted, and marked `IsHighRisk: true` at `PosPermissions.cs:37,57`. It is enforced by nothing:
@@ -2520,7 +2670,7 @@ does not exist.
 **Fix:** check `ReceiptReprint` inside the handler when `alreadyPrinted > 0`. It cannot be an endpoint
 filter, because reprint-ness is derived from the print log rather than from the request.
 
-### 4.14 Weighed lines are systematically overcharged by one cent — **OPEN, found in Stage 09**
+### 4.14 Weighed lines are systematically overcharged by one cent — **RESOLVED 2026-08-24 (Stage 09 defect closure, `39e8783`)**
 
 Found by `money-and-tax`. `SaleCommands.cs:182-183` computes
 `Money extended = command.UnitPrice * command.Quantity.Value;` then
@@ -2550,7 +2700,7 @@ intermediate is harmful only where a 6-dp quantity is involved.
 single time. Add the 0.005-boundary table-driven test `TESTING.md` §3 requires and Stage 09 does not
 have; its absence is why this survived.
 
-### 4.13 A foreign-currency sale permanently bricks a terminal — **OPEN, found in Stage 09**
+### 4.13 A foreign-currency sale permanently bricks a terminal — **RESOLVED 2026-08-24 (Stage 09 defect closure, `39e8783`, ADR-136)**
 
 Found by `money-and-tax`. `TillSessionCommands.cs:136-138` seeds the cash-up aggregate with
 `Money.Zero(session.Currency)` and adds `sale.CashContribution`, which is denominated in **the sale's**
@@ -2576,7 +2726,7 @@ cash-up aggregate refuse a foreign-currency sale with a typed `PosRuleException`
 `Money` throw. R8 promises multi-currency from the data model up, so the resolution is the real fix
 and the guard is the safety net. Needs the multi-currency cash-up test `TESTING.md` §3 requires.
 
-### 4.12 The module entitlement gate is never applied anywhere in the product — **OPEN, found in Stage 09; invalidates §4.9's premise**
+### 4.12 The module entitlement gate is never applied anywhere in the product — **RESOLVED 2026-08-23 (evening) — this header was stale; see the 2026-08-23 (evening)/(night) session-log entries, `8d4adcb`**
 
 Found independently by `architecture-guard`, `licence-safety` and `stage-verifier`; one of
 `stage-verifier`'s two failing boxes, against §8's "Module entitlement flag declared in the module
@@ -2615,7 +2765,7 @@ inside the Path A window. `IsModuleEnabledAsync` must distinguish "the lease say
 module" from "there is no lease to ask". Then wire `RequireModule("pos")` and add the two tests §4.9
 named. Worth its own ADR line, and `licence-safety` should see the result.
 
-### 4.11 The POS offline replay path is not idempotent — double-adds lines and double-relieves stock — **OPEN, CRITICAL, found in Stage 09**
+### 4.11 The POS offline replay path is not idempotent — double-adds lines and double-relieves stock — **RESOLVED 2026-08-24 (Stage 09 defect closure, `6b014ce`)**
 
 Found by `sync-and-offline`, confirming the suspicion the stage recorded. `OpenSaleCommand` is
 idempotent; **nothing else in the sequence is.** `AddSaleLineCommand` and `TenderSaleCommand` accept
@@ -2675,7 +2825,7 @@ the claim the Stage 08b/desktop author would have built against.
   the opposite direction** — see §4.10's Rule 4 note — which is the strongest signal in this review
   round that it is the right one.
 
-### 4.10 POS does not implement two read-only carve-outs `LICENSING.md` promises — **OPEN, found in Stage 09; adjudicated by `licence-safety` 2026-08-15**
+### 4.10 POS does not implement two read-only carve-outs `LICENSING.md` promises — **RESOLVED 2026-08-24 (Stage 09 defect closure, `86f8dbd`, ADR-135)**
 
 `docs/LICENSING.md` §"What read-only means, precisely" is a specification, and Stage 09 does not meet
 two lines of it. Both were found by working through the licence-safety questions by hand after the
@@ -2856,7 +3006,51 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-23 (night): read this first — supersedes every earlier 2026-08-23 update below it.**
+**Update, 2026-08-24: read this first — supersedes every earlier update below it.**
+
+**§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed.** Branch `stage-09-defect-closure-2` (three
+commits: `39e8783`, `6b014ce`, `86f8dbd`) is merged to `main` and pushed. ADR-135 through ADR-138 record
+the design. Full detail in the 2026-08-24 session-log entry above and in each commit's own message.
+
+**First action: run the real agent panel against those three commits.** `architecture-guard`,
+`licence-safety` and `sync-and-offline` were all attempted this session and all failed on the Claude
+account's own session usage limit (resets 19:00 UTC), not on anything about the code — this was
+reviewed directly instead as a fallback, the same one `money-and-tax` used on 2026-08-23, but a direct
+review by the same session that wrote the code is weaker evidence than an independent agent, and this
+file should not quietly let that stand as equivalent. Launch all three against `git diff
+b83ef80..86f8dbd` (or just re-read ADR-135 and the touched files — `ReadOnlyGuardBehaviour.cs`,
+`SaleCommands.cs`, `TillSessionCommands.cs`, `ReceiptCommands.cs`, and the three test files) before
+building anything on top of this. If a real defect turns up, it is likely in the read-only carve-out
+(ADR-135) — that is where the complexity is, and where a subtle mistake would be most expensive.
+
+**Then, in order — the mechanical DoD sweeps, all still open:**
+
+1. **§4.22 — OpenAPI examples.** The largest remaining item by volume: dozens of endpoints across every
+   reopened stage (09–13) are missing request/response examples in the generated OpenAPI document.
+   Mechanical, not risky, and a good task to batch.
+2. **§4.20 — Procurement's `MatchedNet`/`PriceVariance` mislabel.** Low severity: the fields are gross,
+   not net, despite their names. A rename plus a migration (column names, if they're persisted under
+   the same names) or just the DTO/domain property names if not.
+3. **§4.24 — Stage 11's coverage floor.** Domain+Application measured at 76.80% against the 80%
+   requirement `CLAUDE.md` §8 sets. Find what's under-tested (likely the rollback/validation edge cases)
+   and close the gap rather than padding with trivial tests.
+
+**After the sweeps, in the order the 2026-08-22/23 notes already established and which still holds:**
+Stage 05 (workflow/approvals — still sitting unmerged and unverified on its own worktree branch,
+`stage-05-workflow`; nothing here touched it) — or, if Stage 05 is judged not to gate anything the next
+stage needs (its own approval gates are documented no-ops, per the 2026-08-15 entry), **Stage 06c**
+(multi-company: one database per company plus the tenant registry). Read the 2026-08-22 (later) and
+(pass 3) entries and `docs/MULTI_COMPANY.md` in full before starting 06c — it changes where every
+module's `DbContext` comes from, and retrofitting it later is a rewrite, not a refactor.
+
+**One operational note carried forward, again:** the `pg-test.sh` cluster filled the disk a second time
+this session (93GB used, 0 available) — same failure mode §4.7 and the 2026-08-23 (night) entry already
+documented. `scripts/pg-test.sh stop` then `start` fixes it in under a minute. Worth checking `df -h`
+before a long test run, not only after one fails mysteriously.
+
+---
+
+**Previously — 2026-08-23 (night):**
 
 **The agent panel against today's whole fix pass is genuinely complete.** All four relevant agents
 reported: `stock-availability-guard` found and closed two real defects in the Warehouse fix (CRITICAL —
