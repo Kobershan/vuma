@@ -37,6 +37,7 @@ public sealed class SalesReturn : Entity
     private readonly List<SalesReturnLine> _lines = [];
 
     private SalesReturn(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid saleId,
@@ -48,7 +49,7 @@ public sealed class SalesReturn : Entity
         TenderType refundTenderType,
         Guid authorisedByUserId,
         DateTimeOffset raisedAt)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         SaleId = saleId;
         ReturnNumber = returnNumber;
@@ -128,6 +129,10 @@ public sealed class SalesReturn : Entity
     /// <param name="refundTenderType">How the refund is given back.</param>
     /// <param name="authorisedByUserId">Who authorised it.</param>
     /// <param name="raisedAt">When, UTC.</param>
+    /// <param name="id">
+    /// The return's identity, or <c>null</c> to mint one here. A caller that already sent this create
+    /// once supplies the id it used the first time, which makes a dropped-connection retry idempotent.
+    /// </param>
     /// <exception cref="SalesRuleException">The sale never completed (business rule 7).</exception>
     public static SalesReturn Raise(
         Sale sale,
@@ -135,7 +140,8 @@ public sealed class SalesReturn : Entity
         string reason,
         TenderType refundTenderType,
         Guid authorisedByUserId,
-        DateTimeOffset raisedAt)
+        DateTimeOffset raisedAt,
+        Guid? id = null)
     {
         ArgumentNullException.ThrowIfNull(sale);
         ArgumentException.ThrowIfNullOrWhiteSpace(returnNumber);
@@ -149,6 +155,7 @@ public sealed class SalesReturn : Entity
         }
 
         return new SalesReturn(
+            id ?? UuidV7.NewGuid(),
             sale.TenantId,
             sale.StoreId,
             sale.Id,

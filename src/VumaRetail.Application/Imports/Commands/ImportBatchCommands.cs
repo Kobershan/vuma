@@ -552,6 +552,15 @@ public sealed class RollbackImportBatchCommandHandler(
         ImportBatch batch = await batches.FindForUpdateAsync(command.BatchId, cancellationToken).ConfigureAwait(false)
             ?? throw new ImportNotFoundException("import batch", command.BatchId);
 
+        if (batch.Status is ImportBatchStatus.RolledBack)
+        {
+            // A replay, not an error — the same idempotency contract Commit's own handler gives itself
+            // (§4.26). The batch id is this operation's idempotency key: a second "roll back X" after a
+            // dropped connection returns the first call's counters instead of a refusal that reads as
+            // though the rollback failed.
+            return ImportBatchCounts.Of(batch);
+        }
+
         if (batch.Status is not ImportBatchStatus.Committed)
         {
             throw ImportRuleException.UnexpectedBatchStatus(batch.Status, "rolled back");

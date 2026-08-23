@@ -186,6 +186,23 @@ public sealed class SalesCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task CreateSalesReturnCommand_replayed_with_the_same_id_returns_the_existing_draft_instead_of_raising_a_second_one()
+    {
+        // §4.21 — the dropped-connection retry half of the finding; the completion race is a separate
+        // mechanism (a row lock), covered where CompleteSalesReturnCommand is tested.
+        await using SalesHarness harness = await SalesHarness.CreateAsync(fixture);
+        Guid saleId = await SellAsync(harness, quantity: 3m, unitPrice: 115m);
+        Guid returnId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new CreateSalesReturnCommand(saleId, "Faulty seal", TenderType.Cash, returnId));
+        Guid replayed = await harness.SendAsync(new CreateSalesReturnCommand(saleId, "Faulty seal", TenderType.Cash, returnId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<SalesReturn> returns = await harness.Returns.ListForSaleAsync(saleId);
+        returns.Should().ContainSingle(salesReturn => salesReturn.Id == returnId, "the replay must not raise a second draft");
+    }
+
+    [Fact]
     public async Task A_return_whose_stock_receipt_has_no_cost_basis_still_completes_and_records_why()
     {
         // ADR-073's shape. The original sale completed without relieving stock — bread has nothing on

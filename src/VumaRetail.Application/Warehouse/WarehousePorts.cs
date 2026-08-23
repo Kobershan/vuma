@@ -62,6 +62,13 @@ public interface IBinStockMovementRepository
 {
     /// <summary>Appends a new movement. Nothing already added is ever updated or removed.</summary>
     void Add(BinStockMovement movement);
+
+    /// <summary>
+    /// True if a movement already exists against this reference — the dropped-connection-retry check for
+    /// any command that posts a movement keyed by a caller-supplied id (§4.19).
+    /// </summary>
+    Task<bool> ExistsForReferenceAsync(
+        Guid referenceId, BinStockReferenceType referenceType, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads and writes <see cref="PutawayTask"/> rows.</summary>

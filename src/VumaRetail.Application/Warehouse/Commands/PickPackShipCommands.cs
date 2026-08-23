@@ -40,9 +40,23 @@ public sealed class OpenPickWaveCommandHandler(IStockLocationRepository location
 }
 
 /// <summary>Adds a demand line to an open wave.</summary>
+/// <param name="PickWaveId">The wave to add to.</param>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="RequestedQuantity">How much is demanded.</param>
+/// <param name="OutboundReference">What raised the demand.</param>
+/// <param name="PickTaskId">
+/// The task's identity, or <c>null</c> to mint one here. A caller that already sent this create once
+/// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.19).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddPickTaskCommand(
-    Guid PickWaveId, Guid? ItemId, Guid? ItemVariantId, Quantity RequestedQuantity, string OutboundReference) : ICommand<Guid>;
+    Guid PickWaveId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    Quantity RequestedQuantity,
+    string OutboundReference,
+    Guid? PickTaskId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed add-pick-task command before it reaches the handler.</summary>
 public sealed class AddPickTaskCommandValidator : AbstractValidator<AddPickTaskCommand>
@@ -72,6 +86,18 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.PickTaskId is { } replayed)
+        {
+            PickTask? already = await waves.FindTaskAsync(replayed, cancellationToken).ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.19) — a dropped-connection retry returns the line it already
+                // added instead of adding a second one.
+                return already.Id;
+            }
+        }
+
         PickWave wave = await waves.FindAsync(command.PickWaveId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("pick wave", command.PickWaveId);
 
@@ -91,7 +117,7 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
 
         PickTask task = PickTask.Create(
             wave.TenantId, wave.StoreId, wave.Id, command.ItemId, command.ItemVariantId,
-            command.RequestedQuantity, command.OutboundReference);
+            command.RequestedQuantity, command.OutboundReference, command.PickTaskId);
 
         waves.AddTask(task);
 

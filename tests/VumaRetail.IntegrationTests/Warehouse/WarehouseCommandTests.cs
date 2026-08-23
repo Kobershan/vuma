@@ -447,4 +447,66 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         variance.BinId.Should().Be(binId, "the count knew which bin disagreed, so the ledger records it");
         variance.Quantity.Value.Should().Be(-2m);
     }
+
+    [Fact]
+    public async Task AddPickTaskCommand_replayed_with_the_same_id_returns_the_existing_task_instead_of_adding_a_second_one()
+    {
+        // §4.19 — the dropped-connection retry that used to double-add the line.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid taskId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(
+            new AddPickTaskCommand(waveId, harness.ItemId, null, Each(8m), "SO-3001", taskId));
+        Guid replayed = await harness.SendAsync(
+            new AddPickTaskCommand(waveId, harness.ItemId, null, Each(8m), "SO-3001", taskId));
+
+        replayed.Should().Be(first);
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        wave.Tasks.Should().ContainSingle(task => task.Id == taskId, "the replay must not add a second line");
+    }
+
+    [Fact]
+    public async Task OpenPutawayTaskCommand_replayed_with_the_same_id_returns_the_existing_task_instead_of_opening_a_second_one()
+    {
+        // §4.19 — the dropped-connection retry that used to double-open the task.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(5m, "ZAR"), null));
+        Guid taskId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt, null, taskId));
+        Guid replayed = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt, null, taskId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<PutawayTaskResult> pending = await harness.QueryAsync(new ListPendingPutawayTasksQuery(harness.LocationId));
+        pending.Should().ContainSingle(task => task.Id == taskId, "the replay must not open a second task");
+    }
+
+    [Fact]
+    public async Task MoveBinStockCommand_replayed_with_the_same_transfer_id_does_not_move_the_quantity_twice()
+    {
+        // §4.19 — the dropped-connection retry that used to move the same quantity a second time.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(10m)));
+
+        Guid transferId = UuidV7.NewGuid();
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(4m), transferId));
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(4m), transferId));
+
+        BinStockResult? fromBin = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        BinStockResult? toBin = await harness.QueryAsync(new GetBinStockQuery(binTwo, harness.ItemId, null));
+
+        fromBin!.QuantityOnHand.Value.Should().Be(6m, "the replay must not relieve the source bin twice");
+        toBin!.QuantityOnHand.Value.Should().Be(4m, "the replay must not credit the destination bin twice");
+    }
 }

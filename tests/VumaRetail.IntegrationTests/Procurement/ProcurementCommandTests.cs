@@ -244,6 +244,23 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task CreateGoodsReceiptCommand_replayed_with_the_same_id_returns_the_existing_receipt_instead_of_opening_a_second_one()
+    {
+        // §4.20 — the dropped-connection retry that used to open a duplicate draft receipt against the
+        // same order, before a GRN number is even drawn.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+        (Guid orderId, _) = await IssuedOrderAsync(harness, ordered: 100m);
+        Guid receiptId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new CreateGoodsReceiptCommand(orderId, "DN-REPLAY", null, receiptId));
+        Guid replayed = await harness.SendAsync(new CreateGoodsReceiptCommand(orderId, "DN-REPLAY", null, receiptId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<GoodsReceipt> receipts = await harness.Receipts.ListForOrderAsync(orderId);
+        receipts.Should().ContainSingle(receipt => receipt.Id == receiptId, "the replay must not open a second receipt");
+    }
+
+    [Fact]
     public async Task An_order_to_a_partner_who_is_not_a_supplier_is_refused()
     {
         // Nothing in the database stops it — CONVENTIONS.md §2 forbids the cross-schema foreign key — so

@@ -18,6 +18,7 @@ namespace VumaRetail.Domain.Warehouse;
 public sealed class PutawayTask : Entity
 {
     private PutawayTask(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid locationId,
@@ -27,7 +28,7 @@ public sealed class PutawayTask : Entity
         PutawaySourceReferenceType sourceReferenceType,
         Guid? sourceReferenceId,
         Guid? suggestedBinId)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         LocationId = locationId;
         ItemId = itemId;
@@ -81,7 +82,11 @@ public sealed class PutawayTask : Entity
     /// <summary>What remains to be shelved.</summary>
     public Quantity Remaining => Quantity - ConfirmedQuantity;
 
-    /// <summary>Creates a new putaway task.</summary>
+    /// <summary>
+    /// Creates a new putaway task. <paramref name="id"/> is the task's identity, or <c>null</c> to mint
+    /// one here — a caller that already sent this create once supplies the id it used the first time,
+    /// which makes a dropped-connection retry idempotent.
+    /// </summary>
     public static PutawayTask Create(
         Guid tenantId,
         Guid? storeId,
@@ -91,7 +96,8 @@ public sealed class PutawayTask : Entity
         Quantity quantity,
         PutawaySourceReferenceType sourceReferenceType,
         Guid? sourceReferenceId,
-        Guid? suggestedBinId = null)
+        Guid? suggestedBinId = null,
+        Guid? id = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -111,7 +117,7 @@ public sealed class PutawayTask : Entity
         }
 
         return new PutawayTask(
-            tenantId, storeId, locationId, itemId, itemVariantId, quantity, sourceReferenceType,
+            id ?? UuidV7.NewGuid(), tenantId, storeId, locationId, itemId, itemVariantId, quantity, sourceReferenceType,
             sourceReferenceId, suggestedBinId);
     }
 

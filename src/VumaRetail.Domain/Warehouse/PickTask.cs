@@ -11,6 +11,7 @@ namespace VumaRetail.Domain.Warehouse;
 public sealed class PickTask : Entity
 {
     private PickTask(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid pickWaveId,
@@ -18,7 +19,7 @@ public sealed class PickTask : Entity
         Guid? itemVariantId,
         Quantity requestedQuantity,
         string outboundReference)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         PickWaveId = pickWaveId;
         ItemId = itemId;
@@ -76,7 +77,11 @@ public sealed class PickTask : Entity
     /// <summary>Where this line stands.</summary>
     public PickTaskStatus Status { get; private set; }
 
-    /// <summary>Creates a new demand line.</summary>
+    /// <summary>
+    /// Creates a new demand line. <paramref name="id"/> is the task's identity, or <c>null</c> to mint
+    /// one here — a caller that already sent this create once supplies the id it used the first time,
+    /// which makes a dropped-connection retry idempotent.
+    /// </summary>
     public static PickTask Create(
         Guid tenantId,
         Guid? storeId,
@@ -84,7 +89,8 @@ public sealed class PickTask : Entity
         Guid? itemId,
         Guid? itemVariantId,
         Quantity requestedQuantity,
-        string outboundReference)
+        string outboundReference,
+        Guid? id = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -108,7 +114,8 @@ public sealed class PickTask : Entity
             throw new ArgumentException("A pick task must name what raised its demand.", nameof(outboundReference));
         }
 
-        return new PickTask(tenantId, storeId, pickWaveId, itemId, itemVariantId, requestedQuantity, outboundReference.Trim());
+        return new PickTask(
+            id ?? UuidV7.NewGuid(), tenantId, storeId, pickWaveId, itemId, itemVariantId, requestedQuantity, outboundReference.Trim());
     }
 
     /// <summary>Allocates this line to a bin.</summary>

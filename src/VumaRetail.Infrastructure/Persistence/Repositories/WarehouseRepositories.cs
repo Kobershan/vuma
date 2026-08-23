@@ -116,6 +116,13 @@ public sealed class BinStockMovementRepository(VumaRetailDbContext context) : IB
 {
     /// <inheritdoc />
     public void Add(BinStockMovement movement) => context.BinStockMovements.Add(movement);
+
+    /// <inheritdoc />
+    public Task<bool> ExistsForReferenceAsync(
+        Guid referenceId, BinStockReferenceType referenceType, CancellationToken cancellationToken = default)
+        => context.BinStockMovements.AnyAsync(
+            movement => movement.ReferenceId == referenceId && movement.ReferenceType == referenceType,
+            cancellationToken);
 }
 
 /// <summary>EF Core implementation of <see cref="IPutawayTaskRepository"/>.</summary>

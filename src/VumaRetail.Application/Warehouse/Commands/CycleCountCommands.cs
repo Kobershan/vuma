@@ -196,10 +196,20 @@ public sealed class FinalizeCycleCountCommandHandler(
     }
 }
 
-/// <summary>Moves stock directly from one bin to another within the same location.</summary>
+/// <summary>
+/// Moves stock directly from one bin to another within the same location. <paramref name="TransferId"/>
+/// is the identity correlating the two movement rows this posts, or <c>null</c> to mint one here — a
+/// caller that already sent this move once supplies the id it used the first time, which makes a
+/// dropped-connection retry idempotent instead of moving the same quantity twice (§4.19).
+/// </summary>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record MoveBinStockCommand(Guid SourceBinId, Guid DestinationBinId, Guid? ItemId, Guid? ItemVariantId, Quantity Quantity)
-    : ICommand<Guid>;
+public sealed record MoveBinStockCommand(
+    Guid SourceBinId,
+    Guid DestinationBinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    Quantity Quantity,
+    Guid? TransferId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed move command before it reaches the handler.</summary>
 public sealed class MoveBinStockCommandValidator : AbstractValidator<MoveBinStockCommand>
@@ -224,13 +234,28 @@ public sealed class MoveBinStockCommandValidator : AbstractValidator<MoveBinStoc
 /// <summary>Moves bin stock, refusing bins from different locations.</summary>
 /// <param name="bins">Bin lookup.</param>
 /// <param name="mover">Posts both movements and maintains both balances.</param>
-public sealed class MoveBinStockCommandHandler(IBinRepository bins, IBinStockMover mover)
+/// <param name="movements">The idempotent-replay check against an already-posted transfer id.</param>
+public sealed class MoveBinStockCommandHandler(IBinRepository bins, IBinStockMover mover, IBinStockMovementRepository movements)
     : ICommandHandler<MoveBinStockCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(MoveBinStockCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+
+        if (command.TransferId is { } replayed)
+        {
+            bool already = await movements
+                .ExistsForReferenceAsync(replayed, Domain.Warehouse.BinStockReferenceType.InternalTransfer, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (already)
+            {
+                // The idempotent replay (§4.19) — a dropped-connection retry returns the transfer id it
+                // already posted instead of moving the same quantity a second time.
+                return replayed;
+            }
+        }
 
         Domain.Warehouse.Bin source = await bins.FindAsync(command.SourceBinId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("bin", command.SourceBinId);
@@ -243,7 +268,7 @@ public sealed class MoveBinStockCommandHandler(IBinRepository bins, IBinStockMov
             throw new ArgumentException("An internal bin move must stay within one location.");
         }
 
-        Guid transferId = UuidV7.NewGuid();
+        Guid transferId = command.TransferId ?? UuidV7.NewGuid();
 
         (Domain.Warehouse.BinStockMovement outMovement, _) = await mover
             .InternalTransferAsync(source, destination, command.ItemId, command.ItemVariantId, command.Quantity, transferId, cancellationToken)
