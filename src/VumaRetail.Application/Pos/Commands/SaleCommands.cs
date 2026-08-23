@@ -107,6 +107,11 @@ public sealed class OpenSaleCommandHandler(
 /// look up regardless.
 /// </param>
 /// <param name="DiscountAmount">A manual discount off this line, or <c>null</c> for none.</param>
+/// <param name="SaleLineId">
+/// The line's identity, or <c>null</c> to mint one here. A terminal that rang this line up offline
+/// supplies the id it already used, which makes the replay idempotent — re-sending the same id returns
+/// the existing line instead of appending a second one (§4.11).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddSaleLineCommand(
     Guid SaleId,
@@ -114,7 +119,8 @@ public sealed record AddSaleLineCommand(
     Guid? ItemVariantId,
     Quantity Quantity,
     Money UnitPrice,
-    Money? DiscountAmount = null) : ICommand<Guid>;
+    Money? DiscountAmount = null,
+    Guid? SaleLineId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed add-line command before it reaches the handler.</summary>
 public sealed class AddSaleLineCommandValidator : AbstractValidator<AddSaleLineCommand>
@@ -162,6 +168,19 @@ public sealed class AddSaleLineCommandHandler(
 
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
+
+        if (command.SaleLineId is { } replayedLineId)
+        {
+            SaleLine? already = sale.Lines.FirstOrDefault(line => line.Id == replayedLineId);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.11) — same shape as OpenSaleCommand's. Checked before
+                // EnsureOpen so a late-arriving replay of a line the sale already has is a no-op even if
+                // the sale has since completed, rather than a refusal for doing nothing new.
+                return already.Id;
+            }
+        }
 
         sale.EnsureOpen();
 
@@ -211,7 +230,8 @@ public sealed class AddSaleLineCommandHandler(
             calculation.TaxCode,
             calculation.NetAmount,
             calculation.TaxAmount,
-            calculation.GrossAmount);
+            calculation.GrossAmount,
+            command.SaleLineId);
 
         sale.AddLine(line);
 
@@ -261,12 +281,17 @@ public sealed class VoidSaleLineCommandHandler(ISaleRepository sales, IClock clo
 /// <param name="TenderType">How it was paid.</param>
 /// <param name="Amount">How much. Must be positive.</param>
 /// <param name="Reference">The reference the tender left behind — a card authorisation code, a voucher serial.</param>
+/// <param name="SaleTenderId">
+/// The tender's identity, or <c>null</c> to mint one here. A replay with the id already used returns
+/// the existing tender instead of taking the payment twice (§4.11).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record TenderSaleCommand(
     Guid SaleId,
     TenderType TenderType,
     Money Amount,
-    string? Reference = null) : ICommand<Guid>;
+    string? Reference = null,
+    Guid? SaleTenderId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed tender command before it reaches the handler.</summary>
 public sealed class TenderSaleCommandValidator : AbstractValidator<TenderSaleCommand>
@@ -296,6 +321,18 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
+        if (command.SaleTenderId is { } replayedTenderId)
+        {
+            SaleTender? already = sale.Tenders.FirstOrDefault(tender => tender.Id == replayedTenderId);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.11) — a lost acknowledgement must not take the payment
+                // twice.
+                return already.Id;
+            }
+        }
+
         SaleTender tender = SaleTender.Capture(
             sale.TenantId,
             sale.StoreId,
@@ -303,7 +340,8 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
             command.TenderType,
             command.Amount,
             command.Reference,
-            clock.UtcNow);
+            clock.UtcNow,
+            command.SaleTenderId);
 
         sale.AddTender(tender);
 
@@ -356,7 +394,15 @@ public sealed class CompleteSaleCommandHandler(ISaleRepository sales, ISaleCompl
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
-        await completion.CompleteAsync(sale, cancellationToken).ConfigureAwait(false);
+        // The idempotent replay (§4.11): a lost acknowledgement on the final step of the offline
+        // sequence must not strand the till — the sale is already frozen, the stock already relieved
+        // and the financial event already raised, so re-running ISaleCompletionService would either
+        // throw SaleIsNotOpen or, worse, double every one of those effects. Report the same result the
+        // first call already committed instead.
+        if (sale.Status is not SaleStatus.Completed)
+        {
+            await completion.CompleteAsync(sale, cancellationToken).ConfigureAwait(false);
+        }
 
         return new SaleCompletionResult(
             sale.Id,

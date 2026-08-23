@@ -206,6 +206,61 @@ public sealed class PosCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Replaying_the_whole_offline_sequence_does_not_double_anything()
+    {
+        // §4.11's worked example: a terminal goes offline after ringing two lines and tendering, the
+        // store server recycles before the Complete acknowledgement gets back, and the terminal replays
+        // the entire queued sequence from the top. Before the fix, the two AddSaleLine replays appended
+        // lines 3 and 4, the Tender replay doubled the cash taken, and Complete then passed every
+        // invariant against a corrupted total. Every step here must be a no-op the second time through.
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        await harness.SendAsync(new OpenTillSessionCommand(new Money(500m, "ZAR")));
+        await harness.Context.CommitAsync();
+
+        Guid saleId = UuidV7.NewGuid();
+        Guid firstLineId = UuidV7.NewGuid();
+        Guid secondLineId = UuidV7.NewGuid();
+        Guid tenderId = UuidV7.NewGuid();
+
+        async Task ReplayQueuedSequenceAsync()
+        {
+            await harness.SendAsync(new OpenSaleCommand(saleId, harness.LocationId));
+            await harness.SendAsync(new AddSaleLineCommand(
+                saleId, harness.ItemId, null, new Quantity(1m, "EA"), new Money(25m, "ZAR"),
+                SaleLineId: firstLineId));
+            await harness.SendAsync(new AddSaleLineCommand(
+                saleId, harness.ItemId, null, new Quantity(1m, "EA"), new Money(25m, "ZAR"),
+                SaleLineId: secondLineId));
+            await harness.SendAsync(new TenderSaleCommand(
+                saleId, TenderType.Cash, new Money(50m, "ZAR"), SaleTenderId: tenderId));
+            await harness.SendAsync(new CompleteSaleCommand(saleId));
+        }
+
+        await ReplayQueuedSequenceAsync();
+        await harness.Context.CommitAsync();
+
+        // The LAN returns and the till, having no way to know its first pass actually landed, replays
+        // the identical queue from the top — exactly the scenario that used to double the sale.
+        await ReplayQueuedSequenceAsync();
+        await harness.Context.CommitAsync();
+
+        Sale sale = await harness.QueryAsync(new GetSaleQuery(saleId));
+
+        sale.Status.Should().Be(SaleStatus.Completed);
+        sale.LiveLines.Should().HaveCount(2, "the replay must not append a third and fourth line");
+        sale.Tenders.Should().ContainSingle("the replay must not take the payment twice");
+        sale.Gross.Amount.Should().Be(50m);
+        sale.AmountTendered.Amount.Should().Be(50m);
+        sale.ChangeGiven.Amount.Should().Be(0m);
+
+        harness.SaleEvents.Events.Should()
+            .ContainSingle("completing an already-completed sale must not re-raise the financial event");
+
+        harness.Context.Sales.Count().Should().Be(1);
+    }
+
+    [Fact]
     public async Task A_completed_sale_refuses_further_lines_and_tenders_through_the_pipeline()
     {
         await using PosHarness harness = await PosHarness.CreateAsync(fixture);
@@ -479,6 +534,31 @@ public sealed class PosCommandTests(PostgresFixture fixture)
 
         IReadOnlyList<ReceiptPrint> prints = await harness.QueryAsync(new ListReceiptPrintsQuery(saleId));
         prints.Should().ContainSingle("the refused reprint must not have appended a row to the log");
+    }
+
+    [Fact]
+    public async Task A_replayed_print_id_returns_the_first_print_rather_than_fabricating_a_reprint()
+    {
+        // §4.11 — a replayed RecordReceiptPrintCommand used to append a second row marked
+        // isReprint: true, fabricating a loss-prevention signal against a cashier who printed once.
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        (_, Guid saleId) = await RingUpAsync(harness);
+        await harness.SendAsync(new TenderSaleCommand(saleId, TenderType.Cash, new Money(115m, "ZAR")));
+        await harness.SendAsync(new CompleteSaleCommand(saleId));
+        await harness.Context.CommitAsync();
+
+        Guid printId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new RecordReceiptPrintCommand(saleId, ReceiptPrintId: printId));
+        await harness.Context.CommitAsync();
+
+        Guid replayed = await harness.SendAsync(new RecordReceiptPrintCommand(saleId, ReceiptPrintId: printId));
+
+        replayed.Should().Be(first);
+
+        IReadOnlyList<ReceiptPrint> prints = await harness.QueryAsync(new ListReceiptPrintsQuery(saleId));
+        prints.Should().ContainSingle().Which.IsReprint.Should().BeFalse();
     }
 
     [Fact]

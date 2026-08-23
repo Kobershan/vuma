@@ -31,6 +31,7 @@ namespace VumaRetail.Domain.Pos;
 public sealed class SaleLine : Entity
 {
     private SaleLine(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid saleId,
@@ -45,7 +46,7 @@ public sealed class SaleLine : Entity
         Money net,
         Money tax,
         Money gross)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         SaleId = saleId;
         LineNumber = lineNumber;
@@ -139,6 +140,11 @@ public sealed class SaleLine : Entity
     /// <param name="net">The line excluding tax, from the tax rules engine.</param>
     /// <param name="tax">The tax, from the tax rules engine.</param>
     /// <param name="gross">Net plus tax.</param>
+    /// <param name="id">
+    /// The line's identity, or <c>null</c> to mint one here. §4.11: a terminal that rang this line up
+    /// offline supplies the id it already used, so replaying <c>AddSaleLineCommand</c> after a dropped
+    /// acknowledgement finds the line that already exists instead of appending a second one.
+    /// </param>
     /// <exception cref="PosRuleException">A structural invariant was broken.</exception>
     public static SaleLine Ring(
         Guid tenantId,
@@ -154,7 +160,8 @@ public sealed class SaleLine : Entity
         string taxCode,
         Money net,
         Money tax,
-        Money gross)
+        Money gross,
+        Guid? id = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -200,6 +207,7 @@ public sealed class SaleLine : Entity
         }
 
         return new SaleLine(
+            id ?? UuidV7.NewGuid(),
             tenantId,
             storeId,
             saleId,

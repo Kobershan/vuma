@@ -29,7 +29,12 @@ namespace VumaRetail.Web.Pos;
 /// A sale is a resource with sub-resources rather than one "record a sale" endpoint, because that is
 /// the shape a till actually works in: lines arrive one scan at a time and the customer changes their
 /// mind halfway through. The one-shot path exists too — a terminal that traded offline supplies its
-/// own <c>saleId</c> on <c>POST /pos/sales</c> and replays the sequence, and the replay is idempotent.
+/// own <c>saleId</c> on <c>POST /pos/sales</c> and replays the sequence, and every write in that
+/// sequence is idempotent on a client-supplied id: <c>OpenSaleCommand</c>, <c>AddSaleLineCommand</c>,
+/// <c>TenderSaleCommand</c>, <c>CompleteSaleCommand</c> and <c>RecordReceiptPrintCommand</c> each find
+/// and return what a replay already created rather than creating it twice (§4.11). Voiding, parking and
+/// resuming are not part of this — replaying one of those against a sale it has already been applied to
+/// is refused with a typed error, not silently repeated.
 /// </para>
 /// <para>
 /// There is no <c>PUT</c> or <c>DELETE</c> on a sale, a line or a tender. A line is voided, a sale is
@@ -299,7 +304,8 @@ public static class PosEndpoints
                     request.ItemVariantId,
                     new Quantity(request.Quantity, request.UnitOfMeasure),
                     new Money(request.UnitPrice, request.Currency),
-                    discount),
+                    discount,
+                    request.SaleLineId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -324,7 +330,8 @@ public static class PosEndpoints
 
         Guid id = await dispatcher
             .SendAsync(
-                new TenderSaleCommand(saleId, type, new Money(request.Amount, request.Currency), request.Reference),
+                new TenderSaleCommand(
+                    saleId, type, new Money(request.Amount, request.Currency), request.Reference, request.SaleTenderId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -391,7 +398,8 @@ public static class PosEndpoints
         CancellationToken cancellationToken)
     {
         Guid id = await dispatcher
-            .SendAsync(new RecordReceiptPrintCommand(saleId, request.Reason), cancellationToken)
+            .SendAsync(
+                new RecordReceiptPrintCommand(saleId, request.Reason, request.ReceiptPrintId), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Created($"/api/v1/pos/sales/{saleId}/receipt/prints", new PosIdResponse(id));

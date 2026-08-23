@@ -79,6 +79,10 @@ public sealed record OpenSaleRequest(
 /// <param name="UnitPrice">What one unit is being sold for.</param>
 /// <param name="Currency">The ISO 4217 currency. Must match the sale's.</param>
 /// <param name="DiscountAmount">A manual discount off this line, or <c>null</c> for none.</param>
+/// <param name="SaleLineId">
+/// The line's id, or <c>null</c> to mint one. A terminal replaying a line it rang up offline supplies
+/// the id it already used; re-sending it returns the existing line rather than a second one (§4.11).
+/// </param>
 public sealed record AddSaleLineRequest(
     Guid? ItemId,
     Guid? ItemVariantId,
@@ -86,18 +90,24 @@ public sealed record AddSaleLineRequest(
     string UnitOfMeasure,
     decimal UnitPrice,
     string Currency,
-    decimal? DiscountAmount = null);
+    decimal? DiscountAmount = null,
+    Guid? SaleLineId = null);
 
 /// <summary>Takes a payment against an open sale.</summary>
 /// <param name="TenderType">Cash, Card, Voucher, MobileMoney or CustomerAccount.</param>
 /// <param name="Amount">How much. Must be positive.</param>
 /// <param name="Currency">The ISO 4217 currency. Must match the sale's.</param>
 /// <param name="Reference">The card authorisation code or voucher serial, if any.</param>
+/// <param name="SaleTenderId">
+/// The tender's id, or <c>null</c> to mint one. Re-sending the id already used returns the existing
+/// tender rather than taking the payment twice (§4.11).
+/// </param>
 public sealed record TenderSaleRequest(
     string TenderType,
     decimal Amount,
     string Currency,
-    string? Reference = null);
+    string? Reference = null,
+    Guid? SaleTenderId = null);
 
 /// <summary>Abandons a sale before it is paid for.</summary>
 /// <param name="Reason">Why. Recorded — an abandoned sale is what shrinkage looks like from outside.</param>
@@ -105,7 +115,11 @@ public sealed record VoidSaleRequest(string Reason);
 
 /// <summary>Records that a sale's receipt came out of a printer.</summary>
 /// <param name="Reason">Why it was reprinted. Required once the receipt has been printed before.</param>
-public sealed record RecordReceiptPrintRequest(string? Reason = null);
+/// <param name="ReceiptPrintId">
+/// The print row's id, or <c>null</c> to mint one. Re-sending the id already used returns the existing
+/// row rather than appending a fabricated second print (§4.11).
+/// </param>
+public sealed record RecordReceiptPrintRequest(string? Reason = null, Guid? ReceiptPrintId = null);
 
 /// <summary>One line on a sale, as returned by the API.</summary>
 /// <param name="Id">The line's id.</param>

@@ -17,8 +17,14 @@ namespace VumaRetail.Application.Pos.Commands;
 /// </remarks>
 /// <param name="SaleId">The sale whose receipt was printed.</param>
 /// <param name="Reason">Why it was reprinted. Required once the receipt has been printed before.</param>
+/// <param name="ReceiptPrintId">
+/// The print row's identity, or <c>null</c> to mint one here. Without it, a replay of this command
+/// after a dropped acknowledgement appends a second row marked <c>isReprint: true</c> — a fabricated
+/// loss-prevention signal against a cashier who only printed once (§4.11).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record RecordReceiptPrintCommand(Guid SaleId, string? Reason = null) : ICommand<Guid>;
+public sealed record RecordReceiptPrintCommand(
+    Guid SaleId, string? Reason = null, Guid? ReceiptPrintId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed record-print command before it reaches the handler.</summary>
 public sealed class RecordReceiptPrintCommandValidator : AbstractValidator<RecordReceiptPrintCommand>
@@ -56,6 +62,22 @@ public sealed class RecordReceiptPrintCommandHandler(
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
+        if (command.ReceiptPrintId is { } replayedPrintId)
+        {
+            IReadOnlyList<ReceiptPrint> existing = await prints
+                .ListForSaleAsync(sale.Id, cancellationToken)
+                .ConfigureAwait(false);
+
+            ReceiptPrint? already = existing.FirstOrDefault(print => print.Id == replayedPrintId);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.11) — a lost acknowledgement must not fabricate a second,
+                // reprint-flagged row against a cashier who printed exactly once.
+                return already.Id;
+            }
+        }
+
         int alreadyPrinted = await prints.CountForSaleAsync(sale.Id, cancellationToken).ConfigureAwait(false);
 
         Guid operatorUserId = PosActor.RequireUserId(principal);
@@ -80,7 +102,8 @@ public sealed class RecordReceiptPrintCommandHandler(
             principal.TerminalId ?? sale.TerminalId,
             isReprint: alreadyPrinted > 0,
             command.Reason,
-            clock.UtcNow);
+            clock.UtcNow,
+            command.ReceiptPrintId);
 
         prints.Add(print);
 
