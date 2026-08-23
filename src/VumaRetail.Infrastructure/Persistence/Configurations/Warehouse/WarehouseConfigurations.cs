@@ -80,6 +80,7 @@ internal sealed class BinStockConfiguration : EntityConfiguration<BinStock>
         builder.Property(stock => stock.ItemVariantId);
 
         builder.HasQuantity(stock => stock.QuantityOnHand, "quantity_on_hand");
+        builder.HasQuantity(stock => stock.QuantityReserved, "quantity_reserved");
 
         builder.HasIndex(stock => new { stock.BinId, stock.ItemId })
             .IsUnique()

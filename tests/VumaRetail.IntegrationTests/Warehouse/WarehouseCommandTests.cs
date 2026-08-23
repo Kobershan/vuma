@@ -509,4 +509,113 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         fromBin!.QuantityOnHand.Value.Should().Be(6m, "the replay must not relieve the source bin twice");
         toBin!.QuantityOnHand.Value.Should().Be(4m, "the replay must not credit the destination bin twice");
     }
+
+    [Fact]
+    public async Task Releasing_a_second_wave_against_the_same_bin_only_sees_what_the_first_wave_did_not_reserve()
+    {
+        // §4.19's other CRITICAL: allocation was advisory-only — nothing marked a bin's stock as spoken
+        // for, so two waves released one after another against the same bin could both allocate the full
+        // on-hand quantity. A wave's own release now writes a real reservation (Reserve), and the
+        // allocator ranks and filters on Available (on-hand less reserved), not raw on-hand.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid firstWaveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(firstWaveId, harness.ItemId, null, Each(7m), "SO-4001"));
+        await harness.SendAsync(new ReleasePickWaveCommand(firstWaveId));
+
+        BinStockResult? afterFirstRelease = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterFirstRelease!.QuantityOnHand.Value.Should().Be(10m, "a reservation never moves physical stock");
+        afterFirstRelease.QuantityReserved.Value.Should().Be(7m);
+        afterFirstRelease.Available.Value.Should().Be(3m);
+
+        Guid secondWaveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(secondWaveId, harness.ItemId, null, Each(5m), "SO-4002"));
+
+        Func<Task> releasingSecond = () => harness.SendAsync(new ReleasePickWaveCommand(secondWaveId));
+
+        // Only 3 is genuinely available — the other 7 already belongs to the first wave's reservation.
+        (await releasingSecond.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE");
+    }
+
+    [Fact]
+    public async Task A_short_pick_releases_its_whole_reservation_not_only_what_was_picked()
+    {
+        // The unpicked remainder of a short pick must not sit as a phantom reservation forever.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4003"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        await harness.SendAsync(new ConfirmPickCommand(pickTaskId, Each(6m)));
+
+        BinStockResult? bin = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        bin!.QuantityOnHand.Value.Should().Be(4m, "only what was physically picked left the bin");
+        bin.QuantityReserved.Value.Should().Be(0m, "the whole reservation clears on confirm, even a short one");
+        bin.Available.Value.Should().Be(4m, "the unpicked remainder is available to the next wave immediately");
+    }
+
+    [Fact]
+    public async Task Cancelling_an_allocated_task_releases_its_reservation()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4004"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        await harness.SendAsync(new CancelPickTaskCommand(pickTaskId));
+
+        BinStockResult? bin = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        bin!.QuantityReserved.Value.Should().Be(0m);
+        bin.Available.Value.Should().Be(10m, "an abandoned task must not leave its stock permanently unpromisable");
+    }
+
+    [Fact]
+    public async Task Cancelling_a_released_wave_releases_every_task_still_holding_a_reservation()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4005"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        BinStockResult? beforeCancel = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        beforeCancel!.QuantityReserved.Value.Should().Be(10m);
+
+        await harness.SendAsync(new CancelPickWaveCommand(waveId));
+
+        BinStockResult? afterCancel = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterCancel!.QuantityReserved.Value.Should().Be(0m, "cancelling the wave must not leak its tasks' reservations");
+        afterCancel.Available.Value.Should().Be(10m);
+    }
 }

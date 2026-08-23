@@ -30,11 +30,20 @@ public interface IBinStockMover
         Guid putawayTaskId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Relieves a bin for a confirmed pick.</summary>
+    /// <summary>
+    /// Relieves a bin for a confirmed pick, and gives back the reservation the release placed
+    /// (§4.19) — <paramref name="reservedQuantity"/>, the task's full allocation, not only
+    /// <paramref name="pickedQuantity"/>, so a short pick does not leave the unpicked remainder
+    /// permanently unavailable to the next wave.
+    /// </summary>
     /// <param name="bin">The bin picked from.</param>
     /// <param name="itemId">The item, when it has no variants.</param>
     /// <param name="itemVariantId">The variant.</param>
-    /// <param name="quantity">How much was picked. Must be positive.</param>
+    /// <param name="pickedQuantity">How much was physically picked. Must be positive.</param>
+    /// <param name="reservedQuantity">
+    /// How much the task had reserved — equal to <paramref name="pickedQuantity"/> on a full pick,
+    /// greater than it on a short pick. Must be positive.
+    /// </param>
     /// <param name="pickTaskId">The <see cref="PickTask"/> this movement belongs to.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <exception cref="WarehouseRuleException">The bin does not hold enough of this stock-keeping unit.</exception>
@@ -42,7 +51,8 @@ public interface IBinStockMover
         Bin bin,
         Guid? itemId,
         Guid? itemVariantId,
-        Quantity quantity,
+        Quantity pickedQuantity,
+        Quantity reservedQuantity,
         Guid pickTaskId,
         CancellationToken cancellationToken = default);
 
@@ -97,7 +107,8 @@ public sealed class BinStockMover(IBinStockRepository binStocks, IBinStockMoveme
         Bin bin,
         Guid? itemId,
         Guid? itemVariantId,
-        Quantity quantity,
+        Quantity pickedQuantity,
+        Quantity reservedQuantity,
         Guid pickTaskId,
         CancellationToken cancellationToken = default)
     {
@@ -107,14 +118,15 @@ public sealed class BinStockMover(IBinStockRepository binStocks, IBinStockMoveme
 
         if (balance is null)
         {
-            throw WarehouseRuleException.InsufficientBinStock(Quantity.Zero(quantity.UnitOfMeasure), quantity);
+            throw WarehouseRuleException.InsufficientBinStock(Quantity.Zero(pickedQuantity.UnitOfMeasure), pickedQuantity);
         }
 
-        balance.ApplyOut(quantity);
+        balance.ApplyOut(pickedQuantity);
+        balance.ReleaseReservation(reservedQuantity);
 
         BinStockMovement movement = BinStockMovement.Post(
             bin.TenantId, bin.StoreId, bin.Id, itemId, itemVariantId, BinStockMovementType.PickReserve,
-            -quantity, BinStockReferenceType.Pick, pickTaskId);
+            -pickedQuantity, BinStockReferenceType.Pick, pickTaskId);
 
         movements.Add(movement);
 
