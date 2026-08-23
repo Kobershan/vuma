@@ -1,6 +1,7 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Identity;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Pos.Permissions;
 using VumaRetail.Domain.Pos;
 
@@ -22,7 +23,15 @@ namespace VumaRetail.Application.Pos.Commands;
 /// after a dropped acknowledgement appends a second row marked <c>isReprint: true</c> — a fabricated
 /// loss-prevention signal against a cashier who only printed once (§4.11).
 /// </param>
-[CommandSideEffect(SideEffect.Write)]
+/// <remarks>
+/// §4.10, ADR-135: exempt from read-only (<see cref="ReadOnlyExemption.ReceiptReprint"/>) on the
+/// argument that this command cannot originate trade — it appends one row to an append-only log for a
+/// sale that already exists, and cannot create a sale, move money, move stock, raise a financial event
+/// or consume a document number. Bounded in the handler: refused while the referenced sale is still
+/// <see cref="SaleStatus.Open"/>, which is the in-flight case and belongs to the session-scoped
+/// mechanism instead, not to this exemption.
+/// </remarks>
+[CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.ReceiptReprint)]
 public sealed record RecordReceiptPrintCommand(
     Guid SaleId, string? Reason = null, Guid? ReceiptPrintId = null) : ICommand<Guid>;
 
@@ -46,12 +55,18 @@ public sealed class RecordReceiptPrintCommandValidator : AbstractValidator<Recor
 /// </param>
 /// <param name="principal">Who printed it, and from which terminal.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="entitlements">
+/// §4.10: this command is exempt from the pipeline's read-only guard, so this is the one place left
+/// that can still ask whether the tenant is read-only — the sanctioned use of
+/// <see cref="IEnforcementStatusReader"/> outside the guard itself (ADR-054).
+/// </param>
 public sealed class RecordReceiptPrintCommandHandler(
     ISaleRepository sales,
     IReceiptPrintRepository prints,
     IPermissionChecker permissions,
     IPrincipalAccessor principal,
-    IClock clock) : ICommandHandler<RecordReceiptPrintCommand, Guid>
+    IClock clock,
+    IEnforcementStatusReader entitlements) : ICommandHandler<RecordReceiptPrintCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(
@@ -92,6 +107,19 @@ public sealed class RecordReceiptPrintCommandHandler(
                 .ConfigureAwait(false))
         {
             throw PosForbiddenException.ReceiptReprintNotPermitted();
+        }
+
+        // §4.10: the exemption above is unconditional at the guard, so the "cannot originate trade"
+        // argument only holds if this handler enforces its own bound — a first print of a sale that is
+        // still Open is the in-flight case, not the reprint case, and does not get the free pass.
+        if (sale.Status is SaleStatus.Open)
+        {
+            EnforcementDecision decision = await entitlements.CurrentLevel(cancellationToken).ConfigureAwait(false);
+
+            if (decision.IsReadOnly)
+            {
+                throw new LicenceReadOnlyException(decision);
+            }
         }
 
         ReceiptPrint print = ReceiptPrint.Record(

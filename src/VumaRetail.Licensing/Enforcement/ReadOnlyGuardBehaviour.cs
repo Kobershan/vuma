@@ -73,10 +73,13 @@ public sealed class ReadOnlyGuardBehaviour(
 
         // The open-session carve-out. A sale on the screen and a cash-up not yet closed finish; no new
         // sale starts. The alternative is a drawer of unrecorded cash and a customer holding goods,
-        // which is a mess the vendor would have created to make a billing point.
+        // which is a mess the vendor would have created to make a billing point. Bounded twice over:
+        // MayCarryOn refuses anything opened after the restriction began, and refuses anything that has
+        // outlived its own deadline as of `decision.EvaluatedAt` — the same watermarked instant the
+        // decision itself was computed from, so winding the clock back buys nothing here either.
         if (options.OpenSessionCarveOut
             && envelope.Message is ISessionScopedCommand session
-            && sessions.MayCarryOn(session.SessionId, decision.RestrictedSince))
+            && sessions.MayCarryOn(session.SessionId, decision.RestrictedSince, decision.EvaluatedAt))
         {
             return await next(cancellationToken).ConfigureAwait(false);
         }
@@ -103,25 +106,34 @@ public sealed class ReadOnlyGuardBehaviour(
 /// </remarks>
 public sealed class OpenSessionRegistry : IOpenSessionRegistry
 {
-    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _open = new();
+    private readonly ConcurrentDictionary<Guid, Entry> _open = new();
 
     /// <inheritdoc />
-    public void Open(Guid sessionId, DateTimeOffset at) => _open[sessionId] = at;
+    public void Open(Guid id, DateTimeOffset at, TimeSpan maxDuration) => _open[id] = new Entry(at, maxDuration);
 
     /// <inheritdoc />
-    public void Close(Guid sessionId) => _open.TryRemove(sessionId, out _);
+    public void Close(Guid id) => _open.TryRemove(id, out _);
 
     /// <inheritdoc />
-    public bool MayCarryOn(Guid sessionId, DateTimeOffset? restrictedSince)
+    public bool MayCarryOn(Guid id, DateTimeOffset? restrictedSince, DateTimeOffset evaluatedAt)
     {
-        if (!_open.TryGetValue(sessionId, out DateTimeOffset openedAt))
+        if (!_open.TryGetValue(id, out Entry entry))
         {
             return false;
         }
 
-        // A session opened *after* the restriction began gets no carve-out — that is a new sale, and
-        // no new sale may start. Without this comparison the carve-out would be a permanent bypass for
+        // Bound 1: opened *after* the restriction began gets no carve-out — that is a new sale, and no
+        // new sale may start. Without this comparison the carve-out would be a permanent bypass for
         // anything that called itself a session.
-        return restrictedSince is not { } since || openedAt < since;
+        bool openedBeforeRestriction = restrictedSince is not { } since || entry.OpenedAt < since;
+
+        // Bound 2: the hard deadline. Without it, a tenant who simply never closes a session or a sale
+        // keeps every one of its writes carved out indefinitely — this is what makes the worst case
+        // "what was physically on screen, finished within its window" rather than "forever".
+        bool withinDeadline = evaluatedAt - entry.OpenedAt <= entry.MaxDuration;
+
+        return openedBeforeRestriction && withinDeadline;
     }
+
+    private readonly record struct Entry(DateTimeOffset OpenedAt, TimeSpan MaxDuration);
 }

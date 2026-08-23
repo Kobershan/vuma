@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Catalog;
 using VumaRetail.Application.Identity;
@@ -21,6 +22,8 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.IntegrationTests.Pos;
+using VumaRetail.Licensing;
+using VumaRetail.Licensing.Enforcement;
 
 namespace VumaRetail.IntegrationTests.Sales;
 
@@ -110,6 +113,13 @@ public sealed class SalesHarness : IAsyncDisposable
         services.AddSingleton<ISellableItemResolver, SellableItemResolver>();
         services.AddSingleton<ISaleFinancialEventPublisher>(new RecordingSaleEventPublisher());
         services.AddSingleton<ISaleCompletionService, SaleCompletionService>();
+
+        // §4.10: the in-flight session/sale registry OpenTillSessionCommand, OpenSaleCommand and
+        // CompleteSaleCommand all depend on now, and the read-only state RecordReceiptPrintCommand
+        // consults directly.
+        services.AddSingleton<IOpenSessionRegistry, OpenSessionRegistry>();
+        services.AddSingleton<IOpenSessionWindows>(new LicensingOptions());
+        services.AddSingleton<IEnforcementStatusReader>(new TestEntitlementService());
 
         services.AddSingleton<IPriceListRepository>(PriceLists);
         services.AddSingleton<IPromotionRepository>(Promotions);

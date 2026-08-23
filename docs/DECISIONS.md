@@ -2081,3 +2081,143 @@ Stage 13 as built; a future stage that adds another way to end a task's claim on
 an auto-cancel) must release through the same full-not-proportional rule or reintroduce the leak this ADR
 closes. `MoveBinStockCommand` and `ConfirmPutawayCommand` are deliberately untouched — putaway is inbound
 and has no advisory/binding gap to close, and an internal transfer moves on-hand, not a reservation.
+
+## ADR-135 — §4.10's read-only carve-outs: a fourth exemption kind for reprints, and two hard deadlines on the in-flight sale/session bound — **LOCKED**
+**Context.** `licence-safety`'s 2026-08-15 adjudication of §4.10 (`docs/PROGRESS.md`) found two real gaps
+against `LICENSING.md` §4: reprinting an already-completed sale was blocked outright (contradicting Rule
+1 and R9's statutory-records position), and the open-session carve-out's machinery (`ISessionScopedCommand`,
+`IOpenSessionRegistry`, `ReadOnlyGuardBehaviour`'s branch) was fully built and tested against a fake
+command in Stage 04b but never wired to a single real POS command — `OpenSessionRegistry.Open`/`.Close`
+were called from nowhere in production code. The adjudication's "trap in the obvious implementation"
+warning was the load-bearing finding: wiring only `CompleteSaleCommand`/`CloseTillSessionCommand` is
+functionally useless, because `Sale.Complete` throws unless the sale is fully rung and tendered — a
+half-rung sale could then be neither finished nor paid for, producing a 422 instead of a 403 and leaving
+the drawer stranded exactly as before. And the moment ringing and tendering are also exempted, the
+existing bound (`openedAt < restrictedSince`) becomes a hole on its own: nothing stopped a tenant who
+simply never closed a session from trading on it forever.
+**Decision.**
+1. **A fourth `ReadOnlyExemption` kind, `ReceiptReprint`, whose sole member is `RecordReceiptPrintCommand`.**
+   Its argument is "cannot originate trade", not "already started": the handler appends one row to an
+   append-only log for a sale that already exists, and cannot create a sale, move money, move stock, raise
+   a financial event or consume a document number. ADR-052's cap moves from three kinds to four; membership
+   stays a closed list asserted by name (`CommandClassificationTests`, `ReadOnlyCorrectnessTests`). Because
+   the exemption is unconditional at the guard, `RecordReceiptPrintCommandHandler` enforces its own bound
+   directly against `IEnforcementStatusReader`: refused when the referenced sale is still `Open` — that is
+   the in-flight case, and belongs to member set below, not to this exemption. This is a second, narrow,
+   named exception to the architecture rule that only `VumaRetail.Licensing` may depend on
+   `IEnforcementStatusReader` (`LicensingRulesTests.SanctionedEnforcementStatusReaders`), the same shape as
+   `IEntitlementService`'s own `CheckLimitAsync` carve-out in that file.
+2. **The in-flight carve-out is the ADR-028 session mechanism, not an exemption kind**, and its member set
+   is `AddSaleLineCommand`, `VoidSaleLineCommand`, `TenderSaleCommand`, `CompleteSaleCommand`,
+   `VoidSaleCommand` and `CloseTillSessionCommand` — every one implementing `ISessionScopedCommand` with
+   `SessionId` aliased to `SaleId` (or, for the till close, `TillSessionId`). Deliberately excluded:
+   `OpenSaleCommand` and `OpenTillSessionCommand` ("no new sale may start" — the commercial lever),
+   `ParkSaleCommand` (parking is how a sale is kept open indefinitely — exempting it would let the bound be
+   defeated by simply never un-parking), and `ResumeSaleCommand` — the most important exclusion of the six,
+   because parked sales are a pre-existing pool of "already open" sales with no customer at the counter and
+   no cash in hand, and exempting Resume would convert that whole pool into a trading allowance the instant
+   read-only fell due.
+3. **`IOpenSessionRegistry` tracks a sale and its till session as two independent entries**, not one — a
+   reservation-style split, the same shape rule 21 already uses for `BinStock` (ADR-134): bounding only the
+   session would let one open till licence unlimited new sales for as long as the session stayed open.
+   `OpenSaleCommandHandler`/`OpenTillSessionCommandHandler` register unconditionally, whatever the current
+   enforcement level, so the registry already knows what was in flight the instant a restriction falls due
+   — a carve-out wired in after the fact is a carve-out that ends up half-applied (the exact Stage 04b
+   design note this session finally made true). `CompleteSaleCommandHandler` and `VoidSaleCommandHandler`
+   close the sale's entry on a genuine (non-replay) completion or void; `CloseTillSessionCommandHandler`
+   closes the session's.
+4. **Two hard deadlines, `LicensingOptions.InFlightSaleWindow` (30 minutes) and `InFlightCashUpWindow`
+   (12 hours)**, published to POS through a new `IOpenSessionWindows` port (`LicensingOptions` implements
+   it) so POS never references `VumaRetail.Licensing` directly — the same reason `ITaxCalculator` exists
+   rather than POS depending on `VumaRetail.Finance`. `IOpenSessionRegistry.Open` now takes a
+   `maxDuration` alongside the timestamp and stores both; `MayCarryOn` takes an `evaluatedAt` and refuses
+   once `evaluatedAt - openedAt > maxDuration`, in addition to the existing `openedAt < restrictedSince`
+   check — both bounds are required, and either alone is a hole. `evaluatedAt` is `decision.EvaluatedAt`,
+   the same watermarked instant `EntitlementService.LoadAsync` computed the enforcement decision from, not
+   a fresh `IClock.UtcNow` read at the guard — so winding the system clock back buys nothing here either
+   (`LICENSING.md` §7).
+**Consequences.** The worst case is exactly what the adjudication specified and no worse: the sales
+physically on a till screen at the instant the level flipped finish within 30 minutes, and the cash-ups
+open at that instant close within 12 hours; nothing held open past its window, nothing parked and left,
+nothing resumed, no new sale or shift, and a store-server restart (the registry is in-memory, per node)
+shortens every window further. `ReadOnlyCorrectnessTests` exercises the full member set against the real
+POS command types (not a test double — the shape a real command has is exactly what decides whether it is
+exempt) both within and past the deadline, plus the clock-wound-back case. One accepted, narrow edge case,
+recorded rather than engineered around: a `CompleteSaleCommand` replay that arrives after the sale's
+registry entry has already been closed by a genuine first completion, and after read-only has since fallen
+due, is refused by the guard with `403` even though the operation is a harmless no-op — the guard cannot
+know a request will turn out to be idempotent without running the handler first, which is a general,
+pre-existing limit of a pre-handler guard and not unique to this fix. The till's own state is never
+wrong — a read always shows the sale as `Completed` — so this is a confusing error on a very late duplicate
+retry, not a data or drawer problem.
+
+## ADR-136 — A sale's currency is its till session's, resolved once from the store then the tenant, never taken from the caller — **LOCKED**
+**Context.** §4.13: `OpenSaleCommand` accepted an arbitrary client-supplied currency with no check against
+the till session, the store or the tenant. A foreign-currency sale — even one immediately voided — sat on
+the session until `CloseTillSessionCommandHandler` tried to fold its (zero) `CashContribution` into the
+drawer total with `Money`'s raw `+` operator, which throws a plain `InvalidOperationException` on any
+currency mismatch regardless of amount. That surfaced as an unhandled `500`, and because `TillSession.Close`
+performs its own open-sale check only *after* the aggregation line, the till was left permanently unable to
+close the shift — bricked, with no API path out, sometimes triggered by the operator's own correction (void
+the wrong-currency sale) rather than by anything malicious.
+**Decision.** `Sale.Open` no longer accepts an independently chosen currency: it derives `Currency` from
+the `TillSession` it is being opened against and refuses (`PosRuleException.CurrencyMismatch`) if a caller
+passes anything else — `OpenSaleCommand` dropped its own `Currency` parameter entirely rather than carry a
+field that would silently be ignored. The till session's own currency is resolved once, when it opens, from
+`Store.CurrencyOverride` then `Tenant.BaseCurrency` (`OpenTillSessionCommandHandler`, mirroring
+`ImportBatchContextFactory`'s identical precedent on the Imports side, which exists for the same reason:
+two call sites resolving currency differently is the same bug in a different module) — never from the
+request body. `CloseTillSessionCommandHandler` additionally guards the cash aggregation with an explicit
+per-sale currency check that throws the same typed exception instead of relying on `Money`'s raw operator,
+as a safety net for a state the resolution above should make unreachable.
+**Consequences.** A sale can no longer diverge from the till session it is rung up on, and a session can no
+longer diverge from the store/tenant's configured currency — the chain store/tenant → session → sale is
+enforced by the type signatures involved (`Sale.Open` takes the `TillSession`, not an independent currency
+string), which is a stronger guarantee than validating equality at each call site independently. The
+specific bricking scenario in §4.13's worked example is now structurally unreachable through the command
+API. Multi-currency tendering across a genuine exchange rate remains out of scope for this stage, as
+`PosRuleException.CurrencyMismatch`'s own message has always said.
+
+## ADR-137 — `IPermissionChecker`: an in-handler counterpart to `RequirePermission`, for the one write whose legality the endpoint cannot see — **LOCKED**
+**Context.** §4.15: `pos.receipt.reprint` is declared `IsHighRisk` in the permission catalogue and enforced
+by nothing. `RecordReceiptPrintCommand`'s endpoint is gated on `pos.receipt.print` only, because whether a
+given print *is* a reprint is derived from the print log itself (`alreadyPrinted > 0`) — information the
+endpoint filter, which runs before the handler and before any row is read, structurally cannot have. No
+existing port in the codebase answered "does this user hold this permission" from inside a handler; every
+check ran at the endpoint via `RequirePermission`.
+**Decision.** A new published port, `IPermissionChecker` (`Application.Abstractions.Identity`), with one
+method — `HasPermissionAsync(userId, storeId, permission, ct)` — implemented by `PermissionChecker`
+(`Application.Identity`) over the same `IRoleRepository` lookup and `IPermissionCatalogue` filter
+`GetEffectivePermissionsQueryHandler` already used for `GET /api/v1/me/permissions`. `RecordReceiptPrintCommandHandler`
+calls it only when `alreadyPrinted > 0`, throwing the new `PosForbiddenException.ReceiptReprintNotPermitted()`
+(`DomainProblemKind.Forbidden`, `403`) on a `false`.
+**Consequences.** This is deliberately a narrow escape hatch, not a general authorization framework inside
+handlers — the doc comment on the port says so directly: "a module reaching for this on every write is a
+module that should have narrowed its endpoint permission instead." Almost every permission check belongs at
+the endpoint and stays there; this exists for the specific, rare shape where a command's legality depends on
+state only the handler has read. Stale permissions (a role granted a permission the catalogue no longer
+declares) are treated as not held, matching the read path's own behaviour, so a module that is disabled or
+renamed cannot leave a phantom grant enforceable.
+
+## ADR-138 — Tax is computed and stored once per document line; nothing downstream recomputes it — **LOCKED**
+**Context.** `docs/PROGRESS.md`'s order-of-work note flagged this as cheap to record now and expensive once
+Stage 10c's analytics or a VAT201 report starts recomputing tax from a document total and disagreeing with
+what was actually posted. The behaviour has been correct since Stage 09 shipped — `AddSaleLineCommandHandler`
+calls `ITaxCalculator.CalculateAsync` exactly once, at ring-up, and stores the resulting net/tax/gross on
+the `SaleLine` itself (`Net`, `Tax`, `Gross`) — but the decision was never written down, which is exactly
+the gap that let §4.14's *rounding* defect survive undetected in the same code path.
+**Decision.** Tax is resolved once, at the point a document line is captured, against the rule in effect
+that day, and the result is snapshotted onto the line — never recomputed from a line's inputs, a document's
+total, or a later reading of the tax rules engine. This already holds for `SaleLine` (Stage 09) and
+`PurchaseOrderLine` (Stage 12, via the same `ITaxCalculator` port); every future stage that captures a
+priced document line — quotes and invoices (10c), sales returns already follow it by construction since a
+return reverses the original line's own figures — must do the same. This is CLAUDE.md §7 rule 26's
+"snapshots, not re-derivations" applied specifically to tax, and a restatement of `AddSaleLineCommandHandler`'s
+own existing doc comment ("a rate change next month must not restate a receipt a customer is holding")
+promoted from a code comment to a locked decision.
+**Consequences.** A tenant's VAT return, trial balance and any historical receipt reprint always agree with
+each other and with what was actually charged, regardless of rate changes since. The cost is that a line's
+stored tax can only be corrected by a new document (a credit note, a reversal) — never by an edit — which is
+the same trade-off rule 7 already makes for posted financial documents generally. No consumer — a report, an
+analytics query, a reconciliation — may derive tax from `(net, rate)` or `(gross, rate)` on a stored line; it
+reads what was stored.

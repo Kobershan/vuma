@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Identity;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Catalog;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Permissions;
@@ -19,6 +20,8 @@ using VumaRetail.Finance.Tax;
 using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
+using VumaRetail.Licensing;
+using VumaRetail.Licensing.Enforcement;
 
 namespace VumaRetail.IntegrationTests.Pos;
 
@@ -98,6 +101,14 @@ public sealed class PosHarness : IAsyncDisposable
         services.AddSingleton<IPermissionCatalogue>(
             new PermissionCatalogue([new PlatformPermissions(), new IdentityPermissions(), new PosPermissions()]));
         services.AddSingleton<IPermissionChecker, PermissionChecker>();
+
+        // §4.10: the in-flight session/sale registry and its hard deadlines, and the read-only state
+        // RecordReceiptPrintCommandHandler consults directly (sanctioned in LicensingRulesTests.cs).
+        // Normal, not read-only, by default — the dedicated read-only tests live in
+        // tests/VumaRetail.IntegrationTests/Licensing, against the real ReadOnlyGuardBehaviour.
+        services.AddSingleton<IOpenSessionRegistry, OpenSessionRegistry>();
+        services.AddSingleton<IOpenSessionWindows>(new LicensingOptions());
+        services.AddSingleton<IEnforcementStatusReader>(new TestEntitlementService());
 
         // Inventory, real: a sale that does not relieve stock has not been proved to work.
         services.AddSingleton<IStockLocationRepository>(new StockLocationRepository(context));

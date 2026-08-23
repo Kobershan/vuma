@@ -7,8 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Commands;
+using VumaRetail.Application.Pos.Commands;
 using VumaRetail.Contracts.Licensing;
 using VumaRetail.Domain.Licensing;
+using VumaRetail.Domain.Pos;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.IntegrationTests.Api;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.Licensing;
@@ -119,10 +122,10 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task The_read_only_exemptions_are_exactly_the_three_ADR_028_carve_outs()
+    public async Task The_read_only_exemptions_are_exactly_the_four_ADR_135_carve_outs()
     {
-        // The set is capped at three *kinds*, and membership is a closed list rather than a count —
-        // the same shape as the BypassTenantFilter call-site list Stage 04 introduced. A fourth kind
+        // The set is capped at four *kinds*, and membership is a closed list rather than a count —
+        // the same shape as the BypassTenantFilter call-site list Stage 04 introduced. A fifth kind
         // needs a superseding ADR; a new member of an existing kind needs somebody to edit this list
         // and say why.
         Dictionary<string, ReadOnlyExemption> exempt = Commands()
@@ -132,7 +135,7 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
             .Where(entry => entry.Attribute.Exemption is not ReadOnlyExemption.None)
             .ToDictionary(entry => entry.Name, entry => entry.Attribute.Exemption, StringComparer.Ordinal);
 
-        exempt.Values.Distinct().Should().HaveCountLessThanOrEqualTo(3);
+        exempt.Values.Distinct().Should().HaveCountLessThanOrEqualTo(4);
 
         exempt.Should().BeEquivalentTo(new Dictionary<string, ReadOnlyExemption>(StringComparer.Ordinal)
         {
@@ -152,6 +155,10 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
             ["SendHeartbeatCommand"] = ReadOnlyExemption.Payment,
             ["RedeemEmergencyCodeCommand"] = ReadOnlyExemption.Payment,
             ["RevokeSupportAccessCommand"] = ReadOnlyExemption.Payment,
+
+            // ReceiptReprint (ADR-135, §4.10): cannot originate trade — one row appended to an
+            // append-only log for a sale that already exists. The single member this kind is scoped to.
+            ["RecordReceiptPrintCommand"] = ReadOnlyExemption.ReceiptReprint,
         });
 
         await Task.CompletedTask;
@@ -262,35 +269,104 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task An_in_progress_session_finishes_and_a_new_one_may_not_start()
+    public async Task Six_in_flight_pos_commands_finish_and_no_new_sale_or_session_may_start()
     {
-        // The open-session carve-out (LICENSING.md §4). Stage 09's till opens and closes real sessions
-        // against this registry; the mechanism and the guard that honours it are built and asserted
-        // here, because a carve-out retrofitted into an enforcement path ends up half-applied.
+        // The open-session carve-out (LICENSING.md §4, ADR-135). Stage 09's till opens and closes real
+        // sessions and sales against this registry; the mechanism and the guard that honours it are
+        // asserted here against the real POS command types rather than a test double, per §4.10's
+        // adjudication — the shape a real command has is exactly what decides whether it is exempt.
         OpenSessionRegistry sessions = new();
         DateTimeOffset restrictedSince = DateTimeOffset.UtcNow;
+        TimeSpan window = TimeSpan.FromMinutes(30);
 
-        Guid inProgress = Guid.NewGuid();
-        sessions.Open(inProgress, restrictedSince.AddMinutes(-2));
+        Guid inProgressSale = Guid.NewGuid();
+        sessions.Open(inProgressSale, restrictedSince.AddMinutes(-2), window);
 
-        Guid started = Guid.NewGuid();
-        sessions.Open(started, restrictedSince.AddMinutes(2));
+        Guid startedAfterSale = Guid.NewGuid();
+        sessions.Open(startedAfterSale, restrictedSince.AddMinutes(2), window);
 
-        ReadOnlyGuardBehaviour guard = new(
-            new TestEntitlementService
-            {
-                Decision = new EnforcementDecision(
-                    EnforcementLevel.ReadOnly,
-                    EnforcementReason.SubscriptionLapsed,
-                    NoticeStage.FinalNotice,
-                    restrictedSince,
-                    RestrictedSince: restrictedSince),
-            },
+        ReadOnlyGuardBehaviour guard = Guard(sessions, restrictedSince, new LicensingOptions());
+
+        // The member set, in full, on the sale opened before the restriction began.
+        (await Runs(guard, new AddSaleLineCommand(
+            inProgressSale, Guid.NewGuid(), null, new Quantity(1m, "EA"), new Money(10m, "ZAR")))).Should().BeTrue();
+        (await Runs(guard, new VoidSaleLineCommand(inProgressSale, Guid.NewGuid()))).Should().BeTrue();
+        (await Runs(guard, new TenderSaleCommand(inProgressSale, TenderType.Cash, new Money(10m, "ZAR")))).Should().BeTrue();
+        (await Runs(guard, new CompleteSaleCommand(inProgressSale))).Should().BeTrue();
+        (await Runs(guard, new VoidSaleCommand(inProgressSale, "wrong item"))).Should().BeTrue();
+        (await Runs(guard, new CloseTillSessionCommand(inProgressSale, new Money(500m, "ZAR")))).Should().BeTrue();
+
+        // A session opened *after* the restriction began is a new sale, and no new sale may start —
+        // without this the carve-out would be a permanent bypass for anything calling itself a session.
+        (await Runs(guard, new AddSaleLineCommand(
+            startedAfterSale, Guid.NewGuid(), null, new Quantity(1m, "EA"), new Money(10m, "ZAR")))).Should().BeFalse();
+        (await Runs(guard, new CompleteSaleCommand(startedAfterSale))).Should().BeFalse();
+
+        // These are never in the member set at all, whichever sale or session they name — "no new sale
+        // can start" would mean nothing if opening one, or waking a parked one, were exempt.
+        (await Runs(guard, new OpenSaleCommand(null, Guid.NewGuid()))).Should().BeFalse();
+        (await Runs(guard, new OpenTillSessionCommand(Money.Zero("ZAR")))).Should().BeFalse();
+        (await Runs(guard, new ParkSaleCommand(inProgressSale))).Should().BeFalse();
+        (await Runs(guard, new ResumeSaleCommand(inProgressSale))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task The_in_flight_carve_out_expires_at_its_own_deadline()
+    {
+        // ADR-135's second bound, and the single most important assertion in this file: opened before
+        // the restriction is not enough on its own, or a tenant who simply never finishes a sale keeps
+        // every one of these six commands carved out forever. At exactly one second past the window,
+        // every one of them is refused.
+        OpenSessionRegistry sessions = new();
+        DateTimeOffset restrictedSince = DateTimeOffset.UtcNow;
+        TimeSpan window = TimeSpan.FromMinutes(30);
+
+        // Opened a minute before the restriction, so it passes bound 1 — the deadline (bound 2) is what
+        // this test is about, and it is measured from when the sale opened, not from restrictedSince.
+        DateTimeOffset openedAt = restrictedSince.AddMinutes(-1);
+        Guid saleId = Guid.NewGuid();
+        sessions.Open(saleId, openedAt, window);
+
+        ReadOnlyGuardBehaviour stillWithinWindow = Guard(
+            sessions, restrictedSince, new LicensingOptions(), evaluatedAt: openedAt.Add(window).AddSeconds(-1));
+
+        (await Runs(stillWithinWindow, new CompleteSaleCommand(saleId))).Should().BeTrue();
+
+        ReadOnlyGuardBehaviour pastTheDeadline = Guard(
+            sessions, restrictedSince, new LicensingOptions(), evaluatedAt: openedAt.Add(window).AddSeconds(1));
+
+        (await Runs(pastTheDeadline, new AddSaleLineCommand(
+            saleId, Guid.NewGuid(), null, new Quantity(1m, "EA"), new Money(10m, "ZAR")))).Should().BeFalse();
+        (await Runs(pastTheDeadline, new VoidSaleLineCommand(saleId, Guid.NewGuid()))).Should().BeFalse();
+        (await Runs(pastTheDeadline, new TenderSaleCommand(saleId, TenderType.Cash, new Money(10m, "ZAR")))).Should().BeFalse();
+        (await Runs(pastTheDeadline, new CompleteSaleCommand(saleId))).Should().BeFalse();
+        (await Runs(pastTheDeadline, new VoidSaleCommand(saleId, "wrong item"))).Should().BeFalse();
+        (await Runs(pastTheDeadline, new CloseTillSessionCommand(saleId, new Money(500m, "ZAR")))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Winding_the_clock_back_does_not_revive_an_expired_carve_out()
+    {
+        // LICENSING.md §7: a clock wound back must buy nothing, including here. MayCarryOn is evaluated
+        // against decision.EvaluatedAt — the same watermarked instant the enforcement decision itself
+        // was computed from — so this test asserts the plumbing carries that instant through rather
+        // than re-deriving "now" from IClock.UtcNow at the guard.
+        OpenSessionRegistry sessions = new();
+        DateTimeOffset restrictedSince = DateTimeOffset.UtcNow;
+        TimeSpan window = TimeSpan.FromMinutes(30);
+
+        Guid saleId = Guid.NewGuid();
+        sessions.Open(saleId, restrictedSince.AddMinutes(-1), window);
+
+        // The decision's own EvaluatedAt is already past the deadline; winding a *local* clock back
+        // cannot matter because the guard never consults one directly for this check.
+        ReadOnlyGuardBehaviour guard = Guard(
             sessions,
-            new LicensingOptions());
+            restrictedSince,
+            new LicensingOptions(),
+            evaluatedAt: restrictedSince.Add(window).AddDays(30));
 
-        (await Runs(guard, new FinishSaleCommand(inProgress))).Should().BeTrue();
-        (await Runs(guard, new FinishSaleCommand(started))).Should().BeFalse();
+        (await Runs(guard, new CompleteSaleCommand(saleId))).Should().BeFalse();
     }
 
     [Fact]
@@ -299,24 +375,29 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
         OpenSessionRegistry sessions = new();
         DateTimeOffset restrictedSince = DateTimeOffset.UtcNow;
 
-        Guid inProgress = Guid.NewGuid();
-        sessions.Open(inProgress, restrictedSince.AddMinutes(-2));
+        Guid inProgressSale = Guid.NewGuid();
+        sessions.Open(inProgressSale, restrictedSince.AddMinutes(-2), TimeSpan.FromMinutes(30));
 
-        ReadOnlyGuardBehaviour guard = new(
+        ReadOnlyGuardBehaviour guard = Guard(
+            sessions, restrictedSince, new LicensingOptions { OpenSessionCarveOut = false });
+
+        (await Runs(guard, new CompleteSaleCommand(inProgressSale))).Should().BeFalse();
+    }
+
+    private static ReadOnlyGuardBehaviour Guard(
+        OpenSessionRegistry sessions, DateTimeOffset restrictedSince, LicensingOptions options, DateTimeOffset? evaluatedAt = null)
+        => new(
             new TestEntitlementService
             {
                 Decision = new EnforcementDecision(
                     EnforcementLevel.ReadOnly,
                     EnforcementReason.SubscriptionLapsed,
                     NoticeStage.FinalNotice,
-                    restrictedSince,
+                    evaluatedAt ?? restrictedSince,
                     RestrictedSince: restrictedSince),
             },
             sessions,
-            new LicensingOptions { OpenSessionCarveOut = false });
-
-        (await Runs(guard, new FinishSaleCommand(inProgress))).Should().BeFalse();
-    }
+            options);
 
     [Fact]
     public async Task An_unlicensed_module_is_refused_with_an_upgrade_reference_and_not_a_dead_end()
@@ -450,14 +531,16 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
         check.ShouldWarn.Should().BeTrue();
     }
 
-    private static async Task<bool> Runs(ReadOnlyGuardBehaviour guard, ICommand<Unit> command)
+    private static async Task<bool> Runs<TResult>(ReadOnlyGuardBehaviour guard, ICommand<TResult> command)
     {
         try
         {
-            return await guard.HandleAsync(
+            await guard.HandleAsync(
                 MessageEnvelope.ForCommand(command),
-                _ => Task.FromResult(true),
+                _ => Task.FromResult<TResult>(default!),
                 CancellationToken.None);
+
+            return true;
         }
         catch (LicenceReadOnlyException)
         {
@@ -502,15 +585,3 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
     /// </remarks>
     private static Assembly[] Assemblies() => ModuleAssemblies.All;
 }
-
-/// <summary>
-/// A till finishing a sale it had already started, for the open-session carve-out.
-/// </summary>
-/// <remarks>
-/// Declared in the test assembly rather than in a module, because the POS does not exist until Stage
-/// 09 and the carve-out has to be proven now. It is the shape a real sale command will have: an
-/// ordinary write that also says which session it belongs to.
-/// </remarks>
-/// <param name="SessionId">The till session.</param>
-[CommandSideEffect(SideEffect.Write)]
-public sealed record FinishSaleCommand(Guid SessionId) : ICommand<Unit>, ISessionScopedCommand;

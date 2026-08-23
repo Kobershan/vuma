@@ -62,14 +62,14 @@ public sealed class CommandClassificationTests
     }
 
     [Fact]
-    public void Read_only_exemptions_stay_confined_to_the_three_ADR_028_carve_outs()
+    public void Read_only_exemptions_stay_confined_to_the_four_ADR_028_ADR_135_carve_outs()
     {
         // The cap is on *kinds*, not commands (ADR-052) — counting commands would fail the build the
         // moment a second command legitimately shared a kind that already had one user, which is
         // exactly what Stage 04b's licence-screen commands do under Payment (SideEffect.cs's own
         // remarks on ReadOnlyExemption.Payment name six of them by design). What must stay closed is
-        // the set of *kinds*: Payment, OfflineFlush and Backup, asserted by name so a fourth needs a
-        // superseding ADR rather than a code review.
+        // the set of *kinds*: Payment, OfflineFlush, Backup and, since ADR-135, ReceiptReprint —
+        // asserted by name so a fifth needs a superseding ADR rather than a code review.
         List<(Type Type, ReadOnlyExemption Exemption)> exempt = AllCommands()
             .Select(command => (Type: command, Attribute: command.GetCustomAttribute<CommandSideEffectAttribute>()))
             .Where(entry => entry.Attribute is { Exemption: not ReadOnlyExemption.None })
@@ -83,11 +83,12 @@ public sealed class CommandClassificationTests
             ReadOnlyExemption.Payment,
             ReadOnlyExemption.OfflineFlush,
             ReadOnlyExemption.Backup,
+            ReadOnlyExemption.ReceiptReprint,
         ];
 
-        Assert.True(kinds.IsSubsetOf(permitted) && kinds.Count <= 3, $"""
-            A read-only exemption kind outside ADR-028's closed list of three (Payment, OfflineFlush,
-            Backup) is in use. Widening the set of kinds needs a superseding ADR.
+        Assert.True(kinds.IsSubsetOf(permitted) && kinds.Count <= 4, $"""
+            A read-only exemption kind outside the closed list of four (Payment, OfflineFlush, Backup,
+            ReceiptReprint) is in use. Widening the set of kinds needs a superseding ADR.
 
             Currently exempt:
             {string.Join(Environment.NewLine, exempt.Select(entry => $"  - {entry.Type.FullName} — {entry.Exemption}"))}

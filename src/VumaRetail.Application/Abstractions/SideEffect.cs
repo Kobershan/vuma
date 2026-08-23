@@ -50,12 +50,13 @@ public sealed class CommandSideEffectAttribute(SideEffect effect) : Attribute
     public SideEffect Effect { get; } = effect;
 
     /// <summary>
-    /// Set only on the three carve-outs ADR-028 keeps writable in read-only: taking a payment or
-    /// updating a payment method, flushing already-captured offline data, and running a backup.
+    /// Set only on the four carve-outs ADR-028/ADR-135 keep writable in read-only: taking a payment or
+    /// updating a payment method, flushing already-captured offline data, running a backup, and
+    /// recording a reprint of an already-completed sale's receipt.
     /// </summary>
     /// <remarks>
     /// Every command that sets this is a hole in the commercial lever, so the set is meant to stay at
-    /// three and to be reviewable in one place. <c>licence-safety</c> checks it, and adding a fourth
+    /// four and to be reviewable in one place. <c>licence-safety</c> checks it, and adding a fifth
     /// should require an ADR rather than a code review.
     /// </remarks>
     public ReadOnlyExemption Exemption { get; init; } = ReadOnlyExemption.None;
@@ -102,4 +103,20 @@ public enum ReadOnlyExemption
     /// restore path has to stay intact.
     /// </summary>
     Backup = 3,
+
+    /// <summary>
+    /// Recording that an already-completed sale's receipt was printed again. <c>LICENSING.md</c> §4
+    /// promises every reprint works, and unlike the in-flight carve-out below, a reprint's argument is
+    /// not "already started" — it is "cannot originate trade": the handler appends one row to an
+    /// append-only log for a sale that already exists, and cannot create a sale, move money, move
+    /// stock, or consume a document number (ADR-135).
+    /// </summary>
+    /// <remarks>
+    /// Bounded at the handler, not here: a lapsed tenant may reprint a <em>completed</em> sale's
+    /// receipt, never an open one's first print, which is the in-flight case and belongs to
+    /// <see cref="VumaRetail.Application.Abstractions.Licensing.ISessionScopedCommand"/> instead — see
+    /// ADR-135's "cannot originate trade" argument for why the two must not be folded into one
+    /// mechanism.
+    /// </remarks>
+    ReceiptReprint = 4,
 }

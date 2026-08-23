@@ -93,6 +93,28 @@ public sealed class LicensingRulesTests
         typeof(ILicenceStateRepository),
     ];
 
+    /// <summary>
+    /// The one handler outside <c>VumaRetail.Licensing</c> sanctioned to depend on
+    /// <see cref="IEnforcementStatusReader"/> directly, and the single type it may depend on (§4.10,
+    /// ADR-135).
+    /// </summary>
+    /// <remarks>
+    /// <c>RecordReceiptPrintCommand</c> is exempt from the read-only guard itself
+    /// (<c>ReadOnlyExemption.ReceiptReprint</c>) on the "cannot originate trade" argument, which only
+    /// holds for a sale that already exists in full — so the handler is the one place left that can
+    /// still ask whether the tenant is read-only, to refuse the case the exemption does not cover: a
+    /// first print of a sale that is still <c>Open</c>. This is not a second "are we allowed to" for
+    /// something <c>RequireModule</c>/<c>CheckLimitAsync</c> already answer — it is the bound a command
+    /// exempted from the pipeline's own check has to enforce for itself. A closed, named list rather
+    /// than a blanket carve-out: a handler earns its way onto this list one entry at a time, the same
+    /// shape as <c>ReadOnlyExemption</c>'s own cap.
+    /// </remarks>
+    private static readonly (Type Handler, Type Dependency)[] SanctionedEnforcementStatusReaders =
+    [
+        (typeof(VumaRetail.Application.Pos.Commands.RecordReceiptPrintCommandHandler),
+            typeof(IEnforcementStatusReader)),
+    ];
+
     [Fact]
     public void No_command_or_query_handler_outside_licensing_reads_enforcement_state_directly()
     {
@@ -113,7 +135,9 @@ public sealed class LicensingRulesTests
                     || i.GetGenericTypeDefinition() == typeof(IQueryHandler<,>))))
             .Where(type => type.GetConstructors()
                 .SelectMany(constructor => constructor.GetParameters())
-                .Any(parameter => LicensingInternals.Contains(parameter.ParameterType)))
+                .Select(parameter => parameter.ParameterType)
+                .Any(dependency => LicensingInternals.Contains(dependency)
+                    && !SanctionedEnforcementStatusReaders.Contains((type, dependency))))
             .Select(type => type.FullName ?? type.Name)
             .ToList();
 

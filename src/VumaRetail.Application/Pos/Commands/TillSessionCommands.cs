@@ -1,5 +1,6 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Platform;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Pos;
@@ -32,13 +33,17 @@ public sealed class OpenTillSessionCommandValidator : AbstractValidator<OpenTill
 /// <param name="tenant">The ambient tenant and store.</param>
 /// <param name="principal">Who is at the till, and which till.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="openSessions">§4.10: registers the shift as in flight for the read-only carve-out.</param>
+/// <param name="windows">The carve-out's hard deadlines.</param>
 public sealed class OpenTillSessionCommandHandler(
     ITillSessionRepository sessions,
     IStoreRepository stores,
     ITenantRepository tenants,
     ITenantContext tenant,
     IPrincipalAccessor principal,
-    IClock clock) : ICommandHandler<OpenTillSessionCommand, Guid>
+    IClock clock,
+    IOpenSessionRegistry openSessions,
+    IOpenSessionWindows windows) : ICommandHandler<OpenTillSessionCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(OpenTillSessionCommand command, CancellationToken cancellationToken = default)
@@ -77,6 +82,10 @@ public sealed class OpenTillSessionCommandHandler(
             clock.UtcNow);
 
         sessions.Add(session);
+
+        // §4.10: registered unconditionally, mirroring OpenSaleCommandHandler — the registry has to
+        // already know a session was in flight at the instant a restriction falls due.
+        openSessions.Open(session.Id, session.OpenedAt, windows.InFlightCashUpWindow);
 
         return session.Id;
     }
@@ -124,11 +133,19 @@ public sealed record CashUpResult(Money ExpectedCash, Money CountedCash, Money V
 /// <param name="TillSessionId">The session to close.</param>
 /// <param name="CountedCash">What was physically counted out of the drawer.</param>
 /// <param name="Note">An optional explanation, which a non-zero variance usually wants.</param>
+/// <remarks>
+/// §4.10: in the in-flight member set — a cash-up not yet closed when read-only fell due must still be
+/// able to close, or the drawer stays uncounted with no path out.
+/// </remarks>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CloseTillSessionCommand(
     Guid TillSessionId,
     Money CountedCash,
-    string? Note = null) : ICommand<CashUpResult>;
+    string? Note = null) : ICommand<CashUpResult>, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => TillSessionId;
+}
 
 /// <summary>Rejects a malformed close-till command before it reaches the handler.</summary>
 public sealed class CloseTillSessionCommandValidator : AbstractValidator<CloseTillSessionCommand>
@@ -155,11 +172,13 @@ public sealed class CloseTillSessionCommandValidator : AbstractValidator<CloseTi
 /// <param name="sales">The session's sales, which the expected cash is derived from.</param>
 /// <param name="principal">Who counted the drawer.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="openSessions">§4.10: closed the moment the shift genuinely closes.</param>
 public sealed class CloseTillSessionCommandHandler(
     ITillSessionRepository sessions,
     ISaleRepository sales,
     IPrincipalAccessor principal,
-    IClock clock) : ICommandHandler<CloseTillSessionCommand, CashUpResult>
+    IClock clock,
+    IOpenSessionRegistry openSessions) : ICommandHandler<CloseTillSessionCommand, CashUpResult>
 {
     /// <inheritdoc />
     public async Task<CashUpResult> HandleAsync(
@@ -203,6 +222,8 @@ public sealed class CloseTillSessionCommandHandler(
             PosActor.RequireUserId(principal),
             clock.UtcNow,
             command.Note);
+
+        openSessions.Close(session.Id);
 
         return new CashUpResult(
             session.ExpectedCash!.Value,
