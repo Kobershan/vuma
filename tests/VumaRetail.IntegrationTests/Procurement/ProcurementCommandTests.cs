@@ -166,6 +166,61 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Releasing_a_second_match_that_would_over_invoice_a_line_only_after_the_first_released_is_refused()
+    {
+        // §4.20, CRITICAL: SumInvoicedQuantityAsync only counts released matches (by design, so an
+        // unreleased match under correction never blocks its own fix). Two invoices matched while
+        // neither is released each pass their own check independently — the race is at release, not at
+        // match, and the fix has to be there too.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+
+        (Guid orderId, Guid orderLineId) = await ReceivedOrderAsync(harness, ordered: 100m, received: 100m);
+
+        ThreeWayMatchResult firstMatch = await harness.SendAsync(new MatchSupplierInvoiceCommand(
+            orderId,
+            "INV-A",
+            DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime),
+            new Money(4_800m, "ZAR"),
+            new Money(720m, "ZAR"),
+            [
+                new SupplierInvoiceLineInput(
+                    orderLineId, "Coffee beans, 1kg", new Quantity(60m, "EA"), new Money(80m, "ZAR")),
+            ]));
+
+        ThreeWayMatchResult secondMatch = await harness.SendAsync(new MatchSupplierInvoiceCommand(
+            orderId,
+            "INV-B",
+            DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime),
+            new Money(4_800m, "ZAR"),
+            new Money(720m, "ZAR"),
+            [
+                new SupplierInvoiceLineInput(
+                    orderLineId, "Coffee beans, 1kg", new Quantity(60m, "EA"), new Money(80m, "ZAR")),
+            ]));
+
+        // Neither sees the other yet — both matched cleanly against the same 100 received.
+        firstMatch.IsPayable.Should().BeTrue();
+        secondMatch.IsPayable.Should().BeTrue();
+
+        await harness.SendAsync(new ReleaseSupplierInvoiceCommand(firstMatch.SupplierInvoiceMatchId));
+
+        PurchaseOrder afterFirstRelease = await harness.QueryAsync(new GetPurchaseOrderQuery(orderId));
+        afterFirstRelease.Lines[0].InvoicedQuantity.Value.Should().Be(60m);
+
+        Func<Task> releasingSecond = () => harness.SendAsync(
+            new ReleaseSupplierInvoiceCommand(secondMatch.SupplierInvoiceMatchId));
+
+        // 60 already invoiced by the first release, plus this match's own 60, is 120 against 100
+        // received — the exact duplicate-liability shape §4.20 named.
+        (await releasingSecond.Should().ThrowAsync<ProcurementRuleException>())
+            .Which.Code.Should().Be("PROCUREMENT_RELEASE_EXCEEDS_RECEIVED_QUANTITY");
+
+        // Refused, so nothing about the order or the second match moved.
+        PurchaseOrder afterRefusedRelease = await harness.QueryAsync(new GetPurchaseOrderQuery(orderId));
+        afterRefusedRelease.Lines[0].InvoicedQuantity.Value.Should().Be(60m, "the refused release must not have written anything");
+    }
+
+    [Fact]
     public async Task The_same_supplier_invoice_cannot_be_matched_against_one_order_twice()
     {
         await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);

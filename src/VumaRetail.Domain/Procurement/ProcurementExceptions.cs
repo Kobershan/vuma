@@ -201,6 +201,19 @@ public sealed class ProcurementRuleException(string code, string message) : Doma
             $"A {status} match is not payable (business rule 13). Resolve the variance with the supplier "
             + "and match their credit note; releasing this would pay a bill the delivery does not support.");
 
+    /// <summary>
+    /// A match's own lines passed business rule 11 at match time, but releasing it now — after some
+    /// other match against the same order line was released in between — would still push cumulative
+    /// invoiced quantity past what was received.
+    /// </summary>
+    /// <param name="orderLineId">The order line the race landed on.</param>
+    public static ProcurementRuleException ReleaseExceedsReceivedQuantity(Guid orderLineId)
+        => new(
+            "PROCUREMENT_RELEASE_EXCEEDS_RECEIVED_QUANTITY",
+            $"Releasing this match would invoice order line {orderLineId} for more than has been received "
+            + "(business rule 11), because another match against the same line released first. Resolve "
+            + "the variance with the supplier and match their credit note.");
+
     /// <summary>A match was built with no lines.</summary>
     public static ProcurementRuleException MatchHasNoLines()
         => new(
