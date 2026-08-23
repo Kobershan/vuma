@@ -2032,3 +2032,52 @@ the winner.
 by any session. The standard also makes review cheap: a reviewer checks the built code against named
 types and named tests rather than against an interpretation. `STAGE-14-order-management.md` and
 `STAGE-06e-trading-group.md` are the worked examples.
+
+## ADR-134 — A bin balance carries a reservation separate from on-hand; a release places it, a confirm or cancel fully clears it — **PROPOSED**
+**Context.** §4.19's CRITICAL finding (`docs/PROGRESS.md`, 2026-08-23): `ReleasePickWaveCommand`
+computed which bin(s) satisfy a pick line's demand (ADR-090) but never recorded that decision anywhere
+— the allocation was advisory, not binding. Two waves released back to back, before either was picked,
+could both be allocated against the same on-hand quantity in the same bin, because both reads saw the
+same unreserved figure. This is CLAUDE.md §7 rule 21 unmet: *"`Available`, not `OnHand`, answers 'can I
+sell this'. A reservation reduces available and leaves on-hand alone... Available may never go negative
+in any company under any interleaving."* Nothing before this fix gave `Available` a home to exist in.
+**Decision.** `BinStock` gains `QuantityReserved` (mapped alongside `QuantityOnHand`, same shape, same
+unit of measure, `Quantity` never nullable) and a computed `Available => QuantityOnHand - QuantityReserved`.
+`Reserve(quantity)` throws if it would take `Available` negative, matching `ApplyOut`'s own guard shape.
+`LargestBinFirstAllocationStrategy` (ADR-090) ranks and filters candidates on `Available`, not raw
+on-hand — a bin another wave has already spoken for genuinely looks smaller, or empty, to the allocator.
+A reservation is placed in full at release and **released in full**, not proportionally, at whichever of
+three points ends a task's claim on it: `ConfirmPickCommand` releases the task's entire original
+`AllocatedQuantity` even on a short pick — the picker found less than expected, but the allocation as a
+promise is settled either way, and the unpicked remainder must free up immediately rather than sit as a
+phantom reservation until someone notices. `CancelPickTaskCommand` and `CancelPickWaveCommand` both
+release an allocated-but-unconfirmed task's reservation too, since a wave may be cancelled after release
+while its tasks still hold one — the reservation is state a caller can walk away from mid-lifecycle, and
+walking away must not leak it. `ReleaseReservation` clamps rather than throws on an over-release, because
+the task's own `AllocatedQuantity` is the source of truth for what it holds; the balance only mirrors it,
+and a caller releasing exactly what its own record says it reserved must never fail on a rounding
+artifact in the mirror.
+**A within-one-command edge case, handled without a second migration or a locking scheme.** Two demand
+lines for the same stock-keeping unit inside a *single* `ReleasePickWaveCommand` call are a real
+scenario (consolidated picking, the shape Stage 13b formalises) that a persisted reservation alone does
+not close: `IBinStockRepository.ListCandidatesAsync` is a read-only snapshot (deliberately not the entity
+the caller reserves against — see the next paragraph), so a second line's read within the same call does
+not see the first line's reservation until `SaveChangesAsync` runs, well after the handler returns.
+`ReleasePickWaveCommandHandler` keeps an in-memory `Dictionary<Guid, Quantity>` of what it has already
+reserved this call, by bin, and applies it to each subsequent line's candidate snapshot before the
+allocator sees it. No new state persists for this; it exists only for the duration of one handler call.
+**A repository-shape finding, worth recording so it is not rediscovered.** The reservation write itself
+goes through a plain, tracked `IBinStockRepository.FindAsync(binId, itemId, itemVariantId)` per bin, not
+through the objects `ListCandidatesAsync` returns. An earlier draft tried making `ListCandidatesAsync`
+itself tracked (dropping its `AsNoTracking()`) so the same objects could be mutated in place; the
+reservation silently failed to persist. The query joins `BinStock` against `Bin` in one LINQ expression,
+and EF Core's tracking behaviour across a join composed that way did not reliably track the selected side
+— `ListCandidatesAsync` stayed `AsNoTracking()`, kept strictly for the allocator's read, and every write
+goes through `FindAsync` instead.
+**Consequences.** `Available` now exists as a real, persisted figure rather than only as rule 21's prose,
+and it is what every future stage reading "can this be sold/picked/promised" should read — `GetBinStockQuery`
+already surfaces it. The three release points (confirm, cancel-task, cancel-wave) are the complete set for
+Stage 13 as built; a future stage that adds another way to end a task's claim on an allocation (a timeout,
+an auto-cancel) must release through the same full-not-proportional rule or reintroduce the leak this ADR
+closes. `MoveBinStockCommand` and `ConfirmPutawayCommand` are deliberately untouched — putaway is inbound
+and has no advisory/binding gap to close, and an internal transfer moves on-hand, not a reservation.
