@@ -58,7 +58,8 @@ public sealed class ProcurementHarness : IAsyncDisposable
         Guid supplierId,
         Guid customerOnlyPartnerId,
         Guid itemId,
-        Guid secondItemId)
+        Guid secondItemId,
+        string connectionString)
     {
         Context = context;
         TenantContext = tenant;
@@ -73,6 +74,7 @@ public sealed class ProcurementHarness : IAsyncDisposable
         CustomerOnlyPartnerId = customerOnlyPartnerId;
         ItemId = itemId;
         SecondItemId = secondItemId;
+        ConnectionString = connectionString;
 
         Requisitions = new PurchaseRequisitionRepository(context);
         Rfqs = new RfqRepository(context);
@@ -199,6 +201,13 @@ public sealed class ProcurementHarness : IAsyncDisposable
     /// <summary>Every matched-invoice event raised so far, in order.</summary>
     public RecordingProcurementEventPublisher MatchEvents { get; }
 
+    /// <summary>
+    /// The database this harness's context is over — for a test that needs a second, independent
+    /// <see cref="VumaRetailDbContext"/> against the same data to exercise real concurrent transactions,
+    /// which the harness's own single shared context (and its all-<c>AddSingleton</c> DI) cannot do.
+    /// </summary>
+    public string ConnectionString { get; }
+
     /// <summary>Creates a harness over a fresh database with everything a buyer needs already in it.</summary>
     /// <param name="fixture">The PostgreSQL fixture.</param>
     public static async Task<ProcurementHarness> CreateAsync(PostgresFixture fixture)
@@ -275,7 +284,8 @@ public sealed class ProcurementHarness : IAsyncDisposable
             supplier.Id,
             customerOnly.Id,
             beans.Id,
-            filters.Id);
+            filters.Id,
+            connectionString);
     }
 
     /// <summary>Sends a command through the real pipeline.</summary>
