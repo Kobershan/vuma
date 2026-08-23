@@ -3,19 +3,49 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-23 · **The agent panel finally ran against Stages 10, 11, 12 and 13 (§4.17,
-now RESOLVED) — all four are REOPENED.** No code changed this session; this was a review pass, not a
-build. `stage-verifier` returned `STAGE NOT DONE` for all four, the same outcome Stage 09 got. The
-mechanics all still hold (0 warnings, 1,157 tests green, migrations reversible, coverage reproducing
-within 0.3 points of each stage's own claim except Stage 11, which is genuinely under the 80% floor).
-Seven new CRITICAL/HIGH defects were found across the four stages, several sharing Stage 09's exact
-§4.11 root cause (a write command with no client-supplied id and no dedupe, so a dropped-connection
-retry doubles its effect) — see §4.19 (Warehouse: advisory-only pick allocation, no dedupe on three
-commands, cycle-count double-counting), §4.20 (Procurement: a supplier invoice can be paid twice
-through the three-way match's own designed exception path), §4.21 (Sales: returns can be
-double-refunded by a genuine concurrency race). Full session-log entry and stage-table rows below.
-**Read `docs/PROGRESS.md`'s "order of work" note dated 2026-08-23, further down, before picking what to
-build next** — it supersedes the 2026-08-22 ordering.
+**Last updated:** 2026-08-23 (later) · **The order-of-work note's items 1–4 are done — all four
+structural CRITICAL/HIGH defects from the review pass are fixed, tested and pushed.** §4.11's
+idempotency pattern is lifted into `AddPickTaskCommand`, `OpenPutawayTaskCommand`,
+`MoveBinStockCommand`, `CreateGoodsReceiptCommand` and `CreateSalesReturnCommand`, plus
+`RollbackImportBatchCommand` (§4.26). Pick allocation now actually reserves stock (`BinStock` gained
+`QuantityReserved`/`Available`, ADR needed — see §4.19 below) instead of only advising, and
+`FinalizeCycleCountCommand` re-derives its delta against current on-hand instead of applying a frozen
+snapshot. `ReleaseSupplierInvoiceCommand` re-checks cumulative invoiced quantity against the order's
+*current* state, not just match time (§4.20). `CompleteSalesReturnCommand` takes a real
+`SELECT ... FOR UPDATE` row lock, closing the concurrency half of §4.21 the id-replay fix could not
+touch. Five commits: `be301ae`, `cefe371`, `1027592`, `46625f6`, `26a2a3d` — each its own green
+checkpoint (`dotnet build` 0 warnings, full suite green throughout, ending at 736 unit + 33
+architecture + 401 integration, +23 new tests this session), one new reversible migration
+(`BinStockReservation`), all pushed.
+
+**What this session could not do: run the agent panel.** Two review agents (`stock-availability-guard`
+against the Warehouse fix, `money-and-tax` against the Procurement/Sales fixes) were launched and both
+failed on an API session-usage limit before producing a single finding — not a review outcome, an
+infrastructure failure. **Nothing here should be read as agent-verified.** The fixes are covered by
+new tests exercising the exact failure mode each defect described (a second wave over-allocating, a
+short pick leaking its reservation, a cancelled wave leaking reservations, a legitimate move being
+double-counted at finalize, two invoices racing to over-invoice a line, two real database connections
+racing to double-refund) and the full suite is green, but an independent pass has not looked at this
+code. **Run the agent panel against these five commits before doing anything else** — see the
+order-of-work note immediately below, which is updated with exactly this as its new item 1.
+
+**One ADR is owed and not yet written**: `BinStock.QuantityReserved`/`Available` is a real new
+piece of state (§7 rule 21's "available, not on-hand" made concrete for the first time outside the
+rule's own prose) and deserves a short ADR entry recording the design — reservation is separate from
+physical movement, ranked/filtered at allocation, released in full (not proportionally) on confirm or
+cancel. Not written this session; do it before or alongside the agent panel review.
+
+**Read `docs/PROGRESS.md`'s "order of work" note dated 2026-08-23, further down — it has been
+updated in place to reflect items 1–4 being done, with the agent panel now item 1.**
+
+**Previously — last updated:** 2026-08-23 (morning) · **The agent panel finally ran against Stages 10,
+11, 12 and 13 (§4.17, now RESOLVED) — all four were REOPENED.** No code changed that session; it was a
+review pass, not a build. `stage-verifier` returned `STAGE NOT DONE` for all four, the same outcome
+Stage 09 got. The mechanics all held (0 warnings, 1,157 tests green, migrations reversible, coverage
+reproducing within 0.3 points of each stage's own claim except Stage 11, which was genuinely under the
+80% floor). Seven new CRITICAL/HIGH defects were found across the four stages, several sharing Stage
+09's exact §4.11 root cause — see §4.19 (Warehouse), §4.20 (Procurement), §4.21 (Sales) below, all now
+fixed by the later 2026-08-23 session above.
 
 **Previously — last updated:** 2026-08-22 · **Planning revision 4, in three passes, all the same day —
 no code changed.** Nine stages inserted (06c, 06d, 06e, 07c, 08c, 09b, 13b, 14b, 22b), two amended (10c,
@@ -87,13 +117,13 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
 | 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
-| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
+| 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. **§4.11 itself is still open** — this session lifted `OpenSaleCommand`'s existing idempotent-replay pattern into five *other* modules' commands (§4.19–§4.21, §4.26) as the structural template, but did not touch the rest of POS's own sale sequence, which is what §4.11 actually names. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
 | 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
-| 10 | Sales — price lists, price resolution, promotions engine, returns | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (930 tests, 83.18% measured coverage vs 83.14% claimed, migration reversible). CRITICAL: returns can be double-refunded, by a genuine concurrency race and separately by an unprotected retry (§4.21). Plus the cross-cutting entitlement gate (§4.23), OpenAPI-example and replication-coverage gaps (§4.22, §4.24) | 2026-08-16 |
+| 10 | Sales — price lists, price resolution, promotions engine, returns | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. §4.21's CRITICAL (returns double-refunded by a genuine concurrency race and separately by an unprotected retry) is **fixed 2026-08-23 (later)** — `CreateSalesReturnCommand` takes a client-supplied id, `CompleteSalesReturnCommand` takes a real row lock — but **unreviewed**, the agent panel pass against the fix failed on an infra error. Still open: the cross-cutting entitlement gate (§4.23), OpenAPI-example and replication-coverage gaps (§4.22, §4.24) | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
-| 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Both previously-found defects confirmed genuinely fixed on `main`. New: Domain+Application coverage measured at 76.80%, below the 80% floor (§4.24) — the stage's own checklist never quoted a number, which is why nobody caught it; `RollbackImportBatchCommand` lacks its sibling's idempotency branch (§4.26, low severity); plus the cross-cutting gaps at §4.22/§4.23 | 2026-08-16 |
-| 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (1,069 tests, 83.70% measured coverage vs 83.46% claimed). CRITICAL: two invoices matched against the same PO line before either is *released* can both release and both post — a real duplicate liability (§4.20). Plus goods-receipt has no retry protection, the match's `MatchedNet`/`PriceVariance` are silently mislabeled gross-not-net (both §4.20), and the promised-but-unshipped permission-enforcement test (§4.24) | 2026-08-17 |
-| 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (1,157 tests, 86.17% coverage matching the claim to two decimal places). CRITICAL, three findings: pick allocation is advisory-only and never reserves what it reads, so sibling tasks in one wave can jointly overcommit a bin with no concurrency required; pick/putaway/bin-move commands have no retry protection; a cycle count can double- and triple-count stock that was physically picked but not yet confirmed, posting a phantom GL shortage (all §4.19). Permission enforcement on all four high-risk ops independently reconfirmed sound | 2026-08-19 |
+| 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Both previously-found defects confirmed genuinely fixed on `main`. §4.26 (`RollbackImportBatchCommand` lacking its sibling's idempotency branch) is **fixed 2026-08-23 (later), unreviewed**. Still open: Domain+Application coverage measured at 76.80%, below the 80% floor (§4.24) — the stage's own checklist never quoted a number, which is why nobody caught it; the cross-cutting gaps at §4.22/§4.23 | 2026-08-16 |
+| 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. §4.20's CRITICAL (two invoices matched against the same PO line before either is *released* could both release and both post — a real duplicate liability) and the goods-receipt retry protection are **fixed 2026-08-23 (later), unreviewed** — `ReleaseSupplierInvoiceCommand` re-checks cumulative invoiced quantity against the order's current state, `CreateGoodsReceiptCommand` takes a client-supplied id. Still open: the match's `MatchedNet`/`PriceVariance` are silently mislabeled gross-not-net (§4.20, low severity), and the promised-but-unshipped permission-enforcement test (§4.24) | 2026-08-17 |
+| 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. All three §4.19 CRITICALs are **fixed 2026-08-23 (later), unreviewed** — `BinStock` gained real `QuantityReserved`/`Available`, allocation reserves at release and releases in full on confirm/cancel; `AddPickTaskCommand`/`OpenPutawayTaskCommand`/`MoveBinStockCommand` take client-supplied ids; `FinalizeCycleCountCommand` re-derives its delta against current on-hand instead of a frozen snapshot. A new migration (`BinStockReservation`) adds the column; an ADR for the reservation design is still owed. Permission enforcement on all four high-risk ops independently reconfirmed sound | 2026-08-19 |
 | 13b | Consolidated picking waves, staging states & interval counts | **NOT_STARTED** — added 2026-08-22 (ADR-113 – ADR-115). Depends on 14, not on 13 alone: a wave groups orders | — |
 | 14 | Order management — omnichannel orders, allocation, backorders, click & collect, returns | **IN_PROGRESS** — branch `stage-14-order-management`, stage document written 2026-08-19. **Amended 2026-08-22**: COD terms (ADR-111), geography snapshot (ADR-113), reservations through 08c (ADR-103) | 2026-08-22 |
 | 14b | Field sales — the rep module | **NOT_STARTED** — added 2026-08-22 (R12, ADR-107 – ADR-110) | — |
@@ -722,44 +752,139 @@ are clean across all four stages.
 sharing one root cause, plus two more CRITICAL/HIGH defects with different root causes, across three
 modules) is comparable to Stage 09's own eight, and Stage 09's own precedent was to document and reopen
 first, fix as dedicated follow-up work second. `docs/PROGRESS.md` §1's stage table, §4.17 (resolved) and
-the new §4.19–§4.26 carry the full record for whoever picks this up. **The order-of-work note
-immediately below this entry supersedes 2026-08-22's.**
+the new §4.19–§4.26 carry the full record for whoever picks this up.
 
 ---
 
-**Order of work, 2026-08-23 — supersedes the 2026-08-22 note further down.**
+### 2026-08-23 (later) — Items 1–4 of the order-of-work note: the four structural CRITICAL/HIGH fixes
 
-1. **Fix Stage 09's §4.11 first, as the structural template — not just because it's still open, but
-   because Warehouse's §4.19, Procurement's §4.20 (goods receipt) and Sales' §4.21 (the retry half) are
-   the identical defect shape**: a write command with no client-supplied id and no dedupe. The fix
-   §4.11 already recommends — route through `POST /api/v1/sync/batches`, which already dedupes on
-   `(tenant_id, source_node, operation_id)` — is the pattern to lift into `AddPickTaskCommand`,
-   `OpenPutawayTaskCommand`, `MoveBinStockCommand`, `CreateGoodsReceiptCommand` and
-   `CreateSalesReturnCommand` once it exists. Fixing it five times independently, differently, is how
-   one of the five ends up subtly wrong.
-2. **Warehouse's other two CRITICAL findings need their own fixes, not the idempotency pattern**: the
-   advisory-only pick allocator needs an actual reservation (write to `BinStock`/post `PickReserve` at
-   allocation, not only at confirm), and the cycle-count double-count needs `FinalizeCycleCountCommand`
-   to re-derive its delta against what has legitimately moved since the count opened, not apply the
-   frozen snapshot blindly.
-3. **Procurement's three-way-match release needs to re-check cumulative invoiced quantity against the
-   order's current state at release time**, not only at match time — this is the one that produces a
-   real duplicate GL liability and does not share a fix with anything else on this list.
-4. **Sales returns' race needs locking** (`SELECT ... FOR UPDATE` or serializable isolation with retry)
-   — a different mechanism from the retry-dedupe fix in item 1, and both are needed on the same command.
-5. **Stage 09's other three deferred decisions (§4.10, §4.12, §4.14-ADR)** — unchanged from the
-   2026-08-22 note, except §4.12 (module entitlement gate) is now confirmed to gate five modules, not
-   one, so fixing it once now closes it for Sales/Imports/Procurement/Warehouse too.
-6. **The mechanical DoD gaps (§4.24) and the low-severity items (§4.20's `MatchedNet` mislabeling,
-   §4.25's missing architecture test, §4.26's rollback idempotency)** are straightforward and can be
-   swept up alongside whichever of the above a session is already touching, rather than scheduled as
-   their own pass.
-7. **Only then Stage 06c.** This is the reason item 1 of the 2026-08-22 note (run the panel) mattered
-   enough to insist on before anything else: 06c retrofits `company_id` across every table these four
-   stages created, and every one of the defects above would have had to be found and fixed *again*, per
-   company database, had it been retrofitted first. Fixing them once, now, while there is still one
-   database, is the cheap version of this work.
-8. **Then 06d → 06e → 07c → 08c → 14 (consuming 08c's reservation model) → 10c → 13b → 14b**, as
+The dedicated follow-up work the morning session deferred. Five commits, each its own green checkpoint
+(`dotnet build -c Release` 0 warnings throughout; full suite green after every commit), all pushed to
+`main`: `be301ae`, `cefe371`, `1027592`, `46625f6`, `26a2a3d`. Ending state: 736 unit tests, 33
+architecture tests, 401 integration tests (+23 this session), one new reversible EF migration
+(`BinStockReservation`, applied and rolled back against a real database to confirm).
+
+**1. `be301ae` — lifted `OpenSaleCommand`'s idempotent-replay pattern into five commands sharing
+§4.11's exact shape.** `AddPickTaskCommand`, `OpenPutawayTaskCommand`, `MoveBinStockCommand`,
+`CreateGoodsReceiptCommand` and `CreateSalesReturnCommand` each gained an optional client-supplied id;
+each handler now checks for the existing entity before creating a new one, so a dropped-connection
+retry returns what it already made instead of making a second one. `MoveBinStockCommand` needed a new
+repository method (`IBinStockMovementRepository.ExistsForReferenceAsync`) since a bin transfer has no
+single natural entity id — the check is keyed on the transfer id correlating its two movement rows.
+Also closed §4.26 in the same commit: `RollbackImportBatchCommand` gained the idempotency branch its
+sibling `CommitImportBatchCommand` already had. 6 new integration tests, one per command, each proving
+a replay returns the first call's id/counters and does not create a second row.
+
+**2. `cefe371` + `1027592` — Warehouse's two other §4.19 CRITICALs, each its own mechanism.**
+Pick allocation was advisory-only: `ReleasePickWaveCommand` computed which bins to allocate from but
+never wrote anything to `BinStock`, so a second wave released before the first was picked could be
+allocated the same on-hand quantity. `BinStock` gained `QuantityReserved` (a new mapped column,
+migration `BinStockReservation`) and a computed `Available => QuantityOnHand - QuantityReserved`; the
+allocator (`LargestBinFirstAllocationStrategy`) now ranks and filters candidates on `Available`, not
+raw on-hand (§7 rule 21 made concrete for the first time outside its own prose — see the ADR still
+owed, below). `ReleasePickWaveCommand` reserves at release; `ConfirmPickCommand` releases the task's
+*full* original allocation, not only what was physically picked, so a short pick's unpicked remainder
+frees up immediately rather than leaking; `CancelPickTaskCommand` and `CancelPickWaveCommand` both
+release too, since a wave can be cancelled after release while its tasks still hold a reservation
+nobody will ever confirm. A within-one-`ReleasePickWaveCommand`-call accumulator handles a narrower
+edge case the persisted reservation alone misses: two demand lines for the same stock-keeping unit in
+the same wave, resolved before anything is saved. Separately, `FinalizeCycleCountCommand` used to
+apply `CycleCountLine.Variance` — a delta frozen against the on-hand snapshot taken when the line was
+recorded — verbatim; any legitimate movement (a pick, a putaway, a bin move) between recording and
+finalizing got double-counted, posting a phantom shortage or overage nobody actually found. Finalize
+now re-reads current on-hand at finalize time and posts `CountedQuantity` minus *that*, which correctly
+shrinks (or flips the sign of) the posted variance when something real moved in between, and is
+unchanged when nothing did. `GetBinStockQuery` now surfaces `QuantityReserved`/`Available` alongside
+`QuantityOnHand`. 5 new integration tests: a second wave correctly refused when the first's reservation
+leaves too little available, a short pick's full release, a cancelled task's release, a cancelled
+wave's release across all its tasks, and the exact double-count scenario (record 7 against a system
+quantity of 10, move 2 out for real before finalizing, assert the bin lands on 7 — what was actually
+counted — not 5, what the old frozen-variance arithmetic would have produced).
+
+**3. `46625f6` — Procurement's §4.20 CRITICAL: cumulative invoiced quantity re-checked at release,
+not only at match.** `SumInvoicedQuantityAsync` only counts *released* matches, by design — an
+unreleased match is often the blocked one somebody is about to correct, and counting it would block
+the fix too. That design choice opens a real window: two invoices matched against the same order line
+while neither is released each pass business rule 11 independently (neither sees the other), and
+releasing both used to write both invoiced quantities onto the order with nothing stopping cumulative
+invoiced from exceeding what was received — a genuine duplicate GL liability. `ReleaseSupplierInvoiceCommand`
+now re-checks each line's cumulative invoiced quantity (the order line's *current* `InvoicedQuantity`
+plus this match's own claim) against `ReceivedQuantity`, after the match's own status check (an
+already-blocked match still fails the existing `PROCUREMENT_BLOCKED_MATCH_CANNOT_BE_RELEASED`,
+unchanged — this ordering mattered: an earlier draft of the fix ran the new check first and broke that
+existing test) but before anything is written back to the order. A release that would exceed received
+throws the new `PROCUREMENT_RELEASE_EXCEEDS_RECEIVED_QUANTITY` and writes nothing. 1 new integration
+test reproducing the exact race: two invoices for 60 against 100 received, matched independently, first
+release succeeds, second is refused and leaves the order untouched.
+
+**4. `26a2a3d` — Sales' §4.21 CRITICAL, the other half: `CompleteSalesReturnCommand` takes a real row
+lock.** The id-replay fix in commit 1 only closes the dropped-connection-retry half of §4.21; the
+other half is a genuine concurrency race — two truly concurrent completions both reading
+`Status == Draft` under a plain `FindAsync` before either writes, and both refunding. `ISalesReturnRepository`
+gained `FindForUpdateAsync`, mirroring `ImportBatchRepository`'s existing `FOR UPDATE` pattern — with
+one wrinkle `ImportBatch` never hit: locking can't be done with `SELECT *` against the mapped entity,
+because `SalesReturn`'s `Money` complex properties (`Net`/`Tax`/`Gross`) don't round-trip through
+`FromSqlInterpolated`'s column-shape matching the way a plain-scalar entity does, and fail against
+columns that are genuinely there (`column v.Gross_Amount does not exist` — the wrong, PascalCase
+default-convention name, not the real lowercase mapped column). Worked around by locking a bare id via
+`Database.SqlQuery<Guid>` (which itself needs its result column aliased `AS "Value"` — EF's own
+convention for a scalar `SqlQuery<T>`) and then reading the entity through the normal, fully-supported
+LINQ path, which already holds the lock by the time it runs. Proven directly rather than through the
+command pipeline, because the integration-test harnesses in this codebase register every repository as
+an `AddSingleton` over one shared `DbContext` — realistic for the single-threaded till a harness models,
+but structurally incapable of running two commands concurrently (EF Core is not thread-safe for two
+operations in flight on one context). The new test opens two independent `VumaRetailDbContext`s against
+the same test database — the actual shape of two terminals — and proves a second `FOR UPDATE` read
+genuinely blocks while the first holds the row, then proceeds once it commits.
+
+**What this session could not do.** The agent panel. `stock-availability-guard` (against the Warehouse
+fix) and `money-and-tax` (against the Procurement/Sales fixes) were both launched and both failed on an
+API session-usage limit before returning a single finding — an infrastructure failure, not a review
+outcome. `sync-and-offline` and `architecture-guard` passes were not even attempted. **None of the five
+commits above has been independently reviewed.** They are covered by tests that reproduce each
+defect's exact failure mode and the full suite is green, but that is the author's own verification, not
+an independent one — the same gap Stage 09's original DONE-then-reopened cycle exists to catch. Also
+not done: the `BinStock.QuantityReserved`/`Available` ADR (see the order-of-work note immediately
+below), and §4.11 itself — the rest of POS's own sale sequence beyond `OpenSaleCommand` — which this
+session's item 1 used as a template but did not touch.
+
+---
+
+**Order of work, 2026-08-23 (later) — supersedes the 2026-08-23 (morning) note above it.**
+
+Items 1–4 of the previous version of this note are **DONE** — see the top-of-file summary and the
+2026-08-23 (later) session-log entry below for the five commits. **One caveat on item 1: §4.11 itself
+— the rest of POS's own sale sequence — is still open.** What got fixed was the *pattern* item 1 named,
+lifted into the five other modules' commands that shared its shape; nothing in POS changed this
+session. §4.11 stays in Stage 09's open-defect list. What replaces the old items 1–4:
+
+1. **Run the agent panel against commits `be301ae` through `26a2a3d`.** Two agents
+   (`stock-availability-guard`, `money-and-tax`) were launched this session and both failed on an API
+   session-usage limit before producing a finding — an infrastructure failure, not a clean bill of
+   health. Nothing in the five fixes has been independently reviewed. `sync-and-offline` (the
+   idempotency lift) and `architecture-guard` (the new `IBinStockRepository`/`ISalesReturnRepository`
+   surface) are also owed a pass — the original 2026-08-22 note's point about running the panel before
+   06c applies just as much to code written *this* session as to what came before it.
+2. **Write the `BinStock.QuantityReserved`/`Available` ADR.** Not written this session. Record: a
+   reservation is separate state from physical movement (on-hand only changes when goods move);
+   `Available = OnHand - Reserved` is what allocation ranks and filters on; a reservation releases in
+   full on confirm (even a short pick) or on cancel, never proportionally. This is §7 rule 21 made
+   concrete in code for the first time — worth a paragraph of its own rather than folding into ADR-090.
+3. **Stage 09's three still-deferred decisions (§4.10, §4.12, the tax-per-line ADR)** — unchanged from
+   the 2026-08-22 note. §4.12 (module entitlement gate) is confirmed to gate five modules, not one:
+   Sales, Imports, Procurement and Warehouse all need `RequireModule` wired in alongside POS, in one
+   pass once the fail-closed lease fallback is fixed first (§4.12's own write-up has the trap).
+4. **The mechanical DoD gaps (§4.24's OpenAPI examples, §4.22's replication-test gap) and the two
+   remaining low-severity items (§4.20's `MatchedNet`/`PriceVariance` mislabeling, §4.25's missing
+   architecture test for CLAUDE.md §7 rule 13)** are straightforward and can be swept up alongside
+   whichever of the above a session is already touching, rather than scheduled as their own pass.
+   §4.26 (Imports rollback idempotency) is **DONE** — folded into commit `be301ae`.
+5. **Only then Stage 06c.** Unchanged reasoning from the 2026-08-22 note: 06c retrofits `company_id`
+   across every table these four stages created, and every defect above would have had to be found and
+   fixed *again*, per company database, had it been retrofitted first. Fixing them once, now, while
+   there is still one database, was the cheap version of this work — now done, modulo the agent panel
+   confirming it.
+6. **Then 06d → 06e → 07c → 08c → 14 (consuming 08c's reservation model) → 10c → 13b → 14b**, as
    2026-08-22 already ordered them.
 
 ---
@@ -2570,7 +2695,35 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-22 (planning revision 4, pass 3): read this first.**
+**Update, 2026-08-23 (later): read this first — supersedes the 2026-08-22 and 2026-08-23 (morning)
+updates below it.**
+
+**Start by running the agent panel against commits `be301ae` through `26a2a3d`** (see the "Order of
+work, 2026-08-23 (later)" note in §2's session log, item 1). This session fixed all four
+CRITICAL/HIGH structural defects the morning session's review found — §4.19 (Warehouse: pick
+allocation now really reserves, `FinalizeCycleCountCommand` re-derives instead of applying a frozen
+snapshot), §4.20 (Procurement: release re-checks cumulative invoiced quantity against the order's
+current state), §4.21 (Sales: `CompleteSalesReturnCommand` takes a real row lock), §4.26 (Imports
+rollback idempotency) — but two review agents failed on an API session-usage limit before returning a
+single finding. **Nothing in those five commits has been independently reviewed.** Do not treat them
+as verified; do not build 06c on top of them until the panel has actually run.
+
+**Two things owed before or alongside the panel:**
+- The `BinStock.QuantityReserved`/`Available` ADR — not written. See the order-of-work note for what
+  it needs to say.
+- §4.11 itself is still open. This session's fix used `OpenSaleCommand`'s existing idempotent-replay
+  pattern as the template for five *other* commands; it did not touch the rest of POS's own sale
+  sequence, which is what §4.11 actually names. `09b` stays blocked on it.
+
+**Once the panel is clean (or its findings are fixed), the order is unchanged from before**: Stage 09's
+three remaining deferred decisions (§4.10, §4.12 — module entitlement gate, confirmed to span five
+modules now — and the tax-per-line ADR), the mechanical DoD sweeps (§4.20's `MatchedNet` mislabeling,
+§4.22 OpenAPI examples, §4.25's missing architecture test), **then Stage 06c**, then 06d → 06e → 07c →
+08c → 14 → 10c → 13b → 14b.
+
+---
+
+**Update, 2026-08-22 (planning revision 4, pass 3): still relevant background, read after the above.**
 
 Three passes in one day. Pass 1 planned multi-company and field sales; pass 2 reversed its ADR-099 to
 one database per company; pass 3 added the trading group (Operator ID and company links), the mixed
