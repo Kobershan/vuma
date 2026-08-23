@@ -71,7 +71,7 @@ public sealed class SalesHarness : IAsyncDisposable
 
         PriceLists = new PriceListRepository(context);
         Promotions = new PromotionRepository(context);
-        Returns = new SalesReturnRepository(context);
+        Returns = new SalesReturnRepository(context, tenant);
         PriceOverrides = new PriceOverrideLogRepository(context);
         ReturnEvents = new RecordingSalesReturnEventPublisher();
 
@@ -161,6 +161,13 @@ public sealed class SalesHarness : IAsyncDisposable
     /// <summary>The seeded terminal.</summary>
     public Guid TerminalId { get; private init; }
 
+    /// <summary>
+    /// The database this harness's context is over — for a test that needs a second, independent
+    /// <see cref="VumaRetailDbContext"/> against the same data to exercise real row-level locking, which
+    /// the harness's own single shared context (and its all-<c>AddSingleton</c> DI) cannot do concurrently.
+    /// </summary>
+    public string ConnectionString { get; private init; } = string.Empty;
+
     /// <summary>Price list repository.</summary>
     public IPriceListRepository PriceLists { get; }
 
@@ -246,6 +253,7 @@ public sealed class SalesHarness : IAsyncDisposable
             seeded.Id, store.Id, operatorUser.Id, location.Id, milk.Id, bread.Id)
         {
             TerminalId = terminal.Id,
+            ConnectionString = connectionString,
         };
     }
 

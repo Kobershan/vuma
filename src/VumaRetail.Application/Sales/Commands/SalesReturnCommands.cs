@@ -202,7 +202,7 @@ public sealed class CompleteSalesReturnCommandValidator : AbstractValidator<Comp
 }
 
 /// <summary>Delegates to <see cref="ISalesReturnCompletionService"/> and reports what happened.</summary>
-/// <param name="returns">Return lookup.</param>
+/// <param name="returns">Return lookup, under a row lock (§4.21).</param>
 /// <param name="completion">The three steps completion always takes, in one place.</param>
 public sealed class CompleteSalesReturnCommandHandler(
     ISalesReturnRepository returns, ISalesReturnCompletionService completion)
@@ -214,8 +214,12 @@ public sealed class CompleteSalesReturnCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // FindForUpdateAsync, not FindAsync: two concurrent completions for the same return must not
+        // both read Draft before either writes. The second caller blocks here until the first commits,
+        // then reads the first caller's Completed status and Complete() below refuses it honestly
+        // instead of both refunding (§4.21).
         SalesReturn salesReturn = await returns
-            .FindAsync(command.SalesReturnId, cancellationToken)
+            .FindForUpdateAsync(command.SalesReturnId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new SalesNotFoundException("sales return", command.SalesReturnId);
 
