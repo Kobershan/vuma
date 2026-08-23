@@ -11,6 +11,9 @@ internal sealed class RegistryOutboxMessageConfiguration : EntityConfiguration<R
 
     protected override string TableName => "outbox_messages";
 
+    /// <inheritdoc />
+    protected override bool MapsCompanyId => false;
+
     protected override void ConfigureEntity(EntityTypeBuilder<RegistryOutboxMessage> builder)
     {
         builder.Property(message => message.OperationId)

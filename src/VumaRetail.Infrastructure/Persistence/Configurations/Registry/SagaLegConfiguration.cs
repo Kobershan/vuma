@@ -11,6 +11,14 @@ internal sealed class SagaLegConfiguration : EntityConfiguration<SagaLeg>
 
     protected override string TableName => "saga_legs";
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A leg's own <see cref="SagaLeg.TargetCompanyId"/> already answers "which company"; the
+    /// inherited <c>CompanyId</c> would be a second, always-empty column with a confusingly similar
+    /// name sitting right next to it.
+    /// </remarks>
+    protected override bool MapsCompanyId => false;
+
     protected override void ConfigureEntity(EntityTypeBuilder<SagaLeg> builder)
     {
         builder.Property(leg => leg.IntentId)

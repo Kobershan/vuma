@@ -2269,3 +2269,19 @@ is exactly why `docs/MULTI_COMPANY.md` calls the column redundant. `ICompanyCont
 once, the same place `ITenantContext` is today, and is `Guid.Empty` before a company is registered — the
 migration/design-time path — matching `ITenantContext.TenantId`'s own convention for "no tenant resolved
 yet."
+**Addendum, same day, caught by review.** "Every existing table" in the Decision above means every table
+in a *company* database (`VumaRetailDbContext`) — it does not, and must not, mean the registry
+(`VumaRegistryDbContext`) too. The redundancy argument the whole column rests on ("a row cannot belong to
+a different company than the database holding it") is false for the registry by construction: a registry
+row spans every company of the tenant, so "which company does this row's database belong to" has no
+answer there. `EntityConfiguration<TEntity>.MapsCompanyId` (default `true`) is the mechanism that keeps
+this correct — the registry's six configurations override it to `false`, and the base `Configure` method
+calls `builder.Ignore(entity => entity.CompanyId)` when it is false. **The `Ignore()` call is load-bearing
+and was missed on the first attempt at this fix**: EF Core maps any public property by convention whether
+or not Fluent configuration touches it, so merely skipping the explicit `Property(...)` call left every
+registry table with an auto-mapped, always-`Guid.Empty` `company_id` column anyway — caught only by
+inspecting an actually-applied schema with `psql`, not by reading the migration source, a design-time
+model diff, or `dotnet ef migrations has-pending-model-changes`, none of which see convention-based
+mapping as a "difference" once it has already happened. `RegistryRulesTests.No_registry_entity_maps_a_company_id_column`
+and `RegistryMigrationTests.No_registry_table_carries_a_company_id_column` (the latter against a real,
+migrated PostgreSQL database) now guard both ends of this.

@@ -75,7 +75,7 @@ public sealed class RegistryRulesTests
         // There cannot be one — a foreign key is a same-database concept, and a company database is a
         // different database entirely (ADR-116) — but the meaningful assertion is that no registry
         // entity has a real relationship-based foreign key at all; every cross-entity reference here is
-        // a bare Guid (CompanyGroupMember.MemberCompanyId, SagaLeg.CompanyId, and so on), exactly the
+        // a bare Guid (CompanyGroupMember.MemberCompanyId, SagaLeg.TargetCompanyId, and so on), exactly the
         // convention CONVENTIONS.md §2 already requires across schema boundaries generally.
         List<string> offenders = Model.GetEntityTypes()
             .SelectMany(entityType => entityType.GetForeignKeys())
@@ -86,6 +86,30 @@ public sealed class RegistryRulesTests
             The registry model has a real EF-relationship foreign key. Reference the other row by a bare
             Guid instead — the registry has no cross-database transaction to protect a foreign key with
             anyway (ADR-116).
+
+            {string.Join(Environment.NewLine, offenders.Select(entry => $"  - {entry}"))}
+            """);
+    }
+
+    [Fact]
+    public void No_registry_entity_maps_a_company_id_column()
+    {
+        // A registry row spans companies by design (ADR-099) — "which company does this row's
+        // database belong to" has no answer here the way it does for a company database, so
+        // Entity.CompanyId must never be mapped to a column for anything in this model. Guards the
+        // regression an earlier review caught: EntityConfiguration<TEntity>'s CompanyId mapping is
+        // shared with every VumaRetailDbContext entity, and without each registry configuration
+        // overriding MapsCompanyId, every registry table would silently grow an always-Guid.Empty
+        // company_id column that means nothing and reads as a typo of the entity's own Id.
+        List<string> offenders = Model.GetEntityTypes()
+            .Where(entityType => typeof(Entity).IsAssignableFrom(entityType.ClrType))
+            .Where(entityType => entityType.FindProperty(nameof(Entity.CompanyId)) is not null)
+            .Select(entityType => entityType.ClrType.Name)
+            .ToList();
+
+        Assert.True(offenders.Count == 0, $"""
+            A registry entity maps a company_id column. Override MapsCompanyId => false on its
+            EntityConfiguration<TEntity> (see RegistryCompanyConfiguration for the pattern).
 
             {string.Join(Environment.NewLine, offenders.Select(entry => $"  - {entry}"))}
             """);

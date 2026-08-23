@@ -11,6 +11,9 @@ internal sealed class SagaIntentConfiguration : EntityConfiguration<SagaIntent>
 
     protected override string TableName => "saga_intents";
 
+    /// <inheritdoc />
+    protected override bool MapsCompanyId => false;
+
     protected override void ConfigureEntity(EntityTypeBuilder<SagaIntent> builder)
     {
         builder.Property(intent => intent.Kind)

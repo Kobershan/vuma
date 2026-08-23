@@ -30,6 +30,14 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
     /// <summary>The table name, plural and <c>snake_case</c> (<c>CONVENTIONS.md</c> §2).</summary>
     protected abstract string TableName { get; }
 
+    /// <summary>
+    /// Whether this table gets a <c>company_id</c> column (ADR-140). True for every company-database
+    /// entity, which is nearly everything. <c>VumaRegistryDbContext</c>'s own configurations override
+    /// this to <c>false</c> — a registry row spans companies by design, so the column would always
+    /// read <see cref="Guid.Empty"/> and mean nothing.
+    /// </summary>
+    protected virtual bool MapsCompanyId => true;
+
     /// <summary>Configures the entity. Sealed shape: base columns first, then the entity's own.</summary>
     /// <param name="builder">The entity type builder.</param>
     public void Configure(EntityTypeBuilder<TEntity> builder)
@@ -50,12 +58,29 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
 
         builder.Property(entity => entity.StoreId);
 
-        // ADR-140: stamped by the persistence layer from ICompanyContext, never a constructor
-        // parameter. Redundant with the database boundary by design (docs/MULTI_COMPANY.md §2) — it
-        // costs one column and one index, and it is what makes an exported or restored database
-        // self-describing and what the group read models join on.
-        builder.Property(entity => entity.CompanyId)
-            .IsRequired();
+        if (MapsCompanyId)
+        {
+            // ADR-140: stamped by the persistence layer from ICompanyContext, never a constructor
+            // parameter. Redundant with the database boundary by design (docs/MULTI_COMPANY.md §2) —
+            // it costs one column and one index, and it is what makes an exported or restored
+            // database self-describing and what the group read models join on. Only meaningful where
+            // the redundancy argument actually holds: a company database, which belongs to exactly
+            // one company. VumaRegistryDbContext's own configurations override MapsCompanyId to false
+            // — a registry row spans companies by design, so "the company this row's database
+            // belongs to" has no answer there, and a column that always reads Guid.Empty would sit
+            // one keystroke from RegistryCompany.Id in autocomplete and mean nothing.
+            builder.Property(entity => entity.CompanyId)
+                .IsRequired();
+        }
+        else
+        {
+            // Skipping the Property() call above is not enough on its own — EF's convention-based
+            // discovery maps any public property to a column regardless of whether Fluent config
+            // touches it, which is exactly how the first version of this guard shipped a company_id
+            // column onto every registry table anyway (caught only by inspecting the applied schema
+            // with psql, not by reading the migration source). Ignore() is what actually excludes it.
+            builder.Ignore(entity => entity.CompanyId);
+        }
 
         builder.Property(entity => entity.CreatedAt)
             .IsRequired();
@@ -105,10 +130,13 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
         builder.HasIndex(entity => new { entity.TenantId, entity.StoreId })
             .HasDatabaseName($"ix_{TableName}_tenant_id_store_id");
 
-        // The group read models' hot query once 06d publishes from here: every row this database
-        // holds for one company (today, always the same one company — see ADR-140).
-        builder.HasIndex(entity => entity.CompanyId)
-            .HasDatabaseName($"ix_{TableName}_company_id");
+        if (MapsCompanyId)
+        {
+            // The group read models' hot query once 06d publishes from here: every row this database
+            // holds for one company (today, always the same one company — see ADR-140).
+            builder.HasIndex(entity => entity.CompanyId)
+                .HasDatabaseName($"ix_{TableName}_company_id");
+        }
 
         // The sync dispatcher's hot query is "what is still pending on this node" (ADR-006). Partial,
         // because Synced rows are the overwhelming majority and indexing them wastes the index.

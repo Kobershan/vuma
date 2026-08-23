@@ -11,6 +11,9 @@ internal sealed class CompanyGroupMemberConfiguration : EntityConfiguration<Comp
 
     protected override string TableName => "company_group_members";
 
+    /// <inheritdoc />
+    protected override bool MapsCompanyId => false;
+
     protected override void ConfigureEntity(EntityTypeBuilder<CompanyGroupMember> builder)
     {
         builder.Property(member => member.CompanyGroupId)

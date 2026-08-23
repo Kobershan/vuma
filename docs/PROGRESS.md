@@ -61,13 +61,43 @@ row through it outside a test) — whoever builds Part D's provisioning command 
 before that handler's first real `SaveChangesAsync`, or `RegistryCompany` rows will be written with blank
 `CreatedAt`/`CreatedBy`.
 
-**Agent panel: launched, not yet returned.** `architecture-guard` and `multi-company-guard` were both
-launched against commits `6d5d027`/`8d04098` at the end of this session, specifically scoped as a
-mid-stage checkpoint (told not to flag the absence of Parts C–H, which the stage document's own "what
-this stage does not own" section already scopes out). **Whoever picks this up next should check whether
-those reports landed and act on them before writing any more code on top of this foundation** — this is
-the most architecturally load-bearing stage in the roadmap by its own document's description, and a
-defect here is exactly the kind of thing worth catching before six more parts are built on it.
+**Agent panel: returned, and it earned its place in the protocol.** `architecture-guard` and
+`multi-company-guard` (the latter needed one retry after a connection error killed its first attempt)
+both reported against commits `6d5d027`/`8d04098`, and between them found two real defects neither
+`dotnet build`, the full 421-test suite, nor a design-time model diff had caught:
+
+1. **CRITICAL (`multi-company-guard`) — the registry's own migration shipped with empty `Up`/`Down`
+   bodies.** A fully-populated `Designer.cs` sat next to executable methods that did nothing. Root
+   cause: the migration was correctly generated and verified once (Part A), then silently regenerated a
+   second time mid-session to absorb the `SagaLeg` rename, and that second regeneration was never
+   independently re-verified against a real database — only the unrelated retail-side migration kept
+   getting that scrutiny, because that's the one that was actively failing at the time. `dotnet ef
+   migrations has-pending-model-changes` and a manual design-time diff both reported clean, because
+   they compare the model snapshot to itself, not to what the migration file actually executes.
+2. **HIGH (`architecture-guard`) — the shared `EntityConfiguration<TEntity>` base leaked `CompanyId`
+   into the registry schema.** Every registry table (including `RegistryCompany`, the row that *is* a
+   company) got a second, always-`Guid.Empty` `company_id` column one keystroke from its own `Id` in
+   autocomplete — because the registry spans companies by design and the whole column only makes sense
+   for a company database. **The first fix attempt for this was itself incomplete** and only caught by
+   re-verifying with `psql` rather than trusting the migration source: skipping the explicit
+   `builder.Property(...)` call does not stop EF from mapping a public property by convention anyway —
+   `builder.Ignore(...)` is what actually excludes it. ADR-140 has a same-day addendum recording this.
+
+**Both are fixed, and — this time — verified the way the first two bugs this session should have
+been from the start:** the registry migration was regenerated a third time and re-applied to a real
+throwaway PostgreSQL database with `Up`, `Down`, `Up` again all individually confirmed via `psql`, not
+assumed from a clean `dotnet ef` exit code. A new `RegistryMigrationTests` suite (4 tests, mirroring the
+existing `Persistence.MigrationTests` for `VumaRetailDbContext`) now runs this exact check — including
+`No_registry_table_carries_a_company_id_column`, asserting against an *actually-migrated* schema, not
+the in-memory model — on every future `dotnet test`, so neither defect can silently return.
+`RegistryRulesTests` gained a matching in-process guard. **Full suite re-run after both fixes: 758 unit,
+39 architecture (+1), 425 integration (+4), all green.**
+
+**The lesson, stated plainly for whoever touches a migration or a shared base class in this codebase
+next:** verifying one thing you're actively staring at does not verify the other thing you touched along
+the way. Re-run the full verification loop — regenerate, apply, inspect with `psql`, `Down`, inspect
+again, `Up`, inspect again — on *everything* a change set touches, not just the file that happened to be
+failing when you noticed something was wrong.
 
 **Previously — last updated:** 2026-08-24 · **§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed — every
 remaining open defect against Stage 09 except the mechanical DoD sweeps (§4.20's mislabel, §4.22's OpenAPI
@@ -3083,17 +3113,17 @@ unfiltered `ApplyConfigurationsFromAssembly` scan that would have folded the reg
 company database's model, and a stale migration scaffold that silently omitted `audit_entries` and
 others).
 
-**First action: check whether `architecture-guard` and `multi-company-guard` have reported back.** Both
-were launched at the end of the previous session against commits `6d5d027`/`8d04098`, scoped explicitly as
-a mid-stage checkpoint (not a full stage sign-off — Parts C–H don't exist yet and reviewers were told not
-to flag their absence). `multi-company-guard`'s first attempt failed on a connection error mid-run and was
-retried once; check both landed cleanly. **Fix every finding before adding anything on top of Parts A/B**
-— this is the most architecturally load-bearing stage in the roadmap by its own document's description
-("06c is the one that must not be deferred... retrofitting later is a rewrite"), and a real defect in the
-registry database or the `CompanyId` mechanism would be inherited by every one of Parts C through H and by
-06d, 06e, 07c, 08c, 13b and 14b built on top of it.
+**The agent panel against Parts A/B is done, not pending — both reports landed and both findings are
+fixed.** See the session-log entry above for the full detail: a CRITICAL empty-migration defect in the
+registry chain and a HIGH `CompanyId`-leaking-into-the-registry-schema defect, both caught by
+`multi-company-guard`/`architecture-guard` after the full test suite had already gone green — proof that
+"tests pass" was not sufficient proof for a migration file specifically. Both are fixed, re-verified against a
+real database, and covered by new regression tests (`RegistryMigrationTests`,
+`RegistryRulesTests.No_registry_entity_maps_a_company_id_column`). **Do not re-run this panel** — it is
+done for Parts A/B specifically, not a standing obligation on every future commit; run it again against
+Parts C–H once they exist.
 
-**Then continue the build list, in order — C through H:**
+**First action: continue the build list, in order — C through H:**
 
 1. **Part C — routing seams.** `ICompanyConnectionResolver`, `ICompanyDbContextFactory`,
    `ICompanyContext`'s concrete resolution (it exists as a port with an ambient stub from Part B; nothing

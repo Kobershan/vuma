@@ -11,6 +11,14 @@ internal sealed class RegistryCompanyConfiguration : EntityConfiguration<Registr
 
     protected override string TableName => "companies";
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A company row's own <c>Id</c> already <em>is</em> the company; the inherited <c>CompanyId</c>
+    /// would be a second, always-empty answer to "which company" sitting one keystroke away in
+    /// autocomplete.
+    /// </remarks>
+    protected override bool MapsCompanyId => false;
+
     protected override void ConfigureEntity(EntityTypeBuilder<RegistryCompany> builder)
     {
         builder.Property(company => company.Code)
