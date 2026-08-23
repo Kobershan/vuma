@@ -269,7 +269,7 @@ public static class PosEndpoints
     {
         Guid id = await dispatcher
             .SendAsync(
-                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId, request.Currency),
+                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId),
                 cancellationToken)
             .ConfigureAwait(false);
 

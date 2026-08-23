@@ -16,23 +16,17 @@ namespace VumaRetail.Application.Pos.Commands;
 /// </param>
 /// <param name="LocationId">The stock location the goods leave.</param>
 /// <param name="CustomerId">The customer, when one was identified.</param>
-/// <param name="Currency">The currency to ring the sale up in. Defaults to the store's.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record OpenSaleCommand(
     Guid? SaleId,
     Guid LocationId,
-    Guid? CustomerId = null,
-    string Currency = "ZAR") : ICommand<Guid>;
+    Guid? CustomerId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed open-sale command before it reaches the handler.</summary>
 public sealed class OpenSaleCommandValidator : AbstractValidator<OpenSaleCommand>
 {
     /// <summary>Builds the rules.</summary>
-    public OpenSaleCommandValidator()
-    {
-        RuleFor(command => command.LocationId).NotEmpty();
-        RuleFor(command => command.Currency).NotEmpty().Length(3);
-    }
+    public OpenSaleCommandValidator() => RuleFor(command => command.LocationId).NotEmpty();
 }
 
 /// <summary>
@@ -81,6 +75,9 @@ public sealed class OpenSaleCommandHandler(
 
         string saleNumber = await numbers.NextAsync(SaleNumberSeries, cancellationToken).ConfigureAwait(false);
 
+        // §4.13: the sale's currency is never taken from the caller — it is always the till session's,
+        // which is itself resolved from the store/tenant at OpenTillSessionCommand time. A sale can
+        // therefore never diverge from the drawer it is rung up against.
         Sale sale = Sale.Open(
             command.SaleId ?? UuidV7.NewGuid(),
             tenant.TenantId,
@@ -90,7 +87,7 @@ public sealed class OpenSaleCommandHandler(
             operatorUserId,
             command.LocationId,
             command.CustomerId,
-            command.Currency,
+            session.Currency,
             clock.UtcNow);
 
         sales.Add(sale);
@@ -179,8 +176,20 @@ public sealed class AddSaleLineCommandHandler(
         }
 
         Money discount = command.DiscountAmount ?? Money.Zero(command.UnitPrice.Currency);
-        Money extended = command.UnitPrice * command.Quantity.Value;
-        Money charged = (extended - discount).RoundToCurrencyScale();
+
+        if (!string.Equals(discount.Currency, command.UnitPrice.Currency, StringComparison.Ordinal))
+        {
+            throw PosRuleException.CurrencyMismatch(command.UnitPrice.Currency, discount.Currency);
+        }
+
+        // Round once, at the currency's own presentation scale, straight from the full-precision
+        // product (Money.cs's own doc comment: "Rounding to the currency's own scale happens once").
+        // Going through `command.UnitPrice * command.Quantity.Value` first would construct a Money and
+        // force a 4dp round there, then round *again* to 2dp here — two sequential midpoint roundings,
+        // which is §4.14: a 6dp weighed quantity lands in the `[x.xx495, x.xx5)` gap often enough to
+        // bias every such line up by a cent.
+        decimal extendedLessDiscount = (command.UnitPrice.Amount * command.Quantity.Value) - discount.Amount;
+        Money charged = new Money(decimal.Round(extendedLessDiscount, 2, Money.Rounding), command.UnitPrice.Currency);
 
         // The rule decides whether `charged` is inclusive or exclusive — a South African shelf price is
         // inclusive, a wholesale list is not, and the till should not have to know which.

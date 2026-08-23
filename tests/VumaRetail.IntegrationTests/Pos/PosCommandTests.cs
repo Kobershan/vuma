@@ -74,6 +74,28 @@ public sealed class PosCommandTests(PostgresFixture fixture)
         raised.SaleNumber.Should().Be(result.SaleNumber);
     }
 
+    [Theory]
+    // §4.14 — the exact examples the defect was found with. Each sits in the `[x.xx495, x.xx5)` gap
+    // that a second, sequential rounding pushes up by a cent; rounding once lands on the correct total.
+    [InlineData(10.01, 0.495, 4.95)]
+    [InlineData(10.02, 0.248, 2.48)]
+    [InlineData(10.05, 0.099, 0.99)]
+    // The boundary itself: an extended amount that lands exactly on `x.xx5` (9.99 x 0.5 = 4.995, exact,
+    // no further digits) must still round up under ADR-033's away-from-zero rule — §4.14's fix must
+    // round once, correctly, not simply floor every weighed line to dodge the double round.
+    [InlineData(9.99, 0.5, 5.00)]
+    public async Task A_weighed_line_is_rounded_once_not_twice(
+        decimal unitPrice, decimal quantity, decimal expectedGross)
+    {
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        (_, Guid saleId) = await RingUpAsync(harness, unitPrice, quantity);
+
+        Sale sale = await harness.QueryAsync(new GetSaleQuery(saleId));
+
+        sale.LiveLines.Single().Gross.Amount.Should().Be(expectedGross);
+    }
+
     [Fact]
     public async Task Tax_comes_from_the_configured_rule_rather_than_a_constant()
     {
@@ -292,6 +314,20 @@ public sealed class PosCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_till_session_cannot_be_opened_in_a_currency_the_tenant_does_not_trade_in()
+    {
+        // §4.13 — the currency is resolved from the store, then the tenant, never taken as given. The
+        // harness tenant is ZAR with no store override, so a USD float is refused before a session ever
+        // opens — this is the fix that makes every sale on it, in turn, safe from the till-bricking bug.
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        Func<Task> openInDollars = () => harness.SendAsync(new OpenTillSessionCommand(new Money(500m, "USD")));
+
+        (await openInDollars.Should().ThrowAsync<PosRuleException>())
+            .Which.Code.Should().Be("POS_CURRENCY_MISMATCH");
+    }
+
+    [Fact]
     public async Task The_expected_cash_is_derived_from_the_sessions_own_sales()
     {
         await using PosHarness harness = await PosHarness.CreateAsync(fixture);
@@ -414,6 +450,35 @@ public sealed class PosCommandTests(PostgresFixture fixture)
 
         // And the receipt itself now says so.
         (await harness.QueryAsync(new BuildReceiptQuery(saleId))).IsReprint.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_reprint_is_refused_to_an_operator_who_only_holds_pos_receipt_print()
+    {
+        // §4.15 — pos.receipt.reprint is declared IsHighRisk for a reason: a cashier who could reprint
+        // freely could ring a sale, hand over a receipt, then quietly print a second one that never
+        // reaches the customer. The permission is checked here, not at the endpoint, because whether a
+        // given print *is* a reprint is only known once the log is read.
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        (_, Guid saleId) = await RingUpAsync(harness);
+        await harness.SendAsync(new TenderSaleCommand(saleId, TenderType.Cash, new Money(115m, "ZAR")));
+        await harness.SendAsync(new CompleteSaleCommand(saleId));
+        await harness.Context.CommitAsync();
+
+        await harness.SendAsync(new RecordReceiptPrintCommand(saleId));
+        await harness.Context.CommitAsync();
+
+        // A second operator, holding no role at all — pos.receipt.print included — attempts the reprint.
+        harness.Principal.Principal = $"user:{UuidV7.NewGuid()}";
+
+        Func<Task> reprintWithoutPermission =
+            () => harness.SendAsync(new RecordReceiptPrintCommand(saleId, "Customer lost the original"));
+
+        await reprintWithoutPermission.Should().ThrowAsync<PosForbiddenException>();
+
+        IReadOnlyList<ReceiptPrint> prints = await harness.QueryAsync(new ListReceiptPrintsQuery(saleId));
+        prints.Should().ContainSingle("the refused reprint must not have appended a row to the log");
     }
 
     [Fact]

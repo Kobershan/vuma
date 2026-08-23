@@ -34,8 +34,12 @@ public sealed class TestPrincipalAccessor(
     Guid? terminalId = null,
     bool isSystem = false) : IPrincipalAccessor
 {
+    /// <summary>
+    /// Settable so a test can act as a second, differently-permissioned user mid-scenario (§4.15)
+    /// without standing up a whole second harness.
+    /// </summary>
     /// <inheritdoc />
-    public string Principal { get; } = principal;
+    public string Principal { get; set; } = principal;
 
     /// <inheritdoc />
     public Guid? TerminalId { get; } = terminalId;

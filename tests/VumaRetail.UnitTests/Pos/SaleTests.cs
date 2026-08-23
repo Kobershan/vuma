@@ -81,6 +81,21 @@ public sealed class SaleTests
     }
 
     [Fact]
+    public void A_sale_cannot_be_opened_in_a_currency_other_than_its_session()
+    {
+        // §4.13 — a sale independently choosing its own currency is exactly what let a foreign-currency
+        // sale sit on a session until the cash-up tried to add it to the drawer and crashed. Refusing it
+        // at Open time, in the domain, closes the gap even for a caller that bypasses the command layer.
+        TillSession session = NewSession();
+
+        Action opening = () => Sale.Open(
+            UuidV7.NewGuid(), TenantId, StoreId, "SALE-000002", session, OperatorId, LocationId,
+            customerId: null, "USD", Now);
+
+        opening.Should().Throw<PosRuleException>().Which.Code.Should().Be("POS_CURRENCY_MISMATCH");
+    }
+
+    [Fact]
     public void A_sale_cannot_be_opened_on_a_closed_session()
     {
         TillSession session = NewSession();

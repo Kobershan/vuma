@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Identity;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Domain.Identity;
@@ -50,6 +51,7 @@ public static class IdentityServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<ITerminalRepository, TerminalRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IPermissionChecker, PermissionChecker>();
 
         services.AddScoped<AuthenticationService>();
 

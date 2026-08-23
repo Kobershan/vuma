@@ -192,6 +192,17 @@ public sealed class Sale : Entity
 
         session.EnsureOpen();
 
+        string normalisedCurrency = currency.Trim().ToUpperInvariant();
+
+        // §4.13: a sale's currency is never independently chosen — it is the till session's, always.
+        // Without this, a sale opened in a currency the session did not trade in could sit on the
+        // session undetected until the cash-up tried to add it to the drawer total and crashed with a
+        // raw `Money` exception instead of a typed refusal, bricking the terminal with no API path out.
+        if (!string.Equals(normalisedCurrency, session.Currency, StringComparison.Ordinal))
+        {
+            throw PosRuleException.CurrencyMismatch(session.Currency, normalisedCurrency);
+        }
+
         return new Sale(
             id,
             tenantId,
@@ -202,7 +213,7 @@ public sealed class Sale : Entity
             operatorUserId,
             locationId,
             customerId,
-            currency.Trim().ToUpperInvariant(),
+            normalisedCurrency,
             openedAt);
     }
 

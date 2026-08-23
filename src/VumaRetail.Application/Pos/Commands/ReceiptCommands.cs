@@ -1,5 +1,7 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Identity;
+using VumaRetail.Application.Pos.Permissions;
 using VumaRetail.Domain.Pos;
 
 namespace VumaRetail.Application.Pos.Commands;
@@ -32,11 +34,16 @@ public sealed class RecordReceiptPrintCommandValidator : AbstractValidator<Recor
 /// <summary>Appends to the print log, deriving reprint status from the log itself.</summary>
 /// <param name="sales">Sale lookup.</param>
 /// <param name="prints">The append-only print log.</param>
+/// <param name="permissions">
+/// The in-handler check §4.15 needs: whether *this* print is a reprint is only known after the log is
+/// read, so an endpoint filter — which runs before the handler — cannot enforce it.
+/// </param>
 /// <param name="principal">Who printed it, and from which terminal.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class RecordReceiptPrintCommandHandler(
     ISaleRepository sales,
     IReceiptPrintRepository prints,
+    IPermissionChecker permissions,
     IPrincipalAccessor principal,
     IClock clock) : ICommandHandler<RecordReceiptPrintCommand, Guid>
 {
@@ -51,11 +58,25 @@ public sealed class RecordReceiptPrintCommandHandler(
 
         int alreadyPrinted = await prints.CountForSaleAsync(sale.Id, cancellationToken).ConfigureAwait(false);
 
+        Guid operatorUserId = PosActor.RequireUserId(principal);
+
+        // §4.15: pos.receipt.print is granted to every cashier; pos.receipt.reprint is the high-risk
+        // permission that gates the second and every later print of the same sale. The endpoint's
+        // RequirePermission only ever saw pos.receipt.print, because "is this a reprint" is derived
+        // from the log this handler is about to read — so the check belongs here, not at the route.
+        if (alreadyPrinted > 0
+            && !await permissions
+                .HasPermissionAsync(operatorUserId, sale.StoreId, PosPermissions.ReceiptReprint, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw PosForbiddenException.ReceiptReprintNotPermitted();
+        }
+
         ReceiptPrint print = ReceiptPrint.Record(
             sale.TenantId,
             sale.StoreId,
             sale.Id,
-            PosActor.RequireUserId(principal),
+            operatorUserId,
             principal.TerminalId ?? sale.TerminalId,
             isReprint: alreadyPrinted > 0,
             command.Reason,

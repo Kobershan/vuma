@@ -62,12 +62,14 @@ public sealed record TillSessionResponse(
 /// </param>
 /// <param name="LocationId">The stock location the goods leave.</param>
 /// <param name="CustomerId">The customer, when one was identified.</param>
-/// <param name="Currency">The ISO 4217 currency to ring the sale up in.</param>
+/// <remarks>
+/// Carries no currency (§4.13): a sale always trades in its till session's currency, which is itself
+/// resolved from the store, then the tenant, when the session opened — never from a request body.
+/// </remarks>
 public sealed record OpenSaleRequest(
     Guid? SaleId,
     Guid LocationId,
-    Guid? CustomerId = null,
-    string Currency = "ZAR");
+    Guid? CustomerId = null);
 
 /// <summary>Rings a line up on an open sale.</summary>
 /// <param name="ItemId">The item, when it has no variants. Exactly one of this and <paramref name="ItemVariantId"/>.</param>

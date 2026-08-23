@@ -1,11 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Identity;
 using VumaRetail.Application.Catalog;
 using VumaRetail.Application.Identity;
+using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Platform;
 using VumaRetail.Application.Pos;
+using VumaRetail.Application.Pos.Permissions;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Identity;
@@ -88,6 +91,13 @@ public sealed class PosHarness : IAsyncDisposable
         services.AddSingleton<IStoreRepository>(new StoreRepository(context));
         services.AddSingleton<ITenantRepository>(new TenantRepository(context));
         services.AddSingleton<IUserRepository>(new UserRepository(context));
+
+        // §4.15: RecordReceiptPrintCommandHandler checks pos.receipt.reprint in-handler, so the
+        // harness needs the same RBAC plumbing IdentityServiceCollectionExtensions wires in production.
+        services.AddSingleton<IRoleRepository>(new RoleRepository(context));
+        services.AddSingleton<IPermissionCatalogue>(
+            new PermissionCatalogue([new PlatformPermissions(), new IdentityPermissions(), new PosPermissions()]));
+        services.AddSingleton<IPermissionChecker, PermissionChecker>();
 
         // Inventory, real: a sale that does not relieve stock has not been proved to work.
         services.AddSingleton<IStockLocationRepository>(new StockLocationRepository(context));
@@ -191,6 +201,15 @@ public sealed class PosHarness : IAsyncDisposable
         context.Stores.Add(store);
         context.Users.Add(operatorUser);
         context.Terminals.Add(terminal);
+
+        // §4.15: the harness operator needs pos.receipt.reprint for every existing reprint-path test to
+        // keep behaving as it did before the in-handler permission check existed. The dedicated refusal
+        // test builds its own principal without this role instead of weakening it here.
+        Role cashierRole = Role.Create(seeded.Id, "Cashier");
+        context.Roles.Add(cashierRole);
+        context.RolePermissions.Add(
+            RolePermission.Grant(seeded.Id, cashierRole.Id, PermissionKey.Parse(PosPermissions.ReceiptReprint)));
+        context.UserRoleAssignments.Add(UserRoleAssignment.Assign(seeded.Id, operatorUser.Id, cashierRole.Id));
 
         UnitOfMeasure each = UnitOfMeasure.CreateBase(seeded.Id, "EA", "Each", UnitOfMeasureType.Count);
         context.UnitsOfMeasure.Add(each);
