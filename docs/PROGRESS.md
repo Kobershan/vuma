@@ -3,8 +3,74 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-24 · **§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed — every remaining
-open defect against Stage 09 except the mechanical DoD sweeps (§4.20's mislabel, §4.22's OpenAPI
+**Last updated:** 2026-08-24 (later) · **Stage 06c (multi-company foundation) started — Parts A and B of
+its eight-part build list are done, verified by execution, and committed on branch
+`stage-06c-multi-company` (not merged; the stage is far from exit-checklist-ready). This is deliberately
+a mid-stage checkpoint, not a finished stage — see this entry and PROGRESS.md §5 for exactly where to
+pick up.**
+
+The operator explicitly asked to start Stage 06c now, ahead of the mechanical DoD sweeps the prior
+entry's §5 otherwise listed first (those don't block 06c and remain open below). Before writing any
+code, the stage document was found not to conform to `docs/EXECUTION_STANDARD.md` (no "what this stage
+does not own" section, no dependency-ordered build list) and was brought up to standard — commit
+`7a4aed5` — which surfaced two real design questions the original document left implicit: where
+`Tenant`/licensing sit once companies are separate databases, and how `company_id` reaches roughly 90
+entity types without threading it through every constructor. Both are now locked as ADR-139 and ADR-140.
+
+**Part A — the registry database (`6d5d027`).** A new `VumaRegistryDbContext`, its own migration chain
+(`registry` schema, its own `__ef_migrations_history`), and the tables 06d needs on day one:
+`RegistryCompany` (full `Provisioning → Seeding → Registered → Active` lifecycle, ADR-118),
+`CompanyGroup`/`CompanyGroupMember`, `SagaIntent`/`SagaLeg` (data shape only — no coordinator, that is
+06d's), `RegistryOutboxMessage`. Connection strings are AES-256-GCM encrypted at rest via a new
+`IConnectionSecretProtector` (R10). **A real bug was caught and fixed during this part**, by the new
+`RegistryRulesTests` architecture-test suite: `VumaRetailDbContext`'s unfiltered
+`ApplyConfigurationsFromAssembly` scan was about to silently fold the registry's new tables into every
+company database's own model, because both contexts' configurations live in the same assembly. Fixed by
+excluding the registry's configuration namespace from that scan. Also fixed the `.editorconfig` migration
+warning-exemption glob, which turned out to only match a flat migration chain, not a nested one
+(`Migrations/Registry/*.cs`) — needed once a second chain existed.
+
+**Part B — the `CompanyId` retrofit (`8d04098`).** `CompanyId` added to the shared `Entity` base class,
+stamped by the persistence layer from a new `ICompanyContext` port — the same mechanism that already
+stamps `RowVersion` — rather than threaded through every entity constructor and every handler that calls
+one (ADR-140). One migration adds the column plus an index to every existing table. **A second real bug
+was caught, this time only by actually running the full integration suite against a real database**: the
+first generated migration silently omitted several tables, `audit_entries` first among them, even though
+the final model snapshot was correct — a stale intermediate diff from scaffolding the migration before
+every model-affecting edit (a `SagaLeg.CompanyId`→`TargetCompanyId` rename forced by a genuine naming
+collision with the new base column, and a test-harness fix) had actually landed. Neither
+`dotnet ef migrations has-pending-model-changes` nor a manual design-time model-diff probe caught it —
+only `column "company_id" of relation "audit_entries" does not exist` from a real `dotnet test` run did.
+Fixed by removing and regenerating the migration from the final state. **The lesson, for whoever touches
+a migration next: regenerate it last, after every model-affecting edit lands, never trust an earlier
+scaffold once anything else changes.**
+
+**Verified by execution for both parts:** `dotnet build -c Release --no-incremental` clean at 0
+warnings/0 errors; both migrations' `Down` then `Up` again actually run against a real PostgreSQL
+database (`scripts/pg-test.sh`'s throwaway cluster) with the resulting schema inspected via `psql` each
+time, not asserted; the **full existing suite re-run after the retrofit — 758 unit (+18), 38 architecture
+(+4), 421 integration, all green** — which is Stage 06c's own stated bar ("every existing stage's tests
+stay green after the retrofit... this is the stage's real bar").
+
+**Known, honest gap carried forward, not hidden:** `ICompanyContext` resolves to `Guid.Empty` on every
+installation until Part H seeds the existing single-tenant install to its one company (or a later part
+binds it per terminal/connection) — see `AmbientCompanyContext`'s own remarks. Every row stamped in the
+meantime carries a visibly-unresolved `company_id`, not a plausible-looking wrong one. Also,
+`VumaRegistryDbContext` has no audit-stamping interceptor wired yet (nothing in Parts A/B writes a real
+row through it outside a test) — whoever builds Part D's provisioning command handler needs to wire one
+before that handler's first real `SaveChangesAsync`, or `RegistryCompany` rows will be written with blank
+`CreatedAt`/`CreatedBy`.
+
+**Agent panel: launched, not yet returned.** `architecture-guard` and `multi-company-guard` were both
+launched against commits `6d5d027`/`8d04098` at the end of this session, specifically scoped as a
+mid-stage checkpoint (told not to flag the absence of Parts C–H, which the stage document's own "what
+this stage does not own" section already scopes out). **Whoever picks this up next should check whether
+those reports landed and act on them before writing any more code on top of this foundation** — this is
+the most architecturally load-bearing stage in the roadmap by its own document's description, and a
+defect here is exactly the kind of thing worth catching before six more parts are built on it.
+
+**Previously — last updated:** 2026-08-24 · **§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed — every
+remaining open defect against Stage 09 except the mechanical DoD sweeps (§4.20's mislabel, §4.22's OpenAPI
 examples, §4.24's coverage gap on Stage 11).** Branch `stage-09-defect-closure-2`, three commits
 (`39e8783` §4.13/§4.14/§4.15, `6b014ce` §4.11, `86f8dbd` §4.10 — the largest), merged to `main` and
 pushed. Full suite: 740 unit (+4), 34 architecture (unchanged count, one rule narrowed with a named,
@@ -201,7 +267,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
-| 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099, ADR-116 – ADR-120). **Do this before anything else is built.** It changes where every module's `DbContext` comes from; retrofitting it later is a rewrite, not a refactor | — |
+| 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **IN_PROGRESS** — branch `stage-06c-multi-company` (not merged). Parts A (registry database) and B (`CompanyId` retrofit) of 8 done and verified by execution — 758 unit/38 architecture/421 integration tests green after the retrofit. Parts C–H (routing seams, provisioning, migration fan-out, backup/sync, API, existing-install seed) not started. Agent panel launched against A+B, not yet returned — see PROGRESS.md §5 | 2026-08-24 |
 | 06d | Group services — saga coordinator, credit groups with hold tokens, barcode routing index, group read models | **NOT_STARTED** — added 2026-08-22 (ADR-100, ADR-101, ADR-116, ADR-119). Split from 06c: 06c is plumbing, this is everything that spans databases, and 07c/08c/13b/14b all dispatch through it | — |
 | 06e | Trading group — Operator ID, company links and scopes, shared premises, cross-company users and tills, billing dimensions | **NOT_STARTED** — added 2026-08-22 (R13, ADR-121 – ADR-124, ADR-127). **Build it before 07c, 08c, 13b or 14b**: it wires the link check into every cross-company entry point, and retrofitting a permission check into paths that already work without one is how a check gets missed | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
@@ -3006,7 +3072,63 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-24: read this first — supersedes every earlier update below it.**
+**Update, 2026-08-24 (later): read this first — supersedes every earlier update below it.**
+
+**Stage 06c is mid-flight on branch `stage-06c-multi-company`, not merged.** Parts A and B of its
+eight-part build list (`docs/stages/STAGE-06c-multi-company.md`) are done, each verified by execution and
+committed (`6d5d027`, `8d04098`). The full existing suite — 758 unit, 38 architecture, 421 integration —
+is green after the `CompanyId` retrofit, which is the stage document's own stated bar for Part B. See the
+session-log entry above for the full detail, including two real bugs found and fixed along the way (an
+unfiltered `ApplyConfigurationsFromAssembly` scan that would have folded the registry's tables into every
+company database's model, and a stale migration scaffold that silently omitted `audit_entries` and
+others).
+
+**First action: check whether `architecture-guard` and `multi-company-guard` have reported back.** Both
+were launched at the end of the previous session against commits `6d5d027`/`8d04098`, scoped explicitly as
+a mid-stage checkpoint (not a full stage sign-off — Parts C–H don't exist yet and reviewers were told not
+to flag their absence). `multi-company-guard`'s first attempt failed on a connection error mid-run and was
+retried once; check both landed cleanly. **Fix every finding before adding anything on top of Parts A/B**
+— this is the most architecturally load-bearing stage in the roadmap by its own document's description
+("06c is the one that must not be deferred... retrofitting later is a rewrite"), and a real defect in the
+registry database or the `CompanyId` mechanism would be inherited by every one of Parts C through H and by
+06d, 06e, 07c, 08c, 13b and 14b built on top of it.
+
+**Then continue the build list, in order — C through H:**
+
+1. **Part C — routing seams.** `ICompanyConnectionResolver`, `ICompanyDbContextFactory`,
+   `ICompanyContext`'s concrete resolution (it exists as a port with an ambient stub from Part B; nothing
+   yet resolves it from a request/terminal/connection), `ICompanyFanOut`, and — the load-bearing test in
+   this whole stage per `docs/MULTI_COMPANY.md` §2 — the architecture test asserting no command handler
+   resolves two companies' `DbContext`s. Read `docs/MULTI_COMPANY.md` §2 before starting.
+2. **Part D — provisioning.** `ProvisionCompanyCommand`/handler driving `RegistryCompany`'s lifecycle,
+   `DeactivateCompanyCommand`. **Before this part's first real write to `VumaRegistryDbContext`, wire an
+   audit-stamping interceptor onto it** — Parts A/B left it without one (nothing wrote a real row through
+   it yet, only tests constructing domain objects directly), and a provisioning command that saves through
+   it unmodified will write `RegistryCompany` rows with blank `CreatedAt`/`CreatedBy`.
+3. **Part E — migration fan-out.** Depends on A and D.
+4. **Part F — backup/sync per database.** Extends Stage 04's existing snapshot/cursor machinery to
+   iterate companies.
+5. **Part G — API, permissions, entitlement.**
+6. **Part H — the existing installation.** A registry seed migrating today's single-tenant install to
+   exactly one `Active` company. This is what finally gives `ICompanyContext` a real, non-`Guid.Empty`
+   value in production — everything before this point runs with `company_id` stamped as
+   `00000000-0000-0000-0000-000000000000`, which is honest (see `AmbientCompanyContext`'s own remarks) but
+   is not yet correct.
+
+**One operational note carried forward:** the `pg-test.sh` throwaway cluster grew from 61% to 75% disk
+usage across this session's several full-suite runs (still 24G free at last check, not yet an emergency,
+but the pattern §4.7 and two prior session-log entries already documented). Consider `scripts/pg-test.sh
+stop` then `start` before a long run rather than after one fails mysteriously.
+
+**Once Stage 06c's exit checklist genuinely passes** (all eight parts, `stage-verifier` returns PASS or a
+documented `UNVERIFIED`): merge to `main`, push, update the parent `ecosystem` superproject's `vuma`
+pointer, then the mechanical DoD sweeps this file's prior entries already queued (§4.22 OpenAPI examples,
+§4.20's `MatchedNet` mislabel, §4.24's Stage 11 coverage gap) are still open and still next after that,
+followed by 06d.
+
+---
+
+**Previously — 2026-08-24: read this first — supersedes every earlier update below it.**
 
 **§4.10, §4.11, §4.13, §4.14 and §4.15 are all closed.** Branch `stage-09-defect-closure-2` (three
 commits: `39e8783`, `6b014ce`, `86f8dbd`) is merged to `main` and pushed. ADR-135 through ADR-138 record
