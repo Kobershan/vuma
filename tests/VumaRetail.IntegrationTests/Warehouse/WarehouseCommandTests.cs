@@ -295,6 +295,41 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_legitimate_move_between_recording_and_finalizing_is_not_double_counted()
+    {
+        // §4.19 — Finalize used to apply the frozen snapshot's variance on top of whatever on-hand had
+        // become by finalize time, so a real movement in between got counted twice: once for real, once
+        // again as a phantom "shortage" the picker never actually found.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(10m)));
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+
+        // Physically found 7 against a system quantity of 10, snapshotted here.
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binOne, harness.ItemId, null, Each(7m)));
+
+        // Before finalize, 2 legitimately move out to another bin — nothing to do with the count.
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(2m)));
+
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        // The old frozen-variance bug: -3 applied to the post-move 8 would land on 5. The picker
+        // physically counted 7, and 7 is what genuinely disagrees with reality — that is what must post.
+        BinStockResult? binStock = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        binStock!.QuantityOnHand.Value.Should().Be(7m, "what was actually counted, not the frozen snapshot's arithmetic");
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(9m, "10 received, 2 moved out for real, only 1 more unaccounted for — not 3");
+    }
+
+    [Fact]
     public async Task A_recount_before_finalize_replaces_the_line_rather_than_adding_a_second_one()
     {
         await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);

@@ -124,11 +124,20 @@ public sealed class FinalizeCycleCountCommandValidator : AbstractValidator<Final
 }
 
 /// <summary>
-/// Finalizes a count: for every line whose variance is non-zero, posts it through Stage 08's
-/// <see cref="IStockLedgerPoster.PostCycleCountVarianceAsync"/> (which corrects the location's own
-/// on-hand quantity — business rule 4) and applies the same delta to the bin's own
-/// <see cref="Domain.Warehouse.BinStock"/>.
+/// Finalizes a count: for every line whose variance against the bin's <em>current</em> on-hand quantity
+/// is non-zero, posts it through Stage 08's <see cref="IStockLedgerPoster.PostCycleCountVarianceAsync"/>
+/// (which corrects the location's own on-hand quantity — business rule 4) and applies the same delta to
+/// the bin's own <see cref="Domain.Warehouse.BinStock"/>.
 /// </summary>
+/// <remarks>
+/// Re-derives the delta at finalize time — <c>line.CountedQuantity</c> minus whatever
+/// <see cref="Domain.Warehouse.BinStock.QuantityOnHand"/> is <em>now</em> — rather than trusting
+/// <see cref="CycleCountLine.Variance"/>, which is frozen against the snapshot <c>RecordCycleCountCommand</c>
+/// took when the line was counted. A pick, putaway or internal move that legitimately touched this
+/// bin/stock-keeping unit between recording and finalizing already changed on-hand for a real reason;
+/// applying the frozen variance on top of it double-counts that movement and posts a phantom shortage or
+/// overage neither the picker nor the mover actually caused (§4.19).
+/// </remarks>
 /// <param name="cycleCounts">Count and line lookup.</param>
 /// <param name="locations">Stage 08 location lookup.</param>
 /// <param name="binStocks">Bin balance lookup and insertion.</param>
@@ -158,35 +167,40 @@ public sealed class FinalizeCycleCountCommandHandler(
 
         foreach (CycleCountLine line in lines)
         {
-            if (line.Variance.IsZero)
+            Domain.Warehouse.BinStock? balance = await binStocks
+                .FindAsync(line.BinId, line.ItemId, line.ItemVariantId, cancellationToken)
+                .ConfigureAwait(false);
+
+            Quantity currentSystemQuantity = balance?.QuantityOnHand ?? Quantity.Zero(line.CountedQuantity.UnitOfMeasure);
+            Quantity currentVariance = line.CountedQuantity - currentSystemQuantity;
+
+            if (currentVariance.IsZero)
             {
+                // What was physically counted now agrees with on-hand — either nothing moved, or
+                // something already moved it to exactly the counted figure. Either way, nothing to post.
                 continue;
             }
 
             await poster.PostCycleCountVarianceAsync(
-                location, line.ItemId, line.ItemVariantId, line.Variance, count.Id, line.BinId, cancellationToken)
-                .ConfigureAwait(false);
-
-            Domain.Warehouse.BinStock? balance = await binStocks
-                .FindAsync(line.BinId, line.ItemId, line.ItemVariantId, cancellationToken)
+                location, line.ItemId, line.ItemVariantId, currentVariance, count.Id, line.BinId, cancellationToken)
                 .ConfigureAwait(false);
 
             if (balance is null)
             {
                 balance = Domain.Warehouse.BinStock.Open(
                     count.TenantId, count.StoreId, line.BinId, line.ItemId, line.ItemVariantId,
-                    line.Variance.UnitOfMeasure);
+                    currentVariance.UnitOfMeasure);
 
                 binStocks.Add(balance);
             }
 
-            if (line.Variance.IsNegative)
+            if (currentVariance.IsNegative)
             {
-                balance.ApplyOut(-line.Variance);
+                balance.ApplyOut(-currentVariance);
             }
             else
             {
-                balance.ApplyIn(line.Variance);
+                balance.ApplyIn(currentVariance);
             }
         }
 
