@@ -67,7 +67,18 @@ public sealed class EntitlementService(
 
         await LoadAsync(cancellationToken).ConfigureAwait(false);
 
-        return _entitlements!.Contains(manifest.LicenceFlag);
+        // No lease to consult means permit, not deny (§4.12) — the same asymmetry CheckLimitAsync
+        // already gets right via LicenceLimits.Unlimited below. "The lease says you don't have this
+        // module" and "there is no lease to ask" are different facts, and only the first is a real
+        // denial; a fresh DR restore before rebind, a migration, or a corrupted state directory all
+        // produce the second. RequireModule sits on GETs with no other gate behind it (rule 15's
+        // read-only carve-out is a command-pipeline concern, ReadOnlyGuardBehaviour at order 50, and
+        // never runs for a query), so failing closed here would 403 reads the enforcement ladder never
+        // meant to restrict. Whether writes are actually blocked is ReadOnlyGuardBehaviour's question,
+        // not this one's — RequireModule may consult only IEntitlementService (the doc comment on it
+        // says so, and an architecture test holds it), so this stays deliberately blind to
+        // EnforcementDecision.Level rather than duplicating that check.
+        return _entitlements is null || _entitlements.Contains(manifest.LicenceFlag);
     }
 
     /// <inheritdoc />
@@ -126,7 +137,11 @@ public sealed class EntitlementService(
             lease,
             unlock?.ExpiresAt));
 
-        _entitlements = lease?.EntitlementSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Null, not an empty set, when there is no lease — IsModuleEnabledAsync's null check is what
+        // makes the fallback permit rather than deny (§4.12). An empty set here would be
+        // indistinguishable from a real lease that genuinely grants nothing, which is a fact worth
+        // denying on; "no lease at all" is not that fact.
+        _entitlements = lease?.EntitlementSet();
         _limits = lease?.LimitSet() ?? LicenceLimits.Unlimited;
     }
 }

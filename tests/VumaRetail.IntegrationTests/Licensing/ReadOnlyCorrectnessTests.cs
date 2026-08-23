@@ -353,6 +353,34 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_declared_module_is_permitted_when_there_is_no_lease_to_ask_at_all()
+    {
+        // §4.12's trap, closed. Before this fix, EntitlementService fell back to an *empty*
+        // entitlement set whenever there was no lease — indistinguishable from a real lease that
+        // genuinely grants nothing — so a fresh DR restore before rebind, a migration, or a corrupted
+        // state directory would hard-403 every declared module, RequireModule included, which sits on
+        // GETs with no other gate behind it (rule 15's read-only carve-out is a command-pipeline
+        // concern and never runs for a query). The fix mirrors CheckLimitAsync's own
+        // LicenceLimits.Unlimited fallback: "the lease says no" and "there is no lease to ask" are
+        // different facts, and only the first is a real denial.
+        //
+        // Deliberately never activates at all — not even with an empty entitlement lease, which is
+        // the *other* test in this file and a genuinely different fact from this one.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, activate: false);
+
+        bool identity = await harness.InScopeAsync(provider =>
+            provider.GetRequiredService<IEntitlementService>().IsModuleEnabledAsync("identity"));
+
+        // "pos" is declared and IsCore => false (PosModuleManifest) — the exact shape §4.12 named:
+        // the first non-core module, where the empty-set fallback used to bite.
+        bool pos = await harness.InScopeAsync(provider =>
+            provider.GetRequiredService<IEntitlementService>().IsModuleEnabledAsync("pos"));
+
+        identity.Should().BeTrue("core modules are never gated on a lease at all");
+        pos.Should().BeTrue("no lease to consult must mean permit, not deny — the ReadOnlyGuard, not this gate, is what still correctly restricts writes");
+    }
+
+    [Fact]
     public async Task A_hard_limit_refuses_the_eleventh_terminal_and_lets_the_tenth_through()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, activate: false);
