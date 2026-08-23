@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Inventory.Commands;
+using VumaRetail.Application.Warehouse;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Warehouse;
@@ -652,5 +656,135 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         BinStockResult? afterCancel = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
         afterCancel!.QuantityReserved.Value.Should().Be(0m, "cancelling the wave must not leak its tasks' reservations");
         afterCancel.Available.Value.Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task A_cycle_count_correction_below_what_is_reserved_clamps_the_reservation_instead_of_taking_available_negative()
+    {
+        // Agent-panel finding against commit cefe371 (§7 rule 21): BinStock.ApplyOut only guarded
+        // against taking QuantityOnHand negative, not Available — a stocktake finding fewer units than
+        // an active, unconfirmed pick reservation promised used to leave Available negative. Refusing
+        // the correction outright would be worse (a cycle count could never correct a bin with any live
+        // reservation), so ApplyOut now clamps the reservation down to match reality instead.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(100m)));
+
+        // An active, unconfirmed pick reservation for 90 — nothing has physically left the bin yet.
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(90m), "SO-5001"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        BinStockResult? beforeCount = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        beforeCount!.QuantityReserved.Value.Should().Be(90m);
+
+        // A stocktake finds only 40 physically there — a real shortage, unrelated to the reservation.
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(40m)));
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        BinStockResult? afterCount = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterCount!.QuantityOnHand.Value.Should().Be(40m, "the physical count is what actually happened and must post");
+        afterCount.QuantityReserved.Value.Should().Be(40m, "a reservation cannot survive on stock the count found is not there");
+        afterCount.Available.Value.Should().Be(0m, "Available must never go negative, even here (§7 rule 21)");
+    }
+
+    [Fact]
+    public async Task Two_tasks_for_different_stock_keeping_units_sharing_one_bin_are_both_fully_allocated_in_one_release()
+    {
+        // Agent-panel finding against commit cefe371: the within-one-release accumulator was keyed on
+        // BinId alone, so a second task for a *different* item sharing the same bin wrongly inherited
+        // the first task's reservation and could be short-allocated or refused even though its own
+        // stock-keeping unit was untouched.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), new Money(10m, "ZAR"), null));
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.SecondItemId, null, Each(50m), new Money(10m, "ZAR"), null));
+
+        Guid putawayFirst = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayFirst, binId, Each(100m)));
+
+        Guid putawaySecond = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.SecondItemId, null, Each(50m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawaySecond, binId, Each(50m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(20m), "SO-5002"));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.SecondItemId, null, Each(40m), "SO-5003"));
+
+        // Must not throw: the second task's 40 units of its own SKU are genuinely untouched by the
+        // first task's 20-unit reservation against a different SKU in the same bin.
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        wave.Tasks.Should().HaveCount(2);
+        wave.Tasks.Should().OnlyContain(task => task.Status == PickTaskStatus.Allocated);
+
+        BinStockResult? firstStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        BinStockResult? secondStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.SecondItemId, null));
+
+        firstStock!.QuantityReserved.Value.Should().Be(20m);
+        secondStock!.QuantityReserved.Value.Should().Be(40m, "the second SKU's reservation must not have inherited the first's");
+    }
+
+    [Fact]
+    public async Task Two_genuinely_concurrent_reservations_against_the_same_bin_cannot_both_succeed()
+    {
+        // Agent-panel finding: the 5 tests above prove correctness once a reservation has already
+        // committed, but are all strictly sequential — they do not exercise two transactions racing
+        // before either commits, which is the actual scenario the commit message describes. What
+        // actually protects against that race is RowVersion optimistic concurrency (every Entity
+        // carries one, ADR-035) — untested and undocumented as the mechanism until now. This proves it
+        // directly: two independent contexts both read the same BinStock row, both reserve against the
+        // same on-hand figure, and only one commit can win.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        await using VumaRetailDbContext contextA = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        await using VumaRetailDbContext contextB = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        BinStockRepository repositoryA = new(contextA);
+        BinStockRepository repositoryB = new(contextB);
+
+        // Both read the same row — on-hand 10, reserved 0, Available 10 — before either writes.
+        BinStock? balanceA = await repositoryA.FindAsync(binId, harness.ItemId, null);
+        BinStock? balanceB = await repositoryB.FindAsync(binId, harness.ItemId, null);
+        balanceA.Should().NotBeNull();
+        balanceB.Should().NotBeNull();
+
+        // Both reservations are individually valid against the on-hand each context saw (7 <= 10), and
+        // together they would take Available to -4 if both were allowed to commit.
+        balanceA!.Reserve(new Quantity(7m, "EA"));
+        balanceB!.Reserve(new Quantity(7m, "EA"));
+
+        await contextA.SaveChangesAsync();
+
+        // B's row version is now stale — its write must be refused, not silently applied on top.
+        Func<Task> secondSave = () => contextB.SaveChangesAsync();
+        await secondSave.Should().ThrowAsync<DbUpdateConcurrencyException>(
+            "a stale write must be refused outright, never merged into a negative Available");
+
+        // A fresh, independent read — not through harness.Context (already tracks this row, stale,
+        // from setup) or contextA/contextB (already tracking their own in-memory copies) — to prove
+        // what genuinely persisted, not what one context's identity map happens to hold.
+        await using VumaRetailDbContext contextC = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        BinStock? final = await new BinStockRepository(contextC).FindAsync(binId, harness.ItemId, null);
+
+        final!.QuantityReserved.Value.Should().Be(7m, "only the winning transaction's reservation may have persisted");
+        final.Available.Value.Should().Be(3m, "never negative — the second reservation never happened");
     }
 }

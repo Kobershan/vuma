@@ -30,7 +30,8 @@ public sealed class WarehouseHarness : IAsyncDisposable
         Guid storeId,
         Guid itemId,
         Guid secondItemId,
-        Guid locationId)
+        Guid locationId,
+        string connectionString)
     {
         Context = context;
         TenantContext = tenant;
@@ -40,6 +41,7 @@ public sealed class WarehouseHarness : IAsyncDisposable
         ItemId = itemId;
         SecondItemId = secondItemId;
         LocationId = locationId;
+        ConnectionString = connectionString;
 
         Locations = new StockLocationRepository(context);
         Ledger = new StockLedgerRepository(context);
@@ -117,6 +119,13 @@ public sealed class WarehouseHarness : IAsyncDisposable
 
     /// <summary>A seeded Stage 08 stock location every bin in this harness subdivides.</summary>
     public Guid LocationId { get; }
+
+    /// <summary>
+    /// The database this harness's context is over — for a test that needs a second, independent
+    /// <see cref="VumaRetailDbContext"/> against the same data to exercise real concurrent transactions,
+    /// which the harness's own single shared context (and its all-<c>AddSingleton</c> DI) cannot do.
+    /// </summary>
+    public string ConnectionString { get; }
 
     /// <summary>Stage 08 location repository.</summary>
     public IStockLocationRepository Locations { get; }
@@ -197,7 +206,8 @@ public sealed class WarehouseHarness : IAsyncDisposable
         tenant.SetTenant(seeded.Id, store.Id);
         tenant.EndBypass();
 
-        return new WarehouseHarness(context, tenant, clock, seeded.Id, store.Id, widget.Id, gadget.Id, location.Id);
+        return new WarehouseHarness(
+            context, tenant, clock, seeded.Id, store.Id, widget.Id, gadget.Id, location.Id, connectionString);
     }
 
     /// <summary>Sends a command through the real pipeline.</summary>

@@ -103,7 +103,21 @@ public sealed class BinStock : Entity
         QuantityOnHand += quantity;
     }
 
-    /// <summary>Decreases on-hand quantity — a pick reservation, an internal transfer out.</summary>
+    /// <summary>
+    /// Decreases on-hand quantity — a confirmed pick, an internal transfer out, a cycle-count
+    /// correction.
+    /// </summary>
+    /// <remarks>
+    /// A confirmed pick always pairs this with <see cref="ReleaseReservation"/> for the same task,
+    /// which cannot drive <see cref="Available"/> negative on its own. An internal transfer or a
+    /// cycle-count correction is not paired with anything — it is real physical movement or a real
+    /// stocktake finding, and it must be allowed to happen even when this bin also carries a reservation
+    /// nobody has confirmed yet, or a cycle count could never correct a bin with a live pick in
+    /// progress. When on-hand falls below what is reserved, the reservation is clamped down to match —
+    /// a promise resting on stock that turns out not to be there is not a promise that can survive the
+    /// correction, and the task holding it finds out honestly at confirm time (a short pick) rather than
+    /// this method silently taking <see cref="Available"/> negative (§7 rule 21).
+    /// </remarks>
     /// <exception cref="WarehouseRuleException">
     /// The quantity is not positive, the unit of measure does not match, or it would take the bin below zero.
     /// </exception>
@@ -122,6 +136,11 @@ public sealed class BinStock : Entity
         }
 
         QuantityOnHand -= quantity;
+
+        if (QuantityReserved > QuantityOnHand)
+        {
+            QuantityReserved = QuantityOnHand;
+        }
     }
 
     /// <summary>

@@ -98,9 +98,20 @@ internal sealed class BinStockConfiguration : EntityConfiguration<BinStock>
         builder.HasIndex(stock => stock.ItemId).HasDatabaseName("ix_bin_stock_item_id");
         builder.HasIndex(stock => stock.ItemVariantId).HasDatabaseName("ix_bin_stock_item_variant_id");
 
-        builder.ToTable(table => table.HasCheckConstraint(
-            "ck_bin_stock_exactly_one_sku",
-            "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1"));
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint(
+                "ck_bin_stock_exactly_one_sku",
+                "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1");
+
+            // Defence in depth behind BinStock.ApplyOut's own clamp (§7 rule 21, ADR-134): the
+            // aggregate keeps this true on every path it writes through, and this is what holds if
+            // something other than the aggregate ever writes the row directly — the same reasoning
+            // ProcurementCommandTests.cs gives its own raw-SQL constraint tests.
+            table.HasCheckConstraint(
+                "ck_bin_stock_reserved_not_exceeding_on_hand",
+                "quantity_reserved_value <= quantity_on_hand_value");
+        });
     }
 }
 

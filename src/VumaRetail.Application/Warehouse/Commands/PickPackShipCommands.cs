@@ -163,11 +163,15 @@ public sealed class ReleasePickWaveCommandHandler(
 
         IReadOnlyList<PickTask> tasks = await waves.ListTasksAsync(wave.Id, cancellationToken).ConfigureAwait(false);
 
-        // What this call has already reserved, by bin — ListCandidatesAsync's snapshot is read-only and
-        // does not see an earlier iteration's in-flight reservation until SaveChanges runs, so a second
-        // task in the same wave demanding the same stock-keeping unit would otherwise be allocated
-        // against on-hand nobody told it was already spoken for (§4.19).
-        Dictionary<Guid, Quantity> reservedThisRelease = [];
+        // What this call has already reserved, by (bin, stock-keeping unit) — ListCandidatesAsync's
+        // snapshot is read-only and does not see an earlier iteration's in-flight reservation until
+        // SaveChanges runs, so a second task in the same wave demanding the same stock-keeping unit
+        // would otherwise be allocated against on-hand nobody told it was already spoken for (§4.19).
+        // Keyed on the full (bin, item, variant) tuple, not the bin alone — one bin routinely holds
+        // several distinct BinStock rows (ux_bin_stock_bin_id_item_id and its variant twin both key on
+        // the pair), and a bin-only key would wrongly bleed one task's reservation onto a sibling task's
+        // *different* stock-keeping unit sharing the same bin.
+        Dictionary<(Guid BinId, Guid? ItemId, Guid? ItemVariantId), Quantity> reservedThisRelease = [];
 
         foreach (PickTask task in tasks.Where(task => task.Status == PickTaskStatus.Pending))
         {
@@ -177,7 +181,9 @@ public sealed class ReleasePickWaveCommandHandler(
 
             foreach (Domain.Warehouse.BinStock candidate in candidates)
             {
-                if (reservedThisRelease.TryGetValue(candidate.BinId, out Quantity already) && !already.IsZero)
+                (Guid, Guid?, Guid?) key = (candidate.BinId, candidate.ItemId, candidate.ItemVariantId);
+
+                if (reservedThisRelease.TryGetValue(key, out Quantity already) && !already.IsZero)
                 {
                     candidate.Reserve(already);
                 }
@@ -205,7 +211,9 @@ public sealed class ReleasePickWaveCommandHandler(
 
                 balance.Reserve(allocation.Quantity);
 
-                reservedThisRelease[allocation.BinId] = reservedThisRelease.TryGetValue(allocation.BinId, out Quantity existing)
+                (Guid, Guid?, Guid?) key = (allocation.BinId, task.ItemId, task.ItemVariantId);
+
+                reservedThisRelease[key] = reservedThisRelease.TryGetValue(key, out Quantity existing)
                     ? existing + allocation.Quantity
                     : allocation.Quantity;
             }
