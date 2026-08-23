@@ -3,16 +3,29 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-22 · **Planning revision 4, in three passes, all the same day — no code
-changed.** Nine stages inserted (06c, 06d, 06e, 07c, 08c, 09b, 13b, 14b, 22b), two amended (10c, 14),
-thirty-five ADRs appended (ADR-099 – ADR-133), five reference documents written (`MULTI_COMPANY.md`,
-`TRADING_GROUP.md`, `FIELD_SALES.md`, `CHATBOT.md`, `EXECUTION_STANDARD.md`), four review agents added,
-and the session kickoff reduced to one command (`/next-stage`). **Read the three 2026-08-22 session-log
-entries newest-first** — pass 2 reversed pass 1's ADR-099 (each company gets its own physical database),
-and pass 3 added the trading group, the mixed basket and the assistant. **Nothing below about Stages
-09–13 has changed.**
+**Last updated:** 2026-08-23 · **The agent panel finally ran against Stages 10, 11, 12 and 13 (§4.17,
+now RESOLVED) — all four are REOPENED.** No code changed this session; this was a review pass, not a
+build. `stage-verifier` returned `STAGE NOT DONE` for all four, the same outcome Stage 09 got. The
+mechanics all still hold (0 warnings, 1,157 tests green, migrations reversible, coverage reproducing
+within 0.3 points of each stage's own claim except Stage 11, which is genuinely under the 80% floor).
+Seven new CRITICAL/HIGH defects were found across the four stages, several sharing Stage 09's exact
+§4.11 root cause (a write command with no client-supplied id and no dedupe, so a dropped-connection
+retry doubles its effect) — see §4.19 (Warehouse: advisory-only pick allocation, no dedupe on three
+commands, cycle-count double-counting), §4.20 (Procurement: a supplier invoice can be paid twice
+through the three-way match's own designed exception path), §4.21 (Sales: returns can be
+double-refunded by a genuine concurrency race). Full session-log entry and stage-table rows below.
+**Read `docs/PROGRESS.md`'s "order of work" note dated 2026-08-23, further down, before picking what to
+build next** — it supersedes the 2026-08-22 ordering.
 
-**Previously — last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
+**Previously — last updated:** 2026-08-22 · **Planning revision 4, in three passes, all the same day —
+no code changed.** Nine stages inserted (06c, 06d, 06e, 07c, 08c, 09b, 13b, 14b, 22b), two amended (10c,
+14), thirty-five ADRs appended (ADR-099 – ADR-133), five reference documents written
+(`MULTI_COMPANY.md`, `TRADING_GROUP.md`, `FIELD_SALES.md`, `CHATBOT.md`, `EXECUTION_STANDARD.md`), four
+review agents added, and the session kickoff reduced to one command (`/next-stage`). Pass 2 reversed
+pass 1's ADR-099 (each company gets its own physical database), and pass 3 added the trading group, the
+mixed basket and the assistant.
+
+**Before that — last updated:** 2026-08-19 · **Current stage:** 13 — Warehouse Management (zones, bins, putaway, pick/pack/ship, cycle counts) · **Status:** built, verified and merged to `main` — 1,157 tests green, 0 warnings, 86.17% coverage on the stage's Domain + Application, migration reversible, and a seeded warehouse that has really shelved and really shipped. The stage was found part-built on branch `stage-13-warehouse-management` (two `wip` commits, everything building and passing); this session closed the four acceptance gaps its test suite still had — the per-SKU shipment aggregation across two bins, the ADR-087 `binId` regression, the `ShipmentConfirmation` domain tests, and permission enforcement on all four high-risk operations rather than one standing in for the group — and verified the exit checklist by executing it rather than asserting it. **The six agent reviews still did not run** (§4.17) — four stages running. Stage 09 remains REOPENED with eight open defects; Stage 05 (workflow) is still the one branch carrying unverified work.
 
 ---
 
@@ -30,6 +43,14 @@ DONE on 2026-08-15 on the strength of an inline self-review. The five agent revi
 the committed code and `stage-verifier` returned **`STAGE NOT DONE — 2 failing, 3 unverified`**. The
 stage has been reopened rather than left marked DONE: `UNVERIFIED` is not `PASS`, and neither is
 "merged".
+
+**Stages 10, 11, 12 and 13 are merged but are no longer DONE either, as of 2026-08-23** — the same
+pattern, four more times over. All four were recorded DONE on the strength of the building session's own
+inline self-review, because none of those sessions could spawn subagents. The agent panel finally ran
+2026-08-23 and `stage-verifier` returned `STAGE NOT DONE` against all four. See §4.19–§4.26 for what it
+found and the stage table below for the per-stage summary. As with Stage 09, the mechanics are genuinely
+solid — independently re-executed, not asserted — and the defects are all outside where each stage's own
+author was looking.
 
 Two things are true at once and both matter. **The core is genuinely solid** — independently
 executed, not asserted: 0 warnings, 835 tests green, 92.01% coverage on Domain/Pos + Application/Pos,
@@ -68,11 +89,11 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`, but `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed code. 8 open defects (§4.11–§4.16, §4.10), 4 serious. *WPF shell deferred.* Build/tests/migration/seed all independently verified green | 2026-08-15 |
 | 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
-| 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) — 930 tests green, 83.14% coverage on the stage's Domain + Application, migration reversible, seeded store has really refunded. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
+| 10 | Sales — price lists, price resolution, promotions engine, returns | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (930 tests, 83.18% measured coverage vs 83.14% claimed, migration reversible). CRITICAL: returns can be double-refunded, by a genuine concurrency race and separately by an unprotected retry (§4.21). Plus the cross-cutting entitlement gate (§4.23), OpenAPI-example and replication-coverage gaps (§4.22, §4.24) | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
-| 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
-| 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) — 1,069 tests green, 83.46% coverage on the stage's Domain + Application, migration reversible in both directions, seeded store has really bought and really matched a supplier invoice. Found and fixed ADR-086 (stock was valued VAT-inclusive) while verifying the seed, §4.18 (the module sweep swept nothing on a full-suite run) and a replication registry thirteen entities short in two documents while closing the exit checklist. **The six agent reviews did not run**; see §4.17 | 2026-08-17 |
-| 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **DONE** (main) — 1,157 tests green, 86.17% coverage on the stage's Domain + Application, migration reversible, seeded warehouse has really shelved and really shipped, and the cycle count variance really reached the GL through Stage 08's existing seeded rule (`JNL-000009`). Four test-coverage gaps against the stage's own acceptance list closed this session. **The six agent reviews did not run**; see §4.17 | 2026-08-19 |
+| 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Both previously-found defects confirmed genuinely fixed on `main`. New: Domain+Application coverage measured at 76.80%, below the 80% floor (§4.24) — the stage's own checklist never quoted a number, which is why nobody caught it; `RollbackImportBatchCommand` lacks its sibling's idempotency branch (§4.26, low severity); plus the cross-cutting gaps at §4.22/§4.23 | 2026-08-16 |
+| 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (1,069 tests, 83.70% measured coverage vs 83.46% claimed). CRITICAL: two invoices matched against the same PO line before either is *released* can both release and both post — a real duplicate liability (§4.20). Plus goods-receipt has no retry protection, the match's `MatchedNet`/`PriceVariance` are silently mislabeled gross-not-net (both §4.20), and the promised-but-unshipped permission-enforcement test (§4.24) | 2026-08-17 |
+| 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Mechanics still hold (1,157 tests, 86.17% coverage matching the claim to two decimal places). CRITICAL, three findings: pick allocation is advisory-only and never reserves what it reads, so sibling tasks in one wave can jointly overcommit a bin with no concurrency required; pick/putaway/bin-move commands have no retry protection; a cycle count can double- and triple-count stock that was physically picked but not yet confirmed, posting a phantom GL shortage (all §4.19). Permission enforcement on all four high-risk ops independently reconfirmed sound | 2026-08-19 |
 | 13b | Consolidated picking waves, staging states & interval counts | **NOT_STARTED** — added 2026-08-22 (ADR-113 – ADR-115). Depends on 14, not on 13 alone: a wave groups orders | — |
 | 14 | Order management — omnichannel orders, allocation, backorders, click & collect, returns | **IN_PROGRESS** — branch `stage-14-order-management`, stage document written 2026-08-19. **Amended 2026-08-22**: COD terms (ADR-111), geography snapshot (ADR-113), reservations through 08c (ADR-103) | 2026-08-22 |
 | 14b | Field sales — the rep module | **NOT_STARTED** — added 2026-08-22 (R12, ADR-107 – ADR-110) | — |
@@ -631,6 +652,117 @@ permissions/security change, not a docs filing — flagged to the user rather th
 **Not touched:** the three WIP worktrees (`stage-05-workflow`, `worktree-stage-06-master-data`,
 `stage-07-finance`). Their code is real progress, not a doc-filing decision, and reconciling/merging
 three parallel branches is its own piece of work — see §5.
+
+### 2026-08-23 — The agent panel finally ran against Stages 10, 11, 12 and 13: all four reopened
+
+No code changed this session. This closed the oldest open item in this file (§4.17) — the six review
+agents had never run against Stages 10 through 13, because every session that built them lacked
+subagent access. Five specialists ran in parallel against the code as it stands on `main`:
+`architecture-guard`, `money-and-tax`, `sync-and-offline`, `stock-availability-guard`, `stage-verifier`.
+Each was briefed adversarially — told explicitly that Stage 09's own late review found 8 defects a clean
+inline self-review had missed entirely, all outside where the author was looking, and to assume the same
+was true here rather than to confirm the existing self-report.
+
+**It was.** `stage-verifier` re-executed (not asserted) CLAUDE.md §8's Definition of Done from a fresh
+build against `main` at `92ac650` — a real `dotnet build -c Release` (0 warnings), the full test suite
+against a real local PostgreSQL cluster (1,157 passed, exactly Stage 13's own count, confirming no
+regression from four stages sitting on top of each other), a booted store server checked live against
+`/openapi/v1.json`, and both `seed.sh`/`seed.ps1` re-run against fresh databases with the resulting rows
+and journals checked in SQL. The mechanical claims held closely — Stage 10's coverage reproduced at
+83.18% against a claimed 83.14%, Stage 12's at 83.70% against 83.46%, Stage 13's at 86.17% matching its
+own claim to two decimal places. **`stage-verifier`'s verdict was `STAGE NOT DONE` for all four anyway**,
+the same outcome Stage 09 got, for the same reason: a green build says nothing about a category nobody
+thought to test.
+
+**Seven real defects, three of them the load-bearing kind — a write with no client-supplied id and no
+dedupe, so a dropped-connection retry doubles its effect, the exact shape of Stage 09's own §4.11 —
+turned up in modules that had no idea they shared that gap:**
+
+- **Warehouse (§4.19), three findings, all CRITICAL.** Pick allocation reads a `BinStock` snapshot and
+  never reserves it — two demand lines in one wave can both be told "yes" for stock that exists once,
+  reproducible single-threaded with no concurrency at all. `AddPickTaskCommand`, `OpenPutawayTaskCommand`
+  and `MoveBinStockCommand` all mint a new row on every call with no dedupe, so a retry doubles a pick, a
+  putaway, or a bin transfer. And a cycle count opened while a pick is physically done but not yet
+  confirmed can post the same shortage to the GL, then subtract the same units from the bin a second
+  time at finalize, and a third time if the wave later ships — three GL/ledger effects from one physical
+  event.
+- **Procurement (§4.20).** The three-way match's own designed exception path — matches are checked
+  against *released* siblings only, so an unreleased match can't be blocked by one — lets two invoices
+  for the same delivery both release and both post, a real duplicate liability with a worked example at
+  exactly double the correct amount. `CreateGoodsReceiptCommand` has the same no-dedupe gap as
+  Warehouse's commands. And `SupplierInvoiceMatch.MatchedNet`/`PriceVariance` are silently gross, not
+  net, on every match built through the real order-authoring path — masked by test fixtures that
+  bypass the tax engine.
+- **Sales (§4.21).** Returns can be double-refunded two independent ways: a genuine concurrency race
+  (no locking, no serializable isolation — two concurrent drafts against the same line can each read
+  zero-previously-returned and both refund in full), and separately, `CreateSalesReturnCommand`'s own
+  lack of a dedupe key on plain retry.
+- **Cross-cutting, confirmed rather than newly discovered:** no entity from any of these four modules,
+  and no `NodeKind.Terminal`, has ever been exercised by a replication test (§4.22, `sync-and-offline`
+  independently confirmed what `SYNC_AND_BACKUP.md` §12 already said); the module entitlement gate has
+  zero call sites for Sales, Imports, Procurement and Warehouse too, not only POS (§4.23, extends
+  §4.12); no endpoint across these four stages carries an OpenAPI request example, and Stage 11's own
+  Domain+Application coverage measures 76.80% — genuinely under the 80% floor, and its own exit
+  checklist tellingly never quoted a number (§4.24); `architecture-guard` found CLAUDE.md §7 rule 13
+  claims an architecture test enforces it and none exists — no live violation today, a test-suite gap
+  for whoever merges Stage 05 (§4.25); Imports' `RollbackImportBatchCommand` lacks the idempotency
+  branch its sibling `Commit` correctly has (§4.26, low severity, not corrupting).
+
+**What was checked and found sound**, worth recording so it isn't re-litigated: Stage 13's permission
+enforcement on all four high-risk operations (a genuine data-driven test, not one case standing in for
+the group — the fix that closed this gap while the stage's own exit checklist was worked really held);
+no module names a GL account or implements its own approval logic in practice (only the *test* for the
+approval rule is missing, not the discipline); Stage 11's two previously-found defects (the EF
+computed-property trap, the preview-overstatement flag) are genuinely fixed on `main`, not just recorded
+as fixed; money/quantity typing, round-once-on-extended-price, promotion stacking bounds, and the
+original ADR-086 GRN valuation fix all hold across Sales and Procurement; layering and module boundaries
+are clean across all four stages.
+
+**Nothing was fixed this session — deliberately.** The scale of what turned up (three CRITICAL defects
+sharing one root cause, plus two more CRITICAL/HIGH defects with different root causes, across three
+modules) is comparable to Stage 09's own eight, and Stage 09's own precedent was to document and reopen
+first, fix as dedicated follow-up work second. `docs/PROGRESS.md` §1's stage table, §4.17 (resolved) and
+the new §4.19–§4.26 carry the full record for whoever picks this up. **The order-of-work note
+immediately below this entry supersedes 2026-08-22's.**
+
+---
+
+**Order of work, 2026-08-23 — supersedes the 2026-08-22 note further down.**
+
+1. **Fix Stage 09's §4.11 first, as the structural template — not just because it's still open, but
+   because Warehouse's §4.19, Procurement's §4.20 (goods receipt) and Sales' §4.21 (the retry half) are
+   the identical defect shape**: a write command with no client-supplied id and no dedupe. The fix
+   §4.11 already recommends — route through `POST /api/v1/sync/batches`, which already dedupes on
+   `(tenant_id, source_node, operation_id)` — is the pattern to lift into `AddPickTaskCommand`,
+   `OpenPutawayTaskCommand`, `MoveBinStockCommand`, `CreateGoodsReceiptCommand` and
+   `CreateSalesReturnCommand` once it exists. Fixing it five times independently, differently, is how
+   one of the five ends up subtly wrong.
+2. **Warehouse's other two CRITICAL findings need their own fixes, not the idempotency pattern**: the
+   advisory-only pick allocator needs an actual reservation (write to `BinStock`/post `PickReserve` at
+   allocation, not only at confirm), and the cycle-count double-count needs `FinalizeCycleCountCommand`
+   to re-derive its delta against what has legitimately moved since the count opened, not apply the
+   frozen snapshot blindly.
+3. **Procurement's three-way-match release needs to re-check cumulative invoiced quantity against the
+   order's current state at release time**, not only at match time — this is the one that produces a
+   real duplicate GL liability and does not share a fix with anything else on this list.
+4. **Sales returns' race needs locking** (`SELECT ... FOR UPDATE` or serializable isolation with retry)
+   — a different mechanism from the retry-dedupe fix in item 1, and both are needed on the same command.
+5. **Stage 09's other three deferred decisions (§4.10, §4.12, §4.14-ADR)** — unchanged from the
+   2026-08-22 note, except §4.12 (module entitlement gate) is now confirmed to gate five modules, not
+   one, so fixing it once now closes it for Sales/Imports/Procurement/Warehouse too.
+6. **The mechanical DoD gaps (§4.24) and the low-severity items (§4.20's `MatchedNet` mislabeling,
+   §4.25's missing architecture test, §4.26's rollback idempotency)** are straightforward and can be
+   swept up alongside whichever of the above a session is already touching, rather than scheduled as
+   their own pass.
+7. **Only then Stage 06c.** This is the reason item 1 of the 2026-08-22 note (run the panel) mattered
+   enough to insist on before anything else: 06c retrofits `company_id` across every table these four
+   stages created, and every one of the defects above would have had to be found and fixed *again*, per
+   company database, had it been retrofitted first. Fixing them once, now, while there is still one
+   database, is the cheap version of this work.
+8. **Then 06d → 06e → 07c → 08c → 14 (consuming 08c's reservation model) → 10c → 13b → 14b**, as
+   2026-08-22 already ordered them.
+
+---
 
 ### 2026-08-22 (pass 3) — the trading group, the mixed basket, the assistant, and a documentation standard
 
@@ -1872,6 +2004,56 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
+### 4.26 Imports: `RollbackImportBatchCommand` lacks the idempotency branch its sibling `Commit` has — **OPEN, LOW, found in Stage 11 (2026-08-23 review)**
+
+`CommitImportBatchCommandHandler` (`src/VumaRetail.Application/Imports/Commands/ImportBatchCommands.cs:416-499`) is deliberately idempotent: row-locks the batch, and if it is already `Committed` returns the cached counters instead of throwing, with a doc comment explaining why (a timed-out browser press should get the honest answer, not a 422). `RollbackImportBatchCommandHandler` (same file, lines 539-599) has no equivalent — it requires `Status is Committed` and throws `UnexpectedBatchStatus` otherwise, so a retried rollback that already succeeded on the first attempt (ack lost, not the rollback) throws on replay. Not corrupting — `CompensatableRows` only selects rows still `Committed`, so a genuine double-rollback can't double-compensate — but it reads as failure to an operator who will then go looking for a problem that isn't there. Fix: give `Rollback` the same "already in target state → return the cached result" branch `Commit` has.
+
+### 4.25 `architecture-guard`: CLAUDE.md §7 rule 13 claims an architecture test enforces it; none exists — **OPEN, test-suite gap, found 2026-08-23, owned by whichever session merges Stage 05**
+
+`tests/VumaRetail.ArchitectureTests/` has `FinanceRulesTests.cs` proving rule 12 (no module names a GL account) with a deliberately-broken-and-reverted regression test, but no equivalent `ApprovalRulesTests.cs` for rule 13 ("no module implements its own approval logic... enforced by an architecture test"). Today this is harmless: every approval-shaped state transition checked in Procurement (`PurchaseRequisition.Approve/Reject`, `PurchaseOrder.Approve`, `Rfq.Award`) and Sales gates on a permission string only, never a value threshold, and each carries an explicit `<remarks>` block citing rule 13 and naming Stage 05 as the attach point. But the discipline is 100% human/documentation-dependent, and the moment Stage 05 merges and modules start calling `IApprovalService`, nothing stops a future module from hard-coding its own threshold check the way rule 13 forbids. **Recommendation:** add `ApprovalRulesTests.cs` when Stage 05 lands — a NetArchTest assertion that every command matching `*Approve*`/`*Award*`/`*Release*` with a threshold field calls `IApprovalService`, mirroring `FinanceRulesTests`' shape for `IFinancialEventPoster`.
+
+### 4.24 Cross-cutting Definition-of-Done gaps across Stages 10–13, found by `stage-verifier` executing (not asserting) CLAUDE.md §8 — **OPEN, found 2026-08-23**
+
+`stage-verifier` re-ran `dotnet build`/`dotnet test` from scratch against `main` (0 warnings, 1,157 tests green — unchanged from Stage 13's own count, confirming no regression from Stages 10-13 sitting on top of each other) and booted a real store server against `/openapi/v1.json` to check the DoD line by line rather than trust the session-log entries. Three real gaps, none previously recorded:
+
+1. **No request-body example is registered for any Sales, Imports, Procurement or Warehouse endpoint.** `VumaOpenApi.RequestExamples` (`src/VumaRetail.Web/Api/VumaOpenApi.cs`) contains exactly 4 hand-written entries, all from Stage 02/03's auth endpoints, never extended by any later module. CLAUDE.md §8 requires endpoints to appear "with examples and error responses" — the error-response half is genuinely satisfied everywhere (verified live), the examples half is not, for 42 request-bodied operations across these four stages alone (and, by the same gap, likely 06-09 too). None of the four stages' own exit checklists falsely claimed this — Stage 10's, for instance, only promised the error-response set — but it is a real, currently-failing box against the *parent* CLAUDE.md §8 checklist.
+2. **Stage 11's own coverage is below the mandatory 80% floor**, measured directly: 1470/1914 = **76.80%** on Domain+Application. Weak spots: `ImportValueParser` 40.4%, `ImportQueries` 38.6%, `ImportExceptions` 49.2%. Stage 11's own exit checklist notably never quoted a coverage number at all, unlike Stages 10/12/13 — which is consistent with this being a real, previously-unmeasured shortfall rather than a regression introduced later.
+3. **Stage 12's own acceptance criteria promise a permission-enforcement integration test on its four high-risk operations that was never shipped.** The behaviour itself is correct — a throwaway ad-hoc test confirmed `purchase-orders/{id}/approve` and `goods-receipts/{id}/complete` both correctly 403 an unprivileged user, then was deleted — but there is no regression coverage for it in the checked-in suite, unlike Stage 13 which built exactly this test class.
+
+By contrast, Stage 10's coverage (83.18% vs its claimed 83.14%), Stage 12's (83.70% vs 83.46%) and Stage 13's (86.17%, matching its own claim to two decimal places) all independently reproduce cleanly — the mechanical self-reports were honest where they made a specific claim; the failures above are all things nobody had checked, not things anybody got wrong.
+
+### 4.23 Module entitlement gate confirmed to have zero call sites across Sales, Imports, Procurement and Warehouse too, not only POS — **OPEN, extends §4.12, confirmed 2026-08-23**
+
+§4.12 already recorded that `RequireModule` is never called anywhere for POS. `stage-verifier`'s 2026-08-23 pass confirms `grep -rn "RequireModule(" src/VumaRetail.Web` returns **zero** call sites anywhere in the product — the gap is not POS-specific, it is universal. Every one of Sales, Imports, Procurement and Warehouse declares a module manifest and an `IsCore => false` flag (per `docs/PROGRESS.md` §4.17's original note about `sales`) that nothing gates on. This does not need a new fix distinct from §4.12 — fixing the read-only-guard-style choke point once, per the original punch list's item 3 ("wire the module entitlement gate; fix the fail-closed lease fallback first"), closes it for all five modules at once. Recorded here only so the next session doesn't have to re-derive that the blast radius is larger than Stage 09's own entry implied.
+
+### 4.22 No replicated entity from Sales, Imports, Procurement or Warehouse — and no `Terminal` node — has ever been exercised by a replication test — **OPEN, confirmed 2026-08-23**
+
+`docs/SYNC_AND_BACKUP.md` §12 already noted this; `sync-and-offline`'s 2026-08-23 review confirmed it directly against the code rather than taking the doc's word for it. `tests/VumaRetail.IntegrationTests/Sync/ReplicationTests.cs` — the only replication test file in the repo (`tests/VumaRetail.SyncTests`, named in `CLAUDE.md` §5's layout, does not exist) — builds only `Cloud`/`Store` harnesses and only `identity`-schema payloads (`Role`, `Terminal` object rows, not terminal *nodes*). `grep -rln "NodeKind.Terminal"` across `src/` and `tests/` returns nothing outside build artifacts. None of the 43 `[Replicated(...)]` entities these four stages declared (7 sales + 4 imports + 13 procurement + 13 warehouse) has ever round-tripped through JSON serialize → deserialize → apply-at-the-far-end. This is an absence-of-coverage finding, not an observed failure — but Stage 11 already proved once that this exact codebase has an ORM convention that silently misbehaves under serialization (§7 below/`4.16`'s sibling issue), and that was only caught because *local* commit/rollback happened to be integration-tested; the *replicated* path for any of these 43 entities has never been tested at all. Fix: add `sales`/`imports`/`procurement`/`warehouse` payloads and a `NodeKind.Terminal` harness to `ReplicationTests.cs`.
+
+### 4.21 Sales: a return can be double-refunded, one path by a genuine concurrency race and one by a plain retry — **OPEN, CRITICAL, found in Stage 10 (2026-08-23 review)**
+
+**Files:** `src/VumaRetail.Application/Sales/Commands/SalesReturnCommands.cs` (`AddSalesReturnLineCommandHandler:116-152`, `CreateSalesReturnCommandHandler:40-80`), `src/VumaRetail.Infrastructure/Persistence/Repositories/SalesRepositories.cs` (`SumReturnedQuantityAsync:193-216`), `src/VumaRetail.Domain/Sales/SalesReturnLine.cs`.
+
+**Race (no lock, no serializable isolation).** `SalesReturnLine`'s own doc comment claims the cumulative-quantity/refund check is "settled by the aggregate reading the committed sum inside the command's transaction" — false under PostgreSQL's default Read Committed, which is what every write command runs at (`grep -rn IsolationLevel` returns nothing anywhere in the codebase). No `SELECT ... FOR UPDATE`, no advisory lock, no serializable isolation guards `SumReturnedQuantityAsync`. The DB check constraint (`ck_sales_return_lines_within_quantity_sold`) is per-row only and can't see a sibling row a concurrent, not-yet-committed transaction is inserting. **Worked example:** a `SaleLine` of Qty 10, Gross R1,150.00. Two operators open two separate return drafts against the same sale line within milliseconds of each other, both add Qty 10. Both `SumReturnedQuantityAsync` calls read 0 (neither has committed). Both aggregates check `0 + 10 > 10` → false → both pass. Both refund the full R1,150.00. **Total refunded: R2,300.00 against a R1,150.00 line — no error, no trace beyond two legitimate-looking completed returns.** A partial-quantity race (two 6-of-10 returns) overpays by the overlap fraction rather than doubling exactly, but is still unbounded.
+
+**Plain retry (no idempotency key).** `CreateSalesReturnCommandHandler` mints a new `SalesReturn` on every call with no client-supplied id and no dedupe (`HasIndex(r => r.SaleId)` is deliberately non-unique, since multiple genuine partial returns over time are legitimate — but that also means nothing distinguishes a genuine second return from a retried duplicate of the first). A connection dropping between submit and ack, followed by an operator or client retry, opens a second return document against the same sale; if both are completed (plausible if the operator, seeing no confirmation, re-keys the whole thing), the customer is refunded twice and stock is received back twice — caught only if the retry happens to add the *exact same* lines/quantities as the first attempt, since the cumulative check reads across sibling documents.
+
+**Fix — two different mechanisms, don't conflate them.** The race needs locking (`SELECT ... FOR UPDATE` on sibling return lines keyed on `SaleLineId`, or Serializable isolation with retry). The retry needs a client-supplied return id or an idempotency key on `(SaleId, RequestId)`, matching the pattern `CommitImportBatchCommand` already gets right (see §4.26's sibling note) — find-or-return-existing rather than always-insert.
+
+### 4.20 Procurement: a supplier invoice can be paid twice through the three-way match's own designed exception path, a delivery check-in has no retry protection, and the match's audit fields are silently mislabeled — **OPEN, found in Stage 12 (2026-08-23 review)**
+
+**1. CRITICAL — double release, double payment.** `SumInvoicedQuantityAsync` (`src/VumaRetail.Infrastructure/Persistence/Repositories/ProcurementRepositories.cs:305-326`) deliberately counts only *released* matches, by design ("counting an unreleased match would block the correction"). But `SupplierInvoiceMatch.Release()` (`src/VumaRetail.Domain/Procurement/SupplierInvoiceMatch.cs:287-303`) never re-checks against the order's *current* state or sibling matches at release time — only its own stored `Status` from match time. `PurchaseOrderLine.RecordInvoiced` (`PurchaseOrderLine.cs:233-240`) has no upper bound (`InvoicedQuantity += quantity`, no compare to `ReceivedQuantity`). The only duplicate guard, `ExistsForInvoiceNumberAsync`, checks invoice *number* only. **Worked example** (no concurrency needed, ordinary sequential ops): PO line 100 EA @ R92.00 gross (Net R8,000, Tax R1,200, 15% inclusive). GRN receives all 100. Invoice `INV-1001` matched for 100 EA @ R92.00 — `previouslyInvoiced` (released-only) = 0, no variance, `Matched`/`IsPayable`, not yet released. A second invoice `INV-1002` (different number — supplier accounting error, or fraud) matched for the *same* 100 EA before `INV-1001` is released — `previouslyInvoiced` is *still* 0, also passes. Release `INV-1001`: `RecordInvoiced(100)`, posts R9,200.00 to Trade Creditors. Release `INV-1002`: nothing refuses it (its own `Status` was already `Matched`), posts a *second* R9,200.00. **Trade creditors credited R18,400.00 for a R9,200.00 delivery.** Fix: `Release()` must re-verify cumulative invoiced quantity against current order state at release time, not just match time.
+**2. HIGH — no dedupe on check-in.** `CreateGoodsReceiptCommandHandler` (`src/VumaRetail.Application/Procurement/Commands/GoodsReceiptCommands.cs:39-71`) mints a new GRN every call, no client id, no dedupe. A retry after a dropped ack opens a second GRN against the same PO; `AddGoodsReceiptLineCommand` doesn't check against the PO's remaining quantity, so it accepts a second full delivery onto the new document's lines. The backstop (`PurchaseOrder.RecordReceipt`'s over-receipt tolerance) only fires at *complete*, by which point the duplicate GRN is either left permanently stuck in `Draft` (tolerance exceeded — a manual-investigation dead end) or, if the tolerance is generous enough, posts real stock twice with no complaint at all — correctness resting entirely on tolerance being smaller than the duplicate, an implicit invariant rather than a designed guarantee.
+**3. MEDIUM — audit trail mislabeling.** `SupplierInvoiceMatch.MatchedNet` is documented "excluding tax" (`SupplierInvoiceMatch.cs:328-353`) but is built from `orderLine.UnitCost`, which is the VAT-*inclusive* gross price (ADR-086) — it is not excluding tax, it's the gross figure. `PriceVariance = ClaimedNet − MatchedNet` then subtracts a genuinely net figure from a mislabeled gross one. Doesn't affect the GL posting (which uses `ClaimedNet`/`ClaimedTax`/`ClaimedGross` directly) or the block/pass decision (rolled up from gross-vs-gross-consistent line checks), but corrupts the one field this document exists to make trustworthy for "why wasn't this invoice paid" three weeks later — exactly the class of defect ADR-086 was written to close, one layer up. Masked by `ThreeWayMatchTests`' fixtures, which build `PurchaseOrderLine`s with `UnitCost` set equal to `NetUnitCost` directly, bypassing `ITaxCalculator` and never exercising a line where `UnitCost` is actually gross (which every line built through the real command handler is).
+
+### 4.19 Warehouse: pick allocation is advisory only, retried task/putaway/move commands double their stock effect, and a cycle count can double-count stock that was picked but not yet confirmed — **OPEN, CRITICAL, found in Stage 13 (2026-08-23 review)**
+
+**1. CRITICAL — allocation never reserves what it reads.** `ReleasePickWaveCommandHandler` (`src/VumaRetail.Application/Warehouse/Commands/PickPackShipCommands.cs:140-167`) allocates each pending `PickTask` from an `AsNoTracking()` read of `BinStock.QuantityOnHand`, then only writes to the `PickTask` row in memory — **no call in the handler ever writes to `BinStock` or posts a `BinStockMovement`.** `BinStockMovementType.PickReserve`/`PickRelease` exist but `PickRelease` is never referenced anywhere; the real bin debit happens only later, at physical-pick *confirmation*. **Worked example, single-threaded, no concurrency required:** bin `A-01` holds 10 EA of SKU X. One wave, two tasks: `T1` wants 6 EA ("ORDER-1"), `T2` wants 7 EA ("ORDER-2") — 13 demanded against 10 physical. `ReleasePickWaveCommand` loops: `T1` reads bin=10, allocates 6, `Status=Allocated` — BinStock untouched. `T2` reads bin=10 *again* (nothing changed it), allocates 7, `Status=Allocated`. Both tasks show `Allocated` against a bin that physically holds 10; nothing anywhere in the release handler catches the 13-against-10 overcommit. `ConfirmPick(T1, 6)` succeeds, bin → 4. `ConfirmPick(T2, 7)` throws `InsufficientBinStock` and rolls back — `T2` is now permanently stuck `Allocated` with no re-allocation path, and `CancelPickTaskCommand` only flips status, restoring nothing (nothing was ever taken). Under genuine concurrency (two waves releasing in parallel against the same bin, separate connections) the same defect fires with a shorter window, since `ListCandidatesAsync` takes no lock and Read Committed doesn't serialize two plain `SELECT`s. No test anywhere adds two pick tasks for the same SKU in one wave.
+**2. CRITICAL — no dedupe on `AddPickTaskCommand`/`OpenPutawayTaskCommand`/`MoveBinStockCommand`.** None of the three has a client-supplied id or a unique index preventing a second row for the same intent. A retried `AddPickTaskCommand` after a dropped ack creates an independent second demand line for the same order — combined with finding 1, both get allocated and confirmed if the bin has enough stock, and `ShipWaveCommandHandler`'s per-SKU `GroupBy` then posts double the real shipment quantity to the stock ledger. A retried `OpenPutawayTaskCommand` creates a phantom second putaway for the same delivery — `BinStockMover.PutawayAsync` applies it unconditionally (`ApplyIn` has no natural insufficiency check the way `ApplyOut` does), inflating `BinStock` with no ledger-level check to catch it (`BinStock` is `NodeLocal`/`LastWriterWins` per ADR-069, so it never self-heals through sync either) — and that inflated figure then feeds directly into finding 1's allocator, meaning a wave can confidently allocate and ship quantity that was never actually received.
+**3. CRITICAL — cycle count double-counts stock picked but not yet confirmed.** Because `BinStock` only decreases at pick *confirmation* (not allocation), a cycle count opened while a pick is physically done but not yet confirmed sees the pre-pick quantity as `SystemQuantity`, correctly counts the post-pick physical quantity, and records a variance that is real *at that instant* — but the variance is frozen (mirroring Stage 08's `StocktakeLine` design, which has no equivalent two-phase-pick gap). **Worked example:** bin holds 10 EA of X; location `StockBalance` = 10. A 2-EA pick is allocated and physically pulled but not yet confirmed. Cycle count records `CountedQuantity=8` against `SystemQuantity=10` (frozen) → `Variance=-2`, count still open. The pick is then confirmed (legitimate, independent event): `BinStock: 10→8`. `FinalizeCycleCountCommand` runs: posts the frozen `Variance=-2` to the GL as a shortage (`StockBalance: 10→8` — **wrong, nothing left the building, it's in a tote**), then re-fetches current `BinStock` (already 8 from the confirm) and, because the frozen variance is negative, applies a *further* `ApplyOut(2)` (`BinStock: 8→6` — **wrong a second time**, the physical bin genuinely holds 8). If the wave later ships those 2 EA, the ledger is debited a third time for the same 2 units. Root cause: `FinalizeCycleCountCommand` applies the frozen delta rather than re-deriving it against what has legitimately moved since the count opened; no test opens a count, confirms an intervening pick, then finalizes.
+
+Not found wrong (checked and confirmed sound): permission enforcement on all four of Stage 13's high-risk operations (a genuine data-driven test, not one case standing in for the group); the append-only bin-movement ledger; putaway correctly never touching the location-level ledger; the per-SKU-across-bins shipment aggregation fix from Stage 13's own exit-checklist closure; bin capacity deliberately unenforced per ADR-091 (not a gap).
+
 ### 4.18 The module sweep was load-order-dependent and swept nothing on a full-suite run — **RESOLVED 2026-08-17 (Stage 12)**
 
 Found while verifying Stage 12's exit checklist, by running `scripts/test.sh` rather than by reading
@@ -1908,7 +2090,21 @@ mode has reached `main` (§4.16 was the first), and because it means **the sweep
 claims in Stage 11's entry above were made under a coin-flip** — they were re-run green after this fix,
 but they were not trustworthy when they were written.
 
-### 4.17 The six agent reviews have not run against Stage 10, 11, 12 or 13 — **OPEN**
+### 4.17 The six agent reviews have not run against Stage 10, 11, 12 or 13 — **RESOLVED 2026-08-23 (reviews ran; reopened four stages)**
+
+> **Resolution, 2026-08-23.** Five agents — `architecture-guard`, `money-and-tax`, `sync-and-offline`,
+> `stock-availability-guard`, `stage-verifier` — ran against the committed code for all four stages.
+> `stage-verifier` returned **`STAGE NOT DONE`** for all four, matching Stage 09's outcome exactly. The
+> mechanical claims held (0 warnings, 1,157 tests green, migrations reversible, three of four stages'
+> coverage figures reproduced to within 0.3 points of their own claim) — but seven CRITICAL/HIGH defects
+> were found, none of them in what a self-review was looking at, the same pattern as Stage 09's eight.
+> See §4.19 (Warehouse), §4.20 (Procurement), §4.21 (Sales), §4.22 (replication coverage), §4.23
+> (entitlement gate, extends §4.12), §4.24 (DoD gaps), §4.25 (architecture-test gap), §4.26 (Imports
+> rollback idempotency). **Stages 10, 11, 12 and 13 are reopened** — see §1's stage table. This item
+> itself stays resolved because the actual ask (run the reviews) is done; what they found is tracked
+> in the new items and in the reopened stage rows, not here.
+
+**Original entry, kept for context on why this was the oldest open item and how expensive leaving it was.**
 
 `docs/AGENTS.md` defines six review agents and Stage 10's own exit checklist requires all six, with
 the reason spelled out in it: *"Stage 09 was reopened because its reviews did not run; `UNVERIFIED` is
@@ -2403,6 +2599,11 @@ group read model **plans**; the owning company's database **commits**. Group ava
 projection and is stale by construction. Sourcing may read it; reserving may not. Every reservation
 re-checks inside the owning company's own database in a serialisable transaction — which is why stale
 group data can cause a re-plan and can never cause an oversell.
+
+**Superseded 2026-08-23 — see the "Order of work, 2026-08-23" note higher up in the session log.** Item
+1 below is now done (the panel ran, and reopened all four stages with real defects — §4.19–§4.26). Items
+2–4 are reordered and item 2 is expanded now that the review found which POS-shaped defects also live in
+Warehouse, Procurement and Sales. Kept here for the historical reasoning on 06c/06d, which still holds.
 
 **The order of work, and it is not the order the requirements arrived in.**
 
