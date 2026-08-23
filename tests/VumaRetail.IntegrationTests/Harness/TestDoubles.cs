@@ -1,5 +1,6 @@
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Licensing;
 
 namespace VumaRetail.IntegrationTests.Harness;
@@ -190,4 +191,30 @@ public sealed class TestTenantContext : ITenantContext
     {
         public void Dispose() => owner._bypassDepth--;
     }
+}
+
+/// <summary>A company context the test controls (ADR-140).</summary>
+public sealed class TestCompanyContext : ICompanyContext
+{
+    /// <inheritdoc />
+    public Guid CompanyId { get; private set; }
+
+    /// <summary>A context scoped to one company.</summary>
+    /// <param name="companyId">The company.</param>
+    public static TestCompanyContext For(Guid companyId)
+    {
+        TestCompanyContext context = new();
+        context.SetCompany(companyId);
+        return context;
+    }
+
+    /// <summary>
+    /// A context with no company resolved — <see cref="Guid.Empty"/>, the default every test ran under
+    /// before Stage 06c and the correct default for every test that does not itself assert on
+    /// <c>CompanyId</c>.
+    /// </summary>
+    public static TestCompanyContext Unset() => new();
+
+    /// <inheritdoc />
+    public void SetCompany(Guid companyId) => CompanyId = companyId;
 }

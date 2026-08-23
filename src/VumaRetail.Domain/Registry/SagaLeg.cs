@@ -17,7 +17,7 @@ public sealed class SagaLeg : Entity
     {
         IntentId = intentId;
         LegKey = legKey;
-        CompanyId = companyId;
+        TargetCompanyId = companyId;
     }
 
     /// <summary>Required by EF Core for materialisation. Do not call from business code.</summary>
@@ -35,7 +35,7 @@ public sealed class SagaLeg : Entity
     public string LegKey { get; private set; } = string.Empty;
 
     /// <summary>The company database this leg is dispatched to.</summary>
-    public Guid CompanyId { get; private set; }
+    public Guid TargetCompanyId { get; private set; }
 
     /// <summary>Where this leg stands.</summary>
     public SagaLegStatus Status { get; private set; } = SagaLegStatus.Pending;

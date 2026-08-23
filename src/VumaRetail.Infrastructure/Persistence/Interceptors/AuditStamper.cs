@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Domain.Entities;
 using VumaRetail.Domain.Platform;
@@ -40,10 +41,12 @@ public readonly record struct StampedChange(EntityEntry<Entity> Entry, AuditActi
 /// <param name="replication">
 /// Which rows arrived from a peer. Those are stamped by their originating node and must keep it.
 /// </param>
+/// <param name="companyContext">The company this database belongs to (ADR-140).</param>
 public sealed class AuditStamper(
     IClock clock,
     IPrincipalAccessor principalAccessor,
-    IReplicationScope replication)
+    IReplicationScope replication,
+    ICompanyContext companyContext)
 {
     /// <summary>
     /// The entities stamped so far in this save, by reference.
@@ -149,6 +152,16 @@ public sealed class AuditStamper(
             if (!alreadyStamped && !IsFromAPeer(entry) && string.IsNullOrEmpty(entry.Entity.CreatedBy))
             {
                 entry.Entity.MarkCreated(principal, now);
+            }
+
+            // ADR-140: stamped fresh on every local insert, never threaded through a constructor. A
+            // row applied from a peer already carries it — every tier in the terminal → store → cloud
+            // chain replicates one company's own data, so the value is the same either way, but a row
+            // materialised from an inbound payload must keep what it arrived with rather than be
+            // overwritten by whatever this node's own context reports.
+            if (!alreadyStamped && !IsFromAPeer(entry))
+            {
+                entry.Entity.SetCompanyId(companyContext.CompanyId);
             }
 
             entry.Entity.SetRowVersion(NewRowVersion());

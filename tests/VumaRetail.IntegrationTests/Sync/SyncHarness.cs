@@ -189,7 +189,7 @@ public sealed class SyncHarness : IAsyncDisposable
         // One stamper, shared by the interceptor and the outbox behaviour. Stamping is idempotent
         // per save only because both see the same set of already-stamped entities.
         ReplicationScope replicationScope = new();
-        AuditStamper stamper = new(clock, principal, replicationScope);
+        AuditStamper stamper = new(clock, principal, replicationScope, TestCompanyContext.Unset());
 
         VumaRetailDbContext context = TestDbContextFactory.For(
             connectionString,

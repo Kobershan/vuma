@@ -50,6 +50,13 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
 
         builder.Property(entity => entity.StoreId);
 
+        // ADR-140: stamped by the persistence layer from ICompanyContext, never a constructor
+        // parameter. Redundant with the database boundary by design (docs/MULTI_COMPANY.md §2) — it
+        // costs one column and one index, and it is what makes an exported or restored database
+        // self-describing and what the group read models join on.
+        builder.Property(entity => entity.CompanyId)
+            .IsRequired();
+
         builder.Property(entity => entity.CreatedAt)
             .IsRequired();
 
@@ -97,6 +104,11 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
 
         builder.HasIndex(entity => new { entity.TenantId, entity.StoreId })
             .HasDatabaseName($"ix_{TableName}_tenant_id_store_id");
+
+        // The group read models' hot query once 06d publishes from here: every row this database
+        // holds for one company (today, always the same one company — see ADR-140).
+        builder.HasIndex(entity => entity.CompanyId)
+            .HasDatabaseName($"ix_{TableName}_company_id");
 
         // The sync dispatcher's hot query is "what is still pending on this node" (ADR-006). Partial,
         // because Synced rows are the overwhelming majority and indexing them wastes the index.

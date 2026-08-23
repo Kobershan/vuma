@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Interceptors;
 
@@ -28,14 +29,16 @@ public static class TestDbContextFactory
     /// The audit stamper the interceptor uses. Supply the one the outbox behaviour holds so both
     /// see the same per-save marks.
     /// </param>
+    /// <param name="company">The company <c>CompanyId</c> is stamped from (ADR-140). Defaults to unset.</param>
     public static VumaRetailDbContext For(
         string connectionString,
         IClock? clock = null,
         IPrincipalAccessor? principal = null,
         ITenantContext? tenant = null,
-        AuditStamper? stamper = null)
+        AuditStamper? stamper = null,
+        ICompanyContext? company = null)
         => new(
-            BuildOptions<VumaRetailDbContext>(connectionString, clock, principal, stamper),
+            BuildOptions<VumaRetailDbContext>(connectionString, clock, principal, stamper, company),
             tenant ?? TestTenantContext.Unfiltered());
 
     /// <summary>Builds the options every test context shares.</summary>
@@ -43,11 +46,14 @@ public static class TestDbContextFactory
     /// <param name="connectionString">The test database.</param>
     /// <param name="clock">The clock the audit interceptor stamps from.</param>
     /// <param name="principal">Who is acting.</param>
+    /// <param name="stamper">The audit stamper to share, or <c>null</c> to build one.</param>
+    /// <param name="company">The company <c>CompanyId</c> is stamped from. Defaults to unset.</param>
     internal static DbContextOptions BuildOptions<TContext>(
         string connectionString,
         IClock? clock = null,
         IPrincipalAccessor? principal = null,
-        AuditStamper? stamper = null)
+        AuditStamper? stamper = null,
+        ICompanyContext? company = null)
         where TContext : DbContext
     {
         DbContextOptionsBuilder<TContext> options = new();
@@ -66,7 +72,8 @@ public static class TestDbContextFactory
             stamper ?? new AuditStamper(
                 clock ?? new TestClock(),
                 principal ?? new TestPrincipalAccessor(),
-                new VumaRetail.Infrastructure.Sync.ReplicationScope())));
+                new VumaRetail.Infrastructure.Sync.ReplicationScope(),
+                company ?? TestCompanyContext.Unset())));
 
         return options.Options;
     }

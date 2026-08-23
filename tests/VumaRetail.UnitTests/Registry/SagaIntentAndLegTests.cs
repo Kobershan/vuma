@@ -68,7 +68,7 @@ public sealed class SagaIntentAndLegTests
 
         leg.IntentId.Should().Be(intentId);
         leg.LegKey.Should().Be("hardware-allocation");
-        leg.CompanyId.Should().Be(companyId);
+        leg.TargetCompanyId.Should().Be(companyId);
         leg.Status.Should().Be(SagaLegStatus.Pending);
         leg.AttemptCount.Should().Be(0);
     }

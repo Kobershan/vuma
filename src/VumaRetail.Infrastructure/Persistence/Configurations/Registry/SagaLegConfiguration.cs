@@ -20,7 +20,7 @@ internal sealed class SagaLegConfiguration : EntityConfiguration<SagaLeg>
             .IsRequired()
             .HasMaxLength(128);
 
-        builder.Property(leg => leg.CompanyId)
+        builder.Property(leg => leg.TargetCompanyId)
             .IsRequired();
 
         builder.Property(leg => leg.Status)
@@ -45,7 +45,7 @@ internal sealed class SagaLegConfiguration : EntityConfiguration<SagaLeg>
 
         // The unapplied-legs report's hot query (`docs/MULTI_COMPANY.md` §7): every leg outstanding for
         // one company.
-        builder.HasIndex(leg => new { leg.CompanyId, leg.Status })
-            .HasDatabaseName("ix_saga_legs_company_id_status");
+        builder.HasIndex(leg => new { leg.TargetCompanyId, leg.Status })
+            .HasDatabaseName("ix_saga_legs_target_company_id_status");
     }
 }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Interceptors;
@@ -31,6 +32,7 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<ITenantContext, AmbientTenantContext>();
+        services.AddScoped<ICompanyContext, AmbientCompanyContext>();
         services.TryAddPrincipalAccessor();
 
         services.TryAddReplicationScope();

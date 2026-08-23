@@ -72,6 +72,19 @@ public abstract class Entity
     /// <summary>The owning store, or <c>null</c> for tenant-wide records such as the chart of accounts.</summary>
     public Guid? StoreId { get; protected set; }
 
+    /// <summary>
+    /// The company this row's database belongs to (ADR-099, ADR-140). Redundant given the database
+    /// boundary already implies it, and kept anyway: it makes a restored or exported database
+    /// self-describing and it is the join key the group read models use
+    /// (<c>docs/MULTI_COMPANY.md</c> §2).
+    /// </summary>
+    /// <remarks>
+    /// Stamped by the persistence layer from <c>ICompanyContext</c> on insert, the same mechanism that
+    /// stamps <see cref="RowVersion"/> — never a constructor parameter, and never reassigned after
+    /// creation, because a row cannot belong to a different company than the database holding it.
+    /// </remarks>
+    public Guid CompanyId { get; protected set; }
+
     /// <summary>When the row was created, UTC.</summary>
     public DateTimeOffset CreatedAt { get; protected set; }
 
@@ -179,4 +192,11 @@ public abstract class Entity
     /// <c>xmin</c>. Sync compares tokens across both tiers, so they have to be the same kind of thing.
     /// </remarks>
     public void SetRowVersion(byte[] token) => RowVersion = token;
+
+    /// <summary>
+    /// Stamps the row with the company its database belongs to. Called by the persistence layer on
+    /// insert only; business code has no reason to, and a row's company never changes once written.
+    /// </summary>
+    /// <param name="companyId">The company this row's database belongs to.</param>
+    public void SetCompanyId(Guid companyId) => CompanyId = companyId;
 }

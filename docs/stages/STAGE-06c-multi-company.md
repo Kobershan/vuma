@@ -100,12 +100,12 @@ active company count.
 
 ## Parts — the build list
 
-- [ ] **A — The registry database.** `src/VumaRetail.Domain/Registry/` (`RegistryCompany`,
+- [x] **A — The registry database.** `src/VumaRetail.Domain/Registry/` (`RegistryCompany`,
   `CompanyLifecycleState`, `CompanyGroup`, `CompanyGroupMember`, `SagaIntent`, `SagaLeg`,
   `RegistryOutboxMessage`), `Schemas.Registry`, `VumaRegistryDbContext` and its own migration chain and
   `IDesignTimeDbContextFactory`, `IConnectionSecretProtector` (AES-256-GCM) for the encrypted connection
   column. No behaviour beyond what EF needs to persist the rows — the saga machinery is 06d's.
-- [ ] **B — `CompanyId` retrofit.** Add `CompanyId` to `Entity` alongside `TenantId`, stamped by the
+- [x] **B — `CompanyId` retrofit.** Add `CompanyId` to `Entity` alongside `TenantId`, stamped by the
   persistence layer from the ambient `ICompanyContext` (the same mechanism that stamps `RowVersion` —
   see ADR-140 for why this is not a constructor parameter threaded through ~90 call sites). One migration
   adds the column to every existing table; existing tests stay green because every row in today's single

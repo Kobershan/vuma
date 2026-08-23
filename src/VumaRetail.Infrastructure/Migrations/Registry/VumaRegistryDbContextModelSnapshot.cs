@@ -28,6 +28,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -92,6 +96,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasKey("Id")
                         .HasName("pk_company_groups");
 
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_company_groups_company_id");
+
                     b.HasIndex("SyncState")
                         .HasDatabaseName("ix_company_groups_sync_state")
                         .HasFilter("sync_state <> 'Synced'");
@@ -114,6 +121,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.Property<Guid>("CompanyGroupId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_group_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -177,6 +188,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasKey("Id")
                         .HasName("pk_company_group_members");
 
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_company_group_members_company_id");
+
                     b.HasIndex("SyncState")
                         .HasDatabaseName("ix_company_group_members_sync_state")
                         .HasFilter("sync_state <> 'Synced'");
@@ -213,6 +227,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<string>("ConnectionCiphertext")
                         .IsRequired()
@@ -342,6 +360,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasKey("Id")
                         .HasName("pk_companies");
 
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_companies_company_id");
+
                     b.HasIndex("SyncState")
                         .HasDatabaseName("ix_companies_sync_state")
                         .HasFilter("sync_state <> 'Synced'");
@@ -372,6 +393,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.Property<int>("AttemptCount")
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -469,6 +494,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasKey("Id")
                         .HasName("pk_outbox_messages");
 
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_outbox_messages_company_id");
+
                     b.HasIndex("OperationId")
                         .IsUnique()
                         .HasDatabaseName("ux_outbox_messages_operation_id");
@@ -495,6 +523,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -578,6 +610,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
 
                     b.HasKey("Id")
                         .HasName("pk_saga_intents");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_saga_intents_company_id");
 
                     b.HasIndex("SyncState")
                         .HasDatabaseName("ix_saga_intents_sync_state")
@@ -675,6 +710,10 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                         .HasColumnType("character varying(32)")
                         .HasColumnName("sync_state");
 
+                    b.Property<Guid>("TargetCompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_company_id");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -692,6 +731,9 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasKey("Id")
                         .HasName("pk_saga_legs");
 
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_saga_legs_company_id");
+
                     b.HasIndex("SyncState")
                         .HasDatabaseName("ix_saga_legs_sync_state")
                         .HasFilter("sync_state <> 'Synced'");
@@ -699,12 +741,12 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_saga_legs_tenant_id");
 
-                    b.HasIndex("CompanyId", "Status")
-                        .HasDatabaseName("ix_saga_legs_company_id_status");
-
                     b.HasIndex("IntentId", "LegKey")
                         .IsUnique()
                         .HasDatabaseName("ux_saga_legs_intent_id_leg_key");
+
+                    b.HasIndex("TargetCompanyId", "Status")
+                        .HasDatabaseName("ix_saga_legs_target_company_id_status");
 
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_saga_legs_tenant_id_store_id");
