@@ -10,6 +10,7 @@ using VumaRetail.Contracts.Warehouse;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Warehouse;
 
@@ -31,7 +32,7 @@ public static class WarehouseEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder zones = api.MapGroup("/warehouse/zones").WithTags("Warehouse");
+        RouteGroupBuilder zones = api.MapGroup("/warehouse/zones").WithTags("Warehouse").RequireModule("warehouse");
 
         zones.MapPost("/", CreateZoneAsync)
             .RequirePermission(WarehousePermissions.LayoutManage)
@@ -57,7 +58,7 @@ public static class WarehouseEndpoints
             .Produces<IReadOnlyList<BinResponse>>()
             .WithSummary("Every bin in a zone.");
 
-        RouteGroupBuilder bins = api.MapGroup("/warehouse/bins").WithTags("Warehouse");
+        RouteGroupBuilder bins = api.MapGroup("/warehouse/bins").WithTags("Warehouse").RequireModule("warehouse");
 
         bins.MapPost("/", CreateBinAsync)
             .RequirePermission(WarehousePermissions.LayoutManage)
@@ -91,14 +92,14 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Moves stock directly from one bin to another within the same location.");
 
-        RouteGroupBuilder locations = api.MapGroup("/warehouse/locations").WithTags("Warehouse");
+        RouteGroupBuilder locations = api.MapGroup("/warehouse/locations").WithTags("Warehouse").RequireModule("warehouse");
 
         locations.MapGet("/{locationId:guid}/bins", ListActiveBinsForLocationAsync)
             .RequirePermission(WarehousePermissions.View)
             .Produces<IReadOnlyList<BinResponse>>()
             .WithSummary("Every active bin at a location.");
 
-        RouteGroupBuilder putaway = api.MapGroup("/warehouse/putaway").WithTags("Warehouse");
+        RouteGroupBuilder putaway = api.MapGroup("/warehouse/putaway").WithTags("Warehouse").RequireModule("warehouse");
 
         putaway.MapPost("/", OpenPutawayTaskAsync)
             .RequirePermission(WarehousePermissions.PutawayManage)
@@ -134,7 +135,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Abandons a putaway task's remaining quantity.");
 
-        RouteGroupBuilder waves = api.MapGroup("/warehouse/pick-waves").WithTags("Warehouse");
+        RouteGroupBuilder waves = api.MapGroup("/warehouse/pick-waves").WithTags("Warehouse").RequireModule("warehouse");
 
         waves.MapPost("/", OpenPickWaveAsync)
             .RequirePermission(WarehousePermissions.PickManage)
@@ -199,7 +200,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Reads a wave's shipment confirmation.");
 
-        RouteGroupBuilder pickTasks = api.MapGroup("/warehouse/pick-tasks").WithTags("Warehouse");
+        RouteGroupBuilder pickTasks = api.MapGroup("/warehouse/pick-tasks").WithTags("Warehouse").RequireModule("warehouse");
 
         pickTasks.MapPost("/{pickTaskId:guid}/confirm", ConfirmPickAsync)
             .RequirePermission(WarehousePermissions.PickConfirm)
@@ -216,7 +217,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Abandons a pick task before it is picked.");
 
-        RouteGroupBuilder cycleCounts = api.MapGroup("/warehouse/cycle-counts").WithTags("Warehouse");
+        RouteGroupBuilder cycleCounts = api.MapGroup("/warehouse/cycle-counts").WithTags("Warehouse").RequireModule("warehouse");
 
         cycleCounts.MapPost("/", OpenCycleCountAsync)
             .RequirePermission(WarehousePermissions.CycleCountManage)

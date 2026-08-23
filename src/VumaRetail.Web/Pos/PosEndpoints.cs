@@ -11,6 +11,7 @@ using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Hardware.Receipts;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Pos;
 
@@ -46,7 +47,7 @@ public static class PosEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder tills = api.MapGroup("/pos/till-sessions").WithTags("POS");
+        RouteGroupBuilder tills = api.MapGroup("/pos/till-sessions").WithTags("POS").RequireModule("pos");
 
         tills.MapPost("/", OpenTillSessionAsync)
             .RequirePermission(PosPermissions.TillOpen)
@@ -82,7 +83,7 @@ public static class PosEndpoints
                 "422 while any sale on the session is still open or parked. The expected figure is "
                 + "derived and is never an input.");
 
-        RouteGroupBuilder sales = api.MapGroup("/pos/sales").WithTags("POS");
+        RouteGroupBuilder sales = api.MapGroup("/pos/sales").WithTags("POS").RequireModule("pos");
 
         sales.MapPost("/", OpenSaleAsync)
             .RequirePermission(PosPermissions.SaleRing)
@@ -175,14 +176,14 @@ public static class PosEndpoints
             .Produces<IReadOnlyList<ReceiptPrintResponse>>()
             .WithSummary("Every print of this receipt, oldest first.");
 
-        RouteGroupBuilder terminals = api.MapGroup("/pos/terminals").WithTags("POS");
+        RouteGroupBuilder terminals = api.MapGroup("/pos/terminals").WithTags("POS").RequireModule("pos");
 
         terminals.MapGet("/{terminalId:guid}/parked-sales", ListParkedSalesAsync)
             .RequirePermission(PosPermissions.SaleView)
             .Produces<IReadOnlyList<SaleResponse>>()
             .WithSummary("Every sale set aside at one terminal, oldest first.");
 
-        RouteGroupBuilder catalog = api.MapGroup("/pos/catalog").WithTags("POS");
+        RouteGroupBuilder catalog = api.MapGroup("/pos/catalog").WithTags("POS").RequireModule("pos");
 
         catalog.MapGet("/barcode/{barcode}", LookupBarcodeAsync)
             .RequirePermission(PosPermissions.SaleRing)
@@ -190,7 +191,7 @@ public static class PosEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Resolves a scanned barcode into something the till can ring up.");
 
-        RouteGroupBuilder reconciliation = api.MapGroup("/pos/reconciliation").WithTags("POS");
+        RouteGroupBuilder reconciliation = api.MapGroup("/pos/reconciliation").WithTags("POS").RequireModule("pos");
 
         reconciliation.MapGet("/stock-issues", ListRefusedStockIssuesAsync)
             .RequirePermission(PosPermissions.SaleView)

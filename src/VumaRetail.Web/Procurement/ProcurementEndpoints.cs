@@ -11,6 +11,7 @@ using VumaRetail.Contracts.Procurement;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Procurement;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Procurement;
 
@@ -62,7 +63,7 @@ public static class ProcurementEndpoints
     {
         RouteGroupBuilder requisitions = api
             .MapGroup("/procurement/requisitions")
-            .WithTags("Procurement");
+            .WithTags("Procurement").RequireModule("procurement");
 
         requisitions.MapPost("/", CreatePurchaseRequisitionAsync)
             .RequirePermission(ProcurementPermissions.RequisitionRaise)
@@ -123,7 +124,7 @@ public static class ProcurementEndpoints
 
     private static void MapRfqs(RouteGroupBuilder api)
     {
-        RouteGroupBuilder rfqs = api.MapGroup("/procurement/rfqs").WithTags("Procurement");
+        RouteGroupBuilder rfqs = api.MapGroup("/procurement/rfqs").WithTags("Procurement").RequireModule("procurement");
 
         rfqs.MapPost("/", CreateRfqAsync)
             .RequirePermission(ProcurementPermissions.RfqManage)
@@ -202,7 +203,7 @@ public static class ProcurementEndpoints
 
     private static void MapPurchaseOrders(RouteGroupBuilder api)
     {
-        RouteGroupBuilder orders = api.MapGroup("/procurement/purchase-orders").WithTags("Procurement");
+        RouteGroupBuilder orders = api.MapGroup("/procurement/purchase-orders").WithTags("Procurement").RequireModule("procurement");
 
         orders.MapPost("/", CreatePurchaseOrderAsync)
             .RequirePermission(ProcurementPermissions.OrderManage)
@@ -300,7 +301,7 @@ public static class ProcurementEndpoints
 
     private static void MapGoodsReceipts(RouteGroupBuilder api)
     {
-        RouteGroupBuilder receipts = api.MapGroup("/procurement/goods-receipts").WithTags("Procurement");
+        RouteGroupBuilder receipts = api.MapGroup("/procurement/goods-receipts").WithTags("Procurement").RequireModule("procurement");
 
         receipts.MapPost("/", CreateGoodsReceiptAsync)
             .RequirePermission(ProcurementPermissions.ReceiptRecord)
@@ -350,7 +351,7 @@ public static class ProcurementEndpoints
 
         RouteGroupBuilder reconciliation = api
             .MapGroup("/procurement/reconciliation")
-            .WithTags("Procurement");
+            .WithTags("Procurement").RequireModule("procurement");
 
         reconciliation.MapGet("/stock-issues", ListRefusedStockPostingsAsync)
             .RequirePermission(ProcurementPermissions.View)
@@ -364,7 +365,7 @@ public static class ProcurementEndpoints
 
     private static void MapMatches(RouteGroupBuilder api)
     {
-        RouteGroupBuilder matches = api.MapGroup("/procurement/matches").WithTags("Procurement");
+        RouteGroupBuilder matches = api.MapGroup("/procurement/matches").WithTags("Procurement").RequireModule("procurement");
 
         matches.MapGet("/", ListSupplierInvoiceMatchesAsync)
             .RequirePermission(ProcurementPermissions.View)
@@ -392,7 +393,7 @@ public static class ProcurementEndpoints
 
     private static void MapScorecards(RouteGroupBuilder api)
     {
-        RouteGroupBuilder scorecards = api.MapGroup("/procurement/scorecards").WithTags("Procurement");
+        RouteGroupBuilder scorecards = api.MapGroup("/procurement/scorecards").WithTags("Procurement").RequireModule("procurement");
 
         scorecards.MapPost("/", SnapshotSupplierScorecardAsync)
             .RequirePermission(ProcurementPermissions.ScorecardManage)

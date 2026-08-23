@@ -381,6 +381,37 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task RequireModule_is_actually_wired_and_refuses_a_real_request_for_an_unlicensed_module()
+    {
+        // §4.12's other half: IsModuleEnabledAsync working in isolation (the test above) proves
+        // nothing about whether any endpoint actually calls it. Confirmed zero call sites before this
+        // session; now wired onto every route group in Pos/Sales/Imports/Procurement/Warehouse. This
+        // drives a real HTTP request through the real pipeline against a plan that genuinely excludes
+        // warehouse, with a user permissioned for the endpoint itself, so a 403 here can only be
+        // RequireModule and nothing else.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, activate: false);
+
+        await harness.ActivateAsync(entitlements: ["identity", "catalog", "inventory", "finance"]);
+
+        await harness.CreateUserAsync(
+            "picker",
+            permissions: [VumaRetail.Application.Warehouse.Permissions.WarehousePermissions.View]);
+
+        HttpClient client = await harness.SignInAsync("picker");
+
+        // A real (if nonexistent) locationId, so parameter binding succeeds and the request reaches the
+        // filter pipeline — RequireModule runs before the handler, but binding runs before any filter.
+        HttpResponseMessage response = await client.GetAsync($"/api/v1/warehouse/zones?locationId={Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        System.Text.Json.JsonDocument problem =
+            (await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())!;
+
+        problem.RootElement.GetProperty("upgrade").GetString().Should().Be("module:warehouse");
+    }
+
+    [Fact]
     public async Task A_hard_limit_refuses_the_eleventh_terminal_and_lets_the_tenth_through()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, activate: false);
