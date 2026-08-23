@@ -2221,3 +2221,51 @@ stored tax can only be corrected by a new document (a credit note, a reversal) �
 the same trade-off rule 7 already makes for posted financial documents generally. No consumer — a report, an
 analytics query, a reconciliation — may derive tax from `(net, rate)` or `(gross, rate)` on a stored line; it
 reads what was stored.
+
+## ADR-139 — `Tenant` and licensing stay put; `registry.companies` is a separate, registry-owned projection — **LOCKED**
+**Context.** ADR-099 gives every company its own database, and each company database carries "the same
+schema" as today's single `VumaRetailDbContext` — which already contains `platform.tenants` and all of
+Stage 04b's licensing/lease/activation tables. `docs/MULTI_COMPANY.md`'s registry topology also lists
+`registry.companies` carrying legal name, trading name, tax number, base currency, locale — fields
+`Tenant` already has. Stage 06c's own document is silent on which of the two is authoritative, and
+building on the wrong answer here is exactly the kind of retrofit ADR-099 says 06c exists to avoid.
+**Decision.** `Tenant`, `Store` and every Stage 04b licensing/lease/activation row are **unchanged** and
+stay in `VumaRetailDbContext` — replicated into and enforced from *each* company database, exactly as
+today. A lapsed subscription must be answerable locally, from that database's own rows, without a round
+trip to the registry (R1 outranks a registry outage the same way it outranks a vendor outage). Business
+logic that already reads `ITenantContext`/`Tenant` — currency resolution, locale, the read-only guard —
+keeps reading it, unmodified, and now reads it as *that company's own local record of itself* rather than
+"the tenant's only company." `registry.companies` (`RegistryCompany`) is a **new, separate, registry-owned
+projection**: populated once at provisioning from the same descriptive fields, kept for cross-company
+visibility — listing companies, routing, the group view — and never read by any local business decision.
+**Consequences.** No existing entity, handler, or test that reads `Tenant` needs to change for 06c to land,
+which is what keeps "every existing test stays green after the retrofit" achievable in one stage rather
+than requiring Stage 07's finance module and Stage 04b's licensing module to be rebuilt first. The cost is
+a real one to keep in view: `RegistryCompany`'s descriptive fields (name, currency, locale) can drift from
+the company database's own `Tenant` row if one is edited and not the other, since nothing keeps them
+synchronised transactionally (they cannot be — different databases, ADR-116). 06d's provisioning-adjacent
+tooling should re-publish `Tenant`'s fields into `RegistryCompany` on edit, the same shape the barcode
+routing index already uses for a different table; until then, `RegistryCompany`'s fields are "as
+provisioned" and the company database's own `Tenant` is authoritative for anything currently trading.
+
+## ADR-140 — `CompanyId` is stamped by the persistence layer from `ICompanyContext`, not threaded through entity constructors — **LOCKED**
+**Context.** `docs/MULTI_COMPANY.md` §2 requires `company_id` on every business row even though the
+database boundary already implies it, calling it "redundant... kept anyway" for self-describing exports
+and the group projections' join key. Read literally as "every table gets it the way `tenant_id` does,"
+the obvious implementation threads a company id through the constructor of every one of the ~90 entity
+types in this codebase and every command handler that builds one — the exact multi-week retrofit ADR-099
+already priced in and 06c's own document says must not happen twice.
+**Decision.** `CompanyId` is added to `Entity` as a column stamped by the persistence layer — the same
+mechanism that already stamps `RowVersion` on every insert and update in `AuditStamper.ClassifyAndStamp`
+— sourced from a new ambient `ICompanyContext.CompanyId`, not passed by callers. Unlike `TenantId`,
+`CompanyId` drives no global query filter: within one company's database every row belongs to the same
+one company, so there is nothing to filter. One EF migration adds the column to every existing table;
+zero call sites change.
+**Consequences.** The retrofit is mechanical and reviewable in one migration rather than an edit to every
+entity constructor and every handler that calls one — the difference between a stage and a rewrite. The
+cost is that `CompanyId` cannot be set to anything other than "the company this database belongs to," which
+is correct by construction (a row cannot belong to a different company than the database holding it) and
+is exactly why `docs/MULTI_COMPANY.md` calls the column redundant. `ICompanyContext.CompanyId` is resolved
+once, the same place `ITenantContext` is today, and is `Guid.Empty` before a company is registered — the
+migration/design-time path — matching `ITenantContext.TenantId`'s own convention for "no tenant resolved
+yet."

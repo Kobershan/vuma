@@ -12,6 +12,24 @@ This stage builds the registry, the connection routing, the provisioning lifecyc
 fan-out. It builds **no group features** — those are 06d. Splitting them is deliberate: the plumbing
 here must be boring, complete and verified before anything interesting is built on top of it.
 
+## What this stage does not own
+
+- **The saga coordinator, dispatch, retry and compensation logic.** 06c builds the `registry.saga_intents`
+  / `registry.saga_legs` tables and the registry outbox *as data* — nothing here writes an intent, reads
+  one back, or drives a leg to acknowledgement. `ISagaCoordinator` and everything that calls it is 06d.
+- **Credit groups, the barcode routing index, group read models.** 06d.
+- **The Operator ID and `CompanyLink` — which companies may cooperate at all.** 06e.
+- **Cross-company money, reservations, split invoicing, consolidated picking, field sales.** 07c, 08c,
+  13b, 14b — all of which dispatch through 06d's coordinator, not through anything built here directly.
+- **Where `Tenant` sits.** `Tenant` (and Stage 04b's licensing/lease rows) stay exactly where they are —
+  replicated into and enforced from *each* company database, unchanged. The registry does not become a
+  second source of licensing truth; a company database that cannot reach the registry must still be able
+  to answer "am I read-only" from its own rows. `registry.companies` is a separate, registry-owned,
+  cross-company-visible projection populated at provisioning — the group's address book, not the
+  licensing root. See ADR-139.
+- **A UI.** `/api/v1/companies` and `/api/v1/admin/migrations` are the whole of this stage's surface;
+  Stage 08b/09's shell is what will eventually let an operator click through it.
+
 ## Deliverables
 
 **The registry database**
@@ -79,6 +97,37 @@ active company count.
 6. A fan-out read degrades per company; the caller is told which company failed.
 7. The registry is snapshotted more often than the companies it points at — losing it is
    disproportionate.
+
+## Parts — the build list
+
+- [ ] **A — The registry database.** `src/VumaRetail.Domain/Registry/` (`RegistryCompany`,
+  `CompanyLifecycleState`, `CompanyGroup`, `CompanyGroupMember`, `SagaIntent`, `SagaLeg`,
+  `RegistryOutboxMessage`), `Schemas.Registry`, `VumaRegistryDbContext` and its own migration chain and
+  `IDesignTimeDbContextFactory`, `IConnectionSecretProtector` (AES-256-GCM) for the encrypted connection
+  column. No behaviour beyond what EF needs to persist the rows — the saga machinery is 06d's.
+- [ ] **B — `CompanyId` retrofit.** Add `CompanyId` to `Entity` alongside `TenantId`, stamped by the
+  persistence layer from the ambient `ICompanyContext` (the same mechanism that stamps `RowVersion` —
+  see ADR-140 for why this is not a constructor parameter threaded through ~90 call sites). One migration
+  adds the column to every existing table; existing tests stay green because every row in today's single
+  database resolves to the one company `ICompanyContext` reports.
+- [ ] **C — Routing seams.** `ICompanyConnectionResolver`, `ICompanyDbContextFactory`, `ICompanyContext`,
+  `ICompanyFanOut` in `Application.Abstractions`, implementations in `Infrastructure`, DI registration.
+  The architecture test: no command handler resolves two companies' `DbContext`s.
+- [ ] **D — Provisioning.** `ProvisionCompanyCommand`/handler driving
+  `Provisioning → Seeding → Registered → Active`, re-runnable from the failed step;
+  `DeactivateCompanyCommand`.
+- [ ] **E — Migration fan-out.** `ICompanyMigrationRunner`, per-company `schema_version`/
+  `migration_state` in the registry, the "company behind the binary is not served" refusal.
+- [ ] **F — Backup/sync per database.** Extend Stage 04's snapshot and cursor machinery to iterate
+  companies; the registry snapshotted on its own, more often.
+- [ ] **G — API, permissions, entitlement.** `/api/v1/companies`, `X-Vuma-Company` header resolution,
+  `/api/v1/admin/migrations`; `company.view`/`company.provision`/`company.manage`/`platform.migrate`;
+  the `MultiCompany` entitlement flag and its metering counter.
+- [ ] **H — The existing installation.** A registry seed that migrates today's single-tenant install to
+  exactly one `Active` company, so nothing existing changes behaviour.
+
+Parts are ordered by dependency (C needs A; D needs A, B and C; E needs A and D; H needs everything before
+it). Each is its own green checkpoint and its own commit.
 
 ## Tests / acceptance
 
