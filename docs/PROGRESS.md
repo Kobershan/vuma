@@ -3,55 +3,67 @@
 > ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
 > `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
 
-**Last updated:** 2026-08-23 (evening) · **Every structural CRITICAL/HIGH defect from the 2026-08-23
-morning review pass is now fixed, one of the two review agents that could run found and closed two
-real gaps in the first pass at the Warehouse fix, ADR-134 is written, and §4.12 (the module
-entitlement gate) is closed end to end.** Nine commits since morning: `be301ae` `cefe371` `1027592`
-`46625f6` `26a2a3d` `bd7e42b` `69900e6` `dd63e94` `959af51` `8d4adcb` — each its own green checkpoint,
-ending at 736 unit + 33 architecture + 406 integration tests (+28 this session), two new reversible
-migrations, all pushed.
+**Last updated:** 2026-08-23 (night) · **The agent panel against the whole 2026-08-23 fix pass is now
+genuinely complete — all four relevant agents have reported, two found real defects, both fixed.**
+Thirteen commits today: `be301ae` `cefe371` `1027592` `46625f6` `26a2a3d` `bd7e42b` `69900e6` `dd63e94`
+`959af51` `8d4adcb` `a8823ff` `d68e713` `f256479` — each its own green checkpoint, ending at 736 unit +
+34 architecture + 407 integration tests, three new reversible migrations, all pushed.
 
-**The agent panel ran, partially — one of two agents that were launched actually returned a finding,
-and it was real.** `stock-availability-guard` reviewed the Warehouse reservation fix and found: (1)
-**CRITICAL** — `BinStock.ApplyOut` guarded `QuantityOnHand` against going negative but never
-`Available`, so `FinalizeCycleCountCommand` and `MoveBinStockCommand` could each independently drive
-`Available` negative, the exact §7 rule 21 violation the reservation fix exists to prevent. Fixed:
-`ApplyOut` now clamps `QuantityReserved` down to the new `QuantityOnHand` rather than leaving
-`Available` negative or refusing a correction a live reservation happens to sit on top of. A new CHECK
-constraint (`ck_bin_stock_reserved_not_exceeding_on_hand`) backs the invariant in the database too. (2)
-**HIGH** — the within-one-release accumulator was keyed on `BinId` alone; one bin routinely holds
-several `BinStock` rows (one per stock-keeping unit), so a second task for a *different* SKU sharing a
-bin wrongly inherited the first task's reservation. Re-keyed on `(BinId, ItemId, ItemVariantId)`. (3)
-The agent also flagged that no test exercised a genuine concurrent race (all five original tests were
-strictly sequential) — added one that opens two independent database contexts, has both reserve
-against the same on-hand before either commits, and proves EF's `RowVersion` optimistic concurrency
-(ADR-035), not application logic, is what actually stops the second write. `money-and-tax`
-(Procurement/Sales review) failed twice on an API session-usage limit and was not retried a third time
-— **that half remains agent-unverified**, covered only by the tests already in `46625f6`/`26a2a3d`.
-ADR-134 records the `BinStock.QuantityReserved`/`Available` design, including the repository-shape
-finding (a mixed-tracking `BinStock`/`Bin` join query silently failed to persist reservations — worth
-keeping so it isn't rediscovered).
+**The full agent panel result, honestly:**
+- `stock-availability-guard` (Warehouse, `cefe371`/`1027592`) — ran clean the second time it was tried,
+  found two real defects, both fixed in `dd63e94`: **CRITICAL**, `BinStock.ApplyOut` didn't respect the
+  new `QuantityReserved` field, so `FinalizeCycleCountCommand`/`MoveBinStockCommand` could each drive
+  `Available` negative — fixed by clamping the reservation down on any correction, backed by a new
+  CHECK constraint; **HIGH**, the within-one-release accumulator was keyed on `BinId` alone instead of
+  `(BinId, ItemId, ItemVariantId)`, wrongly bleeding one task's reservation onto a sibling task's
+  different stock-keeping unit sharing a bin.
+- `sync-and-offline` (the idempotency lift, `be301ae`) — ran clean. No defect. Confirmed the fix sits
+  correctly below the replication layer (a retry mints one canonical row, so exactly one outbox message
+  ever fires) and that `MoveBinStockCommand`'s half-committed-pair concern is impossible by construction
+  (the whole command is one transaction). Two low-severity, pre-existing-shape observations noted, not
+  fixed: a replay with a reused id but different payload fields silently returns the first result
+  (inherited from `OpenSaleCommand`'s own precedent), and a genuinely concurrent double-submit surfaces
+  as a raw DB exception rather than a translated one.
+- `architecture-guard` (all nine `src/`-touching commits) — found one real gap: `RequireModule`'s own
+  doc comment promised an architecture test that didn't exist ("no module reads a licence or an
+  enforcement level for itself"). Added in `d68e713` — `IEntitlementService` deliberately excluded from
+  the forbidden-dependency list (`CheckLimitAsync` is the sanctioned choke point three existing command
+  handlers already call directly for seat/device/store limits; an earlier draft wrongly forbade it too
+  and failed against all three before being narrowed). No other rule-1/12/13/14/15/16 violation found.
+- `money-and-tax` (Procurement/Sales, `46625f6`/`26a2a3d`) — stalled three times running (twice reaching
+  for Docker/Testcontainers despite instructions not to; this machine has no Docker daemon and uses a
+  local Postgres cluster instead — once mid-analysis for no evident reason). Reviewed directly instead
+  of retrying a fourth time. Arithmetic, ordering and no-partial-write behaviour all correct; no
+  money/tax/rounding concern (neither commit touches pricing or currency). One real gap, the same shape
+  `stock-availability-guard` found: both new tests proved the fix once a first release had already
+  committed, not against a genuine race. Confirmed `PurchaseOrderLine` carries its own `RowVersion`
+  (same protection as the Warehouse fix), so the race was never actually open — just unproven. Closed
+  with the missing proof in `f256479`. §4.21 (Sales) already had real concurrency coverage from the
+  start, since `FindForUpdateAsync` uses an actual Postgres row lock rather than relying on `RowVersion`
+  after the fact.
 
-**§4.12 (module entitlement gate) is closed.** The fail-closed trap is fixed —
-`EntitlementService.IsModuleEnabledAsync` now permits when there is no lease to consult at all
-(`_entitlements` is `null`, not an empty set, and `null` means permit), matching
-`CheckLimitAsync`'s existing `LicenceLimits.Unlimited` fallback, rather than 403ing every read on a
-fresh DR restore before rebind. `RequireModule` is now wired onto all 27 top-level route groups across
-Pos/Sales/Imports/Procurement/Warehouse. A genuine end-to-end HTTP test (not just the service method
-in isolation) proves a real request against a plan that excludes a module gets refused with the
-`module:<flag>` upgrade reference. §4.23 (the cross-cutting extension of this finding) is closed by
-the same commits.
+ADR-134 records the `BinStock.QuantityReserved`/`Available` design. **§4.12 (module entitlement gate)
+is closed end to end** — the fail-closed fallback fixed (`_entitlements` is `null`, not an empty set,
+when there is no lease, and `null` means permit — the same asymmetry `CheckLimitAsync`'s
+`LicenceLimits.Unlimited` fallback already got right), `RequireModule` wired onto all 27 top-level route
+groups across Pos/Sales/Imports/Procurement/Warehouse, proven with a real end-to-end HTTP test. §4.23
+(the cross-cutting extension of the same finding) closes with it.
 
 **One incident this session, resolved, not a code defect:** the shared `pg-test.sh` cluster's data
-directory grew to 44GB across the day's many `dotnet test` runs (each spins up fresh throwaway
-databases) and filled the disk, producing ~159 spurious integration-test failures that looked like a
-regression. Stopped and restarted the cluster (its own documented reset mechanism — a "throwaway"
-cluster by design) and the full suite came back green. Nothing about this touched `main`, the repo, or
-any committed migration; noted here only so the next session doesn't mistake a full disk for a
-regression, and considers periodically restarting the local test cluster during a long session.
+directory grew to 44GB across the day's many `dotnet test` runs and filled the disk, producing ~159
+spurious integration-test failures that looked like a regression. `scripts/pg-test.sh stop` then
+`start` (its own documented reset — a throwaway cluster by design) reclaimed the space and the full
+suite came back genuinely green.
 
-**Read `docs/PROGRESS.md`'s "order of work" note dated 2026-08-23, further down — updated in place,
-with the tax-per-line ADR and the mechanical sweeps now the next unstarted items.**
+**Read `docs/PROGRESS.md`'s "order of work" note dated 2026-08-23, further down — updated in place.
+With the agent panel now genuinely complete, §4.10 and the tax-per-line ADR are the next unstarted
+items, ahead of the mechanical sweeps and Stage 06c.**
+
+**Previously — last updated:** 2026-08-23 (evening) · **Every structural CRITICAL/HIGH defect from the
+morning review pass was fixed, `stock-availability-guard` had found and closed two real gaps in the
+first pass at the Warehouse fix, ADR-134 was written, and §4.12 was closed — but `money-and-tax` had
+failed twice and was not yet retried.** Superseded the same night, above, once that agent's review was
+completed directly after a third stall and its one finding fixed.
 
 **Previously — last updated:** 2026-08-23 (later) · **The order-of-work note's items 1–4 were done —
 all four structural CRITICAL/HIGH defects from the morning review pass fixed, tested and pushed**
@@ -969,38 +981,71 @@ new.
 
 ---
 
-**Order of work, 2026-08-23 (evening) — supersedes the 2026-08-23 (later) note above it.**
+### 2026-08-23 (night) — `money-and-tax` closed manually after three stalls; the agent panel is complete
 
-Items 1 and 2 of the previous version are **DONE** — the agent panel ran against the Warehouse fix
-(`stock-availability-guard`, two real findings, both fixed — see the 2026-08-23 (evening) session-log
-entry) and ADR-134 is written. **Item 3 (§4.12) is DONE in full**, both the fallback fix and wiring
-`RequireModule` into all five modules — see the same session-log entry. What remains:
+One more commit: `f256479`.
 
-1. **Retry `money-and-tax` against commits `46625f6` (Procurement release re-check) and `26a2a3d`
-   (Sales row lock).** Failed twice on an API session-usage limit and was not retried a third time.
-   Given `stock-availability-guard` found two real, non-trivial defects in a fix that had 5 passing
-   tests and a green build, do not assume the Procurement/Sales fixes are clean just because their own
-   tests pass — this is the single highest-value next action, ahead of anything new. `sync-and-offline`
-   (the idempotency lift, commit `be301ae`) and `architecture-guard` (the new
-   `IBinStockRepository`/`ISalesReturnRepository`/`IBinStockMovementRepository` surface across all nine
-   commits) are also still owed a pass.
-2. **§4.10 (the read-only carve-outs) and the tax-per-line ADR** — unchanged from the 2026-08-22 note.
-   `licence-safety` has already adjudicated §4.10's shape (option (a), the ADR-028 session mechanism,
-   only the reprint needing a fourth `ReadOnlyExemption` kind) — read the "trap in the obvious
-   implementation" paragraph under §4.10 before writing any code, the naive wiring is functionally
-   useless. The tax-per-line ADR is cheap now, expensive once Stage 10 returns or a VAT201 report
-   recomputes from a total and disagrees with the ledger.
-3. **The mechanical DoD gaps (§4.24's OpenAPI examples, §4.22's replication-test gap) and the one
-   remaining low-severity item (§4.20's `MatchedNet`/`PriceVariance` mislabeling, §4.25's missing
-   architecture test for CLAUDE.md §7 rule 13)** are straightforward and can be swept up alongside
-   whichever of the above a session is already touching, rather than scheduled as their own pass.
-   §4.26 (Imports rollback idempotency) and §4.23 (entitlement gate, all five modules) are **DONE**.
-4. **Only then Stage 06c.** Unchanged reasoning from the 2026-08-22 note: 06c retrofits `company_id`
+`money-and-tax` was retried against `46625f6`/`26a2a3d` and stalled three times running — first
+reaching for Testcontainers/Docker (this machine has neither; a comment on the same failure exists in
+`scripts/pg-test.sh` itself, written for exactly this machine), retried with an explicit instruction not
+to touch Docker and reaching for it again anyway (stalled 600s waiting on a daemon that will never
+answer), retried a third time and stalled mid-analysis for no evident reason. Rather than retry a fourth
+time, did the review directly: read both diffs in full, re-derived the arithmetic, and checked the two
+concerns `stock-availability-guard`'s findings raised by analogy.
+
+**Findings, doing the review by hand:**
+- §4.20's arithmetic and ordering are correct as committed — checked-then-write, the match's own status
+  check still runs first (an already-blocked match still fails on its own verdict, unchanged), and
+  nothing is written to the order until every line has passed the release-time re-check. No partial
+  write on refusal.
+- No money/tax/rounding concern in either commit — neither touches pricing, currency or a rounding
+  boundary, only quantity comparisons (§4.20) and a new repository method (§4.21).
+- **The one real gap, the exact shape `stock-availability-guard` found in the Warehouse fix**: both
+  `46625f6`'s and `26a2a3d`'s own new tests prove their fix once a first release/completion has already
+  committed — sequential, not concurrent. Checked whether the race was actually open: `PurchaseOrderLine`
+  is a full `Entity` (`PurchaseOrderLineConfiguration : EntityConfiguration<PurchaseOrderLine>`), so it
+  carries its own `RowVersion` concurrency token by the same base-class convention `BinStock` does — the
+  race was never actually reachable, only unproven. §4.21 (Sales) already had genuine coverage from the
+  start, since `FindForUpdateAsync` blocks on an actual Postgres row lock rather than relying on
+  `RowVersion` after the fact — a stronger, different mechanism, correctly not needing the same fix.
+- Closed with the missing proof: a new test (`Two_genuinely_concurrent_releases_against_the_same_order_line_cannot_both_invoice`,
+  `ProcurementCommandTests.cs`) opens two independent database contexts, has both record an invoice
+  against the same order line before either commits, and proves the first's `SaveChanges` wins while the
+  second throws `DbUpdateConcurrencyException` — the same pattern the Warehouse concurrency test already
+  established. `ProcurementHarness` gained a `ConnectionString` property to make this possible, matching
+  `SalesHarness` and `WarehouseHarness`.
+
+**The agent panel against today's whole fix pass is now genuinely complete.** All four review agents
+that were relevant to this session's commits have reported: `stock-availability-guard` (two real
+findings, fixed), `sync-and-offline` (clean), `architecture-guard` (one real finding, fixed),
+`money-and-tax` (one real finding, fixed, reviewed directly after repeated infrastructure stalls rather
+than by the agent itself — worth noting the review happened, even though the usual channel for it kept
+failing). Full suite: 736 unit + 34 architecture + 407 integration, all green.
+
+---
+
+**Order of work, 2026-08-23 (night) — supersedes the 2026-08-23 (evening) note above it.**
+
+**The agent panel is DONE, in full**, all four agents, both real findings fixed — see the top-of-file
+summary and the 2026-08-23 (night) session-log entry. §4.12 remains DONE. ADR-134 remains written. What
+remains:
+
+1. **§4.10 (the read-only carve-outs) and the tax-per-line ADR** — unchanged from the 2026-08-22 note,
+   now the top item. `licence-safety` has already adjudicated §4.10's shape (option (a), the ADR-028
+   session mechanism, only the reprint needing a fourth `ReadOnlyExemption` kind) — read the "trap in
+   the obvious implementation" paragraph under §4.10 before writing any code, the naive wiring is
+   functionally useless. The tax-per-line ADR is cheap now, expensive once Stage 10 returns or a VAT201
+   report recomputes from a total and disagrees with the ledger.
+2. **The mechanical DoD gaps (§4.24's OpenAPI examples, §4.22's replication-test gap) and the one
+   remaining low-severity item (§4.20's `MatchedNet`/`PriceVariance` mislabeling)** are straightforward
+   and can be swept up alongside whichever of the above a session is already touching, rather than
+   scheduled as their own pass. §4.26, §4.23 and §4.25 are all **DONE**.
+3. **Only then Stage 06c.** Unchanged reasoning from the 2026-08-22 note: 06c retrofits `company_id`
    across every table these four stages created, and every defect above would have had to be found and
    fixed *again*, per company database, had it been retrofitted first. Fixing them once, now, while
-   there is still one database, is the cheap version of this work — mostly done, modulo item 1's
-   still-outstanding review.
-5. **Then 06d → 06e → 07c → 08c → 14 (consuming 08c's reservation model) → 10c → 13b → 14b**, as
+   there is still one database, was the cheap version of this work — genuinely done now, agent panel
+   included.
+4. **Then 06d → 06e → 07c → 08c → 14 (consuming 08c's reservation model) → 10c → 13b → 14b**, as
    2026-08-22 already ordered them.
 
 ---
@@ -2811,33 +2856,34 @@ the entitlement gate ships to a paying tenant having never once refused anything
 
 ## 5. Next session starts here
 
-**Update, 2026-08-23 (evening): read this first — supersedes the 2026-08-22, 2026-08-23 (morning) and
-2026-08-23 (later) updates below it.**
+**Update, 2026-08-23 (night): read this first — supersedes every earlier 2026-08-23 update below it.**
 
-**Start by retrying `money-and-tax` against commits `46625f6` (Procurement release re-check) and
-`26a2a3d` (Sales row lock)** (see the "Order of work, 2026-08-23 (evening)" note in §2's session log,
-item 1). It failed twice on an API session-usage limit and was never retried a third time.
-`stock-availability-guard` *did* run against the Warehouse fix and found two real defects — a CRITICAL
-one (`BinStock.ApplyOut` could take `Available` negative) and a HIGH one (a same-bin-different-SKU
-accumulator bug) — both fixed, with tests, in commit `dd63e94`. **Given that, do not assume the
-Procurement/Sales fixes are clean just because their own tests pass.** `sync-and-offline` and
-`architecture-guard` passes are also still owed, across all nine commits from today.
+**The agent panel against today's whole fix pass is genuinely complete.** All four relevant agents
+reported: `stock-availability-guard` found and closed two real defects in the Warehouse fix (CRITICAL —
+`BinStock.ApplyOut` could take `Available` negative; HIGH — a same-bin-different-SKU accumulator bug);
+`sync-and-offline` reviewed the idempotency lift and found nothing; `architecture-guard` found and
+closed one real gap (`RequireModule`'s doc comment promised an architecture test that didn't exist);
+`money-and-tax` stalled three times against the Procurement/Sales fixes (twice reaching for
+Docker/Testcontainers, which this machine doesn't have) and was reviewed directly instead, finding and
+closing one real gap of the same shape `stock-availability-guard` found (a passing test suite that only
+proved the fix sequentially, not against a genuine concurrent race — `PurchaseOrderLine`'s own
+`RowVersion` was already protecting it, just unproven). **Do not re-run this panel** — it is done, not
+partial. **§4.12 is fully closed. ADR-134 is written.** Neither is owed any further work.
 
-**§4.12 (module entitlement gate) is fully closed** — the fail-closed fallback fixed, `RequireModule`
-wired onto all 27 route groups across Pos/Sales/Imports/Procurement/Warehouse, proven with a real
-end-to-end HTTP test. **ADR-134 is written** (`BinStock.QuantityReserved`/`Available`). Neither is
-owed any further work.
+**Start with §4.10 (the read-only carve-outs) and the tax-per-line ADR** — see the "Order of work,
+2026-08-23 (night)" note in §2's session log, item 1. `licence-safety` has already adjudicated §4.10's
+shape (option (a), the ADR-028 session mechanism, only the reprint needing a fourth
+`ReadOnlyExemption` kind) — **read the "trap in the obvious implementation" paragraph under §4.10
+before writing any code**, the naive wiring is functionally useless.
 
 **One thing still open, unrelated to any of today's fixes:** §4.11 itself. Today's session used
 `OpenSaleCommand`'s existing idempotent-replay pattern as the template for five *other* commands; it
 did not touch the rest of POS's own sale sequence, which is what §4.11 actually names. `09b` stays
 blocked on it.
 
-**Once the retried panel is clean (or its findings are fixed), the order is**: §4.10 (the read-only
-carve-outs — `licence-safety` has already adjudicated the shape, read the "trap" paragraph before
-coding) and the tax-per-line ADR, the mechanical DoD sweeps (§4.20's `MatchedNet` mislabeling, §4.22
-OpenAPI examples, §4.25's missing architecture test), **then Stage 06c**, then 06d → 06e → 07c → 08c →
-14 → 10c → 13b → 14b.
+**After §4.10 and the tax ADR**: the mechanical DoD sweeps (§4.20's `MatchedNet` mislabeling, §4.22
+OpenAPI examples — the largest remaining item, dozens of endpoints), **then Stage 06c**, then 06d →
+06e → 07c → 08c → 14 → 10c → 13b → 14b.
 
 **One operational note carried forward:** the local `pg-test.sh` cluster's data directory can grow
 large enough to fill the disk across a long session of `dotnet test` runs (it did today — 44GB, ~159
