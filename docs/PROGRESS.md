@@ -6,12 +6,12 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
-**Last updated:** 2026-08-20 · **Current stage:** 14 — Order Management (orders, allocation,
-backorders, click & collect, returns) · **Status:** built and independently verified — 812 tests green,
-0 warnings, 91.3% coverage on the stage's Domain + Application, migration reversible, and a seeded
-store that has really ordered, part-shipped, backordered, reallocated, collected and returned. **Sits
-on branch `stage-14-order-management`, not yet merged to `main`** — merging it is the first thing the
-next session should do, before picking a new stage (CLAUDE.md §1a: one stage in progress at a time).
+**Last updated:** 2026-08-21 · **Current stage:** 14 — Order Management (orders, allocation,
+backorders, click & collect, returns) · **Status:** DONE and merged to `main` (`d35b5d8`, 2026-08-21) —
+812 tests green, 0 warnings, 91.3% coverage on the stage's Domain + Application, migration reversible,
+and a seeded store that has really ordered, part-shipped, backordered, reallocated, collected and
+returned. `stage-14-order-management` is fully merged; no stage is currently `IN_PROGRESS` on an
+unmerged branch (CLAUDE.md §1a satisfied — clear to start a new stage next session).
 **The six agent reviews still have not run** against Stages 10, 11, 12, 13 or 14 (§4.17) — five stages
 deep now, and the oldest open item in this file. **Stage 09 remains REOPENED**, merged to `main` but
 not DONE: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified` against the committed
@@ -24,9 +24,7 @@ anywhere in the product). Fix these before building further on POS or anything s
 
 ## 1. Stage status
 
-`main` carries 00 through 04b plus 06, 07, 08, 09, 10, 11, 12 and 13. Stage 14 is built and verified
-but sits on unmerged branch `stage-14-order-management` — merge it before starting anything new. Stage
-05 was started in its own worktree so it could proceed in parallel without colliding on shared files,
+`main` carries 00 through 04b plus 06, 07, 08, 09, 10, 11, 12, 13 and 14. Stage 05 was started in its own worktree so it could proceed in parallel without colliding on shared files,
 and is the one branch still holding unverified work; 07, 08 and 09 were all finished and merged ahead
 of it, out of the roadmap's documented order, because none of them needs 05's approval engine to
 compile or pass (their approval gates are documented no-ops) and leaving verified stages on branches
@@ -74,7 +72,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (branch `stage-11-data-import`) — 995 tests green, migration reversible, seeded store has really imported and really rolled one back. Closes §4.16. **The six agent reviews did not run**; see §4.17 | 2026-08-16 |
 | 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) — 1,069 tests green, 83.46% coverage on the stage's Domain + Application, migration reversible in both directions, seeded store has really bought and really matched a supplier invoice. Found and fixed ADR-086 (stock was valued VAT-inclusive) while verifying the seed, §4.18 (the module sweep swept nothing on a full-suite run) and a replication registry thirteen entities short in two documents while closing the exit checklist. **The six agent reviews did not run**; see §4.17 | 2026-08-17 |
 | 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **DONE** (main) — 1,157 tests green, 86.17% coverage on the stage's Domain + Application, migration reversible, seeded warehouse has really shelved and really shipped, and the cycle count variance really reached the GL through Stage 08's existing seeded rule (`JNL-000009`). Four test-coverage gaps against the stage's own acceptance list closed this session. **The six agent reviews did not run**; see §4.17 | 2026-08-19 |
-| 14 | Order management — orders, allocation, backorders, click & collect, returns | **DONE, but on branch `stage-14-order-management`, NOT yet merged to `main`** — 812 tests green, 91.3% coverage on the stage's Domain + Application, migration reversible, seeded store has really ordered/shipped/backordered/reallocated/collected/returned. Found and fixed a tracked-entity mutation bug (`ListBackorderedOrdersAsync` was not `AsNoTracking()`) while verifying the seed. ADR-092–096. **The six agent reviews did not run**; see §4.17 | 2026-08-20 |
+| 14 | Order management — orders, allocation, backorders, click & collect, returns | **DONE** (main) — 812 tests green, 91.3% coverage on the stage's Domain + Application, migration reversible, seeded store has really ordered/shipped/backordered/reallocated/collected/returned. Found and fixed a tracked-entity mutation bug (`ListBackorderedOrdersAsync` was not `AsNoTracking()`) while verifying the seed. ADR-092–096. **The six agent reviews did not run**; see §4.17 | 2026-08-21 |
 | 15 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main`** — see
@@ -633,13 +631,12 @@ Superseded handoff notes from earlier stages (obsolete pipeline-slot claims from
 pricing notes from Stage 09, etc.) have moved to `docs/archive/PROGRESS-ARCHIVE.md` §3. None of it is
 needed to resume work today — everything still live is below.
 
-### Do this first: merge Stage 14 to `main`
+### Stage 14 is merged — no merge is outstanding
 
-`stage-14-order-management` is built, tested and independently verified (§1's table), and per CLAUDE.md
-§1a exactly one stage is ever in progress at a time — starting Stage 15 (or anything else) before this
-merges would mean two unmerged stage branches at once, the exact pattern that cost this project entire
-sessions of reconciliation with Stages 05/06/07 (see §1 and §5's "What is still unmerged or unbuilt").
-Merge first, then continue below.
+`stage-14-order-management` merged to `main` at `d35b5d8` (2026-08-21). Per CLAUDE.md §1a exactly one
+stage is ever in progress at a time, and none is right now — Stage 05 remains on its own worktree
+(§1, §5's "What is still unmerged or unbuilt"), which is a pre-existing parallel-work exception, not a
+stage left mid-flight. Nothing needs merging before picking the next stage.
 
 ### What carries forward from Stage 14
 
