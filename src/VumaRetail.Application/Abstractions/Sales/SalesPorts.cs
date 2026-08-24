@@ -239,6 +239,17 @@ public interface ISalesReturnRepository
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<SalesReturn?> FindAsync(Guid salesReturnId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Finds a return with its lines loaded, row-locked until the command's own commit — the
+    /// concurrency-safe half of §4.21's fix. Two concurrent <c>CompleteSalesReturnCommand</c> calls for
+    /// the same return both reading <see cref="SalesReturnStatus.Draft"/> under a plain read is a genuine
+    /// double-refund; the second caller through here blocks until the first commits or rolls back, and
+    /// then sees the first caller's completed status rather than the stale one it started with.
+    /// </summary>
+    /// <param name="salesReturnId">The return.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<SalesReturn?> FindForUpdateAsync(Guid salesReturnId, CancellationToken cancellationToken = default);
+
     /// <summary>Every return raised against one sale, oldest first.</summary>
     /// <param name="saleId">The sale.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>

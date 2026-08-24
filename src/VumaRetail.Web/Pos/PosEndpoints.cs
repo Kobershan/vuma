@@ -11,6 +11,7 @@ using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Hardware.Receipts;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Pos;
 
@@ -28,7 +29,12 @@ namespace VumaRetail.Web.Pos;
 /// A sale is a resource with sub-resources rather than one "record a sale" endpoint, because that is
 /// the shape a till actually works in: lines arrive one scan at a time and the customer changes their
 /// mind halfway through. The one-shot path exists too — a terminal that traded offline supplies its
-/// own <c>saleId</c> on <c>POST /pos/sales</c> and replays the sequence, and the replay is idempotent.
+/// own <c>saleId</c> on <c>POST /pos/sales</c> and replays the sequence, and every write in that
+/// sequence is idempotent on a client-supplied id: <c>OpenSaleCommand</c>, <c>AddSaleLineCommand</c>,
+/// <c>TenderSaleCommand</c>, <c>CompleteSaleCommand</c> and <c>RecordReceiptPrintCommand</c> each find
+/// and return what a replay already created rather than creating it twice (§4.11). Voiding, parking and
+/// resuming are not part of this — replaying one of those against a sale it has already been applied to
+/// is refused with a typed error, not silently repeated.
 /// </para>
 /// <para>
 /// There is no <c>PUT</c> or <c>DELETE</c> on a sale, a line or a tender. A line is voided, a sale is
@@ -46,7 +52,7 @@ public static class PosEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder tills = api.MapGroup("/pos/till-sessions").WithTags("POS");
+        RouteGroupBuilder tills = api.MapGroup("/pos/till-sessions").WithTags("POS").RequireModule("pos");
 
         tills.MapPost("/", OpenTillSessionAsync)
             .RequirePermission(PosPermissions.TillOpen)
@@ -82,7 +88,7 @@ public static class PosEndpoints
                 "422 while any sale on the session is still open or parked. The expected figure is "
                 + "derived and is never an input.");
 
-        RouteGroupBuilder sales = api.MapGroup("/pos/sales").WithTags("POS");
+        RouteGroupBuilder sales = api.MapGroup("/pos/sales").WithTags("POS").RequireModule("pos");
 
         sales.MapPost("/", OpenSaleAsync)
             .RequirePermission(PosPermissions.SaleRing)
@@ -175,14 +181,14 @@ public static class PosEndpoints
             .Produces<IReadOnlyList<ReceiptPrintResponse>>()
             .WithSummary("Every print of this receipt, oldest first.");
 
-        RouteGroupBuilder terminals = api.MapGroup("/pos/terminals").WithTags("POS");
+        RouteGroupBuilder terminals = api.MapGroup("/pos/terminals").WithTags("POS").RequireModule("pos");
 
         terminals.MapGet("/{terminalId:guid}/parked-sales", ListParkedSalesAsync)
             .RequirePermission(PosPermissions.SaleView)
             .Produces<IReadOnlyList<SaleResponse>>()
             .WithSummary("Every sale set aside at one terminal, oldest first.");
 
-        RouteGroupBuilder catalog = api.MapGroup("/pos/catalog").WithTags("POS");
+        RouteGroupBuilder catalog = api.MapGroup("/pos/catalog").WithTags("POS").RequireModule("pos");
 
         catalog.MapGet("/barcode/{barcode}", LookupBarcodeAsync)
             .RequirePermission(PosPermissions.SaleRing)
@@ -190,7 +196,7 @@ public static class PosEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Resolves a scanned barcode into something the till can ring up.");
 
-        RouteGroupBuilder reconciliation = api.MapGroup("/pos/reconciliation").WithTags("POS");
+        RouteGroupBuilder reconciliation = api.MapGroup("/pos/reconciliation").WithTags("POS").RequireModule("pos");
 
         reconciliation.MapGet("/stock-issues", ListRefusedStockIssuesAsync)
             .RequirePermission(PosPermissions.SaleView)
@@ -268,7 +274,7 @@ public static class PosEndpoints
     {
         Guid id = await dispatcher
             .SendAsync(
-                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId, request.Currency),
+                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -298,7 +304,8 @@ public static class PosEndpoints
                     request.ItemVariantId,
                     new Quantity(request.Quantity, request.UnitOfMeasure),
                     new Money(request.UnitPrice, request.Currency),
-                    discount),
+                    discount,
+                    request.SaleLineId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -323,7 +330,8 @@ public static class PosEndpoints
 
         Guid id = await dispatcher
             .SendAsync(
-                new TenderSaleCommand(saleId, type, new Money(request.Amount, request.Currency), request.Reference),
+                new TenderSaleCommand(
+                    saleId, type, new Money(request.Amount, request.Currency), request.Reference, request.SaleTenderId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -390,7 +398,8 @@ public static class PosEndpoints
         CancellationToken cancellationToken)
     {
         Guid id = await dispatcher
-            .SendAsync(new RecordReceiptPrintCommand(saleId, request.Reason), cancellationToken)
+            .SendAsync(
+                new RecordReceiptPrintCommand(saleId, request.Reason, request.ReceiptPrintId), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.Created($"/api/v1/pos/sales/{saleId}/receipt/prints", new PosIdResponse(id));

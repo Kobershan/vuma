@@ -49,6 +49,7 @@ public static class LicensingServiceCollectionExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(stateDirectory);
 
         services.AddSingleton(options);
+        services.AddSingleton<IOpenSessionWindows>(options);
 
         services.AddSingleton<ILicenceVerifier>(
             new Ed25519LicenceVerifier(options.PublicKey, options.UsesDevelopmentKey));

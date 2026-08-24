@@ -178,6 +178,16 @@ public sealed class ReleaseSupplierInvoiceCommandValidator
 /// on match, because an unreleased match may well be the blocked one somebody is about to correct, and
 /// counting it would block the correction too.
 /// </para>
+/// <para>
+/// <b>Business rule 11 is re-checked here, against the order's current state, not trusted from match
+/// time.</b> A match's own <c>Compare</c> verdict is only ever as fresh as the last time somebody
+/// queried <c>SumInvoicedQuantityAsync</c> for it — if a second, independently-matched invoice against
+/// the same order line was released in the window between this match's own matching and this release,
+/// releasing both would invoice more than was ever received, a real duplicate GL liability neither
+/// match's own status caught (§4.20). Checked in a pass that writes nothing before a pass that writes
+/// everything, the same shape <c>RollbackImportBatchCommand</c> uses, so a line discovered over quota
+/// halfway through never leaves the order half-advanced.
+/// </para>
 /// </remarks>
 /// <param name="matches">Match lookup.</param>
 /// <param name="orders">The order whose lines are advanced.</param>
@@ -210,10 +220,32 @@ public sealed class ReleaseSupplierInvoiceCommandHandler(
             .ConfigureAwait(false)
             ?? throw new ProcurementNotFoundException("purchase order", match.PurchaseOrderId);
 
+        // The match's own status is checked first, unchanged: a match blocked at match time (this
+        // invoice's own quantity or price variance) is refused on that verdict, PROCUREMENT_BLOCKED_
+        // MATCH_CANNOT_BE_RELEASED, same as always.
         match.Release(releasedBy, clock.UtcNow);
 
-        foreach (SupplierInvoiceMatchLine line in match.Lines
-            .Where(line => line.PurchaseOrderLineId is not null))
+        List<SupplierInvoiceMatchLine> orderLines = match.Lines
+            .Where(line => line.PurchaseOrderLineId is not null)
+            .ToList();
+
+        // A second, narrower check the match's own status cannot make for itself: a sibling match
+        // against the same order line released between this match's own matching and this release
+        // already advanced PurchaseOrderLine.InvoicedQuantity — re-checking against that current figure,
+        // not the match-time snapshot SumInvoicedQuantityAsync took, is what actually stops a duplicate
+        // GL liability (§4.20). Nothing is written to the order until every line has passed.
+        foreach (SupplierInvoiceMatchLine line in orderLines)
+        {
+            PurchaseOrderLine orderLine = order.RequireLine(line.PurchaseOrderLineId!.Value);
+            Quantity cumulativeInvoiced = orderLine.InvoicedQuantity + line.InvoicedQuantity;
+
+            if (cumulativeInvoiced.Value > orderLine.ReceivedQuantity.Value)
+            {
+                throw ProcurementRuleException.ReleaseExceedsReceivedQuantity(orderLine.Id);
+            }
+        }
+
+        foreach (SupplierInvoiceMatchLine line in orderLines)
         {
             order.RecordInvoiced(line.PurchaseOrderLineId!.Value, line.InvoicedQuantity);
         }

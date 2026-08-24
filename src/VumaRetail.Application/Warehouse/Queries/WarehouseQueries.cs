@@ -70,7 +70,14 @@ public sealed class ListActiveBinsForLocationQueryHandler(IBinRepository bins)
 }
 
 /// <summary>A bin's balance for one stock-keeping unit, as read back out.</summary>
-public sealed record BinStockResult(Guid BinId, Guid? ItemId, Guid? ItemVariantId, Quantity QuantityOnHand);
+/// <param name="BinId">The bin.</param>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="QuantityOnHand">What is physically in the bin.</param>
+/// <param name="QuantityReserved">Spoken for by a released, unconfirmed pick allocation (§7 rule 21).</param>
+/// <param name="Available">What the allocator may still promise — <c>QuantityOnHand - QuantityReserved</c>.</param>
+public sealed record BinStockResult(
+    Guid BinId, Guid? ItemId, Guid? ItemVariantId, Quantity QuantityOnHand, Quantity QuantityReserved, Quantity Available);
 
 /// <summary>Reads one stock-keeping unit's balance in one bin.</summary>
 public sealed record GetBinStockQuery(Guid BinId, Guid? ItemId, Guid? ItemVariantId) : IQuery<BinStockResult>;
@@ -90,7 +97,7 @@ public sealed class GetBinStockQueryHandler(IBinStockRepository binStocks) : IQu
     }
 
     internal static BinStockResult ToResult(BinStock balance)
-        => new(balance.BinId, balance.ItemId, balance.ItemVariantId, balance.QuantityOnHand);
+        => new(balance.BinId, balance.ItemId, balance.ItemVariantId, balance.QuantityOnHand, balance.QuantityReserved, balance.Available);
 }
 
 /// <summary>Lists every balance held in one bin.</summary>

@@ -13,11 +13,16 @@ namespace VumaRetail.Application.Sales.Commands;
 /// <param name="SaleId">The sale the goods came off.</param>
 /// <param name="Reason">Why they came back.</param>
 /// <param name="RefundTenderType">How the refund is being given.</param>
+/// <param name="SalesReturnId">
+/// The return's identity, or <c>null</c> to mint one here. A caller that already sent this create once
+/// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.21).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateSalesReturnCommand(
     Guid SaleId,
     string Reason,
-    TenderType RefundTenderType) : ICommand<Guid>;
+    TenderType RefundTenderType,
+    Guid? SalesReturnId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed create-return command before it reaches the handler.</summary>
 public sealed class CreateSalesReturnCommandValidator : AbstractValidator<CreateSalesReturnCommand>
@@ -53,6 +58,18 @@ public sealed class CreateSalesReturnCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.SalesReturnId is { } replayed)
+        {
+            SalesReturn? already = await returns.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.21) — a dropped-connection retry returns the draft return it
+                // already raised instead of raising a second one, before an RTN number is even drawn.
+                return already.Id;
+            }
+        }
+
         Guid authorisedBy = SalesActor.RequireUserId(principal);
 
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
@@ -71,7 +88,8 @@ public sealed class CreateSalesReturnCommandHandler(
             command.Reason,
             command.RefundTenderType,
             authorisedBy,
-            clock.UtcNow);
+            clock.UtcNow,
+            command.SalesReturnId);
 
         returns.Add(created);
 
@@ -184,7 +202,7 @@ public sealed class CompleteSalesReturnCommandValidator : AbstractValidator<Comp
 }
 
 /// <summary>Delegates to <see cref="ISalesReturnCompletionService"/> and reports what happened.</summary>
-/// <param name="returns">Return lookup.</param>
+/// <param name="returns">Return lookup, under a row lock (§4.21).</param>
 /// <param name="completion">The three steps completion always takes, in one place.</param>
 public sealed class CompleteSalesReturnCommandHandler(
     ISalesReturnRepository returns, ISalesReturnCompletionService completion)
@@ -196,8 +214,12 @@ public sealed class CompleteSalesReturnCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // FindForUpdateAsync, not FindAsync: two concurrent completions for the same return must not
+        // both read Draft before either writes. The second caller blocks here until the first commits,
+        // then reads the first caller's Completed status and Complete() below refuses it honestly
+        // instead of both refunding (§4.21).
         SalesReturn salesReturn = await returns
-            .FindAsync(command.SalesReturnId, cancellationToken)
+            .FindForUpdateAsync(command.SalesReturnId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new SalesNotFoundException("sales return", command.SalesReturnId);
 

@@ -12280,6 +12280,19 @@ namespace VumaRetail.Infrastructure.Migrations
                                 .HasColumnName("quantity_on_hand_value");
                         });
 
+                    b.ComplexProperty<Dictionary<string, object>>("QuantityReserved", "VumaRetail.Domain.Warehouse.BinStock.QuantityReserved#Quantity", b1 =>
+                        {
+                            b1.Property<string>("UnitOfMeasure")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("quantity_reserved_uom");
+
+                            b1.Property<decimal>("Value")
+                                .HasColumnType("numeric(18,6)")
+                                .HasColumnName("quantity_reserved_value");
+                        });
+
                     b.HasKey("Id")
                         .HasName("pk_bin_stock");
 
@@ -12312,6 +12325,8 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.ToTable("bin_stock", "warehouse", t =>
                         {
                             t.HasCheckConstraint("ck_bin_stock_exactly_one_sku", "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1");
+
+                            t.HasCheckConstraint("ck_bin_stock_reserved_not_exceeding_on_hand", "quantity_reserved_value <= quantity_on_hand_value");
                         });
                 });
 

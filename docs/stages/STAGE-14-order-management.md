@@ -1,12 +1,12 @@
 # STAGE 14 — Order Management: omnichannel orders, allocation, backorders, click & collect, returns
 
-**Status:** IN_PROGRESS (2026-08-20) · **Depends on:** 10 (price resolution — every order line is priced
-through `IPriceResolver`, never a second pricing path) and 13 (warehouse — `PickWave`/`PickTask` is this
-stage's fulfilment engine, not something it forks) · **Reference reading:** `docs/DATA_MODEL.md` §1–§3,
-`docs/CONVENTIONS.md` §1–§6, `docs/API_STANDARDS.md` §3–§5 and §8–§9, `docs/TESTING.md` §2–§3,
-`CLAUDE.md` §7 rules 1, 2, 3, 7, 8, 9, 12, 13, 19, `docs/stages/STAGE-10-sales-promotions.md` (price
-resolution and `SalesReturn` — read what it is, because this stage deliberately does not duplicate it),
-`docs/stages/STAGE-13-warehouse-management.md` (`PickWave`/`PickTask`/`ShipmentConfirmation`, and its
+**Status:** DONE — merged to `main` at `d35b5d8` (2026-08-21) · **Depends on:** 10 (price resolution —
+every order line is priced through `IPriceResolver`, never a second pricing path) and 13 (warehouse —
+`PickWave`/`PickTask` is this stage's fulfilment engine, not something it forks) · **Reference reading:**
+`docs/DATA_MODEL.md` §1–§3, `docs/CONVENTIONS.md` §1–§6, `docs/API_STANDARDS.md` §3–§5 and §8–§9,
+`docs/TESTING.md` §2–§3, `CLAUDE.md` §7 rules 1, 2, 3, 7, 8, 9, 12, 13, 19, `docs/stages/STAGE-10-sales-promotions.md`
+(price resolution and `SalesReturn` — read what it is, because this stage deliberately does not duplicate
+it), `docs/stages/STAGE-13-warehouse-management.md` (`PickWave`/`PickTask`/`ShipmentConfirmation`, and its
 "Notes for later stages" naming this stage as the real caller), ADR-074 (why quotes/invoices are 10c,
 not here), ADR-085 (a new caller of an existing concept gets its own reference/event type, not a
 duplicate), ADR-087–ADR-091 (the Stage 13 shape this stage builds on), **ADR-092**–**ADR-096** (the
@@ -64,6 +64,33 @@ second shipment concept, or a second warehouse demand model — it raises real `
   account for either.
 - **No order screen.** Every deliverable is an endpoint, for the reason Stages 09–13 all stopped at
   (`PROGRESS.md` §4.3, ADR-031): `VumaRetail.Desktop` cannot build or run on this machine.
+
+## Amendments — revision 4 planning arrived after this stage shipped; not built here
+
+Three requirements arrived from `docs/MULTI_COMPANY.md`'s revision-4 planning pass (2026-08-22), on a
+branch that diverged from this stage's own build and never merged into it. They describe a **different,
+larger redesign** of this stage — `SalesChannel` as a row, an append-only `OrderAllocation`/
+`OrderReservation` ledger, `OrderFulfilment`/`OrderReturn` as their own aggregates (ten tables, not the
+four above) — none of which is implemented. Nothing above should be read as satisfying them; they are
+recorded here so the next session that touches this stage does not have to rediscover them.
+
+1. **COD as a settlement term** (ADR-111) — `SettlementTerms` carrying `CashOnDelivery`, consuming no
+   credit-group exposure, released for dispatch only against a captured payment or a named
+   driver-collect authorisation.
+2. **Delivery geography normalised at capture and snapshotted onto the order** (ADR-113) — `Province`/
+   `City`/`Suburb`/`PostalCode` from a per-tenant reference list, so Stage 13b can build consolidated
+   pick waves from the snapshot without a later address edit changing what an already-built wave
+   contains.
+3. **Allocation sourced from Stage 08c's cross-company reservation ledger** (ADR-099, ADR-103) instead
+   of this stage's own direct `PickTask` read (ADR-092). **This is the load-bearing one.** ADR-092's own
+   text already flags it: "superseded in direction, not yet in code" — the `IOrderFulfilmentReader`
+   design above still stands until 08c lands, at which point `ConfirmOrderCommand` and
+   `ReattemptBackorderedAllocationsCommand` should be rewired onto `IReservationService`/
+   `IAvailabilityService` rather than reading `PickTask` directly, with **available never goes negative
+   in any company** applying from the first line of that rework (08c's rule, ADR-103).
+
+None of the three changes the four aggregates or the business rules below — they are a follow-up
+rework, tracked here and in `docs/PROGRESS.md`, not a correction of what shipped.
 
 ## Deliverables
 
@@ -235,27 +262,28 @@ return of the first order's shipped line, checked against the ledger and the GL.
 
 ## Exit checklist
 
-- [ ] `dotnet build -c Release` — zero warnings, zero errors
-- [ ] `dotnet test` — all green via `scripts/test.sh`; ≥ 80% line coverage on the stage's Domain +
-      Application
-- [ ] `Orders` migration generated, applied and reversed (`Down` tested), snapshot not stale
-- [ ] Every endpoint in `/openapi/v1.json` with summaries and error responses
-- [ ] Permissions registered in the RBAC catalogue; confirm/cancel/complete/return-complete each
+- [x] `dotnet build -c Release` — zero warnings, zero errors
+- [x] `dotnet test` — all green via `scripts/test.sh`; ≥ 80% line coverage on the stage's Domain +
+      Application (91.3% achieved)
+- [x] `Orders` migration generated, applied and reversed (`Down` tested), snapshot not stale
+- [x] Every endpoint in `/openapi/v1.json` with summaries and error responses
+- [x] Permissions registered in the RBAC catalogue; confirm/cancel/complete/return-complete each
       asserted to 403 without them, one test case per operation
-- [ ] `orders.order.fulfilled` and `orders.return.completed` posting rules registered with Stage 07 and
+- [x] `orders.order.fulfilled` and `orders.return.completed` posting rules registered with Stage 07 and
       **verified rather than assumed** — a seeded order really reaches the GL through them
-- [ ] Module entitlement flag declared in the manifest (`orders`, not core)
-- [ ] Usage counters — automatic, via the `orders` schema (`UsageCounterSource` groups by schema)
-- [ ] Replication scope declared on all four new entities; `SYNC_AND_BACKUP.md` and `DATA_MODEL.md`
+- [x] Module entitlement flag declared in the manifest (`orders`, not core)
+- [x] Usage counters — automatic, via the `orders` schema (`UsageCounterSource` groups by schema)
+- [x] Replication scope declared on all four new entities; `SYNC_AND_BACKUP.md` and `DATA_MODEL.md`
       updated
-- [ ] `scripts/seed.sh` produces a store that has really ordered, part-shipped, backordered, reallocated,
+- [x] `scripts/seed.sh` produces a store that has really ordered, part-shipped, backordered, reallocated,
       collected and returned — checked in SQL and against the GL
-- [ ] ADR-092–ADR-096 appended to `docs/DECISIONS.md`
+- [x] ADR-092–ADR-096 appended to `docs/DECISIONS.md`
 - [ ] The six agent reviews (`docs/AGENTS.md`) run at the checkpoints CLAUDE.md specifies; findings acted
       on or recorded with a reason. **This is the oldest standing debt in the project** (`PROGRESS.md`
-      §4.17, unresolved since Stage 09) — this stage does not add a fifth entry to that list if the
-      environment this session runs in can actually spawn subagents.
-- [ ] `docs/PROGRESS.md` updated, committed
+      §4.17) — this stage did not add a sixth entry to that list because the environment this session
+      ran in could not spawn subagents; it remains open and is tracked in `PROGRESS.md` alongside every
+      other stage still owed a real review.
+- [x] `docs/PROGRESS.md` updated, committed
 
 ## Notes for later stages
 
@@ -270,3 +298,7 @@ return of the first order's shipped line, checked against the ledger and the GL.
   fields — graduate into a real carrier integration; this stage adds no carrier logic of its own.
 - **Per-shipment revenue recognition**, if a later requirement needs it, is a deliberate change to rule
   5, not an oversight being corrected.
+- **Stage 06c/08c (multi-company, cross-company availability)** are this stage's largest open follow-up
+  — see "Amendments — revision 4 planning" above and ADR-092's supersession note. Allocation moving from
+  a direct `PickTask` read to Stage 08c's `IReservationService`/`IAvailabilityService` is a rework, not
+  a greenfield build; do it once 06c/06d/08c exist rather than guessing their shape now.

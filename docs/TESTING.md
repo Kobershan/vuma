@@ -126,7 +126,10 @@ against **read-only** rather than a hard lock — see `docs/LICENSING.md` §4):
   time, cannot be reused, and cannot be forged without the signing key
 - Write unlock: a vendor-granted, time-limited restoration of write access to a read-only tenant; read
   access never needed unlocking because it was never blocked
-- Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start
+- Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start; past
+  its own deadline (30 minutes for a sale, 12 hours for a cash-up) every in-flight command is refused
+  regardless of when the restriction began, and winding the clock back does not reopen the window
+  (ADR-135)
 
 **Read-only correctness.** The other mandatory suite (ADR-028). In read-only, assert that:
 - every report, dashboard, export and reprint succeeds — sweep the full report catalogue, not a sample

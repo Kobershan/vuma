@@ -6,6 +6,8 @@ using VumaRetail.Application.Procurement.Queries;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Procurement;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Procurement;
@@ -166,6 +168,104 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Releasing_a_second_match_that_would_over_invoice_a_line_only_after_the_first_released_is_refused()
+    {
+        // §4.20, CRITICAL: SumInvoicedQuantityAsync only counts released matches (by design, so an
+        // unreleased match under correction never blocks its own fix). Two invoices matched while
+        // neither is released each pass their own check independently — the race is at release, not at
+        // match, and the fix has to be there too.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+
+        (Guid orderId, Guid orderLineId) = await ReceivedOrderAsync(harness, ordered: 100m, received: 100m);
+
+        ThreeWayMatchResult firstMatch = await harness.SendAsync(new MatchSupplierInvoiceCommand(
+            orderId,
+            "INV-A",
+            DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime),
+            new Money(4_800m, "ZAR"),
+            new Money(720m, "ZAR"),
+            [
+                new SupplierInvoiceLineInput(
+                    orderLineId, "Coffee beans, 1kg", new Quantity(60m, "EA"), new Money(80m, "ZAR")),
+            ]));
+
+        ThreeWayMatchResult secondMatch = await harness.SendAsync(new MatchSupplierInvoiceCommand(
+            orderId,
+            "INV-B",
+            DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime),
+            new Money(4_800m, "ZAR"),
+            new Money(720m, "ZAR"),
+            [
+                new SupplierInvoiceLineInput(
+                    orderLineId, "Coffee beans, 1kg", new Quantity(60m, "EA"), new Money(80m, "ZAR")),
+            ]));
+
+        // Neither sees the other yet — both matched cleanly against the same 100 received.
+        firstMatch.IsPayable.Should().BeTrue();
+        secondMatch.IsPayable.Should().BeTrue();
+
+        await harness.SendAsync(new ReleaseSupplierInvoiceCommand(firstMatch.SupplierInvoiceMatchId));
+
+        PurchaseOrder afterFirstRelease = await harness.QueryAsync(new GetPurchaseOrderQuery(orderId));
+        afterFirstRelease.Lines[0].InvoicedQuantity.Value.Should().Be(60m);
+
+        Func<Task> releasingSecond = () => harness.SendAsync(
+            new ReleaseSupplierInvoiceCommand(secondMatch.SupplierInvoiceMatchId));
+
+        // 60 already invoiced by the first release, plus this match's own 60, is 120 against 100
+        // received — the exact duplicate-liability shape §4.20 named.
+        (await releasingSecond.Should().ThrowAsync<ProcurementRuleException>())
+            .Which.Code.Should().Be("PROCUREMENT_RELEASE_EXCEEDS_RECEIVED_QUANTITY");
+
+        // Refused, so nothing about the order or the second match moved.
+        PurchaseOrder afterRefusedRelease = await harness.QueryAsync(new GetPurchaseOrderQuery(orderId));
+        afterRefusedRelease.Lines[0].InvoicedQuantity.Value.Should().Be(60m, "the refused release must not have written anything");
+    }
+
+    [Fact]
+    public async Task Two_genuinely_concurrent_releases_against_the_same_order_line_cannot_both_invoice()
+    {
+        // The test above proves the business-rule check works once one release has already committed —
+        // but, like the Warehouse reservation fix before it (§4.19), that is a sequential proof, not a
+        // concurrency one. What actually stops two transactions racing before either commits is EF's
+        // RowVersion optimistic concurrency (ADR-035) on PurchaseOrderLine, not application logic —
+        // proven directly, the same way the Warehouse fix's equivalent test does.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+        (Guid orderId, Guid orderLineId) = await ReceivedOrderAsync(harness, ordered: 100m, received: 100m);
+
+        await using VumaRetailDbContext contextA = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        await using VumaRetailDbContext contextB = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        PurchaseOrderRepository repositoryA = new(contextA);
+        PurchaseOrderRepository repositoryB = new(contextB);
+
+        // Both read the same order line — 0 invoiced against 100 received — before either writes.
+        PurchaseOrder? orderA = await repositoryA.FindAsync(orderId);
+        PurchaseOrder? orderB = await repositoryB.FindAsync(orderId);
+        orderA.Should().NotBeNull();
+        orderB.Should().NotBeNull();
+
+        // Both writes are individually valid against what each context saw (60 <= 100), and together
+        // would invoice 120 against 100 received if both were allowed to commit.
+        orderA!.RecordInvoiced(orderLineId, new Quantity(60m, "EA"));
+        orderB!.RecordInvoiced(orderLineId, new Quantity(60m, "EA"));
+
+        await contextA.SaveChangesAsync();
+
+        // B's row version is now stale — its write must be refused, not silently merged on top.
+        Func<Task> secondSave = () => contextB.SaveChangesAsync();
+        await secondSave.Should().ThrowAsync<DbUpdateConcurrencyException>(
+            "a stale write must be refused outright, never merged into a duplicate GL liability");
+
+        // A fresh, independent read — not through harness.Context (already tracks this row, stale, from
+        // setup) — to prove what genuinely persisted.
+        await using VumaRetailDbContext contextC = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        PurchaseOrder final = (await new PurchaseOrderRepository(contextC).FindAsync(orderId))!;
+
+        final.Lines.Single(line => line.Id == orderLineId).InvoicedQuantity.Value.Should().Be(
+            60m, "only the winning transaction's invoiced quantity may have persisted");
+    }
+
+    [Fact]
     public async Task The_same_supplier_invoice_cannot_be_matched_against_one_order_twice()
     {
         await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
@@ -241,6 +341,23 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
         // The pipeline's transaction rolled it back, so nothing moved and the receipt is still a draft.
         StockBalance? balance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
         balance.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateGoodsReceiptCommand_replayed_with_the_same_id_returns_the_existing_receipt_instead_of_opening_a_second_one()
+    {
+        // §4.20 — the dropped-connection retry that used to open a duplicate draft receipt against the
+        // same order, before a GRN number is even drawn.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+        (Guid orderId, _) = await IssuedOrderAsync(harness, ordered: 100m);
+        Guid receiptId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new CreateGoodsReceiptCommand(orderId, "DN-REPLAY", null, receiptId));
+        Guid replayed = await harness.SendAsync(new CreateGoodsReceiptCommand(orderId, "DN-REPLAY", null, receiptId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<GoodsReceipt> receipts = await harness.Receipts.ListForOrderAsync(orderId);
+        receipts.Should().ContainSingle(receipt => receipt.Id == receiptId, "the replay must not open a second receipt");
     }
 
     [Fact]

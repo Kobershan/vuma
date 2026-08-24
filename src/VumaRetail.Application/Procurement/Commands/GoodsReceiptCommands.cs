@@ -15,9 +15,13 @@ namespace VumaRetail.Application.Procurement.Commands;
 /// next morning is still yesterday's delivery, and business rule 16 measures the supplier on when the
 /// truck came — not on when somebody got to the paperwork.
 /// </param>
+/// <param name="GoodsReceiptId">
+/// The receipt's identity, or <c>null</c> to mint one here. A caller that already sent this create once
+/// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.20).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateGoodsReceiptCommand(
-    Guid PurchaseOrderId, string? DeliveryNoteNumber, DateTimeOffset? ReceivedAt) : ICommand<Guid>;
+    Guid PurchaseOrderId, string? DeliveryNoteNumber, DateTimeOffset? ReceivedAt, Guid? GoodsReceiptId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed create-receipt command before it reaches the handler.</summary>
 public sealed class CreateGoodsReceiptCommandValidator : AbstractValidator<CreateGoodsReceiptCommand>
@@ -52,6 +56,18 @@ public sealed class CreateGoodsReceiptCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.GoodsReceiptId is { } replayed)
+        {
+            GoodsReceipt? already = await receipts.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.20) — a dropped-connection retry returns the open receipt it
+                // already created instead of opening a second one, before a GRN number is even drawn.
+                return already.Id;
+            }
+        }
+
         Guid receivedBy = ProcurementActor.RequireUserId(principal);
 
         PurchaseOrder order = await orders
@@ -62,7 +78,7 @@ public sealed class CreateGoodsReceiptCommandHandler(
         string number = await numbers.NextAsync(ReceiptNumberSeries, cancellationToken).ConfigureAwait(false);
 
         GoodsReceipt created = GoodsReceipt.Open(
-            order, number, command.DeliveryNoteNumber, receivedBy, command.ReceivedAt ?? clock.UtcNow);
+            order, number, command.DeliveryNoteNumber, receivedBy, command.ReceivedAt ?? clock.UtcNow, command.GoodsReceiptId);
 
         receipts.Add(created);
 

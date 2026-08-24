@@ -23,6 +23,7 @@ namespace VumaRetail.Domain.Pos;
 public sealed class SaleTender : Entity, IImmutableRecord
 {
     private SaleTender(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid saleId,
@@ -30,7 +31,7 @@ public sealed class SaleTender : Entity, IImmutableRecord
         Money amount,
         string? reference,
         DateTimeOffset capturedAt)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         SaleId = saleId;
         Type = type;
@@ -73,6 +74,11 @@ public sealed class SaleTender : Entity, IImmutableRecord
     /// <param name="amount">How much. Must be positive.</param>
     /// <param name="reference">The reference the tender left behind, if any.</param>
     /// <param name="capturedAt">When, UTC.</param>
+    /// <param name="id">
+    /// The tender's identity, or <c>null</c> to mint one here. §4.11: replaying <c>TenderSaleCommand</c>
+    /// with the id it used the first time finds the tender that already exists instead of taking the
+    /// payment twice.
+    /// </param>
     /// <exception cref="PosRuleException">The amount is zero or negative.</exception>
     public static SaleTender Capture(
         Guid tenantId,
@@ -81,7 +87,8 @@ public sealed class SaleTender : Entity, IImmutableRecord
         TenderType type,
         Money amount,
         string? reference,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        Guid? id = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -99,6 +106,7 @@ public sealed class SaleTender : Entity, IImmutableRecord
         }
 
         return new SaleTender(
+            id ?? UuidV7.NewGuid(),
             tenantId,
             storeId,
             saleId,

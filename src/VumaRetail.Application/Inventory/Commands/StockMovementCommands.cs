@@ -76,10 +76,19 @@ public sealed class ReceiveStockCommandHandler(
 }
 
 /// <summary>
-/// Records a sale issuing stock from a location. Stage 09 (POS) is this command's real caller; it does
-/// not exist yet, so this is the working, testable stub Stage 09 will call once it does
-/// (<c>docs/PROGRESS.md</c>'s deferred-integration note names this explicitly).
+/// Records a sale issuing stock from a location, through the same <see cref="IStockLedgerPoster"/> port
+/// POS's own <c>SaleCompletionService</c> calls directly (<c>CONVENTIONS.md</c> §4: extract a domain
+/// service, do not call one handler from another). This command is the standalone API surface over that
+/// same port for a caller other than a completing sale — it is not on POS's own completion path.
 /// </summary>
+/// <remarks>
+/// <b>§4.11 residual gap, not yet closed:</b> <see cref="SaleReferenceId"/> has no dedupe. A direct
+/// replay of this specific command could still double-issue stock; the offline-replay path that
+/// motivated §4.11 does not reach it, because <c>SaleCompletionService</c> bypasses the command
+/// pipeline entirely. Recorded in <c>docs/PROGRESS.md</c> rather than fixed here — a dedupe key on
+/// <see cref="IStockLedgerPoster.IssueForSaleAsync"/> needs to be the line, not the sale, since every
+/// line of one sale shares the same <see cref="SaleReferenceId"/>.
+/// </remarks>
 /// <param name="LocationId">Where the stock left from.</param>
 /// <param name="ItemId">The item, when it has no variants.</param>
 /// <param name="ItemVariantId">The variant.</param>

@@ -86,6 +86,11 @@ public sealed class BinStockRepository(VumaRetailDbContext context) : IBinStockR
             cancellationToken);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// A read-only snapshot for the allocator's decision only — the caller that actually reserves
+    /// against what it allocates does so through a separate tracked <see cref="FindAsync"/> per bin, not
+    /// through this list (ADR-090 extended, §4.19).
+    /// </remarks>
     public async Task<IReadOnlyList<BinStock>> ListCandidatesAsync(
         Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default)
         => await (
@@ -93,7 +98,7 @@ public sealed class BinStockRepository(VumaRetailDbContext context) : IBinStockR
             join bin in context.Bins.AsNoTracking() on stock.BinId equals bin.Id
             where bin.LocationId == locationId && bin.IsActive
                 && stock.ItemId == itemId && stock.ItemVariantId == itemVariantId
-            orderby stock.QuantityOnHand.Value descending
+            orderby stock.QuantityOnHand.Value - stock.QuantityReserved.Value descending
             select stock)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -116,6 +121,13 @@ public sealed class BinStockMovementRepository(VumaRetailDbContext context) : IB
 {
     /// <inheritdoc />
     public void Add(BinStockMovement movement) => context.BinStockMovements.Add(movement);
+
+    /// <inheritdoc />
+    public Task<bool> ExistsForReferenceAsync(
+        Guid referenceId, BinStockReferenceType referenceType, CancellationToken cancellationToken = default)
+        => context.BinStockMovements.AnyAsync(
+            movement => movement.ReferenceId == referenceId && movement.ReferenceType == referenceType,
+            cancellationToken);
 }
 
 /// <summary>EF Core implementation of <see cref="IPutawayTaskRepository"/>.</summary>

@@ -1,6 +1,7 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 
@@ -16,23 +17,17 @@ namespace VumaRetail.Application.Pos.Commands;
 /// </param>
 /// <param name="LocationId">The stock location the goods leave.</param>
 /// <param name="CustomerId">The customer, when one was identified.</param>
-/// <param name="Currency">The currency to ring the sale up in. Defaults to the store's.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record OpenSaleCommand(
     Guid? SaleId,
     Guid LocationId,
-    Guid? CustomerId = null,
-    string Currency = "ZAR") : ICommand<Guid>;
+    Guid? CustomerId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed open-sale command before it reaches the handler.</summary>
 public sealed class OpenSaleCommandValidator : AbstractValidator<OpenSaleCommand>
 {
     /// <summary>Builds the rules.</summary>
-    public OpenSaleCommandValidator()
-    {
-        RuleFor(command => command.LocationId).NotEmpty();
-        RuleFor(command => command.Currency).NotEmpty().Length(3);
-    }
+    public OpenSaleCommandValidator() => RuleFor(command => command.LocationId).NotEmpty();
 }
 
 /// <summary>
@@ -44,13 +39,17 @@ public sealed class OpenSaleCommandValidator : AbstractValidator<OpenSaleCommand
 /// <param name="tenant">The ambient tenant and store.</param>
 /// <param name="principal">Who is at the till, and which till.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="openSales">§4.10: registers the sale as in flight for the read-only carve-out.</param>
+/// <param name="windows">The carve-out's hard deadlines.</param>
 public sealed class OpenSaleCommandHandler(
     ISaleRepository sales,
     ITillSessionRepository sessions,
     IDocumentNumberSequence numbers,
     ITenantContext tenant,
     IPrincipalAccessor principal,
-    IClock clock) : ICommandHandler<OpenSaleCommand, Guid>
+    IClock clock,
+    IOpenSessionRegistry openSales,
+    IOpenSessionWindows windows) : ICommandHandler<OpenSaleCommand, Guid>
 {
     /// <summary>The document number series a receipt number is drawn from.</summary>
     public const string SaleNumberSeries = "SALE";
@@ -81,6 +80,9 @@ public sealed class OpenSaleCommandHandler(
 
         string saleNumber = await numbers.NextAsync(SaleNumberSeries, cancellationToken).ConfigureAwait(false);
 
+        // §4.13: the sale's currency is never taken from the caller — it is always the till session's,
+        // which is itself resolved from the store/tenant at OpenTillSessionCommand time. A sale can
+        // therefore never diverge from the drawer it is rung up against.
         Sale sale = Sale.Open(
             command.SaleId ?? UuidV7.NewGuid(),
             tenant.TenantId,
@@ -90,10 +92,15 @@ public sealed class OpenSaleCommandHandler(
             operatorUserId,
             command.LocationId,
             command.CustomerId,
-            command.Currency,
+            session.Currency,
             clock.UtcNow);
 
         sales.Add(sale);
+
+        // §4.10: registered unconditionally, whatever the tenant's current enforcement level, so the
+        // registry already knows this sale was in flight at the instant a restriction ever falls due —
+        // a carve-out wired in after the fact is a carve-out that ends up half-applied.
+        openSales.Open(sale.Id, sale.OpenedAt, windows.InFlightSaleWindow);
 
         return sale.Id;
     }
@@ -110,6 +117,11 @@ public sealed class OpenSaleCommandHandler(
 /// look up regardless.
 /// </param>
 /// <param name="DiscountAmount">A manual discount off this line, or <c>null</c> for none.</param>
+/// <param name="SaleLineId">
+/// The line's identity, or <c>null</c> to mint one here. A terminal that rang this line up offline
+/// supplies the id it already used, which makes the replay idempotent — re-sending the same id returns
+/// the existing line instead of appending a second one (§4.11).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddSaleLineCommand(
     Guid SaleId,
@@ -117,7 +129,12 @@ public sealed record AddSaleLineCommand(
     Guid? ItemVariantId,
     Quantity Quantity,
     Money UnitPrice,
-    Money? DiscountAmount = null) : ICommand<Guid>;
+    Money? DiscountAmount = null,
+    Guid? SaleLineId = null) : ICommand<Guid>, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => SaleId;
+}
 
 /// <summary>Rejects a malformed add-line command before it reaches the handler.</summary>
 public sealed class AddSaleLineCommandValidator : AbstractValidator<AddSaleLineCommand>
@@ -166,6 +183,19 @@ public sealed class AddSaleLineCommandHandler(
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
+        if (command.SaleLineId is { } replayedLineId)
+        {
+            SaleLine? already = sale.Lines.FirstOrDefault(line => line.Id == replayedLineId);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.11) — same shape as OpenSaleCommand's. Checked before
+                // EnsureOpen so a late-arriving replay of a line the sale already has is a no-op even if
+                // the sale has since completed, rather than a refusal for doing nothing new.
+                return already.Id;
+            }
+        }
+
         sale.EnsureOpen();
 
         SellableItem item = await catalog
@@ -179,8 +209,20 @@ public sealed class AddSaleLineCommandHandler(
         }
 
         Money discount = command.DiscountAmount ?? Money.Zero(command.UnitPrice.Currency);
-        Money extended = command.UnitPrice * command.Quantity.Value;
-        Money charged = (extended - discount).RoundToCurrencyScale();
+
+        if (!string.Equals(discount.Currency, command.UnitPrice.Currency, StringComparison.Ordinal))
+        {
+            throw PosRuleException.CurrencyMismatch(command.UnitPrice.Currency, discount.Currency);
+        }
+
+        // Round once, at the currency's own presentation scale, straight from the full-precision
+        // product (Money.cs's own doc comment: "Rounding to the currency's own scale happens once").
+        // Going through `command.UnitPrice * command.Quantity.Value` first would construct a Money and
+        // force a 4dp round there, then round *again* to 2dp here — two sequential midpoint roundings,
+        // which is §4.14: a 6dp weighed quantity lands in the `[x.xx495, x.xx5)` gap often enough to
+        // bias every such line up by a cent.
+        decimal extendedLessDiscount = (command.UnitPrice.Amount * command.Quantity.Value) - discount.Amount;
+        Money charged = new Money(decimal.Round(extendedLessDiscount, 2, Money.Rounding), command.UnitPrice.Currency);
 
         // The rule decides whether `charged` is inclusive or exclusive — a South African shelf price is
         // inclusive, a wholesale list is not, and the till should not have to know which.
@@ -202,7 +244,8 @@ public sealed class AddSaleLineCommandHandler(
             calculation.TaxCode,
             calculation.NetAmount,
             calculation.TaxAmount,
-            calculation.GrossAmount);
+            calculation.GrossAmount,
+            command.SaleLineId);
 
         sale.AddLine(line);
 
@@ -214,7 +257,11 @@ public sealed class AddSaleLineCommandHandler(
 /// <param name="SaleId">The sale.</param>
 /// <param name="SaleLineId">The line to void.</param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record VoidSaleLineCommand(Guid SaleId, Guid SaleLineId) : ICommand;
+public sealed record VoidSaleLineCommand(Guid SaleId, Guid SaleLineId) : ICommand, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => SaleId;
+}
 
 /// <summary>Rejects a malformed void-line command before it reaches the handler.</summary>
 public sealed class VoidSaleLineCommandValidator : AbstractValidator<VoidSaleLineCommand>
@@ -252,12 +299,21 @@ public sealed class VoidSaleLineCommandHandler(ISaleRepository sales, IClock clo
 /// <param name="TenderType">How it was paid.</param>
 /// <param name="Amount">How much. Must be positive.</param>
 /// <param name="Reference">The reference the tender left behind — a card authorisation code, a voucher serial.</param>
+/// <param name="SaleTenderId">
+/// The tender's identity, or <c>null</c> to mint one here. A replay with the id already used returns
+/// the existing tender instead of taking the payment twice (§4.11).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record TenderSaleCommand(
     Guid SaleId,
     TenderType TenderType,
     Money Amount,
-    string? Reference = null) : ICommand<Guid>;
+    string? Reference = null,
+    Guid? SaleTenderId = null) : ICommand<Guid>, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => SaleId;
+}
 
 /// <summary>Rejects a malformed tender command before it reaches the handler.</summary>
 public sealed class TenderSaleCommandValidator : AbstractValidator<TenderSaleCommand>
@@ -287,6 +343,18 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
+        if (command.SaleTenderId is { } replayedTenderId)
+        {
+            SaleTender? already = sale.Tenders.FirstOrDefault(tender => tender.Id == replayedTenderId);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.11) — a lost acknowledgement must not take the payment
+                // twice.
+                return already.Id;
+            }
+        }
+
         SaleTender tender = SaleTender.Capture(
             sale.TenantId,
             sale.StoreId,
@@ -294,7 +362,8 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
             command.TenderType,
             command.Amount,
             command.Reference,
-            clock.UtcNow);
+            clock.UtcNow,
+            command.SaleTenderId);
 
         sale.AddTender(tender);
 
@@ -323,7 +392,11 @@ public sealed record SaleCompletionResult(
 /// <summary>Closes the sale: freezes it, relieves stock and raises the financial event.</summary>
 /// <param name="SaleId">The sale.</param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record CompleteSaleCommand(Guid SaleId) : ICommand<SaleCompletionResult>;
+public sealed record CompleteSaleCommand(Guid SaleId) : ICommand<SaleCompletionResult>, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => SaleId;
+}
 
 /// <summary>Rejects a malformed complete-sale command before it reaches the handler.</summary>
 public sealed class CompleteSaleCommandValidator : AbstractValidator<CompleteSaleCommand>
@@ -335,7 +408,12 @@ public sealed class CompleteSaleCommandValidator : AbstractValidator<CompleteSal
 /// <summary>Delegates to <see cref="ISaleCompletionService"/> and reports what happened.</summary>
 /// <param name="sales">Sale lookup.</param>
 /// <param name="completion">The three steps completion always takes, in one place.</param>
-public sealed class CompleteSaleCommandHandler(ISaleRepository sales, ISaleCompletionService completion)
+/// <param name="openSales">
+/// §4.10: closed the moment a sale genuinely completes — it is no longer in flight and needs no
+/// further read-only carve-out.
+/// </param>
+public sealed class CompleteSaleCommandHandler(
+    ISaleRepository sales, ISaleCompletionService completion, IOpenSessionRegistry openSales)
     : ICommandHandler<CompleteSaleCommand, SaleCompletionResult>
 {
     /// <inheritdoc />
@@ -347,7 +425,16 @@ public sealed class CompleteSaleCommandHandler(ISaleRepository sales, ISaleCompl
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
-        await completion.CompleteAsync(sale, cancellationToken).ConfigureAwait(false);
+        // The idempotent replay (§4.11): a lost acknowledgement on the final step of the offline
+        // sequence must not strand the till — the sale is already frozen, the stock already relieved
+        // and the financial event already raised, so re-running ISaleCompletionService would either
+        // throw SaleIsNotOpen or, worse, double every one of those effects. Report the same result the
+        // first call already committed instead.
+        if (sale.Status is not SaleStatus.Completed)
+        {
+            await completion.CompleteAsync(sale, cancellationToken).ConfigureAwait(false);
+            openSales.Close(sale.Id);
+        }
 
         return new SaleCompletionResult(
             sale.Id,
@@ -361,6 +448,11 @@ public sealed class CompleteSaleCommandHandler(ISaleRepository sales, ISaleCompl
 
 /// <summary>Sets a sale aside so the terminal can serve the next customer.</summary>
 /// <param name="SaleId">The sale.</param>
+/// <remarks>
+/// §4.10: deliberately <b>not</b> <c>ISessionScopedCommand</c>. Parking is how a sale is kept open
+/// indefinitely, and exempting it while read-only would let the in-flight bound be defeated by simply
+/// never un-parking — refused like any other write is the correct, safe behaviour here.
+/// </remarks>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ParkSaleCommand(Guid SaleId) : ICommand;
 
@@ -391,6 +483,12 @@ public sealed class ParkSaleCommandHandler(ISaleRepository sales) : ICommandHand
 
 /// <summary>Brings a parked sale back to the screen.</summary>
 /// <param name="SaleId">The sale.</param>
+/// <remarks>
+/// §4.10: deliberately <b>not</b> <c>ISessionScopedCommand</c>, and this one is critical rather than
+/// merely conservative. Parked sales are a pre-existing pool of "already open" sales with no customer
+/// at the counter and no cash in hand; exempting Resume would convert that whole pool into a trading
+/// allowance the instant read-only fell due — the opposite of "no new sale may start".
+/// </remarks>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ResumeSaleCommand(Guid SaleId) : ICommand;
 
@@ -422,8 +520,16 @@ public sealed class ResumeSaleCommandHandler(ISaleRepository sales) : ICommandHa
 /// <summary>Abandons a sale before it is paid for.</summary>
 /// <param name="SaleId">The sale.</param>
 /// <param name="Reason">Why. Recorded, because an abandoned sale is what shrinkage looks like from outside.</param>
+/// <remarks>
+/// §4.10: in the in-flight member set — abandoning is the safe direction, and refusing it while
+/// read-only would strand exactly the sale the carve-out exists to let a cashier get off the screen.
+/// </remarks>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record VoidSaleCommand(Guid SaleId, string Reason) : ICommand;
+public sealed record VoidSaleCommand(Guid SaleId, string Reason) : ICommand, ISessionScopedCommand
+{
+    /// <inheritdoc />
+    Guid ISessionScopedCommand.SessionId => SaleId;
+}
 
 /// <summary>Rejects a malformed void-sale command before it reaches the handler.</summary>
 public sealed class VoidSaleCommandValidator : AbstractValidator<VoidSaleCommand>
@@ -439,7 +545,8 @@ public sealed class VoidSaleCommandValidator : AbstractValidator<VoidSaleCommand
 /// <summary>Voids the sale.</summary>
 /// <param name="sales">Sale lookup.</param>
 /// <param name="clock">The only source of time.</param>
-public sealed class VoidSaleCommandHandler(ISaleRepository sales, IClock clock)
+/// <param name="openSales">§4.10: closed the moment a sale is voided — it is no longer in flight.</param>
+public sealed class VoidSaleCommandHandler(ISaleRepository sales, IClock clock, IOpenSessionRegistry openSales)
     : ICommandHandler<VoidSaleCommand, Unit>
 {
     /// <inheritdoc />
@@ -451,6 +558,7 @@ public sealed class VoidSaleCommandHandler(ISaleRepository sales, IClock clock)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
         sale.Void(command.Reason, clock.UtcNow);
+        openSales.Close(sale.Id);
 
         return Unit.Value;
     }

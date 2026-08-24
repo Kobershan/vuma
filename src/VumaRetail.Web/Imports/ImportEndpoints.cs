@@ -10,6 +10,7 @@ using VumaRetail.Contracts;
 using VumaRetail.Contracts.Imports;
 using VumaRetail.Domain.Imports;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Imports;
 
@@ -56,7 +57,7 @@ public static class ImportEndpoints
         ArgumentNullException.ThrowIfNull(endpoints);
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
-        RouteGroupBuilder imports = api.MapGroup("/imports").WithTags("Imports");
+        RouteGroupBuilder imports = api.MapGroup("/imports").WithTags("Imports").RequireModule("imports");
 
         imports.MapGet("/targets", ListTargetsAsync)
             .RequirePermission(ImportsPermissions.BatchView)
@@ -67,7 +68,7 @@ public static class ImportEndpoints
                 + "required, which together identify a row, an example of each, and the header texts "
                 + "each field is matched against. Nothing about the import UI needs to be hard-coded.");
 
-        RouteGroupBuilder batches = api.MapGroup("/imports/batches").WithTags("Imports");
+        RouteGroupBuilder batches = api.MapGroup("/imports/batches").WithTags("Imports").RequireModule("imports");
 
         batches.MapPost("/", CreateBatchAsync)
             .RequirePermission(ImportsPermissions.BatchCreate)
@@ -176,7 +177,7 @@ public static class ImportEndpoints
                 + "rather than adding a second one; 409 only when the code belongs to an unrelated "
                 + "template.");
 
-        RouteGroupBuilder templates = api.MapGroup("/imports/templates").WithTags("Imports");
+        RouteGroupBuilder templates = api.MapGroup("/imports/templates").WithTags("Imports").RequireModule("imports");
 
         templates.MapGet("/", ListTemplatesAsync)
             .RequirePermission(ImportsPermissions.BatchView)

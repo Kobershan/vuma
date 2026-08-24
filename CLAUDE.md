@@ -9,87 +9,36 @@
 
 ## 0. Session protocol (do this every time, no exceptions)
 
-**Both `docs/PROGRESS.md` and `docs/DECISIONS.md` are now lean, current-state-only files** (a
-one-line-per-ADR index and an open-issues-only state file). Their full history lives in
-`docs/archive/PROGRESS-ARCHIVE.md` and `docs/archive/DECISIONS-ARCHIVE.md` — **do not read the
-archives unless you specifically need historical detail on a past stage.** Reading them by default is
-the single biggest source of wasted tokens in this project's history; they are reference material, not
-required reading.
-
 ```
-1. Read  CLAUDE.md                      (this file)
-2. Read  docs/PROGRESS.md               (current state, next stage, OPEN blockers only — short)
-3. Read  docs/DECISIONS.md              (one-line ADR index — never re-litigate a LOCKED one)
-4. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage whose status is NOT_STARTED or IN_PROGRESS)
-5. Read  ONLY the reference docs that stage lists under "Reference reading" — not the whole docs/ tree.
-   For the long, module-organised references (`DATA_MODEL.md`, `SYNC_AND_BACKUP.md`), jump to the
-   section(s) for the module your stage touches rather than reading the whole file — each has a
-   navigation note at the top explaining its section layout.
-6. EXECUTE the stage to completion, in THIS worktree, on a branch cut from an up-to-date `main`.
-   Do not stop halfway. Do not ask the user anything. Do not start a second stage in a second
-   worktree — see §1a.
-7. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
-8. Merge the stage's branch to `main` before ending the session. A stage is not done while it sits
-   unmerged on a branch — see §1a.
-9. Update docs/PROGRESS.md  (status, date, files touched, notes for the next session — keep it short;
-   this is a state file, not a diary. Long narrative belongs in the archive, if anywhere.)
-10. Append any new architectural choices to docs/DECISIONS.md as a one-line index entry, with the full
-    Context/Decision/Consequences appended to docs/archive/DECISIONS-ARCHIVE.md.
-11. Commit with:  feat(stage-NN): <stage title>
-12. Stop. One stage is one session — do not pull the next stage into the same context even if there is
-    room left. A fresh session with a fresh context window verifies the previous stage's docs are
-    actually sufficient to resume from, which is the point.
+ 1. Read  CLAUDE.md                      (this file)
+ 2. Read  docs/PROGRESS.md               (§1 current state, §5 what the next session does)
+ 3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
+ 4. Read  docs/ROADMAP.md                (dependencies; PROGRESS.md §5 outranks it)
+ 5. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage that is NOT_STARTED or IN_PROGRESS and
+                                          whose dependencies are DONE. If the document does not
+                                          exist, WRITE IT FIRST, then build it.)
+ 6. Read  the reference docs that stage lists under "Reference reading"
+ 7. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
+ 8. Run   the agent panel — docs/AGENTS.md. architecture-guard, the specialists the stage's
+          subject matter calls for, stage-verifier until PASS or a documented UNVERIFIED,
+          doc-scribe. Act on every finding before committing.
+ 9. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
+10. Update docs/PROGRESS.md  (§1 status, session log, §4 for defects found, §5 rewritten)
+11. Append any new architectural choices to docs/DECISIONS.md as an ADR
+12. Commit with:  feat(stage-NN): <stage title>   — then PUSH, and update the parent
+    `ecosystem` superproject's vuma pointer
+13. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, push, and
+    stop cleanly at a green build. Never leave the repo in a non-compiling state.
 ```
 
-**Universal kickoff prompt** (the user pastes this into any fresh chat, nothing else needed):
+**Universal kickoff command** (the user types this into any fresh chat, nothing else needed):
 
 ```
-Read CLAUDE.md, docs/PROGRESS.md and docs/DECISIONS.md (not the archives) and follow the session
-protocol in CLAUDE.md section 0.
-
-Before picking anything new: if docs/PROGRESS.md's stage table shows a stage DONE but unmerged, or
-IN_PROGRESS on another worktree, resolve that first (merge it, or tell me exactly why you can't) -
-do not start a new stage while one is still open. See section 1a.
-
-Then execute exactly ONE stage to completion - the first one whose status is NOT_STARTED or
-IN_PROGRESS. Build it, verify it against its Exit Checklist, merge it to main, update PROGRESS.md
-and DECISIONS.md, and commit. Then STOP - do not continue to the next stage even if you have context
-left; a fresh session picking it up cleanly is the point, not a race to fit more in.
-
-Do not ask me anything. Do not propose options or wait for approval - decide, record the decision as
-an ADR if it's a real architectural choice, and keep going. If something is genuinely blocked (needs
-a credential you don't have, needs Windows/Docker you don't have), stub it, log it under "Deferred" in
-PROGRESS.md, and continue rather than stopping to ask.
-
-Don't narrate as you go or summarize back to me what CLAUDE.md/PROGRESS.md already say - I've read
-them. Just work. At the end, give me a short report: what shipped, what's still open, and the one
-thing (if any) I need to decide before the next session.
+/next-stage
 ```
 
----
-
-## 1a. One stage, one worktree, one session — NON-NEGOTIABLE
-
-This project previously ran multiple stages in parallel across separate git worktrees (e.g. Stage 05,
-06 and 07 all mid-flight at once). **Stop doing this.** It does not produce more finished stages per
-day — it produces multiple half-finished branches that then have to be rebased against each other,
-which `docs/archive/PROGRESS-ARCHIVE.md` documents costing entire sessions on its own. It also means
-you are paying for several concurrent sessions' token usage instead of one.
-
-- **Exactly one stage is ever in progress at a time.** Before starting a new stage, confirm the
-  previous stage's branch is merged to `main` and `docs/PROGRESS.md`'s stage-status table has no other
-  row marked `IN_PROGRESS`.
-- **Do not create a new worktree per stage.** Work directly on `main` (or a single short-lived branch
-  merged back the same session). If you find leftover worktrees under `.claude/worktrees/` from past
-  sessions, that is a sign this rule was broken before — flag it in `docs/PROGRESS.md`, do not add to it.
-- **Target cadence:** one stage per session, 3–4 sessions per day, 21–28 stages per week. If a single
-  stage is ballooning past that, it is a sign the stage is too large or the session is re-reading more
-  than it needs — stop, write a handoff, and let the next session start clean rather than pushing
-  through in the same context.
-- **Model choice:** default to Sonnet (`scripts/run-autonomous.ps1`'s default). Opus costs several
-  times more per token and this project's stage documents are already fully specified — most stages
-  don't need Opus-tier judgement to execute correctly. Reach for `-Model opus` only for a specific
-  stage you expect to be genuinely ambiguous, not as a standing default.
+It is defined at `.claude/commands/next-stage.md` and it is the whole of this protocol. If the host
+does not load project slash commands, `docs/SESSION_KICKOFF.md` carries the paste-able equivalent.
 
 ---
 
@@ -101,7 +50,10 @@ own. See `docs/AUTONOMOUS_OPERATION.md` for the environment setup.
 - **Never call `AskUserQuestion`.** It is denied in settings, but do not reach for it. There is no one
   to answer.
 - **Never write to `.claude/**`.** It is a protected path: writing there triggers a permission prompt
-  that will stall an unattended run until morning. Nothing in this build needs to touch it.
+  that will stall an unattended run until morning. Nothing in this build needs to touch it. That
+  directory — settings, agents, commands — belongs to the human operator; a session that concludes a
+  new agent or command is needed writes the brief into `docs/PROGRESS.md` and lets the operator create
+  the file.
 - **Never leave the repo broken.** Commit at green checkpoints throughout a stage, not once at the end.
   A run that dies mid-refactor wastes the whole night.
 - **If context is getting long, stop cleanly** at a green build with an honest handoff in
@@ -204,6 +156,10 @@ mobile access.
 | R8 | **Multi-store, multi-warehouse, multi-currency, multi-tax** from the data model up, even if v1 ships single-store. |
 | R9 | **Licensed SaaS on a recurring subscription.** Mandatory monthly signed licence, hardware-bound activation, entitlement gating, usage metering. A lapsed subscription drops the tenant to **read-only**: full read, report, reprint and export; no writes, including no sales. It must only ever be triggered by a known subscription state after completed dunning — never by a network fault, a vendor-side outage, a single failed charge or a hardware change. See `docs/LICENSING.md`. |
 | R10 | **Telemetry is counts and health only.** No customer names, sales detail, employee data or document content ever leaves a tenant's premises for vendor purposes. Vendor staff have no path to tenant business data without a tenant-granted, time-boxed, audited support grant. |
+| R11 | **Multi-company, one database each.** A tenant runs several trading companies at once and **each company has its own database** — its own books, stock, numbering, statements, backups and restore. A per-tenant registry database holds only what spans them. Credit limits, receipting, scanning and stock lookup work *across* companies through group read models and sagas; **there is no cross-database transaction anywhere in this product**. One order may be filled from more than one company's stock, shown in one view and split into one invoice per supplying company, saved separately into each company's financials, and no company is ever drawn negative to do it. See `docs/MULTI_COMPANY.md`. |
+| R12 | **Field sales is a proposal, not a commitment.** Reps on the road capture pro forma orders and credit notes against live availability; nothing they capture posts or reserves anything until management approves it, and approval is what creates the document and commits the stock. See `docs/FIELD_SALES.md`. |
+| R13 | **Companies link only through the Operator ID, and a shared floor stays separate in the books.** Two companies may share a premises, a shelf, a till and a customer's single payment — but only where they carry the same vendor-issued **Operator ID** and an active, scoped `CompanyLink`, checked at the point of every cross-company operation. A mixed basket produces **one tax invoice per company**, taxed and rounded per company, with a non-fiscal basket summary tying them together. Billing is per company, per named user, per till. See `docs/TRADING_GROUP.md`. |
+| R14 | **The assistant classifies and phrases; it never computes.** The WhatsApp and email assistant takes orders and requests for statements, invoices, PODs and credit notes. Every figure it states comes from an API result — the model classifies intent and phrases a supplied result, and has no data access. Nothing leaves without a tenant-created contact binding and a fresh verification. See `docs/CHATBOT.md`. |
 
 ---
 
@@ -219,7 +175,7 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 | Desktop UI kit | WPF-UI (Fluent) + custom Vuma theme; touch-first POS layouts |
 | Store server | ASP.NET Core 9 Minimal APIs + Windows Service host |
 | Cloud API | ASP.NET Core 9, container-deployable (Docker) |
-| Database | PostgreSQL 16 (store + cloud), schema-per-module |
+| Database | PostgreSQL 16 (store + cloud), schema-per-module, **one database per company plus a per-tenant registry database** (ADR-099). No cross-database transaction, no 2PC, no FDW — cross-company work is a saga (ADR-116) |
 | Terminal-local store | SQLite (`Microsoft.Data.Sqlite`) — offline cache + outbound queue |
 | ORM | EF Core 9 + Npgsql; migrations checked into `src/VumaRetail.Infrastructure/Migrations` |
 | IDs | **UUID v7** everywhere (sortable, offline-safe generation) |
@@ -249,15 +205,13 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 vuma/
 ├── CLAUDE.md                     ← you are here
 ├── README.md
-├── .claude/
+├── .claude/                      ← the operator's, never written by a build session
 │   ├── settings.json             ← full-access permission config
+│   ├── commands/next-stage.md    ← the session kickoff command
 │   └── agents/                   ← subagent definitions (see docs/AGENTS.md)
 ├── docs/
-│   ├── PROGRESS.md               ← ★ THE STATE FILE. Lean — current stage + OPEN items only.
-│   ├── DECISIONS.md              ← ADR index, one line per ADR. Never re-litigate a LOCKED one.
-│   ├── archive/                  ← full session-log & ADR history — NOT required reading, on-demand only
-│   │   ├── PROGRESS-ARCHIVE.md
-│   │   └── DECISIONS-ARCHIVE.md
+│   ├── PROGRESS.md               ← ★ THE STATE FILE. Read first, write last.
+│   ├── DECISIONS.md              ← ADR log
 │   ├── ROADMAP.md                ← stage index
 │   ├── ARCHITECTURE.md
 │   ├── DATA_MODEL.md
@@ -275,6 +229,12 @@ vuma/
 │   ├── API_CONNECT.md            ← supplier↔retailer trading network contract
 │   ├── LICENSING.md              ← SaaS licence model, enforcement ladder, anti-piracy
 │   ├── API_CONTROL_PLANE.md      ← device + vendor API contract
+│   ├── MULTI_COMPANY.md          ← database-per-company, registry, sagas, credit groups (R11)
+│   ├── TRADING_GROUP.md          ← Operator ID, company links, shared floors, mixed baskets (R13)
+│   ├── FIELD_SALES.md            ← the rep module: pro formas, approval, performance (R12)
+│   ├── CHATBOT.md                ← the WhatsApp/email assistant contract (R14)
+│   ├── EXECUTION_STANDARD.md     ← how a stage document is written and executed
+│   ├── SESSION_KICKOFF.md        ← the one command to start a session
 │   ├── AGENTS.md
 │   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
 ├── src/
@@ -337,6 +297,14 @@ vuma/
 | **Vendor control plane, usage analytics, SaaS billing** | **30b** (`docs/API_CONTROL_PLANE.md`) |
 | Android admin app | 29 (API), 30 (app) |
 | Excel/PDF ingest | 11 |
+| **Multi-company: companies, group scope, group credit limits** | **06c** (`docs/MULTI_COMPANY.md`) |
+| **Cross-company money: group receipting, inter-company clearing, consolidated reporting** | **07c** |
+| **Availability, reservations, cross-company sourcing, split invoicing** | **08c** |
+| **Consolidated picking waves, staging areas, interval counts** | **13b** |
+| **Field sales — the rep module** | **14b** (`docs/FIELD_SALES.md`) |
+| **Trading group: Operator ID, company links, shared premises, cross-company users and tills** | **06e** (`docs/TRADING_GROUP.md`) |
+| **Mixed basket — one till selling for two companies** | **09b** |
+| **Conversational commerce — WhatsApp and email assistant** | **22b** (`docs/CHATBOT.md`) |
 
 ---
 
@@ -378,6 +346,34 @@ vuma/
     only the documents that connection created. A supplier never writes directly into a retailer's
     data — everything arrives as a proposal the retailer accepts.
 19. Feature work is not done until it has tests (see `docs/TESTING.md` for the required ratio).
+20. **One company, one database, one transaction.** No command handler opens a transaction against more
+    than one database — there is an architecture test, and 2PC and FDW are both rejected (ADR-099,
+    ADR-116). Cross-company work is a saga: an immutable intent, idempotent legs keyed by
+    `(intent_id, leg_id)`, compensation by a **new** document, and an alarm on a leg that does not
+    acknowledge. Group read models plan; the owning company's database commits (ADR-119). Every group
+    figure crossing an API boundary carries `AsAt` and discloses a stale contributor.
+21. **`Available`, not `OnHand`, answers "can I sell this".** A reservation reduces available and
+    leaves on-hand alone; on-hand changes only when goods physically move. Available may never go
+    negative in any company under any interleaving, and every availability figure crossing an API
+    boundary carries its `AsAt` (ADR-103, ADR-102).
+22. **A proposal commits nothing.** A pro forma posts nothing and reserves nothing; only an approval
+    creates a document, and it reserves stock and consumes credit in one transaction or does neither
+    (ADR-107, ADR-108).
+23. **No cross-company operation without a link.** Two companies may only interact where they share an
+    Operator ID and hold an `Active` `CompanyLink` carrying the specific scope for that operation, and
+    the check happens **at the point of use**, every time — never only at configuration (ADR-121,
+    ADR-122). An architecture test enumerates every cross-company entry point and asserts each one calls
+    `RequireLink`.
+24. **Tax is computed per company, per document, never on a basket.** Where one transaction produces
+    documents for two companies, each segment prices, taxes and rounds inside its own company's database;
+    the customer-facing total is the sum of rounded segment totals, never the rounding of a sum
+    (ADR-125).
+25. **A language model classifies and phrases; it never computes and never reads data.** Every figure in
+    any generated message comes verbatim from an API result, asserted by a post-check. A model with a
+    repository, a `DbContext` or a tool surface is a defect (ADR-129).
+26. **Snapshots, not re-derivations, on documents.** Price, tax, cost, pack size and delivery geography
+    are resolved at capture and stored on the line. A document reprinted a year later shows what was
+    actually sold and shipped (ADR-112, ADR-113).
 
 ---
 
@@ -395,7 +391,11 @@ vuma/
 - [ ] Module entitlement flag declared in the module manifest and gated through `IEntitlementService`
 - [ ] Usage counters for the module added to the daily metering rollup (counts only, no business data)
 - [ ] Seed/demo data added so the module is demonstrable with `scripts/seed.ps1`
-- [ ] `docs/PROGRESS.md` updated, ADRs appended, committed
+- [ ] `company_id` on every new business table; no handler touching two databases; any cross-company
+      operation implemented as an idempotent, compensatable saga (§7 rule 20)
+- [ ] The agent panel ran (`docs/AGENTS.md`) and every finding is closed or has a written reason in
+      `docs/PROGRESS.md`
+- [ ] `docs/PROGRESS.md` updated, ADRs appended, committed **and pushed**
 
 ---
 

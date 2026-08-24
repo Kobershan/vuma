@@ -23,6 +23,25 @@ public sealed class PosConflictException(string code, string message)
             + "two open sessions on one drawer means neither one's expected cash is a real number.");
 }
 
+/// <summary>
+/// A caller was correctly authenticated and the request was well formed, and they still may not do
+/// this (<c>DomainProblemKind.Forbidden</c>, 403) — the in-handler counterpart to a
+/// <c>RequirePermission</c> refusal, for the one POS write whose legality only the handler can see
+/// (§4.15).
+/// </summary>
+/// <param name="code">The stable machine-readable code.</param>
+/// <param name="message">Why.</param>
+public sealed class PosForbiddenException(string code, string message)
+    : DomainException(code, message, DomainProblemKind.Forbidden)
+{
+    /// <summary>An operator without <c>pos.receipt.reprint</c> tried to print a sale's receipt again.</summary>
+    public static PosForbiddenException ReceiptReprintNotPermitted()
+        => new(
+            "POS_RECEIPT_REPRINT_NOT_PERMITTED",
+            "This receipt has already been printed once. Reprinting it needs the pos.receipt.reprint "
+            + "permission — the oldest till fraud there is starts with a receipt printed twice.");
+}
+
 /// <summary>A POS business rule was broken.</summary>
 /// <param name="code">The stable machine-readable code.</param>
 /// <param name="message">What the rule says.</param>

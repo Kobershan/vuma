@@ -8,6 +8,8 @@ using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Sales;
@@ -183,6 +185,62 @@ public sealed class SalesCommandTests(PostgresFixture fixture)
         receipt.UnitCost.Amount.Should().Be(20m);
         receipt.ReferenceType.Should().Be(StockReferenceType.SalesReturn);
         receipt.ReferenceId.Should().Be(returnId);
+    }
+
+    [Fact]
+    public async Task CreateSalesReturnCommand_replayed_with_the_same_id_returns_the_existing_draft_instead_of_raising_a_second_one()
+    {
+        // §4.21 — the dropped-connection retry half of the finding; the completion race is a separate
+        // mechanism (a row lock), covered where CompleteSalesReturnCommand is tested.
+        await using SalesHarness harness = await SalesHarness.CreateAsync(fixture);
+        Guid saleId = await SellAsync(harness, quantity: 3m, unitPrice: 115m);
+        Guid returnId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new CreateSalesReturnCommand(saleId, "Faulty seal", TenderType.Cash, returnId));
+        Guid replayed = await harness.SendAsync(new CreateSalesReturnCommand(saleId, "Faulty seal", TenderType.Cash, returnId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<SalesReturn> returns = await harness.Returns.ListForSaleAsync(saleId);
+        returns.Should().ContainSingle(salesReturn => salesReturn.Id == returnId, "the replay must not raise a second draft");
+    }
+
+    [Fact]
+    public async Task FindForUpdateAsync_genuinely_blocks_a_second_reader_until_the_first_transaction_ends()
+    {
+        // §4.21's other half — a real concurrency race, a different mechanism from the id-replay fix
+        // above. The harness's own SendAsync cannot exercise this: every repository in it shares one
+        // VumaRetailDbContext (all AddSingleton), and EF Core is not thread-safe for two operations
+        // in flight on one context at once — the race this test proves has to be driven from two
+        // independent contexts against the same real database, which is what a second terminal actually
+        // is.
+        await using SalesHarness harness = await SalesHarness.CreateAsync(fixture);
+        Guid saleId = await SellAsync(harness, quantity: 3m, unitPrice: 115m);
+        Guid returnId = await harness.SendAsync(new CreateSalesReturnCommand(saleId, "Faulty seal", TenderType.Cash));
+
+        await using VumaRetailDbContext contextA = TestDbContextFactory.For(harness.ConnectionString);
+        await using VumaRetailDbContext contextB = TestDbContextFactory.For(harness.ConnectionString);
+        SalesReturnRepository readerA = new(contextA, harness.TenantContext);
+        SalesReturnRepository readerB = new(contextB, harness.TenantContext);
+
+        await using var transactionA = await contextA.Database.BeginTransactionAsync();
+        SalesReturn? lockedByA = await readerA.FindForUpdateAsync(returnId);
+        lockedByA.Should().NotBeNull("the row must exist to lock it");
+
+        await using var transactionB = await contextB.Database.BeginTransactionAsync();
+        Task<SalesReturn?> secondReadTask = readerB.FindForUpdateAsync(returnId);
+
+        // Give the second read every chance to (wrongly) complete anyway before asserting it hasn't.
+        Task finishedFirst = await Task.WhenAny(secondReadTask, Task.Delay(TimeSpan.FromSeconds(2)));
+
+        finishedFirst.Should().NotBe(secondReadTask, "a second FOR UPDATE read on the same row must block while the first holds it");
+
+        await transactionA.CommitAsync();
+
+        // Now that A released the row, B's blocked read is free to complete.
+        SalesReturn? lockedByB = await secondReadTask.WaitAsync(TimeSpan.FromSeconds(5));
+        lockedByB.Should().NotBeNull();
+
+        await transactionB.CommitAsync();
     }
 
     [Fact]

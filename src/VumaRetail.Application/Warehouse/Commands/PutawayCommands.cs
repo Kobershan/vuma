@@ -9,7 +9,9 @@ namespace VumaRetail.Application.Warehouse.Commands;
 
 /// <summary>
 /// Opens a putaway task for stock that has arrived unbinned and needs to be shelved. Does not move any
-/// stock itself — see <see cref="ConfirmPutawayCommand"/>.
+/// stock itself — see <see cref="ConfirmPutawayCommand"/>. <paramref name="PutawayTaskId"/> is the
+/// task's identity, or <c>null</c> to mint one here — a caller that already sent this create once
+/// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.19).
 /// </summary>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record OpenPutawayTaskCommand(
@@ -18,7 +20,8 @@ public sealed record OpenPutawayTaskCommand(
     Guid? ItemVariantId,
     Quantity Quantity,
     PutawaySourceReferenceType SourceReferenceType,
-    Guid? SourceReferenceId = null) : ICommand<Guid>;
+    Guid? SourceReferenceId = null,
+    Guid? PutawayTaskId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed open-putaway command before it reaches the handler.</summary>
 public sealed class OpenPutawayTaskCommandValidator : AbstractValidator<OpenPutawayTaskCommand>
@@ -58,6 +61,18 @@ public sealed class OpenPutawayTaskCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.PutawayTaskId is { } replayed)
+        {
+            PutawayTask? already = await putawayTasks.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.19) — a dropped-connection retry returns the task it already
+                // opened instead of opening a second one.
+                return already.Id;
+            }
+        }
+
         StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
             ?? throw new InventoryNotFoundException("stock location", command.LocationId);
 
@@ -72,7 +87,7 @@ public sealed class OpenPutawayTaskCommandHandler(
 
         PutawayTask task = PutawayTask.Create(
             location.TenantId, location.StoreId, location.Id, command.ItemId, command.ItemVariantId,
-            command.Quantity, command.SourceReferenceType, command.SourceReferenceId);
+            command.Quantity, command.SourceReferenceType, command.SourceReferenceId, id: command.PutawayTaskId);
 
         Guid? suggestion = await SuggestBinAsync(location.Id, command.ItemId, command.ItemVariantId, cancellationToken)
             .ConfigureAwait(false);

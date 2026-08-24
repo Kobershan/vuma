@@ -23,13 +23,15 @@ public sealed class BinStock : Entity
         Guid binId,
         Guid? itemId,
         Guid? itemVariantId,
-        Quantity quantityOnHand)
+        Quantity quantityOnHand,
+        Quantity quantityReserved)
         : base(tenantId, storeId)
     {
         BinId = binId;
         ItemId = itemId;
         ItemVariantId = itemVariantId;
         QuantityOnHand = quantityOnHand;
+        QuantityReserved = quantityReserved;
     }
 
     /// <summary>Required by EF Core for materialisation. Do not call from business code.</summary>
@@ -48,6 +50,19 @@ public sealed class BinStock : Entity
 
     /// <summary>What is currently held in this bin.</summary>
     public Quantity QuantityOnHand { get; private set; }
+
+    /// <summary>
+    /// How much of <see cref="QuantityOnHand"/> is spoken for by a released pick wave that has not yet
+    /// been confirmed or abandoned. Never reduces on-hand itself (§7 rule 21).
+    /// </summary>
+    public Quantity QuantityReserved { get; private set; }
+
+    /// <summary>
+    /// What the allocator may still promise from this bin — <see cref="QuantityOnHand"/> less
+    /// <see cref="QuantityReserved"/>. The figure business rule 21 requires: never negative under any
+    /// interleaving of concurrent releases.
+    /// </summary>
+    public Quantity Available => QuantityOnHand - QuantityReserved;
 
     /// <summary>Opens a new bin balance at zero, in the unit of measure its first movement establishes.</summary>
     public static BinStock Open(
@@ -70,7 +85,8 @@ public sealed class BinStock : Entity
 
         WarehouseItemReference.Validate(itemId, itemVariantId);
 
-        return new BinStock(tenantId, storeId, binId, itemId, itemVariantId, Quantity.Zero(unitOfMeasure));
+        return new BinStock(
+            tenantId, storeId, binId, itemId, itemVariantId, Quantity.Zero(unitOfMeasure), Quantity.Zero(unitOfMeasure));
     }
 
     /// <summary>Increases on-hand quantity — a putaway, an internal transfer in, a released pick reservation.</summary>
@@ -87,7 +103,21 @@ public sealed class BinStock : Entity
         QuantityOnHand += quantity;
     }
 
-    /// <summary>Decreases on-hand quantity — a pick reservation, an internal transfer out.</summary>
+    /// <summary>
+    /// Decreases on-hand quantity — a confirmed pick, an internal transfer out, a cycle-count
+    /// correction.
+    /// </summary>
+    /// <remarks>
+    /// A confirmed pick always pairs this with <see cref="ReleaseReservation"/> for the same task,
+    /// which cannot drive <see cref="Available"/> negative on its own. An internal transfer or a
+    /// cycle-count correction is not paired with anything — it is real physical movement or a real
+    /// stocktake finding, and it must be allowed to happen even when this bin also carries a reservation
+    /// nobody has confirmed yet, or a cycle count could never correct a bin with a live pick in
+    /// progress. When on-hand falls below what is reserved, the reservation is clamped down to match —
+    /// a promise resting on stock that turns out not to be there is not a promise that can survive the
+    /// correction, and the task holding it finds out honestly at confirm time (a short pick) rather than
+    /// this method silently taking <see cref="Available"/> negative (§7 rule 21).
+    /// </remarks>
     /// <exception cref="WarehouseRuleException">
     /// The quantity is not positive, the unit of measure does not match, or it would take the bin below zero.
     /// </exception>
@@ -106,6 +136,58 @@ public sealed class BinStock : Entity
         }
 
         QuantityOnHand -= quantity;
+
+        if (QuantityReserved > QuantityOnHand)
+        {
+            QuantityReserved = QuantityOnHand;
+        }
+    }
+
+    /// <summary>
+    /// Sets aside quantity for a released pick allocation. Physical stock does not move — only
+    /// <see cref="Available"/> falls — so a second wave released against the same bin sees what is
+    /// genuinely still promisable rather than the raw on-hand figure (§7 rule 21, ADR-090 extended).
+    /// </summary>
+    /// <exception cref="WarehouseRuleException">
+    /// The quantity is not positive, the unit of measure does not match, or it would take
+    /// <see cref="Available"/> below zero.
+    /// </exception>
+    public void Reserve(Quantity quantity)
+    {
+        if (quantity.IsNegative || quantity.IsZero)
+        {
+            throw WarehouseRuleException.QuantityMustBePositive();
+        }
+
+        EnsureSameUnitOfMeasure(quantity.UnitOfMeasure);
+
+        if (quantity > Available)
+        {
+            throw WarehouseRuleException.InsufficientBinStock(Available, quantity);
+        }
+
+        QuantityReserved += quantity;
+    }
+
+    /// <summary>
+    /// Gives back a reservation — a pick was confirmed (in full or short), or its task or wave was
+    /// cancelled before confirmation. On-hand is untouched; only what the allocator may promise again
+    /// changes.
+    /// </summary>
+    /// <exception cref="WarehouseRuleException">The quantity is not positive or the unit of measure does not match.</exception>
+    public void ReleaseReservation(Quantity quantity)
+    {
+        if (quantity.IsNegative || quantity.IsZero)
+        {
+            throw WarehouseRuleException.QuantityMustBePositive();
+        }
+
+        EnsureSameUnitOfMeasure(quantity.UnitOfMeasure);
+
+        // Clamped, not thrown: a caller releasing a reservation it holds the record of (an allocated
+        // task's own AllocatedQuantity) must never fail because of an earlier rounding artifact — the
+        // task record is the source of truth for what it reserved, this balance only mirrors it.
+        QuantityReserved = quantity >= QuantityReserved ? Quantity.Zero(quantity.UnitOfMeasure) : QuantityReserved - quantity;
     }
 
     private void EnsureSameUnitOfMeasure(string unitOfMeasure)

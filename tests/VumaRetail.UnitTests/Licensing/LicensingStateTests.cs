@@ -41,28 +41,46 @@ public sealed class LicensingStateTests
     public void An_open_session_may_finish_and_a_new_one_may_not_start()
     {
         OpenSessionRegistry registry = new();
+        TimeSpan window = TimeSpan.FromMinutes(30);
 
         Guid openBefore = Guid.NewGuid();
         Guid openedAfter = Guid.NewGuid();
 
-        registry.Open(openBefore, Now.AddMinutes(-5));
-        registry.Open(openedAfter, Now.AddMinutes(5));
+        registry.Open(openBefore, Now.AddMinutes(-5), window);
+        registry.Open(openedAfter, Now.AddMinutes(5), window);
 
         DateTimeOffset restrictedSince = Now;
 
-        registry.MayCarryOn(openBefore, restrictedSince).Should().BeTrue();
+        registry.MayCarryOn(openBefore, restrictedSince, Now).Should().BeTrue();
 
         // A session opened after the restriction began is a new sale, and no new sale may start.
         // Without this the carve-out would be a permanent bypass for anything calling itself a session.
-        registry.MayCarryOn(openedAfter, restrictedSince).Should().BeFalse();
+        registry.MayCarryOn(openedAfter, restrictedSince, Now).Should().BeFalse();
 
         registry.Close(openBefore);
-        registry.MayCarryOn(openBefore, restrictedSince).Should().BeFalse();
+        registry.MayCarryOn(openBefore, restrictedSince, Now).Should().BeFalse();
     }
 
     [Fact]
     public void An_unknown_session_gets_no_carve_out()
-        => new OpenSessionRegistry().MayCarryOn(Guid.NewGuid(), Now).Should().BeFalse();
+        => new OpenSessionRegistry().MayCarryOn(Guid.NewGuid(), Now, Now).Should().BeFalse();
+
+    [Fact]
+    public void An_in_flight_entry_past_its_own_deadline_gets_no_carve_out()
+    {
+        // ADR-135's second bound. Opened before the restriction is not enough on its own — a tenant who
+        // never closes the session must not keep its carve-out forever.
+        OpenSessionRegistry registry = new();
+        TimeSpan window = TimeSpan.FromMinutes(30);
+
+        Guid saleId = Guid.NewGuid();
+        registry.Open(saleId, Now.AddMinutes(-5), window);
+
+        DateTimeOffset restrictedSince = Now;
+
+        registry.MayCarryOn(saleId, restrictedSince, Now.AddMinutes(24)).Should().BeTrue("still within its 30-minute window");
+        registry.MayCarryOn(saleId, restrictedSince, Now.AddMinutes(26)).Should().BeFalse("31 minutes since it opened — past the deadline");
+    }
 
     [Theory]
     [InlineData(LimitKind.Stores, true)]

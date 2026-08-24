@@ -388,6 +388,34 @@ public sealed class ImportCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Rolling_back_the_same_batch_twice_returns_the_first_rollbacks_counters()
+    {
+        // §4.26 — Rollback used to lack the idempotency branch Commit already had for itself, so a
+        // replay threw IMPORTS_UNEXPECTED_BATCH_STATUS instead of returning the first rollback's answer.
+        await using ImportsHarness harness = await ImportsHarness.CreateAsync(fixture);
+
+        ImportBatchCreated created = await harness.SendAsync(Upload(
+            ImportTargetKind.Suppliers,
+            """
+            Supplier Code,Supplier Name
+            ACME001,Acme Wholesalers
+            """));
+
+        await harness.SendAsync(new ValidateImportBatchCommand(created.BatchId));
+        await harness.SendAsync(new CommitImportBatchCommand(created.BatchId));
+
+        ImportBatchCounts first = await harness.SendAsync(
+            new RollbackImportBatchCommand(created.BatchId, "Wrong supplier file."));
+        ImportBatchCounts replay = await harness.SendAsync(
+            new RollbackImportBatchCommand(created.BatchId, "Wrong supplier file."));
+
+        replay.Should().BeEquivalentTo(first);
+
+        ImportBatch? batch = await harness.Batches.FindAsync(created.BatchId);
+        batch!.Status.Should().Be(ImportBatchStatus.RolledBack);
+    }
+
+    [Fact]
     public async Task Re_uploading_a_file_that_already_committed_is_refused_on_its_content()
     {
         await using ImportsHarness harness = await ImportsHarness.CreateAsync(fixture);

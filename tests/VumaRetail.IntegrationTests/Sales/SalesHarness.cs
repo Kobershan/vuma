@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Catalog;
 using VumaRetail.Application.Identity;
@@ -21,6 +22,8 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.IntegrationTests.Pos;
+using VumaRetail.Licensing;
+using VumaRetail.Licensing.Enforcement;
 
 namespace VumaRetail.IntegrationTests.Sales;
 
@@ -71,7 +74,7 @@ public sealed class SalesHarness : IAsyncDisposable
 
         PriceLists = new PriceListRepository(context);
         Promotions = new PromotionRepository(context);
-        Returns = new SalesReturnRepository(context);
+        Returns = new SalesReturnRepository(context, tenant);
         PriceOverrides = new PriceOverrideLogRepository(context);
         ReturnEvents = new RecordingSalesReturnEventPublisher();
 
@@ -110,6 +113,13 @@ public sealed class SalesHarness : IAsyncDisposable
         services.AddSingleton<ISellableItemResolver, SellableItemResolver>();
         services.AddSingleton<ISaleFinancialEventPublisher>(new RecordingSaleEventPublisher());
         services.AddSingleton<ISaleCompletionService, SaleCompletionService>();
+
+        // §4.10: the in-flight session/sale registry OpenTillSessionCommand, OpenSaleCommand and
+        // CompleteSaleCommand all depend on now, and the read-only state RecordReceiptPrintCommand
+        // consults directly.
+        services.AddSingleton<IOpenSessionRegistry, OpenSessionRegistry>();
+        services.AddSingleton<IOpenSessionWindows>(new LicensingOptions());
+        services.AddSingleton<IEnforcementStatusReader>(new TestEntitlementService());
 
         services.AddSingleton<IPriceListRepository>(PriceLists);
         services.AddSingleton<IPromotionRepository>(Promotions);
@@ -160,6 +170,13 @@ public sealed class SalesHarness : IAsyncDisposable
 
     /// <summary>The seeded terminal.</summary>
     public Guid TerminalId { get; private init; }
+
+    /// <summary>
+    /// The database this harness's context is over — for a test that needs a second, independent
+    /// <see cref="VumaRetailDbContext"/> against the same data to exercise real row-level locking, which
+    /// the harness's own single shared context (and its all-<c>AddSingleton</c> DI) cannot do concurrently.
+    /// </summary>
+    public string ConnectionString { get; private init; } = string.Empty;
 
     /// <summary>Price list repository.</summary>
     public IPriceListRepository PriceLists { get; }
@@ -246,6 +263,7 @@ public sealed class SalesHarness : IAsyncDisposable
             seeded.Id, store.Id, operatorUser.Id, location.Id, milk.Id, bread.Id)
         {
             TerminalId = terminal.Id,
+            ConnectionString = connectionString,
         };
     }
 

@@ -33,6 +33,7 @@ public sealed class GoodsReceipt : Entity
     private readonly List<GoodsReceiptLine> _lines = [];
 
     private GoodsReceipt(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid purchaseOrderId,
@@ -43,7 +44,7 @@ public sealed class GoodsReceipt : Entity
         string? deliveryNoteNumber,
         Guid receivedByUserId,
         DateTimeOffset receivedAt)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         PurchaseOrderId = purchaseOrderId;
         PartnerId = partnerId;
@@ -117,13 +118,18 @@ public sealed class GoodsReceipt : Entity
     /// <param name="deliveryNoteNumber">The supplier's delivery-note number, or <c>null</c>.</param>
     /// <param name="receivedByUserId">Who checked it in.</param>
     /// <param name="receivedAt">When the goods arrived, UTC.</param>
+    /// <param name="id">
+    /// The receipt's identity, or <c>null</c> to mint one here. A caller that already sent this create
+    /// once supplies the id it used the first time, which makes a dropped-connection retry idempotent.
+    /// </param>
     /// <exception cref="ProcurementRuleException">The order is not open for receipt (business rule 6).</exception>
     public static GoodsReceipt Open(
         PurchaseOrder order,
         string receiptNumber,
         string? deliveryNoteNumber,
         Guid receivedByUserId,
-        DateTimeOffset receivedAt)
+        DateTimeOffset receivedAt,
+        Guid? id = null)
     {
         ArgumentNullException.ThrowIfNull(order);
         ArgumentException.ThrowIfNullOrWhiteSpace(receiptNumber);
@@ -134,6 +140,7 @@ public sealed class GoodsReceipt : Entity
         }
 
         return new GoodsReceipt(
+            id ?? UuidV7.NewGuid(),
             order.TenantId,
             order.StoreId,
             order.Id,

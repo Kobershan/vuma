@@ -40,9 +40,23 @@ public sealed class OpenPickWaveCommandHandler(IStockLocationRepository location
 }
 
 /// <summary>Adds a demand line to an open wave.</summary>
+/// <param name="PickWaveId">The wave to add to.</param>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="RequestedQuantity">How much is demanded.</param>
+/// <param name="OutboundReference">What raised the demand.</param>
+/// <param name="PickTaskId">
+/// The task's identity, or <c>null</c> to mint one here. A caller that already sent this create once
+/// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.19).
+/// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddPickTaskCommand(
-    Guid PickWaveId, Guid? ItemId, Guid? ItemVariantId, Quantity RequestedQuantity, string OutboundReference) : ICommand<Guid>;
+    Guid PickWaveId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    Quantity RequestedQuantity,
+    string OutboundReference,
+    Guid? PickTaskId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed add-pick-task command before it reaches the handler.</summary>
 public sealed class AddPickTaskCommandValidator : AbstractValidator<AddPickTaskCommand>
@@ -72,6 +86,18 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.PickTaskId is { } replayed)
+        {
+            PickTask? already = await waves.FindTaskAsync(replayed, cancellationToken).ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                // The idempotent replay (§4.19) — a dropped-connection retry returns the line it already
+                // added instead of adding a second one.
+                return already.Id;
+            }
+        }
+
         PickWave wave = await waves.FindAsync(command.PickWaveId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("pick wave", command.PickWaveId);
 
@@ -91,7 +117,7 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
 
         PickTask task = PickTask.Create(
             wave.TenantId, wave.StoreId, wave.Id, command.ItemId, command.ItemVariantId,
-            command.RequestedQuantity, command.OutboundReference);
+            command.RequestedQuantity, command.OutboundReference, command.PickTaskId);
 
         waves.AddTask(task);
 
@@ -137,11 +163,31 @@ public sealed class ReleasePickWaveCommandHandler(
 
         IReadOnlyList<PickTask> tasks = await waves.ListTasksAsync(wave.Id, cancellationToken).ConfigureAwait(false);
 
+        // What this call has already reserved, by (bin, stock-keeping unit) — ListCandidatesAsync's
+        // snapshot is read-only and does not see an earlier iteration's in-flight reservation until
+        // SaveChanges runs, so a second task in the same wave demanding the same stock-keeping unit
+        // would otherwise be allocated against on-hand nobody told it was already spoken for (§4.19).
+        // Keyed on the full (bin, item, variant) tuple, not the bin alone — one bin routinely holds
+        // several distinct BinStock rows (ux_bin_stock_bin_id_item_id and its variant twin both key on
+        // the pair), and a bin-only key would wrongly bleed one task's reservation onto a sibling task's
+        // *different* stock-keeping unit sharing the same bin.
+        Dictionary<(Guid BinId, Guid? ItemId, Guid? ItemVariantId), Quantity> reservedThisRelease = [];
+
         foreach (PickTask task in tasks.Where(task => task.Status == PickTaskStatus.Pending))
         {
             IReadOnlyList<Domain.Warehouse.BinStock> candidates = await binStocks
                 .ListCandidatesAsync(wave.LocationId, task.ItemId, task.ItemVariantId, cancellationToken)
                 .ConfigureAwait(false);
+
+            foreach (Domain.Warehouse.BinStock candidate in candidates)
+            {
+                (Guid, Guid?, Guid?) key = (candidate.BinId, candidate.ItemId, candidate.ItemVariantId);
+
+                if (reservedThisRelease.TryGetValue(key, out Quantity already) && !already.IsZero)
+                {
+                    candidate.Reserve(already);
+                }
+            }
 
             IReadOnlyList<BinAllocation> allocations = allocator.Allocate(task.RequestedQuantity, candidates);
 
@@ -151,6 +197,25 @@ public sealed class ReleasePickWaveCommandHandler(
             if (totalAllocated < task.RequestedQuantity)
             {
                 throw WarehouseRuleException.InsufficientStockToAllocate(task.RequestedQuantity, totalAllocated);
+            }
+
+            // Reserved here, at release — not only recorded on the confirm-time movement — so a second
+            // wave released before this one is picked sees what is genuinely still available rather
+            // than the same on-hand figure this wave already spoke for (§4.19, §7 rule 21).
+            foreach (BinAllocation allocation in allocations)
+            {
+                Domain.Warehouse.BinStock balance = await binStocks
+                    .FindAsync(allocation.BinId, task.ItemId, task.ItemVariantId, cancellationToken)
+                    .ConfigureAwait(false)
+                    ?? throw new WarehouseNotFoundException("bin stock", allocation.BinId);
+
+                balance.Reserve(allocation.Quantity);
+
+                (Guid, Guid?, Guid?) key = (allocation.BinId, task.ItemId, task.ItemVariantId);
+
+                reservedThisRelease[key] = reservedThisRelease.TryGetValue(key, out Quantity existing)
+                    ? existing + allocation.Quantity
+                    : allocation.Quantity;
             }
 
             task.Allocate(allocations[0].BinId, allocations[0].Quantity);
@@ -217,9 +282,13 @@ public sealed class ConfirmPickCommandHandler(
         Domain.Warehouse.Bin bin = await bins.FindAsync(binId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("bin", binId);
 
+        // Read before ConfirmPick, though ConfirmPick never changes it — the allocation is what was
+        // reserved at release, and the whole of it is released here regardless of a short pick (§4.19).
+        Quantity reservedQuantity = task.AllocatedQuantity!.Value;
+
         task.ConfirmPick(command.PickedQuantity);
 
-        await mover.PickAsync(bin, task.ItemId, task.ItemVariantId, command.PickedQuantity, task.Id, cancellationToken)
+        await mover.PickAsync(bin, task.ItemId, task.ItemVariantId, command.PickedQuantity, reservedQuantity, task.Id, cancellationToken)
             .ConfigureAwait(false);
 
         PickWave wave = await waves.FindAsync(task.PickWaveId, cancellationToken).ConfigureAwait(false)
@@ -245,7 +314,9 @@ public sealed record CancelPickTaskCommand(Guid PickTaskId) : ICommand;
 
 /// <summary>Cancels a task.</summary>
 /// <param name="waves">Task lookup.</param>
-public sealed class CancelPickTaskCommandHandler(IPickWaveRepository waves) : ICommandHandler<CancelPickTaskCommand, Unit>
+/// <param name="binStocks">Releases the reservation an allocated task placed (§4.19).</param>
+public sealed class CancelPickTaskCommandHandler(IPickWaveRepository waves, IBinStockRepository binStocks)
+    : ICommandHandler<CancelPickTaskCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(CancelPickTaskCommand command, CancellationToken cancellationToken = default)
@@ -254,6 +325,16 @@ public sealed class CancelPickTaskCommandHandler(IPickWaveRepository waves) : IC
 
         PickTask task = await waves.FindTaskAsync(command.PickTaskId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("pick task", command.PickTaskId);
+
+        // Only an allocated task holds a reservation — a still-pending one never reserved anything.
+        if (task.AllocatedBinId is { } binId && task.AllocatedQuantity is { } allocated)
+        {
+            Domain.Warehouse.BinStock? balance = await binStocks
+                .FindAsync(binId, task.ItemId, task.ItemVariantId, cancellationToken)
+                .ConfigureAwait(false);
+
+            balance?.ReleaseReservation(allocated);
+        }
 
         task.Cancel();
 
@@ -266,8 +347,10 @@ public sealed class CancelPickTaskCommandHandler(IPickWaveRepository waves) : IC
 public sealed record CancelPickWaveCommand(Guid PickWaveId) : ICommand;
 
 /// <summary>Cancels a wave.</summary>
-/// <param name="waves">Wave lookup.</param>
-public sealed class CancelPickWaveCommandHandler(IPickWaveRepository waves) : ICommandHandler<CancelPickWaveCommand, Unit>
+/// <param name="waves">Wave and task lookup.</param>
+/// <param name="binStocks">Releases every allocated-but-unconfirmed task's reservation (§4.19).</param>
+public sealed class CancelPickWaveCommandHandler(IPickWaveRepository waves, IBinStockRepository binStocks)
+    : ICommandHandler<CancelPickWaveCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(CancelPickWaveCommand command, CancellationToken cancellationToken = default)
@@ -276,6 +359,22 @@ public sealed class CancelPickWaveCommandHandler(IPickWaveRepository waves) : IC
 
         PickWave wave = await waves.FindAsync(command.PickWaveId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("pick wave", command.PickWaveId);
+
+        // A wave may be cancelled after release, while its tasks still hold a reservation nobody will
+        // ever confirm or explicitly cancel individually — released here or it leaks forever (§4.19).
+        IReadOnlyList<PickTask> tasks = await waves.ListTasksAsync(wave.Id, cancellationToken).ConfigureAwait(false);
+
+        foreach (PickTask task in tasks.Where(task => task.Status == PickTaskStatus.Allocated))
+        {
+            if (task.AllocatedBinId is { } binId && task.AllocatedQuantity is { } allocated)
+            {
+                Domain.Warehouse.BinStock? balance = await binStocks
+                    .FindAsync(binId, task.ItemId, task.ItemVariantId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                balance?.ReleaseReservation(allocated);
+            }
+        }
 
         wave.Cancel();
 

@@ -1,3 +1,4 @@
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Licensing.Signing;
 
 namespace VumaRetail.Licensing;
@@ -19,7 +20,7 @@ namespace VumaRetail.Licensing;
 /// the floor a store falls back to when it has never held a lease.
 /// </para>
 /// </remarks>
-public sealed class LicensingOptions
+public sealed class LicensingOptions : IOpenSessionWindows
 {
     /// <summary>The configuration section: <c>Vuma:Licensing</c>.</summary>
     public const string SectionName = "Vuma:Licensing";
@@ -107,6 +108,25 @@ public sealed class LicensingOptions
     /// of unrecorded cash and a customer holding goods; no <em>new</em> sale can start either way.
     /// </remarks>
     public bool OpenSessionCarveOut { get; set; } = true;
+
+    /// <summary>
+    /// ADR-135's first hard deadline: how long a sale that was open when read-only fell due may still be
+    /// rung, tendered, completed or voided before the carve-out expires. Default 30 minutes.
+    /// </summary>
+    /// <remarks>
+    /// This, not <see cref="OpenSessionCarveOut"/> alone, is what stops the carve-out being a trading
+    /// allowance: without it, a tenant who never closes a sale keeps ringing new lines onto it
+    /// indefinitely. Measured from the sale's own <c>OpenedAt</c>, evaluated against the watermarked
+    /// clock so winding the system clock back buys nothing (<c>LICENSING.md</c> §7).
+    /// </remarks>
+    public TimeSpan InFlightSaleWindow { get; set; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// ADR-135's second hard deadline: how long a till session that was open when read-only fell due may
+    /// still be closed before the carve-out expires. Default 12 hours — long enough that a shift can
+    /// always end.
+    /// </summary>
+    public TimeSpan InFlightCashUpWindow { get; set; } = TimeSpan.FromHours(12);
 
     /// <summary>
     /// Whether an unactivated installation is read-only.

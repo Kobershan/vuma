@@ -11,6 +11,7 @@ using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Sales;
 
@@ -49,7 +50,7 @@ public static class SalesEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder priceLists = api.MapGroup("/sales/price-lists").WithTags("Sales");
+        RouteGroupBuilder priceLists = api.MapGroup("/sales/price-lists").WithTags("Sales").RequireModule("sales");
 
         priceLists.MapPost("/", CreatePriceListAsync)
             .RequirePermission(SalesPermissions.PriceManage)
@@ -104,7 +105,7 @@ public static class SalesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Retires a price list from resolution. Nothing is deleted.");
 
-        RouteGroupBuilder promotions = api.MapGroup("/sales/promotions").WithTags("Sales");
+        RouteGroupBuilder promotions = api.MapGroup("/sales/promotions").WithTags("Sales").RequireModule("sales");
 
         promotions.MapPost("/", CreatePromotionAsync)
             .RequirePermission(SalesPermissions.PromotionManage)
@@ -161,7 +162,7 @@ public static class SalesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Retires a promotion. Nothing is deleted.");
 
-        RouteGroupBuilder prices = api.MapGroup("/sales/prices").WithTags("Sales");
+        RouteGroupBuilder prices = api.MapGroup("/sales/prices").WithTags("Sales").RequireModule("sales");
 
         prices.MapGet("/resolve", ResolvePriceAsync)
             .RequirePermission(SalesPermissions.PriceView)
@@ -175,7 +176,7 @@ public static class SalesEndpoints
                 + "amount. 404 when nothing prices the item; 422 when the winning list is denominated "
                 + "in another currency, which is refused rather than converted.");
 
-        RouteGroupBuilder overrides = api.MapGroup("/sales/price-overrides").WithTags("Sales");
+        RouteGroupBuilder overrides = api.MapGroup("/sales/price-overrides").WithTags("Sales").RequireModule("sales");
 
         overrides.MapPost("/", RecordPriceOverrideAsync)
             .RequirePermission(SalesPermissions.PriceOverride)
@@ -194,7 +195,7 @@ public static class SalesEndpoints
                 "The shrinkage report. One cashier and one item every Friday is a pattern; the same "
                 + "events read one at a time are a series of reasonable decisions.");
 
-        RouteGroupBuilder returns = api.MapGroup("/sales/returns").WithTags("Sales");
+        RouteGroupBuilder returns = api.MapGroup("/sales/returns").WithTags("Sales").RequireModule("sales");
 
         returns.MapPost("/", CreateSalesReturnAsync)
             .RequirePermission(SalesPermissions.ReturnRaise)

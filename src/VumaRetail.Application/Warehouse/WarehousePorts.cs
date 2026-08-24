@@ -45,8 +45,9 @@ public interface IBinStockRepository
     Task<BinStock?> FindAsync(Guid binId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Every bin at a location holding stock of one stock-keeping unit, largest quantity first — the
-    /// allocator's candidate list (ADR-090).
+    /// Every bin at a location holding stock of one stock-keeping unit, most available first — the
+    /// allocator's candidate list (ADR-090, §7 rule 21: ranked and filtered on <c>Available</c>, not
+    /// raw on-hand, once another wave has reserved part of a bin).
     /// </summary>
     Task<IReadOnlyList<BinStock>> ListCandidatesAsync(
         Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default);
@@ -63,6 +64,13 @@ public interface IBinStockMovementRepository
 {
     /// <summary>Appends a new movement. Nothing already added is ever updated or removed.</summary>
     void Add(BinStockMovement movement);
+
+    /// <summary>
+    /// True if a movement already exists against this reference — the dropped-connection-retry check for
+    /// any command that posts a movement keyed by a caller-supplied id (§4.19).
+    /// </summary>
+    Task<bool> ExistsForReferenceAsync(
+        Guid referenceId, BinStockReferenceType referenceType, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads and writes <see cref="PutawayTask"/> rows.</summary>

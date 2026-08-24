@@ -23,6 +23,7 @@ namespace VumaRetail.Domain.Pos;
 public sealed class ReceiptPrint : Entity, IImmutableRecord
 {
     private ReceiptPrint(
+        Guid id,
         Guid tenantId,
         Guid? storeId,
         Guid saleId,
@@ -31,7 +32,7 @@ public sealed class ReceiptPrint : Entity, IImmutableRecord
         bool isReprint,
         string? reason,
         DateTimeOffset printedAt)
-        : base(tenantId, storeId)
+        : base(id, tenantId, storeId)
     {
         SaleId = saleId;
         PrintedByUserId = printedByUserId;
@@ -73,6 +74,11 @@ public sealed class ReceiptPrint : Entity, IImmutableRecord
     /// <param name="isReprint">Whether the receipt has been printed before.</param>
     /// <param name="reason">Why it was reprinted. Required when <paramref name="isReprint"/> is true.</param>
     /// <param name="printedAt">When, UTC.</param>
+    /// <param name="id">
+    /// The print row's identity, or <c>null</c> to mint one here. §4.11: without it, a replayed
+    /// <c>RecordReceiptPrintCommand</c> appends a second row marked <c>isReprint: true</c> against a
+    /// cashier who only ever printed once — a fabricated loss-prevention signal, not a real one.
+    /// </param>
     /// <exception cref="PosRuleException">A reprint carried no reason.</exception>
     public static ReceiptPrint Record(
         Guid tenantId,
@@ -82,7 +88,8 @@ public sealed class ReceiptPrint : Entity, IImmutableRecord
         Guid terminalId,
         bool isReprint,
         string? reason,
-        DateTimeOffset printedAt)
+        DateTimeOffset printedAt,
+        Guid? id = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -100,6 +107,7 @@ public sealed class ReceiptPrint : Entity, IImmutableRecord
         }
 
         return new ReceiptPrint(
+            id ?? UuidV7.NewGuid(),
             tenantId,
             storeId,
             saleId,

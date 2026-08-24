@@ -55,19 +55,21 @@ public sealed class LargestBinFirstAllocationStrategy : IPickAllocationStrategy
         List<BinAllocation> allocations = [];
         Quantity remaining = requested;
 
-        foreach (BinStock candidate in candidates.OrderByDescending(c => c.QuantityOnHand.Value))
+        // Available, not on-hand (§7 rule 21) — a bin already spoken for by an earlier release must not
+        // be promised again to this one.
+        foreach (BinStock candidate in candidates.OrderByDescending(c => c.Available.Value))
         {
             if (remaining.IsZero)
             {
                 break;
             }
 
-            if (candidate.QuantityOnHand.IsZero)
+            if (candidate.Available.IsZero || candidate.Available.IsNegative)
             {
                 continue;
             }
 
-            Quantity take = candidate.QuantityOnHand >= remaining ? remaining : candidate.QuantityOnHand;
+            Quantity take = candidate.Available >= remaining ? remaining : candidate.Available;
             allocations.Add(new BinAllocation(candidate.BinId, take));
             remaining -= take;
         }

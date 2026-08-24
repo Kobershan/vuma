@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Domain.Sales;
 
@@ -149,13 +150,58 @@ public sealed class PromotionRepository(VumaRetailDbContext context) : IPromotio
 
 /// <summary>EF Core implementation of <see cref="ISalesReturnRepository"/>.</summary>
 /// <param name="context">The database context.</param>
-public sealed class SalesReturnRepository(VumaRetailDbContext context) : ISalesReturnRepository
+/// <param name="tenant">The ambient tenant, for the row-locked read's raw-SQL predicate.</param>
+public sealed class SalesReturnRepository(VumaRetailDbContext context, ITenantContext tenant) : ISalesReturnRepository
 {
     /// <inheritdoc />
     public Task<SalesReturn?> FindAsync(Guid salesReturnId, CancellationToken cancellationToken = default)
         => context.SalesReturns
             .Include(salesReturn => salesReturn.Lines)
             .FirstOrDefaultAsync(salesReturn => salesReturn.Id == salesReturnId, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<SalesReturn?> FindForUpdateAsync(Guid salesReturnId, CancellationToken cancellationToken = default)
+    {
+        // The lock is taken with a raw, columns-only SELECT rather than SELECT * against the mapped
+        // entity set: SalesReturn's Money complex properties (Net/Tax/Gross) do not round-trip through
+        // FromSqlInterpolated's own column-shape matching the way a plain-scalar entity like ImportBatch
+        // does, and fail with "column ... does not exist" against columns that are really there. Locking
+        // the row is all raw SQL needs to do; the actual read goes through the normal, fully-supported
+        // LINQ path below, which already holds this transaction's lock by the time it runs.
+        //
+        // The tenant predicate is written out rather than left to the global query filter — raw SQL does
+        // not reach inside it (the same reasoning ImportBatchRepository's FindForUpdateAsync gives).
+        Guid lockedId = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM sales.sales_returns
+                 WHERE id = {salesReturnId} AND tenant_id = {tenant.TenantId} AND deleted_at IS NULL
+                 FOR UPDATE
+                 """)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (lockedId == Guid.Empty)
+        {
+            return null;
+        }
+
+        SalesReturn? salesReturn = await context.SalesReturns
+            .FirstOrDefaultAsync(candidate => candidate.Id == salesReturnId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (salesReturn is null)
+        {
+            return null;
+        }
+
+        // Loaded after the lock, not joined into it — FOR UPDATE across a join would lock every line
+        // row too, and nothing else contends for lines except through the return this caller now holds.
+        await context.Entry(salesReturn).Collection(item => item.Lines).LoadAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return salesReturn;
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<SalesReturn>> ListForSaleAsync(
