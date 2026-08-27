@@ -4,7 +4,7 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 06c — Multi-company foundation
-CURRENT TASK: TASK-012 — Migration fan-out and serving guard
+CURRENT TASK: TASK-013 — company_id retrofit across business tables
 STATUS: NOT_STARTED
 
 LAST COMPLETED: Stage 09 closure fixes for §4.10, §4.11, §4.13, §4.14 and §4.15; commits
@@ -22,5 +22,5 @@ FILES CURRENTLY RELEVANT: `docs/tasks/STAGE-06c-INDEX.md`, `docs/tasks/TASK-005-
 `docs/stages/STAGE-06c-multi-company.md`, `docs/MULTI_COMPANY.md`, `docs/DATA_MODEL.md`, and the
 registry source files named by TASK-005.
 
-TEST STATUS: Registry build succeeds. Test execution is environment-limited because this sandbox denies
-the test host TCP listener; Docker-backed migration tests remain unverified.
+TEST STATUS: Infrastructure build succeeds with 0 warnings and 0 errors. Registry unit tests previously
+passed; Docker-backed migration tests remain unverified because Docker is unavailable.
