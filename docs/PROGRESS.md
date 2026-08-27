@@ -1,7 +1,8 @@
 # PROGRESS — Vuma Retail
 
-> ★ **THE STATE FILE.** Read first, write last. This file is the truth about where the build is;
-> `ROADMAP.md` is only the plan. If they disagree, correct the roadmap.
+> **Historical progress and issue register.** Read `docs/CURRENT.md` for the small operational state.
+> This file preserves session evidence, deferred work, and known defects; do not use it as the active
+> task handoff.
 
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).

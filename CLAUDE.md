@@ -3,7 +3,8 @@
 > **This file is the contract.** Read it fully at the start of every session, before touching any code.
 > Vuma Retail is a Windows-installed retail ERP + POS platform with an in-store server, a cloud
 > replica/backup tier, and an Android admin app. It is built stage-by-stage by autonomous Claude Code
-> sessions. Each session picks up where the last one stopped by reading `docs/PROGRESS.md`.
+> sessions, one focused task at a time. Each session picks up where the last one stopped by reading
+> `docs/CURRENT.md`.
 
 ---
 
@@ -11,24 +12,18 @@
 
 ```
  1. Read  CLAUDE.md                      (this file)
- 2. Read  docs/PROGRESS.md               (§1 current state, §5 what the next session does)
- 3. Read  docs/DECISIONS.md              (locked-in choices — never re-litigate these)
- 4. Read  docs/ROADMAP.md                (dependencies; PROGRESS.md §5 outranks it)
- 5. Read  docs/stages/STAGE-NN-*.md      (the FIRST stage that is NOT_STARTED or IN_PROGRESS and
-                                          whose dependencies are DONE. If the document does not
-                                          exist, WRITE IT FIRST, then build it.)
- 6. Read  the reference docs that stage lists under "Reference reading"
- 7. EXECUTE the stage to completion. Do not stop halfway. Do not ask the user anything.
- 8. Run   the agent panel — docs/AGENTS.md. architecture-guard, the specialists the stage's
-          subject matter calls for, stage-verifier until PASS or a documented UNVERIFIED,
-          doc-scribe. Act on every finding before committing.
- 9. Run   the stage's Exit Checklist. Every box must pass. Fix what fails and re-run.
-10. Update docs/PROGRESS.md  (§1 status, session log, §4 for defects found, §5 rewritten)
-11. Append any new architectural choices to docs/DECISIONS.md as an ADR
-12. Commit with:  feat(stage-NN): <stage title>   — then PUSH, and update the parent
-    `ecosystem` superproject's vuma pointer
-13. If context is running low, write a detailed handoff into docs/PROGRESS.md, commit, push, and
-    stop cleanly at a green build. Never leave the repo in a non-compiling state.
+ 2. Read  docs/CURRENT.md                 (the small operational handoff)
+ 3. Read  docs/ROADMAP.md                 (only the relevant stage/dependency section)
+ 4. Read  the current stage document      (scope, acceptance, and task index)
+ 5. Read  the current task file           (the only implementation unit for this session)
+ 6. Read  only the ADRs and reference docs named by that task
+ 7. Inspect only the source and tests relevant to that task
+ 8. DISCOVER → PLAN → IMPLEMENT → TEST → REVIEW → DOCUMENT → COMPLETE
+ 9. Run   applicable specialist reviews; run the full stage panel at stage completion.
+10. Update the task, docs/CURRENT.md, and historical docs/PROGRESS.md evidence as appropriate.
+11. Append any new architectural choices to docs/DECISIONS.md as an ADR.
+12. Commit at a green checkpoint. Do not start another task unless explicitly authorized.
+13. If context is running low, write the task handoff and stop cleanly at a green checkpoint.
 ```
 
 **Universal kickoff command** (the user types this into any fresh chat, nothing else needed):
@@ -37,7 +32,7 @@
 /next-stage
 ```
 
-It is defined at `.claude/commands/next-stage.md` and it is the whole of this protocol. If the host
+It is defined at `.claude/commands/next-stage.md` and selects the next task in the current stage. If the host
 does not load project slash commands, `docs/SESSION_KICKOFF.md` carries the paste-able equivalent.
 
 ---
@@ -64,6 +59,8 @@ own. See `docs/AUTONOMOUS_OPERATION.md` for the environment setup.
 - **When ambiguous, choose** the option that is (a) consistent with `docs/DECISIONS.md`, (b) simplest
   to maintain, (c) least likely to need rework in a later stage. Then record it as an ADR in
   `docs/DECISIONS.md` with a one-line rationale.
+- **One task at a time.** Do not expand a task into unrelated refactoring or defect repair. Record
+  unrelated findings as follow-up tasks.
 - **Never mark a stage DONE that isn't.** If something genuinely cannot be completed (e.g. it needs a
   paid third-party account), stub it behind an interface, write a fake/in-memory implementation that
   satisfies the tests, log it in `docs/PROGRESS.md` under "Deferred — needs real credentials", and
@@ -210,7 +207,8 @@ vuma/
 │   ├── commands/next-stage.md    ← the session kickoff command
 │   └── agents/                   ← subagent definitions (see docs/AGENTS.md)
 ├── docs/
-│   ├── PROGRESS.md               ← ★ THE STATE FILE. Read first, write last.
+│   ├── CURRENT.md                ← ★ small operational handoff; read first for work selection
+│   ├── PROGRESS.md               ← historical progress, deferred work, and known issues
 │   ├── DECISIONS.md              ← ADR log
 │   ├── ROADMAP.md                ← stage index
 │   ├── ARCHITECTURE.md
@@ -234,7 +232,9 @@ vuma/
 │   ├── FIELD_SALES.md            ← the rep module: pro formas, approval, performance (R12)
 │   ├── CHATBOT.md                ← the WhatsApp/email assistant contract (R14)
 │   ├── EXECUTION_STANDARD.md     ← how a stage document is written and executed
-│   ├── SESSION_KICKOFF.md        ← the one command to start a session
+│   ├── SESSION_KICKOFF.md        ← durable session startup and handoff procedure
+│   ├── ARCHITECTURE.md           ← compact architecture map and document index
+│   ├── tasks/                    ← one focused implementation unit per task
 │   ├── AGENTS.md
 │   └── stages/STAGE-00 … STAGE-31 (incl. 04b, 30b)
 ├── src/

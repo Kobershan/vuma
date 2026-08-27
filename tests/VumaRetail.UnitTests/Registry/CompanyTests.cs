@@ -1,0 +1,43 @@
+using VumaRetail.Domain.Registry;
+
+namespace VumaRetail.UnitTests.Registry;
+
+/// <summary>Business rules for the registry company lifecycle.</summary>
+public sealed class CompanyTests
+{
+    [Fact]
+    public void New_company_starts_provisioning_and_cannot_serve()
+    {
+        Company company = Company.Create(
+            Guid.NewGuid(), "hardware", "Siyaya Hardware", "Siyaya Hardware", "ZAR", "en-ZA", "SH");
+
+        company.LifecycleState.Should().Be(CompanyLifecycleState.Provisioning);
+        company.IsActive.Should().BeFalse();
+        company.ConnectionSecretRef.Should().BeNull();
+    }
+
+    [Fact]
+    public void Active_requires_the_explicit_active_flag()
+    {
+        Company company = CreateCompany();
+
+        company.SetLifecycle(CompanyLifecycleState.Active);
+        company.IsActive.Should().BeFalse();
+
+        company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+        company.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Registry_stores_a_secret_reference_not_connection_details()
+    {
+        Company company = CreateCompany();
+
+        company.SetConnectionSecretRef("secret://tenant/company");
+
+        company.ConnectionSecretRef.Should().Be("secret://tenant/company");
+    }
+
+    private static Company CreateCompany()
+        => Company.Create(Guid.NewGuid(), "hardware", "Siyaya Hardware", "Siyaya Hardware", "ZAR", "en-ZA", "SH");
+}

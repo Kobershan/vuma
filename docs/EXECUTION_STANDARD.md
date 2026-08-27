@@ -1,16 +1,25 @@
-# EXECUTION STANDARD — how a stage document is written, and how a session executes one
+# EXECUTION STANDARD — how stages and task sessions are written and executed
 
-**Read this before writing a stage document and before executing one.** It exists because the sessions
-that build this product are not always the model that planned it. A stage document that requires
-judgement to interpret will get inconsistent judgement. A stage document that reads like an instruction
-manual gets built the same way every time (ADR-133).
+**Read this before writing a stage or task document and before executing one.** A stage is a strategic
+milestone; a task is the normal session-sized implementation unit. This keeps the filesystem as
+long-term memory while the active context stays focused (ADR-133).
+
+## Part 0 — Selecting work
+
+1. Read `CLAUDE.md`, `docs/CURRENT.md`, the relevant roadmap section, the current stage, and the
+   current task in `docs/tasks/`.
+2. Confirm the task is the only `IN_PROGRESS` task and that its dependencies are satisfied.
+3. Read only the task's named ADRs, domain references, source files, and tests.
+4. Do not select a new task because an unrelated defect is visible. Record it as a follow-up.
+5. If the current task is missing or ambiguous, document the blocker in `CURRENT.md`; do not invent
+   implementation scope.
 
 ---
 
 ## Part 1 — Writing a stage document
 
 Every stage document is written **before** its code and lives at `docs/stages/STAGE-NN-<slug>.md`. It
-must be executable by a session that has read nothing but `CLAUDE.md`, `docs/PROGRESS.md`,
+must be executable by a session that has read nothing but `CLAUDE.md`, `docs/CURRENT.md`,
 `docs/DECISIONS.md` and the documents it names under "Reference reading".
 
 ### The eight required sections, in this order
@@ -57,23 +66,21 @@ examples. Copy the structure of 14 for a module stage; it has the best build lis
 
 ---
 
-## Part 2 — Executing a stage
+## Part 2 — Executing one task
 
 ### Before writing code
 
-1. Read everything in the header's reference list. All of it. Stage documents assume it.
-2. Confirm the stage's dependencies are DONE in `PROGRESS.md` §1. If one is not, stop and say so in
-   `PROGRESS.md` §5 rather than building on sand.
-3. Create the branch: `git checkout -b stage-NN-<slug>` off `main`.
-4. Tick part A of the build list as you complete each item, **in the document, as you go**. A build list
-   ticked at the end is a summary, not a checklist.
+1. Read every reference named by the task. Do not load unrelated project history.
+2. Confirm the stage and task dependencies. If one is not satisfied, stop and update `CURRENT.md`.
+3. Plan only the task's scope and identify the relevant tests before editing.
+4. If a stage build-list part is too large for one task, split it into task files before implementing.
 
 ### While building
 
-- **Commit at every green checkpoint**, not once at the end. `feat(stage-NN): <part>` for parts,
-  `feat(stage-NN): <stage title>` for the stage commit.
-- **Run `dotnet build -c Release` and `dotnet test` after every part.** Finding a break three parts later
-  costs more than the check.
+- **Commit at a green task checkpoint**, not after an oversized batch. Use `feat(stage-NN): <task>` for
+  implementation tasks and `docs(workflow): <change>` for workflow-only changes.
+- **Run the task's relevant build and tests before completion.** Finding a break in a later task costs
+  more than the focused check.
 - **Write the test with the code, not after the stage.** The stage's coverage bar is 80% on its new
   Domain + Application, and a suite written afterwards tests what was built rather than what was
   specified.
@@ -98,21 +105,20 @@ The exit checklist is worked by **running things**, and the evidence goes in `PR
 
 A box that could not be executed on this machine is marked `UNVERIFIED — needs <machine>`, never ticked.
 
-### Finishing
+### Finishing a task
 
-1. Run the agent panel (`docs/AGENTS.md`) and close every finding, or record the reason in
-   `PROGRESS.md`.
-2. Update `PROGRESS.md` — §1 row, session log entry with the evidence above, §4 for anything found, §5
-   rewritten so the next session knows exactly where to start.
-3. Append ADRs for every decision taken.
-4. Merge to `main` when the exit checklist passes, push, then update the parent `ecosystem`
-   superproject's `vuma` pointer and push that.
+1. Run the specialists required by the task (`docs/AGENTS.md`) and close or record findings.
+2. Update the task status and work log with files, commands, results, blockers, and follow-ups.
+3. Update `docs/CURRENT.md`; keep it small and point to the next task.
+4. Append an ADR for every durable architectural decision.
+5. Add historical evidence to `PROGRESS.md` only when the task materially changes project state.
+6. Review the diff and commit at a green checkpoint. Stop unless another task is authorized.
 
 ### When it will not fit in one session
 
-Stop cleanly at a green build. Write into `PROGRESS.md` §5: what is done (with ticked build-list parts),
-what is half-done and exactly where, the next concrete action, and anything learned that is not obvious
-from the code. Commit, push. A truthful handoff is worth more than an extra hour of degraded work.
+Stop cleanly at a green build. Update the task with completed requirements, changed files, tests and
+remaining work. Update `docs/CURRENT.md` with the next concrete action and blockers. Do not carry the
+conversation transcript forward; the task and current-state files are the handoff.
 
 ---
 

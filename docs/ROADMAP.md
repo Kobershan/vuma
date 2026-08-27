@@ -1,7 +1,7 @@
 # ROADMAP — Vuma Retail
 
-46 stages, dependency-ordered. Each stage is sized for one focused Claude Code session and ends at a
-green build with the work demonstrable. Close the chat, open a new one, repeat.
+46 stages, dependency-ordered. Each stage is decomposed into focused task sessions and ends at a green
+build with the work demonstrable. Close the task session, open a new one, repeat.
 
 > **Revision 4 (2026-08-22).** Nine stages were inserted — **06c**, **06d**, **07c**, **08c**, **13b** and
 > **14b** — for multi-company operation, cross-company money, availability and reservations, consolidated

@@ -8,6 +8,17 @@
 ADR-065 (document numbering).
 
 ## Objective
+
+## Task index
+
+The stage-level scope and exit checklist remain authoritative. Task files are the session-sized
+implementation and verification units; completing a task does not complete the stage by itself.
+
+| Task | Objective | Dependencies | Status |
+|---|---|---|---|
+| [TASK-001](../tasks/TASK-001-stage-09-review-panel.md) | Run the independent review panel for the closure commits | Stage 09 closure commits | IN_PROGRESS |
+| [TASK-002](../tasks/TASK-002-openapi-examples.md) | Complete OpenAPI examples for reopened module endpoints | TASK-001 | NOT_STARTED |
+
 The till. A sale is opened at a terminal, lines are rung up, tenders are taken, a receipt is printed,
 the drawer opens, and at the end of the shift the cash is counted against what the system says should
 be there. Stage 08 said what is on the shelf and what it is worth; this stage is the thing that takes

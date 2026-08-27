@@ -2,6 +2,15 @@
 
 **Status:** NOT_STARTED · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
 
+## Planning notes and status conflicts
+
+This planning pass found conflicting status records and does not silently resolve them: `CURRENT.md`
+and the previous TASK-005 handoff said `IN_PROGRESS`, while this document and `PROGRESS.md` said
+`NOT_STARTED`; `ROADMAP.md` states that `PROGRESS.md` is authoritative for live stage status. The
+previous TASK-005 work log also described source implementation already performed, which is outside
+this planning-only request and is not treated as a verified Stage 06c completion. The task index records
+the intended execution order; implementation sessions must revalidate the working tree before coding.
+
 ## Objective
 
 Turn a one-database product into a many-database one **without changing what any existing module
@@ -79,6 +88,25 @@ active company count.
 6. A fan-out read degrades per company; the caller is told which company failed.
 7. The registry is snapshotted more often than the companies it points at — losing it is
    disproportionate.
+
+## Parts — the build list
+
+- [ ] **06c.1 Registry foundation** — `Company`, `VumaRegistryDbContext`, separate registry DI and
+  design-time wiring, and the reversible `registry.companies` migration. ([TASK-005](../tasks/TASK-005-stage-06c-registry-foundation.md))
+- [ ] **06c.2 Registry groups and saga records** — registry-owned cross-company containers and their
+  persistence model. ([TASK-006](../tasks/TASK-006-stage-06c-registry-saga-records.md))
+- [ ] **06c.3 Company connection routing** — resolver and cache invalidation. ([TASK-007](../tasks/TASK-007-stage-06c-company-routing.md))
+- [ ] **06c.4 Company context and one-company factory** — acting company context, factory and architecture guard. ([TASK-008](../tasks/TASK-008-stage-06c-company-context.md))
+- [ ] **06c.5 Fan-out reads** — bounded reads with per-company failures. ([TASK-009](../tasks/TASK-009-stage-06c-fanout-reads.md))
+- [ ] **06c.6 Provisioning lifecycle** — create/migrate/seed/register/activate and resumability. ([TASK-010](../tasks/TASK-010-stage-06c-provisioning.md))
+- [ ] **06c.7 Deactivation** — company read-only behavior and active filtering. ([TASK-011](../tasks/TASK-011-stage-06c-deactivation.md))
+- [ ] **06c.8 Migration fan-out and serving guard** — bounded runner, progress state, and refusal of companies behind the running binary. ([TASK-012](../tasks/TASK-012-stage-06c-migration-fanout.md))
+- [ ] **06c.9 `company_id` retrofit** — backfill across existing business tables. ([TASK-013](../tasks/TASK-013-stage-06c-company-id-retrofit.md))
+- [ ] **06c.10 Backup and sync boundaries** — per-database snapshots, restore and cursors. ([TASK-014](../tasks/TASK-014-stage-06c-backup-sync.md))
+- [ ] **06c.11 Companies API and permissions** — lifecycle endpoints, selection and entitlement. ([TASK-015](../tasks/TASK-015-stage-06c-companies-api.md))
+- [ ] **06c.12 Seed and acceptance verification** — three-company seed and stage acceptance evidence. ([TASK-016](../tasks/TASK-016-stage-06c-seed-acceptance.md))
+- [ ] **06c.13 Specialist review** — architecture, multi-company and sync panel. ([TASK-017](../tasks/TASK-017-stage-06c-specialist-review.md))
+- [ ] **06c.14 Final verification and documentation** — stage exit checklist and handoff. ([TASK-018](../tasks/TASK-018-stage-06c-final-verification.md))
 
 ## Tests / acceptance
 

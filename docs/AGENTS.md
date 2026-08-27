@@ -1,8 +1,20 @@
 # AGENTS — Vuma Retail
 
 Subagent definitions live in `.claude/agents/`. Each one is a specialist reviewer with a narrow
-brief and its own context window. They exist so that the session building a stage is not also the
+brief and its own context window. They exist so that the session building a task is not also the
 session judging it — the author is the least reliable judge of their own work.
+
+## Task-sized operation
+
+`docs/CURRENT.md` identifies the one active task. The main agent reads that task and only its
+referenced source, tests, ADRs, and domain documents. It must not start another task in the same
+session unless explicitly authorized. A stage is completed across multiple task sessions; its full
+agent panel and exit checklist run only after all required tasks are complete.
+
+For a task, run the specialists whose subject the task touches. Always run `architecture-guard` when
+project references, module boundaries, command handlers, persistence, or API composition change.
+Run `stage-verifier` at stage completion, not as a substitute for task-level tests. `doc-scribe` may
+update documentation and handoffs but never source code.
 
 ## The roster
 
@@ -21,14 +33,14 @@ session judging it — the author is the least reliable judge of their own work.
 
 ## How the main session uses them
 
-The main session executes the stage. It calls agents at the points above and **acts on their
+The main session executes the task. It calls agents at the points above and **acts on their
 findings before committing**. An agent's report is advice, not a merge gate — but ignoring a
 finding requires a reason recorded in `PROGRESS.md`, not silence.
 
-Recommended end-of-stage sequence:
+Recommended task/stage review sequence:
 
 ```
-1. Build the stage to completion
+1. Build the authorized task to completion
 2. architecture-guard          → fix violations
 3. the domain specialists that apply:
       money-and-tax             pricing, tax, cost, valuation, currency, GL posting
@@ -39,12 +51,13 @@ Recommended end-of-stage sequence:
       stock-availability-guard  reservations, availability, staging states, waves, counts
       conversation-safety       the assistant: invented figures, identity, injection, consent
 4. stage-verifier              → fix failures, re-run until PASS or documented UNVERIFIED
-5. doc-scribe                  → PROGRESS.md handoff + ADRs
-6. commit:  feat(stage-NN): <stage title>   then push
+5. doc-scribe                  → task handoff + CURRENT.md + ADRs
+6. commit:  feat(stage-NN): <task title>   at a green checkpoint
 ```
 
-`/next-stage` (`.claude/commands/next-stage.md`) runs this sequence as written. A stage that skips it
-is not DONE — see `PROGRESS.md` §4.17, which is the standing record of what skipping it has cost.
+`/next-stage` (`.claude/commands/next-stage.md`) runs this sequence as written. A task that skips
+validation is not complete; a stage that skips its final panel and exit checklist is not DONE — see
+`PROGRESS.md` §4.17, which is the standing record of what skipping it has cost.
 
 ## Rules that apply to every agent
 
