@@ -29,7 +29,7 @@ Direct implementation of ADR-117; preserve ADR-099 separate histories.
 ## Definition of done
 Runner, guard, tests, progress evidence and architecture review are complete.
 ## Status
-NOT_STARTED
+COMPLETE
 ## Work log
 - 2026-08-27: Planned after provisioning and routing state exist.
-
+- 2026-08-27: Added registry-first migration runner with bounded company fan-out, per-company progress, and serving guard refusal for pending migrations.

@@ -7,6 +7,11 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Autonomous pipeline note (2026-08-27):** This repository uses `docs/PROGRESS.md` and stage/task
+documents rather than the root-file `PROGRESS.md`/`pushed` vocabulary in the generic runner. Stage 05
+has a completed implementation on `origin/stage-05-workflow` but remains a divergent branch; it is not
+being merged blindly into the current Stage 06c line. Stage 06c TASK-012 is complete in this run.
+
 **Last updated:** 2026-08-24 · **Two branches of work that diverged after Stage 13 have just been
 merged together — read this note once, it will not repeat.** One line built Stage 14 (Order Management)
 to a verified DONE (`d35b5d8`, 2026-08-21 — 812 tests, 91.3% coverage, migration reversible, seed
@@ -217,7 +222,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 04b | Licensing, activation & entitlement | **DONE** (main) | 2026-08-11 |
 | 05 | Workflow, approvals, notifications, documents | **IN_PROGRESS** — unverified, worktree `.claude/worktrees/agent-a926fb8a2fe1f9a6d`, branch `stage-05-workflow`. See the note below on the `4320d48` "Stage 05 Commit" on `main` — it is **not** Stage 05 code | — |
 | 06 | Master data — items, variants, barcodes, UoM, partners | **DONE** (main) | 2026-08-14 |
-| 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **NOT_STARTED** — added 2026-08-22 (R11, ADR-099, ADR-116 – ADR-120). **Do this before anything else is built.** It changes where every module's `DbContext` comes from; retrofitting it later is a rewrite, not a refactor | — |
+| 06c | Multi-company foundation — **one database per company** plus the tenant registry, connection routing, provisioning, migration fan-out, per-database backup and sync | **IN_PROGRESS** — TASK-012 complete; TASK-013–018 remain | 2026-08-27 |
 | 06d | Group services — saga coordinator, credit groups with hold tokens, barcode routing index, group read models | **NOT_STARTED** — added 2026-08-22 (ADR-100, ADR-101, ADR-116, ADR-119). Split from 06c: 06c is plumbing, this is everything that spans databases, and 07c/08c/13b/14b all dispatch through it | — |
 | 06e | Trading group — Operator ID, company links and scopes, shared premises, cross-company users and tills, billing dimensions | **NOT_STARTED** — added 2026-08-22 (R13, ADR-121 – ADR-124, ADR-127). **Build it before 07c, 08c, 13b or 14b**: it wires the link check into every cross-company entry point, and retrofitting a permission check into paths that already work without one is how a check gets missed | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |

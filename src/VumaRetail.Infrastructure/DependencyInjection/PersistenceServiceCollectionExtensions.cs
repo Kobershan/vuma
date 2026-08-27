@@ -80,6 +80,8 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ICompanyProvisioner, CompanyProvisioner>();
         services.AddScoped<ICompanyDbContextFactory, CompanyDbContextFactory>();
         services.AddScoped<ICompanyConnectionSecretStore, UnconfiguredCompanyConnectionSecretStore>();
+        services.AddScoped<ICompanyMigrationRunner, CompanyMigrationRunner>();
+        services.AddScoped<ICompanyServingGuard, CompanyServingGuard>();
 
         return services;
     }

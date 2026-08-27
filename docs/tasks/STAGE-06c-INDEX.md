@@ -12,7 +12,7 @@ only start when its dependencies are green. The stage document remains the scope
 | 5 | [TASK-009 — Fan-out reads with per-company failures](TASK-009-stage-06c-fanout-reads.md) | COMPLETE | 008 |
 | 6 | [TASK-010 — Provisioning lifecycle and resumability](TASK-010-stage-06c-provisioning.md) | COMPLETE | 006, 008 |
 | 7 | [TASK-011 — Company deactivation and read-only behavior](TASK-011-stage-06c-deactivation.md) | COMPLETE | 010 |
-| 8 | [TASK-012 — Migration fan-out and serving guard](TASK-012-stage-06c-migration-fanout.md) | NOT_STARTED | 005, 007, 010 |
+| 8 | [TASK-012 — Migration fan-out and serving guard](TASK-012-stage-06c-migration-fanout.md) | COMPLETE | 005, 007, 010 |
 | 9 | [TASK-013 — company_id retrofit across business tables](TASK-013-stage-06c-company-id-retrofit.md) | NOT_STARTED | 008, 012 |
 | 10 | [TASK-014 — Per-database backup and sync boundaries](TASK-014-stage-06c-backup-sync.md) | NOT_STARTED | 006, 008, 013 |
 | 11 | [TASK-015 — Companies API and permissions](TASK-015-stage-06c-companies-api.md) | NOT_STARTED | 010, 011, 012 |
