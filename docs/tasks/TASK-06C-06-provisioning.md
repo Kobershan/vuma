@@ -106,3 +106,8 @@ External installer orchestration remains later-stage work.
   passed; architecture suite: 35 passed. Integration suite attempted again and was blocked by Docker
   unavailable (`Docker is either not running or misconfigured`); 24 passed before 403 infrastructure
   failures. Task remains NEEDS_VERIFICATION.
+- 2026-08-28: Verification rerun: `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore`
+  passed (841); `dotnet test tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore`
+  passed (35); `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
+  completed with 24 passed and 403 failures because Testcontainers reported `Docker is either not
+  running or misconfigured` from `PostgresFixture`. Task remains NEEDS_VERIFICATION.
