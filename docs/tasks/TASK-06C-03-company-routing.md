@@ -2,7 +2,7 @@
 
 ## Status
 
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -103,3 +103,6 @@ Serving guard details belong to TASK-06C-08.
   prerequisite. Exact commands: `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj
   --filter 'FullyQualifiedName~Registry' --no-restore --nologo`; with
   `VUMA_TEST_POSTGRES='Host=127.0.0.1;Port=55432;Database=postgres;Username=vuma;Password=vuma'`.
+- 2026-08-28: Remediated the verification blocker by starting the repository's documented local
+  PostgreSQL fallback (`scripts/pg-test.sh start`). Registry integration checks pass (2), migration
+  integration checks pass (4), unit tests pass (829), and architecture tests pass (35).
