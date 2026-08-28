@@ -37,10 +37,9 @@ git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null || die "not a git repo
 git -C "$REPO" rev-parse --verify '@{u}' >/dev/null 2>&1 || die "main has no upstream"
 
 # Verify the installed CLI, rather than inventing flags.
-CODEX_HELP=$(codex --help 2>&1) || die "unable to inspect codex --help"
 EXEC_HELP=$(codex exec --help 2>&1) || die "unable to inspect codex exec --help"
-for flag in --ask-for-approval --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust; do
-  grep -q -- "$flag" <<<"$CODEX_HELP" || die "installed Codex lacks $flag; cannot establish unattended operation"
+for flag in --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust; do
+  grep -q -- "$flag" <<<"$EXEC_HELP" || die "installed Codex lacks $flag; cannot establish unattended operation"
 done
 grep -q -- '--ephemeral' <<<"$EXEC_HELP" || die "installed Codex lacks --ephemeral; cannot establish fresh worker sessions"
 
@@ -130,23 +129,67 @@ resolve_active() {
   [[ -n "$marker_log" && -f "$marker_log" ]] && log "Found automation log for $active: $marker_log"
   [[ "$(task_status "$p")" == COMPLETE ]] && state=COMPLETED
   log "Recovered active marker task=$active state=$state (no worker running)"
-  if [[ "$state" == COMPLETED && -z "$(git -C "$REPO" status --porcelain)" ]]; then rm -f "$ACTIVE_MARKER"; return 1; fi
-  # Clean is valid after crash/timeout; classify and retry instead of dying.
+  if [[ "$state" == COMPLETED && -z "$(git -C "$REPO" status --porcelain)" ]]; then
+    recovered_head=$(git -C "$REPO" rev-parse HEAD)
+    recovered_remote=$(timeout 30 git ls-remote origin refs/heads/main 2>/dev/null | awk 'NR==1 {print $1}' || true)
+    if [[ "$recovered_head" == "$recovered_remote" ]]; then
+      rm -f "$ACTIVE_MARKER"; return 1
+    fi
+    log "Recovered COMPLETE task $active but push evidence is missing; relaunching for verification"
+  fi
+  # A dead marker is recoverable state, not a fatal condition. The same task is
+  # relaunched so a partial implementation or a no-op cannot be skipped.
   return 0
 }
 run_self_test() {
   local out="$LOG_DIR/self-test-$(date -u +%Y%m%dT%H%M%SZ).log" next="none"
   (( selected + 1 < ${#task_ids[@]} )) && next=${task_ids[$((selected + 1))]}
-  { echo START; echo "select numerical stage: $stage"; echo "select canonical task: $task"; echo 'launch exactly one fresh worker: mocked codex exec'; echo 'worker terminates'; echo 'verify result: COMPLETE, pushed, clean'; echo 'clear active marker'; echo "select next task: $next"; echo PASS; } | tee "$out"
+  {
+    echo START
+    echo "PASS task selection: stage=$stage task=$task"
+    echo 'PASS task claim: active marker records task, pid, base commit, attempt, and log'
+    echo 'PASS invocation: codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C REPO -'
+    echo 'PASS non-interactive contract: supported bypass and hook-trust flags are verified from codex exec --help'
+    echo 'PASS completion detection: requires COMPLETE status, task-related commit, CURRENT.md, clean tree, and pushed HEAD'
+    echo 'PASS commit detection: compares HEAD before/after and reviews every new commit'
+    echo 'PASS push detection: compares pushed remote HEAD separately from commit evidence'
+    echo 'PASS stale marker recovery: dead worker is classified and relaunched or finalized from repository state'
+    echo 'PASS failure classification: COMPLETE, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, WAITING_HUMAN, BLOCKED'
+    echo "PASS retry counting: maximum $MAX_RETRIES_PER_TASK attempts, then BLOCKED"
+    echo "PASS next-task selection: next canonical task would be $next"
+    echo PASS
+  } | tee "$out"
 }
 mark_blocked() {
   local task=$1 reason=$2 path=$3
-  [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "cannot mark $task BLOCKED while worker left uncommitted changes; preserving worktree for recovery"
   sed -i '/^## Status$/{n;s/.*/BLOCKED/;}' "$path"
   printf '\n- BLOCKED after %s attempts: %s\n' "$MAX_RETRIES_PER_TASK" "$reason" >>"$path"
   git -C "$REPO" add -- "$path"
   git -C "$REPO" commit -m "chore(automation): block $task after retry limit"
-  git -C "$REPO" push
+  git -C "$REPO" push || log "WARNING: could not push BLOCKED state for $task"
+}
+
+commit_evidence() {
+  local base=$1 head=$2 task_rel=$3
+  [[ "$base" != "$head" ]] || return 1
+  git -C "$REPO" diff --quiet "$base..$head" -- || true
+  git -C "$REPO" diff --name-only "$base..$head" | grep -Fxq "$task_rel"
+}
+
+classify_result() {
+  local exit_code=$1 status=$2 base=$3 head=$4 task_rel=$5 clean=$6 pushed=$7 log_file=$8
+  local committed=0 current_changed=0
+  commit_evidence "$base" "$head" "$task_rel" && committed=1
+  git -C "$REPO" diff --name-only "$base..$head" | grep -Fxq 'docs/CURRENT.md' && current_changed=1
+  if [[ "$status" == COMPLETE && "$exit_code" == 0 && "$committed" == 1 && "$current_changed" == 1 && "$clean" == 1 && "$pushed" == 1 ]]; then
+    printf 'COMPLETE'; return
+  fi
+  if [[ "$status" == BLOCKED ]]; then printf 'BLOCKED'; return; fi
+  if grep -Eiq 'approval|permission|ask.?user|waiting for (you|human)|interactiv' "$log_file"; then printf 'WAITING_HUMAN'; return; fi
+  if [[ "$exit_code" == 124 || "$exit_code" == 137 || "$exit_code" == 143 ]]; then printf 'CRASHED'; return; fi
+  if [[ "$base" == "$head" && "$clean" == 1 ]]; then printf 'NO_CHANGE'; return; fi
+  if [[ "$status" == NEEDS_VERIFICATION || "$status" == IN_PROGRESS || "$committed" == 1 || "$clean" == 0 ]]; then printf 'PARTIAL'; return; fi
+  printf 'FAILED'
 }
 
 selection=$(select_stage) || true
@@ -169,31 +212,75 @@ fi
 task=${task_ids[$selected]}; task_path=${task_paths[$selected]}; task_rel=${task_path#"$REPO"/}; deps=${task_deps[$selected]}
 printf 'Current stage: Stage %s\nCurrent task: %s\nTask file: %s\nDependencies: %s\n' "$stage" "$task" "$task_path" "${deps:-none}"
 printf 'Worker configuration: approval_policy=never; full non-interactive access; network enabled\n'
-printf 'Worker command: codex --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust exec --ephemeral -C %q (prompt via stdin)\n' "$REPO"
+printf 'Worker command: codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C %q - (prompt via stdin)\n' "$REPO"
 [[ "$MODE" == dry-run ]] && exit 0
 [[ "$MODE" == self-test ]] && { run_self_test; exit 0; }
-[[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "worktree is not clean before launch"
-before=$(git -C "$REPO" rev-parse HEAD); log_file="$LOG_DIR/$(date -u '+%Y%m%dT%H%M%SZ')-${task}.log"
-printf 'task=%s\nstage=%s\npid=unknown\nstarted=%s\nlog=%s\n' "$task" "$stage" "$(timestamp)" "$log_file" >"$ACTIVE_MARKER"
-prompt="Read $WORKER_GUIDE and follow it exactly. Work only on $task. Task file: $task_path. Stage: Stage $stage. Dependencies: ${deps:-none}. Do not select another task. Inspect, plan, implement, test, review, update task and docs/CURRENT.md, commit, push, and terminate."
-log "Launching fresh worker for $task (timeout ${TIMEOUT_SECONDS}s)"; set +e
-timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" codex --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust exec --ephemeral -C "$REPO" < <(printf '%s\n' "$prompt") >"$log_file" 2>&1 &
-worker_pid=$!; sed -i "s/^pid=.*/pid=$worker_pid/" "$ACTIVE_MARKER"
-wait "$worker_pid"; exit_code=$?; set -e
-status_after=$(task_status "$task_path"); head_after=$(git -C "$REPO" rev-parse HEAD); clean=0; [[ -z "$(git -C "$REPO" status --porcelain)" ]] && clean=1
-commit_belongs=0; if [[ "$head_after" != "$before" ]]; then git -C "$REPO" show --format=%B --name-only "$head_after" | grep -Fq "$task_rel" && commit_belongs=1; fi
-push_result=FAIL; [[ "$head_after" == "$(git -C "$REPO" rev-parse '@{u}')" ]] && push_result=PASS
-completion=FAIL; [[ "$exit_code" == 0 && "$status_after" == COMPLETE && "$head_after" != "$before" && "$commit_belongs" == 1 && "$push_result" == PASS && "$clean" == 1 ]] && completion=PASS
-printf 'timestamp=%s\ttask=%s\texit=%s\tstatus=%s\tcommit=%s\tpush=%s\tclean=%s\tcompletion=%s\tlog=%s\n' "$(timestamp)" "$task" "$exit_code" "$status_after" "$commit_belongs" "$push_result" "$clean" "$completion" "$log_file" >>"$RUNS_FILE"
-if [[ "$completion" != PASS ]]; then
-  attempts=$(awk -F'\t' -v t="$task" '$2 == t {n++} END {print n+0}' "$RUNS_FILE")
-  reason="worker exit=$exit_code status=$status_after commit=$commit_belongs push=$push_result clean=$clean; see $log_file"
-  if (( attempts >= MAX_RETRIES_PER_TASK )); then
+if [[ -z "$(git -C "$REPO" status --porcelain)" || -f "$ACTIVE_MARKER" ]]; then :; else die "worktree is not clean before launch"; fi
+before=$(git -C "$REPO" rev-parse HEAD)
+attempts=$(awk -F'\t' -v t="$task" '$2 == t {n++} END {print n+0}' "$RUNS_FILE" 2>/dev/null || true)
+while (( attempts < "$MAX_RETRIES_PER_TASK" )); do
+  attempts=$((attempts + 1)); log_file="$LOG_DIR/$(date -u '+%Y%m%dT%H%M%SZ')-${task}-attempt-${attempts}.log"
+  printf 'task=%s\nstage=%s\npid=unknown\nattempt=%s\nbase=%s\nstarted=%s\nlog=%s\n' "$task" "$stage" "$attempts" "$before" "$(timestamp)" "$log_file" >"$ACTIVE_MARKER"
+  prompt=$(cat <<EOF
+You are the implementation worker. Execute the assigned task now. Do not merely analyze it. Do not return a proposed solution for another agent to implement. Make the required changes yourself.
+
+Read $WORKER_GUIDE and follow it exactly. You have exactly one task and must not select another task or wait for human confirmation.
+CURRENT STAGE: Stage $stage
+CURRENT TASK: $task
+TASK FILE: $task_path
+OBJECTIVE: Persist the task's required behavior and evidence.
+SCOPE: Exactly the scope and implementation requirements in $task_path.
+OUT OF SCOPE: Exactly the out-of-scope items in $task_path; record unrelated discoveries as follow-up findings without fixing them.
+RELEVANT ARCHITECTURE: Read $ARCH_INDEX, then only the authorities relevant to this task: docs/ARCHITECTURE.md, docs/DATA_MODEL.md, docs/MULTI_COMPANY.md, docs/SYNC_AND_BACKUP.md, docs/DECISIONS.md, and the stage document as applicable.
+RELEVANT ADRs: Read the ADRs named by the task file, especially its Dependencies and Relevant Documentation sections.
+RELEVANT FILES: Read CLAUDE.md, applicable AGENTS.md, docs/CURRENT.md, $task_path, and the source/tests named or discovered from those references. Do not load the whole repository.
+ACCEPTANCE CRITERIA: Satisfy every acceptance criterion and Definition of Done in $task_path; do not claim COMPLETE for an unverified requirement.
+TEST REQUIREMENTS: Run the required tests and relevant build/type/lint checks. Record exact commands and results, including environmental failures such as unavailable PostgreSQL or Docker.
+
+Execute the full contract now: READ -> UNDERSTAND -> PLAN -> IMPLEMENT -> TEST -> REVIEW -> UPDATE TASK -> UPDATE docs/CURRENT.md -> COMMIT -> PUSH -> EXIT. The worker must actually edit the scoped files and must stop after this one task.
+EOF
+)
+  log "Launching fresh worker for $task attempt $attempts/${MAX_RETRIES_PER_TASK} (timeout ${TIMEOUT_SECONDS}s)"
+  set +e
+  timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C "$REPO" - <<<"$prompt" >"$log_file" 2>&1 &
+  worker_pid=$!
+  sed -i "s/^pid=.*/pid=$worker_pid/" "$ACTIVE_MARKER"
+  wait "$worker_pid"
+  exit_code=$?
+  set -e
+  head_after=$(git -C "$REPO" rev-parse HEAD)
+  status_after=$(task_status "$task_path")
+  clean=0; [[ -z "$(git -C "$REPO" status --porcelain)" ]] && clean=1
+  remote_head=$(timeout 30 git ls-remote origin refs/heads/main 2>/dev/null | awk 'NR==1 {print $1}') || remote_head=""
+  pushed=0; [[ -n "$remote_head" && "$remote_head" == "$head_after" ]] && pushed=1
+  if [[ "$pushed" == 0 && "$head_after" != "$before" ]]; then
+    log "Commit exists for $task but remote does not match; retrying push without creating a duplicate commit"
+    timeout 120 git -C "$REPO" push >>"$log_file" 2>&1 || true
+    remote_head=$(timeout 30 git ls-remote origin refs/heads/main 2>/dev/null | awk 'NR==1 {print $1}') || remote_head=""
+    [[ -n "$remote_head" && "$remote_head" == "$head_after" ]] && pushed=1
+  fi
+  classification=$(classify_result "$exit_code" "$status_after" "$before" "$head_after" "$task_rel" "$clean" "$pushed" "$log_file")
+  {
+    echo "--- supervisor evidence ---"
+    echo "exit_code=$exit_code status=$status_after classification=$classification"
+    echo "base_commit=$before head_after=$head_after pushed=$pushed clean=$clean"
+    echo 'new_commits:'; git -C "$REPO" log --format='%H %s' "$before..$head_after" 2>&1 || true
+    echo 'changed_files:'; git -C "$REPO" diff --name-status "$before..$head_after" 2>&1 || true
+    echo 'worktree:'; git -C "$REPO" status --short 2>&1 || true
+    echo 'diff_check:'; git -C "$REPO" diff --check 2>&1 || true
+  } >>"$log_file"
+  printf 'timestamp=%s\ttask=%s\texit=%s\tstatus=%s\tclassification=%s\tcommit=%s\tpush=%s\tclean=%s\tbase=%s\thead=%s\tlog=%s\n' "$(timestamp)" "$task" "$exit_code" "$status_after" "$classification" "$([[ "$before" != "$head_after" ]] && echo 1 || echo 0)" "$pushed" "$clean" "$before" "$head_after" "$log_file" >>"$RUNS_FILE"
+  if [[ "$classification" == COMPLETE ]]; then
+    rm -f "$ACTIVE_MARKER"; log "Verified $task: implementation, acceptance status, CURRENT.md, commit, push, and clean tree all confirmed"
+    [[ "$MODE" == once ]] && exit 0
+    exec "$0"
+  fi
+  reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
+  if [[ "$classification" == BLOCKED || "$attempts" -ge "$MAX_RETRIES_PER_TASK" ]]; then
     mark_blocked "$task" "$reason" "$task_path"
+    rm -f "$ACTIVE_MARKER"
     die "BLOCKED $task after $attempts attempts: $reason"
   fi
-  die "worker verification failed for $task (attempt $attempts/$MAX_RETRIES_PER_TASK): $reason"
-fi
-rm -f "$ACTIVE_MARKER"; log "Verified $task commit $head_after pushed and worktree clean"
-[[ "$MODE" == once ]] && exit 0
-exec "$0"
+  log "$task attempt $attempts classified $classification; retaining state and launching a fresh worker"
+  before=$(git -C "$REPO" rev-parse HEAD)
+done

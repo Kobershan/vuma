@@ -121,8 +121,9 @@ scripts/autonomous/run-vuma.sh --self-test
 
 It selects stages in the order documented by `docs/ROADMAP.md` and tasks only from canonical
 `docs/tasks/STAGE-*-INDEX.md` files. Historical `TASK-NNN` records are never executable. Each worker
-is a fresh `codex exec --ephemeral` invocation with approval policy `never`, full non-interactive access,
+is a fresh codex exec --ephemeral invocation with supported bypass flags for full non-interactive access,
 and hook trust bypass enabled; the runner verifies the installed CLI supports those flags before launch.
 The active marker and per-task logs under `docs/automation/logs/` make crashes recoverable. A dead marker
-is classified from the task status, git history, worktree, and log state; a clean tree is not a failure.
-Three unsuccessful attempts mark the task `BLOCKED` and stop the run.
+is classified from the task status, git history, worktree, and log state; a clean tree is only a git-state observation.
+Results are classified as COMPLETE, UNVERIFIED/PARTIAL, FAILED, CRASHED, NO_CHANGE, WAITING_HUMAN, or BLOCKED.
+Three unsuccessful attempts mark the task BLOCKED and stop the run.
