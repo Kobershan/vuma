@@ -96,4 +96,21 @@ public sealed class RegistrySagaTests
         var outbox = new RegistryOutboxMessage(intent.TenantId, "saga.dispatch", "{}", DateTimeOffset.UtcNow, " dispatch-1 ");
         outbox.IdempotencyKey.Should().Be("dispatch-1");
     }
+
+    [Fact]
+    public void Intent_and_outbox_payloads_redact_secrets_and_require_json()
+    {
+        var tenantId = UuidV7.NewGuid();
+        var intent = SagaIntent.Create(tenantId, "split-sale", "request-4", DateTimeOffset.UtcNow,
+            "{\"order\":{\"total\":42},\"password\":\"do-not-store\",\"nested\":[{\"accessToken\":\"also-secret\"}]}" );
+        var outbox = new RegistryOutboxMessage(tenantId, "saga.dispatch",
+            "{\"connectionString\":\"Host=private\",\"value\":true}", DateTimeOffset.UtcNow);
+
+        intent.Payload.Should().NotContain("do-not-store").And.Contain("[REDACTED]");
+        intent.Payload.Should().NotContain("also-secret");
+        outbox.Payload.Should().NotContain("Host=private").And.Contain("[REDACTED]");
+
+        var invalid = () => SagaIntent.Create(tenantId, "split-sale", "request-5", DateTimeOffset.UtcNow, "not-json");
+        invalid.Should().Throw<ArgumentException>();
+    }
 }

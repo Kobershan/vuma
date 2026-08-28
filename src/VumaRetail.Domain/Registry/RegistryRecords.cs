@@ -1,4 +1,6 @@
 using VumaRetail.Domain.Primitives;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 // Registry records are persistence aggregates; their public surface is intentionally simple.
 #pragma warning disable CS1591
@@ -64,7 +66,7 @@ public sealed class SagaIntent
         if (string.IsNullOrWhiteSpace(type)) throw new ArgumentException("A type is required.", nameof(type));
         if (string.IsNullOrWhiteSpace(idempotencyKey)) throw new ArgumentException("An idempotency key is required.", nameof(idempotencyKey));
         if (string.IsNullOrWhiteSpace(payload)) throw new ArgumentException("A payload is required.", nameof(payload));
-        var x = new SagaIntent(tenantId, type, idempotencyKey, createdAt); x.Payload = payload.Trim(); return x;
+        var x = new SagaIntent(tenantId, type, idempotencyKey, createdAt); x.Payload = RegistryPayload.Sanitise(payload); return x;
     }
     public void Authorize(Guid operatorId, string initiatedBy, string operationStamp)
     {
@@ -142,7 +144,7 @@ public sealed class RegistryOutboxMessage
         if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
         Type = Require(type, nameof(type));
         Payload = Require(payload, nameof(payload));
-        Id = UuidV7.NewGuid(); TenantId = tenantId; IdempotencyKey = idempotencyKey is null ? Id.ToString() : Require(idempotencyKey, nameof(idempotencyKey)); CreatedAt = createdAt; OperationStamp = operationStamp is null ? HlcStamp.MinValue.ToString() : ParseStamp(operationStamp);
+        Id = UuidV7.NewGuid(); TenantId = tenantId; IdempotencyKey = idempotencyKey is null ? Id.ToString() : Require(idempotencyKey, nameof(idempotencyKey)); CreatedAt = createdAt; Payload = RegistryPayload.Sanitise(payload); OperationStamp = operationStamp is null ? HlcStamp.MinValue.ToString() : ParseStamp(operationStamp);
     }
     public Guid Id { get; private set; }
     public Guid TenantId { get; private set; }
@@ -157,4 +159,45 @@ public sealed class RegistryOutboxMessage
     public void MarkDispatched(DateTimeOffset dispatchedAt) => DispatchedAt = dispatchedAt;
     private static string Require(string value, string parameterName) => string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("A value is required.", parameterName) : value.Trim();
     private static string ParseStamp(string value) { try { HlcStamp.Parse(value); return value; } catch (MalformedHlcStampException) { throw new ArgumentException("A valid HLC stamp is required.", nameof(value)); } }
+}
+
+internal static class RegistryPayload
+{
+    private static readonly HashSet<string> SensitiveNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "accessToken", "apiKey", "authorization", "clientSecret", "connectionString", "password", "refreshToken", "secret", "token"
+    };
+
+    public static string Sanitise(string payload)
+    {
+        try
+        {
+            JsonNode? node = JsonNode.Parse(payload.Trim()) ?? throw new JsonException("A JSON value is required.");
+            Redact(node);
+            return node.ToJsonString();
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("Payload must be valid JSON and secrets are redacted.", nameof(payload), exception);
+        }
+    }
+
+    private static void Redact(JsonNode node)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (KeyValuePair<string, JsonNode?> property in obj.ToList())
+            {
+                if (SensitiveNames.Contains(property.Key))
+                    obj[property.Key] = "[REDACTED]";
+                else if (property.Value is not null)
+                    Redact(property.Value);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+                if (child is not null) Redact(child);
+        }
+    }
 }

@@ -135,3 +135,14 @@ Later group behavior belongs to Stage 06d.
   'FullyQualifiedName~Persistence.MigrationTests' --no-restore`: 3 failed before test execution
   because Docker is unavailable and no local PostgreSQL endpoint is available. Status remains
   NEEDS_VERIFICATION pending registry migration up/down and persistence execution against PostgreSQL.
+- 2026-08-28: Added registry payload JSON validation and recursive redaction for credential-shaped
+  fields, plus PostgreSQL integration coverage for registry migration, persistence, tenant scoping,
+  outbox idempotency, and rollback atomicity. `dotnet test
+  tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore`: 828 passed; registry filter:
+  12 passed; `dotnet test tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj
+  --no-restore`: 35 passed; `dotnet build src/VumaRetail.Infrastructure/VumaRetail.Infrastructure.csproj
+  --no-restore`: 0 warnings, 0 errors. `dotnet test
+  tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --filter
+  'FullyQualifiedName~RegistryPersistence' --no-restore`: 2 failed before execution because Docker
+  and the local PostgreSQL endpoint were unavailable. Status remains NEEDS_VERIFICATION pending the
+  registry migration and persistence panel against PostgreSQL.
