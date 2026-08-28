@@ -1,7 +1,7 @@
 # Task
 
 ## Status
-
+BLOCKED
 NEEDS_VERIFICATION
 
 ## Stage
@@ -111,3 +111,5 @@ External installer orchestration remains later-stage work.
   passed (35); `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
   completed with 24 passed and 403 failures because Testcontainers reported `Docker is either not
   running or misconfigured` from `PostgresFixture`. Task remains NEEDS_VERIFICATION.
+
+- BLOCKED after 3 attempts: automated validation still unavailable after remediation attempt 3/3; exit=0 status=NEEDS_VERIFICATION; see /home/kob/Documents/vuma/docs/automation/logs/20260828T213150Z-TASK-06C-06-attempt-3.log
