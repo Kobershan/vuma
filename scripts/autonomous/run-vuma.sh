@@ -252,7 +252,7 @@ if (( selected < 0 )); then
   # Implementation work has priority. NEEDS_VERIFICATION is deliberately
   # excluded: it represents an automated prerequisite/check that could not
   # execute, not a request for another Luna context or human approval.
-  for wanted_status in IN_PROGRESS READY NOT_STARTED; do
+  for wanted_status in IN_PROGRESS READY NOT_STARTED NEEDS_VERIFICATION; do
     for i in "${!task_ids[@]}"; do
       if [[ "${task_statuses[$i]}" == "$wanted_status" ]] &&
          dependency_complete "${task_deps[$i]}"; then
@@ -262,8 +262,30 @@ if (( selected < 0 )); then
     done
   done
 fi
-(( selected >= 0 )) || die "no eligible canonical task in Stage $stage"
+if (( selected < 0 )); then
+  log "Stage $stage currently has no runnable task."
+  log "Incomplete task states:"
+
+  for i in "${!task_ids[@]}"; do
+    if [[ "${task_statuses[$i]}" != COMPLETE ]]; then
+      printf '  %-16s status=%-20s dependencies=%s\n' \
+        "${task_ids[$i]}" \
+        "${task_statuses[$i]}" \
+        "${task_deps[$i]:-none}"
+    fi
+  done
+
+  log "No human verification is requested. Execution stops because the automated dependency graph is blocked."
+  exit 2
+fi
 task=${task_ids[$selected]}; task_path=${task_paths[$selected]}; task_rel=${task_path#"$REPO"/}; deps=${task_deps[$selected]}
+task_state=${task_statuses[$selected]}
+
+if [[ "$task_state" == NEEDS_VERIFICATION ]]; then
+  remediation_note="AUTOMATED REMEDIATION MODE: This task previously reached NEEDS_VERIFICATION. Read its recorded blocker and fix any repository-local prerequisite required to make its automated validation pass. You are explicitly authorized to repair adjacent migrations, test infrastructure, fixtures, configuration, or other repository-local prerequisites when they directly prevent this task's required automated checks. Do not bypass, suppress, delete, weaken, or falsely pass tests. Do not ask a human. If the blocker is genuinely external and cannot be repaired from this repository, record it accurately and exit NEEDS_VERIFICATION."
+else
+  remediation_note="NORMAL IMPLEMENTATION MODE: implement and verify the assigned task within its defined scope."
+fi
 printf 'Current stage: Stage %s\nCurrent task: %s\nTask file: %s\nDependencies: %s\n' "$stage" "$task" "$task_path" "${deps:-none}"
 printf 'Worker configuration: approval_policy=never; full non-interactive access; network enabled\n'
 printf 'Worker command: codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C %q - (prompt via stdin)\n' "$REPO"
@@ -288,6 +310,9 @@ Read $WORKER_GUIDE and follow it exactly.
 CURRENT STAGE: Stage $stage
 CURRENT TASK: $task
 TASK FILE: $task_path
+TASK STATUS AT LAUNCH: $task_state
+
+$remediation_note
 
 Work fully unattended.
 
@@ -368,17 +393,23 @@ EOF
   fi
 
   if [[ "$classification" == UNVERIFIED ]]; then
-    rm -f "$ACTIVE_MARKER"
+    reason="automated validation still unavailable after remediation attempt $attempts/$MAX_RETRIES_PER_TASK; exit=$exit_code status=$status_after; see $log_file"
 
-    log "$task has an unavailable automated validation/prerequisite."
-    log "No human verification is requested and the task will not be automatically retried."
+    if (( attempts >= MAX_RETRIES_PER_TASK )); then
+      log "$task exhausted automatic remediation attempts."
+      log "No human verification will be requested."
+      mark_blocked "$task" "$reason" "$task_path"
+      rm -f "$ACTIVE_MARKER"
+      exit 2
+    fi
 
-    [[ "$MODE" == once ]] && exit 2
-    # exec does not run the EXIT trap, so release the supervisor lock first.
-    rmdir "$LOCK" 2>/dev/null || true
-    trap - EXIT
-    exec "$0"
+    log "$task still requires automated verification."
+    log "Launching a fresh unattended remediation worker; no human action is requested."
+
+    before="$head_after"
+    continue
   fi
+
   reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
   if [[ "$classification" == BLOCKED || "$attempts" -ge "$MAX_RETRIES_PER_TASK" ]]; then
     mark_blocked "$task" "$reason" "$task_path"
