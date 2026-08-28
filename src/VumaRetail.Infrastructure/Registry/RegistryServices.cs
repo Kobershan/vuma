@@ -10,18 +10,44 @@ namespace VumaRetail.Infrastructure.Registry;
 
 public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbContext> factory, IClock clock) : ICompanyConnectionResolver
 {
-    private readonly ConcurrentDictionary<Guid, (CompanyConnection Value, DateTimeOffset Expires)> _cache = new();
+    private readonly ConcurrentDictionary<(Guid TenantId, Guid CompanyId), CacheEntry> _cache = new();
+    private readonly ConcurrentDictionary<(Guid TenantId, Guid CompanyId), long> _generations = new();
+
     public async Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
     {
-        if (_cache.TryGetValue(companyId, out var cached) && cached.Expires > clock.UtcNow && cached.Value.TenantId == tenantId) return cached.Value;
+        var key = (tenantId, companyId);
+        long generation = _generations.GetOrAdd(key, 0);
+        if (_cache.TryGetValue(key, out var cached) && cached.Generation == generation && cached.Expires > clock.UtcNow)
+            return cached.Value;
+
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var company = await db.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Company was not found.");
-        if (!company.CanServe || string.IsNullOrWhiteSpace(company.ConnectionSecretRef)) throw new InvalidOperationException("Company is not available for business operations.");
+
+        if (!company.CanServe || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+            throw new InvalidOperationException("Company is not available for business operations.");
+
         var value = new CompanyConnection(company.Id, company.TenantId, company.ConnectionSecretRef, company.SchemaVersion);
-        _cache[companyId] = (value, clock.UtcNow.AddMinutes(5)); return value;
+        if (_generations.TryGetValue(key, out long currentGeneration) && currentGeneration == generation)
+            _cache[key] = new(value, clock.UtcNow.AddMinutes(5), generation);
+        return value;
     }
-    public void Invalidate(Guid companyId) => _cache.TryRemove(companyId, out _);
+
+    public void Invalidate(Guid companyId)
+    {
+        var keys = _cache.Keys.Concat(_generations.Keys)
+            .Where(key => key.CompanyId == companyId)
+            .Distinct()
+            .ToArray();
+        foreach (var key in keys)
+        {
+            _cache.TryRemove(key, out _);
+            _generations.AddOrUpdate(key, 1, static (_, generation) => generation + 1);
+        }
+    }
+
+    private sealed record CacheEntry(CompanyConnection Value, DateTimeOffset Expires, long Generation);
 }
 
 public sealed class AmbientCompanyContext : ICompanyContext
@@ -66,10 +92,17 @@ public sealed class CompanyFanOut(IClock clock) : ICompanyFanOut
     }
 }
 
-public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork) : ICompanyLifecycleService
+public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork, ICompanyConnectionResolver resolver) : ICompanyLifecycleService
 {
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
-    { if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason)); var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken) ?? throw new InvalidOperationException("Company was not found."); company.Deactivate(); await unitOfWork.CommitAsync(cancellationToken); }
+    {
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason));
+        var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Company was not found.");
+        company.Deactivate();
+        await unitOfWork.CommitAsync(cancellationToken);
+        resolver.Invalidate(companyId);
+    }
 }
 
 /// <summary>Small adapter seam for the physical database and seed operations.</summary>
@@ -80,7 +113,7 @@ public interface ICompanyProvisioningStep
 }
 
 /// <summary>Runs provisioning steps in order and only publishes an active registry row last.</summary>
-public sealed class CompanyProvisioner(VumaRegistryDbContext db, IUnitOfWork unitOfWork, IEnumerable<ICompanyProvisioningStep> steps) : ICompanyProvisioner
+public sealed class CompanyProvisioner(VumaRegistryDbContext db, IUnitOfWork unitOfWork, IEnumerable<ICompanyProvisioningStep> steps, ICompanyConnectionResolver resolver) : ICompanyProvisioner
 {
     public async Task<Company> ProvisionAsync(Company company, CancellationToken cancellationToken = default)
     {
@@ -91,12 +124,14 @@ public sealed class CompanyProvisioner(VumaRegistryDbContext db, IUnitOfWork uni
             await step.ExecuteAsync(company, cancellationToken);
             company.SetMigration(company.SchemaVersion, step.Name);
             await unitOfWork.CommitAsync(cancellationToken);
+            resolver.Invalidate(company.Id);
         }
 
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         await unitOfWork.CommitAsync(cancellationToken);
+        resolver.Invalidate(company.Id);
         return company;
     }
 }

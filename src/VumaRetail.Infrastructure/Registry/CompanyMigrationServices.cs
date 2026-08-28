@@ -49,6 +49,7 @@ public sealed class CompanyMigrationRunner(
                 results.Add(new(company.Id, false, "Company migration failed.", company.SchemaVersion));
             }
             finally { gate.Release(); }
+            resolver.Invalidate(company.Id);
         }));
         await unitOfWork.CommitAsync(cancellationToken);
         return results.ToArray();

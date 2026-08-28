@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,11 @@ Serving guard details belong to TASK-06C-08.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-007.
+- 2026-08-28: Implemented tenant-keyed registry resolution with a five-minute cache, fail-closed
+  lifecycle/schema validation, and generation-safe invalidation. Lifecycle, provisioning, and migration
+  paths evict routing entries after registry changes. Unit (829) and architecture (35) suites pass.
+  Registry integration checks could not execute: Docker is unavailable; the local PostgreSQL fallback
+  then stopped in the shared fixture on the existing `VumaRetailDbContext` pending-model-changes
+  prerequisite. Exact commands: `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj
+  --filter 'FullyQualifiedName~Registry' --no-restore --nologo`; with
+  `VUMA_TEST_POSTGRES='Host=127.0.0.1;Port=55432;Database=postgres;Username=vuma;Password=vuma'`.
