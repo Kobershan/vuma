@@ -4,10 +4,10 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 06c — Multi-company foundation
-CURRENT TASK: TASK-06C-03 — Company routing
+CURRENT TASK: TASK-06C-04 — Company context
 CURRENT TASK STATUS: COMPLETE
-NEXT READY TASK: TASK-06C-04
-LAST COMPLETED TASK: TASK-06C-03 — Company routing
+NEXT READY TASK: TASK-06C-05
+LAST COMPLETED TASK: TASK-06C-04 — Company context
 BLOCKERS: None.
-TEST STATUS: Infrastructure build succeeded; unit tests — 829 passed; architecture tests — 35 passed; registry integration tests — 2 passed; migration tests — 4 passed; `git diff --check` — passed.
+TEST STATUS: Unit tests — 834 passed; architecture tests — 35 passed; `git diff --check` — passed.
 IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.

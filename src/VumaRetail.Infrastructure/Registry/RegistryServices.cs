@@ -54,8 +54,24 @@ public sealed class AmbientCompanyContext : ICompanyContext
 {
     private Guid? _companyId;
     public Guid? CompanyId => _companyId;
-    public void SetCompany(Guid companyId) => _companyId = companyId;
-    public Guid RequireCompany() => _companyId ?? throw new InvalidOperationException("An acting company is required.");
+    public void SetCompany(Guid companyId)
+    {
+        if (companyId == Guid.Empty)
+            throw new ArgumentException("A company is required.", nameof(companyId));
+
+        if (_companyId is { } current)
+        {
+            if (current != companyId)
+                throw new InvalidOperationException("The acting company cannot change within an operation.");
+
+            throw new InvalidOperationException("The acting company is already bound.");
+        }
+
+        _companyId = companyId;
+    }
+
+    public Guid RequireCompany() => _companyId
+        ?? throw new InvalidOperationException("An acting company is required.");
 }
 
 /// <summary>Creates one business context for the already selected acting company.</summary>
@@ -64,20 +80,44 @@ public interface ICompanyDbContextFactory
     Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>Checks that a company is authorized and safe to serve before its database is opened.</summary>
+public interface ICompanyServingGuard
+{
+    Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
+}
+
 internal sealed class UnconfiguredCompanyConnectionSecretStore : ICompanyConnectionSecretStore
 {
     public Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException("No company connection secret store is configured.");
 }
 
-public sealed class CompanyDbContextFactory(ICompanyContext context, ICompanyConnectionResolver resolver, ICompanyConnectionSecretStore secrets, VumaRetail.Application.Abstractions.ITenantContext tenant) : ICompanyDbContextFactory
+public sealed class CompanyDbContextFactory(
+    ICompanyContext context,
+    ICompanyConnectionResolver resolver,
+    ICompanyConnectionSecretStore secrets,
+    VumaRetail.Application.Abstractions.ITenantContext tenant,
+    ICompanyServingGuard servingGuard) : ICompanyDbContextFactory
 {
+    private bool _created;
+
     public async Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default)
     {
+        if (_created)
+            throw new InvalidOperationException("Only one company DbContext may be created per operation.");
+
         var companyId = context.RequireCompany();
+        if (tenant.TenantId == Guid.Empty)
+            throw new InvalidOperationException("An authenticated tenant is required before opening a company database.");
+
+        await servingGuard.EnsureServableAsync(tenant.TenantId, companyId, cancellationToken);
         var connection = await resolver.ResolveAsync(tenant.TenantId, companyId, cancellationToken);
+        if (connection.TenantId != tenant.TenantId || connection.CompanyId != companyId)
+            throw new InvalidOperationException("The resolved company is outside the acting tenant or context.");
+
         var connectionString = await secrets.ResolveAsync(connection.SecretReference, cancellationToken);
         var options = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform")).UseSnakeCaseNamingConvention().Options;
+        _created = true;
         return new VumaRetailDbContext(options, tenant);
     }
 }

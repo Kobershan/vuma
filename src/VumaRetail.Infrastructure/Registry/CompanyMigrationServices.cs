@@ -64,11 +64,6 @@ public sealed class CompanyMigrationRunner(
     }
 }
 
-public interface ICompanyServingGuard
-{
-    Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
-}
-
 public sealed class CompanyServingGuard(VumaRegistryDbContext registry) : ICompanyServingGuard
 {
     public async Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)

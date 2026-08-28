@@ -11,12 +11,14 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
     <!--
       Stage 04. The hybrid logical clock and the conflict resolver are pure protocol over Application
       ports, so they belong at this level: no database, no host, and every case a table.
