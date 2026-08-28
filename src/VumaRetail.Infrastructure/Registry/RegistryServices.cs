@@ -122,13 +122,67 @@ public sealed class CompanyDbContextFactory(
     }
 }
 
-public sealed class CompanyFanOut(IClock clock) : ICompanyFanOut
+public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan? readTimeout = null) : ICompanyFanOut
 {
+    private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(30);
+    private readonly int _maxConcurrency = maxConcurrency > 0
+        ? maxConcurrency
+        : throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Concurrency must be positive.");
+    private readonly TimeSpan _readTimeout = readTimeout is null || readTimeout.Value > TimeSpan.Zero
+        ? readTimeout ?? DefaultReadTimeout
+        : throw new ArgumentOutOfRangeException(nameof(readTimeout), "The read timeout must be positive.");
+
     public async Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default)
     {
-        var ids = companyIds.Distinct().ToArray(); var gate = new SemaphoreSlim(4); var results = new ConcurrentBag<FanOutResult<T>>();
-        await Task.WhenAll(ids.Select(async id => { await gate.WaitAsync(cancellationToken); try { results.Add(new(id, await read(id, cancellationToken), null, clock.UtcNow)); } catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { results.Add(new(id, default, "Timed out", clock.UtcNow)); } catch (Exception ex) { results.Add(new(id, default, ex.Message, clock.UtcNow)); } finally { gate.Release(); } }));
-        return ids.Select(id => results.Single(x => x.CompanyId == id)).ToArray();
+        ArgumentNullException.ThrowIfNull(companyIds);
+        ArgumentNullException.ThrowIfNull(read);
+
+        var ids = companyIds.Where(id => id != Guid.Empty).Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return Array.Empty<FanOutResult<T>>();
+        }
+
+        using var gate = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
+        var results = new FanOutResult<T>[ids.Length];
+        var tasks = ids.Select((id, index) => ReadOneAsync(id, index, results, gate, read, cancellationToken));
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
+    }
+
+    private async Task ReadOneAsync<T>(Guid companyId, int index, FanOutResult<T>[] results, SemaphoreSlim gate,
+        Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(_readTimeout);
+
+            try
+            {
+                var value = await read(companyId, timeout.Token).ConfigureAwait(false);
+                results[index] = new(companyId, value, null, clock.UtcNow);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                results[index] = new(companyId, default, "Read timed out.", clock.UtcNow);
+            }
+            catch (Exception)
+            {
+                // Provider and connection exceptions can contain secrets. The company identity is
+                // already carried by the result, so callers need only an operator-safe category.
+                results[index] = new(companyId, default, "Company read failed.", clock.UtcNow);
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 }
 

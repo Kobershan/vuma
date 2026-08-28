@@ -4,10 +4,10 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 06c — Multi-company foundation
-CURRENT TASK: TASK-06C-04 — Company context
+CURRENT TASK: TASK-06C-05 — Fan-out reads
 CURRENT TASK STATUS: COMPLETE
-NEXT READY TASK: TASK-06C-05
-LAST COMPLETED TASK: TASK-06C-04 — Company context
+NEXT READY TASK: TASK-06C-06
+LAST COMPLETED TASK: TASK-06C-05 — Fan-out reads
 BLOCKERS: None.
-TEST STATUS: Unit tests — 834 passed; architecture tests — 35 passed; `git diff --check` — passed.
+TEST STATUS: Unit tests — 838 passed; focused fan-out tests — 4 passed; `git diff --check` — passed.
 IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.
