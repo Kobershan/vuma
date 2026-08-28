@@ -3,6 +3,7 @@ using Npgsql;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Persistence;
@@ -14,11 +15,11 @@ public sealed class RegistryPersistenceTests(PostgresFixture fixture)
     public async Task Registry_migration_persists_saga_records_and_is_tenant_scoped()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync();
-        await using (VumaRegistryDbContext context = For(connectionString))
+        Guid tenantA = UuidV7.NewGuid();
+        Guid tenantB = UuidV7.NewGuid();
+        await using (VumaRegistryDbContext context = For(connectionString, tenantA))
         {
             await context.Database.MigrateAsync();
-            Guid tenantA = UuidV7.NewGuid();
-            Guid tenantB = UuidV7.NewGuid();
             Company company = Company.Create(tenantA, "A", "Company A", "Company A", "ZAR", "en-ZA", "A-");
             CompanyGroup group = CompanyGroup.Create(tenantA, "Group A");
             group.AddMember(company.Id);
@@ -29,12 +30,19 @@ public sealed class RegistryPersistenceTests(PostgresFixture fixture)
             intent.Start("worker:registry");
             context.AddRange(company, group, intent,
                 new RegistryOutboxMessage(tenantA, "saga.dispatch", "{\"intentId\":\"x\"}", DateTimeOffset.UtcNow, "dispatch-1"));
+            context.Add(new RegistryOutboxMessage(tenantB, "saga.dispatch", "{}", DateTimeOffset.UtcNow, "tenant-b"));
             await context.SaveChangesAsync();
 
             context.ChangeTracker.Clear();
             (await context.SagaIntents.SingleAsync(x => x.TenantId == tenantA)).Payload.Should().NotContain("redacted");
-            (await context.CompanyGroups.CountAsync(x => x.TenantId == tenantB)).Should().Be(0);
+            (await context.RegistryOutboxMessages.CountAsync()).Should().Be(1);
             (await context.Database.GetAppliedMigrationsAsync()).Should().Contain("20260828100000_RegistryGroupsAndSagas");
+        }
+
+        await using (VumaRegistryDbContext restarted = For(connectionString, tenantA))
+        {
+            (await restarted.SagaIntents.CountAsync()).Should().Be(1);
+            (await restarted.RegistryOutboxMessages.CountAsync()).Should().Be(1);
         }
     }
 
@@ -59,11 +67,21 @@ public sealed class RegistryPersistenceTests(PostgresFixture fixture)
         (await context.RegistryOutboxMessages.AnyAsync(x => x.IdempotencyKey == "rollback-key")).Should().BeFalse();
     }
 
-    private static VumaRegistryDbContext For(string connectionString)
+    private static VumaRegistryDbContext For(string connectionString, Guid? tenantId = null)
     {
         DbContextOptions<VumaRegistryDbContext> options = new DbContextOptionsBuilder<VumaRegistryDbContext>()
             .UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry"))
             .UseSnakeCaseNamingConvention().Options;
-        return new VumaRegistryDbContext(options);
+        return new VumaRegistryDbContext(options, new TestTenantContext(tenantId ?? Guid.Empty));
+    }
+
+    private sealed class TestTenantContext(Guid tenantId) : ITenantContext
+    {
+        public Guid TenantId => tenantId;
+        public Guid? StoreId => null;
+        public bool IsFilterBypassed => tenantId == Guid.Empty;
+        public void SetTenant(Guid id, Guid? storeId = null) { }
+        public IDisposable BypassTenantFilter(string reason) => new Scope();
+        private sealed class Scope : IDisposable { public void Dispose() { } }
     }
 }

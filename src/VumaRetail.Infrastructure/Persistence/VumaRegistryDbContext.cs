@@ -5,8 +5,12 @@ using VumaRetail.Domain.Registry;
 namespace VumaRetail.Infrastructure.Persistence;
 
 /// <summary>EF context for the per-tenant registry database (ADR-099).</summary>
-public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext> options) : DbContext(options), IUnitOfWork
+public sealed class VumaRegistryDbContext(
+    DbContextOptions<VumaRegistryDbContext> options,
+    ITenantContext tenantContext) : DbContext(options), IUnitOfWork
 {
+    private readonly ITenantContext _tenantContext = tenantContext;
+
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<CompanyGroup> CompanyGroups => Set<CompanyGroup>();
     public DbSet<CompanyGroupMember> CompanyGroupMembers => Set<CompanyGroupMember>();
@@ -111,6 +115,19 @@ public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext
             builder.Property(x => x.Attempts).IsRequired(); builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.DispatchedAt, x.CreatedAt });
         });
 
+        // Registry rows are tenant-scoped just like company-database rows. Administrative callers
+        // that genuinely span tenants must open the same explicit, logged bypass scope used by the
+        // company context; an unresolved tenant therefore matches nothing by default.
+        modelBuilder.Entity<Company>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<CompanyGroup>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<CompanyGroupMember>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<SagaIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<SagaLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RegistryOutboxMessage>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+
         base.OnModelCreating(modelBuilder);
     }
+
+    private Guid CurrentTenantId => _tenantContext.TenantId;
+    private bool IsTenantFilterBypassed => _tenantContext.IsFilterBypassed;
 }

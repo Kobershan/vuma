@@ -96,6 +96,7 @@ public sealed class ReplicationRulesTests
             "src/VumaRetail.Application/Abstractions/ITenantContext.cs",
             "src/VumaRetail.Infrastructure/Security/AmbientTenantContext.cs",
             "src/VumaRetail.Infrastructure/Persistence/DesignTimeDbContextFactory.cs",
+            "src/VumaRetail.Infrastructure/Persistence/RegistryDesignTimeDbContextFactory.cs",
             // A terminal presenting a client certificate, and a refresh token arriving at
             // /auth/refresh. Both are pre-authentication lookups keyed on a unique digest — the
             // thumbprint and the token hash — which is how the tenant is discovered in the first

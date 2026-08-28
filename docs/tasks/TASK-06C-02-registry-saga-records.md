@@ -171,3 +171,15 @@ Later group behavior belongs to Stage 06d.
   --nologo`: succeeded with 0 warnings and 0 errors. Required registry persistence tests: 2 failed
   before fixture execution because Docker is unavailable and no local PostgreSQL endpoint is available.
   Status remains NEEDS_VERIFICATION pending database-backed migration and persistence verification.
+- 2026-08-28: Added a default ambient tenant query filter to every registry entity, with an explicit
+  design-time bypass matching the migration-only boundary; strengthened the PostgreSQL persistence
+  test to insert a second tenant and verify it is hidden, then reopen the context and verify records
+  survive restart. `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore
+  --nologo`: 829 passed; registry filter: 13 passed; `dotnet test
+  tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore --nologo`: 35
+  passed; `git diff --check`: passed. `dotnet build
+  src/VumaRetail.Infrastructure/VumaRetail.Infrastructure.csproj --no-restore --nologo`: succeeded;
+  existing repository warnings remain. Required registry persistence tests first failed because Docker
+  and local PostgreSQL were unavailable; after `scripts/pg-test.sh start`, both failed during shared
+  fixture setup on the existing `VumaRetailDbContext` PendingModelChangesWarning. The disposable
+  cluster was stopped. Status remains NEEDS_VERIFICATION pending database-backed verification.
