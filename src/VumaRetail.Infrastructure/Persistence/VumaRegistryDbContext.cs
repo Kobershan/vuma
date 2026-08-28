@@ -56,6 +56,9 @@ public sealed class VumaRegistryDbContext(
             builder.Property(company => company.DocumentPrefix).HasMaxLength(32).IsRequired();
             builder.Property(company => company.ConnectionSecretRef).HasMaxLength(512);
             builder.Property(company => company.MigrationState).HasMaxLength(32).IsRequired();
+            builder.Property(company => company.ProvisioningStep).HasMaxLength(64).IsRequired();
+            builder.Property(company => company.ProvisioningError).HasMaxLength(256);
+            builder.Property(company => company.ProvisioningAttempts).IsRequired();
             builder.Property(company => company.LifecycleState).HasConversion<string>().HasMaxLength(32).IsRequired();
             builder.HasAlternateKey(company => new { company.TenantId, company.Id });
             builder.HasIndex(company => new { company.TenantId, company.Code }).IsUnique();

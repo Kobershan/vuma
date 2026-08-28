@@ -83,6 +83,21 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("migration_state");
 
+                    b.Property<int>("ProvisioningAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("provisioning_attempts");
+
+                    b.Property<string>("ProvisioningError")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("provisioning_error");
+
+                    b.Property<string>("ProvisioningStep")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("provisioning_step");
+
                     b.Property<string>("RegistrationNumber")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")

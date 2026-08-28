@@ -71,6 +71,12 @@ public sealed class Company
     public long SchemaVersion { get; private set; }
     /// <summary>Actionable migration status.</summary>
     public string MigrationState { get; private set; } = "Pending";
+    /// <summary>The last durable provisioning step reached.</summary>
+    public string ProvisioningStep { get; private set; } = "provisioning";
+    /// <summary>Operator-safe description of the last provisioning failure.</summary>
+    public string? ProvisioningError { get; private set; }
+    /// <summary>Number of attempts made for the current provisioning step.</summary>
+    public int ProvisioningAttempts { get; private set; }
     /// <summary>Current provisioning lifecycle state.</summary>
     public CompanyLifecycleState LifecycleState { get; private set; }
     /// <summary>Whether business operations may select this company.</summary>
@@ -137,6 +143,22 @@ public sealed class Company
     {
         SchemaVersion = schemaVersion;
         MigrationState = Require(migrationState, nameof(migrationState));
+    }
+
+    /// <summary>Records durable progress after a successful, idempotent step.</summary>
+    public void RecordProvisioningProgress(string step)
+    {
+        ProvisioningStep = Require(step, nameof(step));
+        ProvisioningError = null;
+        ProvisioningAttempts++;
+    }
+
+    /// <summary>Records a redacted failure without making the company serveable.</summary>
+    public void RecordProvisioningFailure(string error)
+    {
+        ProvisioningError = Require(error, nameof(error));
+        ProvisioningAttempts++;
+        IsActive = false;
     }
 
     private static string Require(string value, string parameterName)

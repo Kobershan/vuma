@@ -55,6 +55,26 @@ public sealed class CompanyTests
     }
 
     [Fact]
+    public void Provisioning_progress_is_resumable_and_failure_is_safe_to_expose()
+    {
+        Company company = CreateCompany();
+
+        company.RecordProvisioningProgress("create-database");
+        company.ProvisioningStep.Should().Be("create-database");
+        company.ProvisioningError.Should().BeNull();
+        company.ProvisioningAttempts.Should().Be(1);
+
+        company.RecordProvisioningFailure("Provisioning step failed.");
+        company.ProvisioningError.Should().Be("Provisioning step failed.");
+        company.IsActive.Should().BeFalse();
+        company.LifecycleState.Should().Be(CompanyLifecycleState.Provisioning);
+
+        company.RecordProvisioningProgress("migrate");
+        company.ProvisioningError.Should().BeNull();
+        company.ProvisioningAttempts.Should().Be(3);
+    }
+
+    [Fact]
     public void Business_entity_can_be_assigned_a_company_identity_for_retrofit()
     {
         var entity = new TestEntity(Guid.NewGuid());

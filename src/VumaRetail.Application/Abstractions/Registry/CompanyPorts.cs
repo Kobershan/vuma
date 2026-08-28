@@ -60,6 +60,15 @@ public interface ICompanyProvisioner
     Task<Company> ProvisionAsync(Company company, CancellationToken cancellationToken = default);
 }
 
+/// <summary>A resumable provisioning step. Implementations must be safe to run again.</summary>
+public interface ICompanyProvisioningStep
+{
+    string Name { get; }
+    /// <summary>The lifecycle state guaranteed after this step succeeds.</summary>
+    CompanyLifecycleState CompletedState { get; }
+    Task ExecuteAsync(Company company, CancellationToken cancellationToken = default);
+}
+
 public interface ICompanyLifecycleService
 {
     Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default);

@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,9 @@ External installer orchestration remains later-stage work.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-010.
+- 2026-08-28: Added resumable registry progress/error metadata, tenant company-limit enforcement,
+  idempotent registry re-drive, ordered lifecycle transitions, and registry migration for the new
+  provisioning fields. Unit suite: 839 passed.
+- 2026-08-28: `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
+  could not run because the harness reported no PostgreSQL/Docker service available; 24 unrelated
+  tests passed before 403 infrastructure-dependent failures. Task remains NEEDS_VERIFICATION.

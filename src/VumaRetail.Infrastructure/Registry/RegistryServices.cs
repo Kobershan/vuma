@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 
@@ -200,32 +202,97 @@ public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWor
 }
 
 /// <summary>Small adapter seam for the physical database and seed operations.</summary>
-public interface ICompanyProvisioningStep
-{
-    string Name { get; }
-    Task ExecuteAsync(Company company, CancellationToken cancellationToken);
-}
-
 /// <summary>Runs provisioning steps in order and only publishes an active registry row last.</summary>
-public sealed class CompanyProvisioner(VumaRegistryDbContext db, IUnitOfWork unitOfWork, IEnumerable<ICompanyProvisioningStep> steps, ICompanyConnectionResolver resolver) : ICompanyProvisioner
+public sealed class CompanyProvisioner : ICompanyProvisioner
 {
+    private readonly VumaRegistryDbContext _db;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IReadOnlyList<ICompanyProvisioningStep> _steps;
+    private readonly ICompanyConnectionResolver _resolver;
+    private readonly VumaRetail.Application.Abstractions.Licensing.IEntitlementService? _entitlements;
+
+    public CompanyProvisioner(
+        VumaRegistryDbContext db,
+        IUnitOfWork unitOfWork,
+        IEnumerable<ICompanyProvisioningStep> steps,
+        ICompanyConnectionResolver resolver,
+        VumaRetail.Application.Abstractions.Licensing.IEntitlementService? entitlements = null)
+    {
+        _db = db;
+        _unitOfWork = unitOfWork;
+        // DI registration order is the workflow order. The order is deliberately explicit because
+        // database creation, migration, seed and registration are not interchangeable operations.
+        _steps = steps.ToArray();
+        _resolver = resolver;
+        _entitlements = entitlements;
+    }
+
     public async Task<Company> ProvisionAsync(Company company, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(company);
-        foreach (var step in steps)
+
+        // Re-drive the registry row when a caller retries after a lost response. A company ID is the
+        // idempotency key for this application command; never create a second row for the same ID.
+        var persisted = await _db.Companies.SingleOrDefaultAsync(
+            x => x.Id == company.Id && x.TenantId == company.TenantId, cancellationToken);
+        if (persisted is not null)
+            company = persisted;
+        else if (await _db.Companies.IgnoreQueryFilters().AnyAsync(x => x.Id == company.Id, cancellationToken))
+            throw new InvalidOperationException("COMPANY_TENANT_MISMATCH");
+        else
+            _db.Companies.Add(company);
+
+        if (company.LifecycleState == CompanyLifecycleState.Active)
+            return company;
+
+        if (_entitlements is not null)
+        {
+            var count = await _db.Companies.CountAsync(x => x.TenantId == company.TenantId && x.Id != company.Id, cancellationToken);
+            var limit = await _entitlements.CheckLimitAsync(LimitKind.Stores, count + 1, cancellationToken);
+            if (limit.Exceeded)
+                throw new InvalidOperationException("COMPANY_LIMIT_EXCEEDED");
+        }
+
+        foreach (var step in _steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await step.ExecuteAsync(company, cancellationToken);
-            company.SetMigration(company.SchemaVersion, step.Name);
-            await unitOfWork.CommitAsync(cancellationToken);
-            resolver.Invalidate(company.Id);
+            if (IsAlreadyComplete(company, step))
+                continue;
+
+            try
+            {
+                await step.ExecuteAsync(company, cancellationToken);
+                company.RecordProvisioningProgress(step.Name);
+                company.SetLifecycle(step.CompletedState);
+                await _unitOfWork.CommitAsync(cancellationToken);
+                _resolver.Invalidate(company.Id);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                company.RecordProvisioningFailure("Provisioning step timed out.");
+                await _unitOfWork.CommitAsync(CancellationToken.None);
+                throw;
+            }
+            catch (Exception)
+            {
+                company.RecordProvisioningFailure("Provisioning step failed.");
+                await _unitOfWork.CommitAsync(CancellationToken.None);
+                throw;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
+        if (company.LifecycleState != CompanyLifecycleState.Registered)
+            throw new InvalidOperationException("Provisioning did not register the company connection.");
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
-        await unitOfWork.CommitAsync(cancellationToken);
-        resolver.Invalidate(company.Id);
+        await _unitOfWork.CommitAsync(cancellationToken);
+        _resolver.Invalidate(company.Id);
         return company;
     }
+
+    private static bool IsAlreadyComplete(Company company, ICompanyProvisioningStep step)
+        => company.LifecycleState > step.CompletedState
+            || (company.LifecycleState == step.CompletedState &&
+                string.Equals(company.ProvisioningStep, step.Name, StringComparison.OrdinalIgnoreCase));
 }
