@@ -16,6 +16,13 @@ MAX_RETRIES_PER_TASK="${MAX_RETRIES_PER_TASK:-3}"
 TIMEOUT_SECONDS="${VUMA_WORKER_TIMEOUT_SECONDS:-3600}"
 MODE=continuous
 
+# Fully unattended execution. Never open credential, GUI, or terminal prompts.
+export CI=1
+export GIT_TERMINAL_PROMPT=0
+export GCM_INTERACTIVE=Never
+export SSH_ASKPASS=/bin/false
+export SUDO_ASKPASS=/bin/false
+
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 timestamp() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 log() { printf '[%s] %s\n' "$(timestamp)" "$*"; }
@@ -154,7 +161,7 @@ run_self_test() {
     echo 'PASS commit detection: compares HEAD before/after and reviews every new commit'
     echo 'PASS push detection: compares pushed remote HEAD separately from commit evidence'
     echo 'PASS stale marker recovery: dead worker is classified and relaunched or finalized from repository state'
-    echo 'PASS failure classification: COMPLETE, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, WAITING_HUMAN, BLOCKED'
+    echo 'PASS failure classification: COMPLETE, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, BLOCKED; no human-wait state'
     echo "PASS retry counting: maximum $MAX_RETRIES_PER_TASK attempts, then BLOCKED"
     echo "PASS next-task selection: next canonical task would be $next"
     echo PASS
@@ -179,16 +186,53 @@ commit_evidence() {
 classify_result() {
   local exit_code=$1 status=$2 base=$3 head=$4 task_rel=$5 clean=$6 pushed=$7 log_file=$8
   local committed=0 current_changed=0
+
   commit_evidence "$base" "$head" "$task_rel" && committed=1
-  git -C "$REPO" diff --name-only "$base..$head" | grep -Fxq 'docs/CURRENT.md' && current_changed=1
-  if [[ "$status" == COMPLETE && "$exit_code" == 0 && "$committed" == 1 && "$current_changed" == 1 && "$clean" == 1 && "$pushed" == 1 ]]; then
-    printf 'COMPLETE'; return
+
+  git -C "$REPO" diff --name-only "$base..$head" |
+    grep -Fxq 'docs/CURRENT.md' && current_changed=1
+
+  if [[ "$status" == COMPLETE &&
+        "$exit_code" == 0 &&
+        "$committed" == 1 &&
+        "$current_changed" == 1 &&
+        "$clean" == 1 &&
+        "$pushed" == 1 ]]; then
+    printf 'COMPLETE'
+    return
   fi
-  if [[ "$status" == BLOCKED ]]; then printf 'BLOCKED'; return; fi
-  if grep -Eiq 'approval|permission|ask.?user|waiting for (you|human)|interactiv' "$log_file"; then printf 'WAITING_HUMAN'; return; fi
-  if [[ "$exit_code" == 124 || "$exit_code" == 137 || "$exit_code" == 143 ]]; then printf 'CRASHED'; return; fi
-  if [[ "$base" == "$head" && "$clean" == 1 ]]; then printf 'NO_CHANGE'; return; fi
-  if [[ "$status" == NEEDS_VERIFICATION || "$status" == IN_PROGRESS || "$committed" == 1 || "$clean" == 0 ]]; then printf 'PARTIAL'; return; fi
+
+  if [[ "$status" == BLOCKED ]]; then
+    printf 'BLOCKED'
+    return
+  fi
+
+  if [[ "$exit_code" == 124 ||
+        "$exit_code" == 137 ||
+        "$exit_code" == 143 ]]; then
+    printf 'CRASHED'
+    return
+  fi
+
+  # Implementation exists but a required AUTOMATED validation could not run.
+  # This is terminal for this worker invocation and is NEVER a human prompt.
+  if [[ "$status" == NEEDS_VERIFICATION && "$clean" == 1 ]]; then
+    printf 'UNVERIFIED'
+    return
+  fi
+
+  if [[ "$base" == "$head" && "$clean" == 1 ]]; then
+    printf 'NO_CHANGE'
+    return
+  fi
+
+  if [[ "$status" == IN_PROGRESS ||
+        "$committed" == 1 ||
+        "$clean" == 0 ]]; then
+    printf 'PARTIAL'
+    return
+  fi
+
   printf 'FAILED'
 }
 
@@ -204,8 +248,18 @@ if [[ -f "$ACTIVE_MARKER" ]]; then
 fi
 if (( selected < 0 )); then
   [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "worktree is not clean before launch"
-  for i in "${!task_ids[@]}"; do
-    if [[ "${task_statuses[$i]}" == READY || "${task_statuses[$i]}" == NOT_STARTED || "${task_statuses[$i]}" == NEEDS_VERIFICATION || "${task_statuses[$i]}" == IN_PROGRESS ]] && dependency_complete "${task_deps[$i]}"; then selected=$i; break; fi
+
+  # Implementation work has priority. NEEDS_VERIFICATION is deliberately
+  # excluded: it represents an automated prerequisite/check that could not
+  # execute, not a request for another Luna context or human approval.
+  for wanted_status in IN_PROGRESS READY NOT_STARTED; do
+    for i in "${!task_ids[@]}"; do
+      if [[ "${task_statuses[$i]}" == "$wanted_status" ]] &&
+         dependency_complete "${task_deps[$i]}"; then
+        selected=$i
+        break 2
+      fi
+    done
   done
 fi
 (( selected >= 0 )) || die "no eligible canonical task in Stage $stage"
@@ -217,27 +271,59 @@ printf 'Worker command: codex exec --ephemeral --dangerously-bypass-approvals-an
 [[ "$MODE" == self-test ]] && { run_self_test; exit 0; }
 if [[ -z "$(git -C "$REPO" status --porcelain)" || -f "$ACTIVE_MARKER" ]]; then :; else die "worktree is not clean before launch"; fi
 before=$(git -C "$REPO" rev-parse HEAD)
-attempts=$(awk -F'\t' -v t="$task" '$2 == t {n++} END {print n+0}' "$RUNS_FILE" 2>/dev/null || true)
+attempts=0
+
+if [[ -f "$ACTIVE_MARKER" ]]; then
+  prior_attempt=$(marker_value attempt || true)
+  [[ "$prior_attempt" =~ ^[0-9]+$ ]] && attempts=$prior_attempt
+fi
 while (( attempts < "$MAX_RETRIES_PER_TASK" )); do
   attempts=$((attempts + 1)); log_file="$LOG_DIR/$(date -u '+%Y%m%dT%H%M%SZ')-${task}-attempt-${attempts}.log"
   printf 'task=%s\nstage=%s\npid=unknown\nattempt=%s\nbase=%s\nstarted=%s\nlog=%s\n' "$task" "$stage" "$attempts" "$before" "$(timestamp)" "$log_file" >"$ACTIVE_MARKER"
   prompt=$(cat <<EOF
-You are the implementation worker. Execute the assigned task now. Do not merely analyze it. Do not return a proposed solution for another agent to implement. Make the required changes yourself.
+You are the autonomous implementation worker for exactly one Vuma task.
 
-Read $WORKER_GUIDE and follow it exactly. You have exactly one task and must not select another task or wait for human confirmation.
+Read $WORKER_GUIDE and follow it exactly.
+
 CURRENT STAGE: Stage $stage
 CURRENT TASK: $task
 TASK FILE: $task_path
-OBJECTIVE: Persist the task's required behavior and evidence.
-SCOPE: Exactly the scope and implementation requirements in $task_path.
-OUT OF SCOPE: Exactly the out-of-scope items in $task_path; record unrelated discoveries as follow-up findings without fixing them.
-RELEVANT ARCHITECTURE: Read $ARCH_INDEX, then only the authorities relevant to this task: docs/ARCHITECTURE.md, docs/DATA_MODEL.md, docs/MULTI_COMPANY.md, docs/SYNC_AND_BACKUP.md, docs/DECISIONS.md, and the stage document as applicable.
-RELEVANT ADRs: Read the ADRs named by the task file, especially its Dependencies and Relevant Documentation sections.
-RELEVANT FILES: Read CLAUDE.md, applicable AGENTS.md, docs/CURRENT.md, $task_path, and the source/tests named or discovered from those references. Do not load the whole repository.
-ACCEPTANCE CRITERIA: Satisfy every acceptance criterion and Definition of Done in $task_path; do not claim COMPLETE for an unverified requirement.
-TEST REQUIREMENTS: Run the required tests and relevant build/type/lint checks. Record exact commands and results, including environmental failures such as unavailable PostgreSQL or Docker.
 
-Execute the full contract now: READ -> UNDERSTAND -> PLAN -> IMPLEMENT -> TEST -> REVIEW -> UPDATE TASK -> UPDATE docs/CURRENT.md -> COMMIT -> PUSH -> EXIT. The worker must actually edit the scoped files and must stop after this one task.
+Work fully unattended.
+
+Never ask for approval, confirmation, permission, user input, or human verification.
+Never wait for a human.
+Never start another task.
+
+Read only:
+
+1. CLAUDE.md
+2. docs/CURRENT.md
+3. $task_path
+4. applicable AGENTS.md for directories you modify
+5. documentation sections and ADRs explicitly referenced by $task_path
+6. source files and tests directly relevant to this task
+
+Do not enumerate the repository.
+Do not automatically read broad architecture/history documents.
+
+If implementation already exists, verify it rather than inventing extra work.
+
+Run the required AUTOMATED checks.
+
+If a required check cannot run because of environment, infrastructure, credentials,
+network, an external service, PostgreSQL, Docker, or an unrelated prerequisite:
+
+- record the exact blocker
+- leave the task NEEDS_VERIFICATION
+- keep the worktree clean
+- EXIT
+
+NEEDS_VERIFICATION never means wait for a human.
+
+Execute only this task:
+
+UNDERSTAND -> IMPLEMENT -> TEST -> REVIEW -> UPDATE TASK -> UPDATE docs/CURRENT.md -> COMMIT -> PUSH -> EXIT
 EOF
 )
   log "Launching fresh worker for $task attempt $attempts/${MAX_RETRIES_PER_TASK} (timeout ${TIMEOUT_SECONDS}s)"
@@ -271,8 +357,20 @@ EOF
   } >>"$log_file"
   printf 'timestamp=%s\ttask=%s\texit=%s\tstatus=%s\tclassification=%s\tcommit=%s\tpush=%s\tclean=%s\tbase=%s\thead=%s\tlog=%s\n' "$(timestamp)" "$task" "$exit_code" "$status_after" "$classification" "$([[ "$before" != "$head_after" ]] && echo 1 || echo 0)" "$pushed" "$clean" "$before" "$head_after" "$log_file" >>"$RUNS_FILE"
   if [[ "$classification" == COMPLETE ]]; then
-    rm -f "$ACTIVE_MARKER"; log "Verified $task: implementation, acceptance status, CURRENT.md, commit, push, and clean tree all confirmed"
+    rm -f "$ACTIVE_MARKER"
+    log "Verified $task: implementation, acceptance status, CURRENT.md, commit, push, and clean tree all confirmed"
+
     [[ "$MODE" == once ]] && exit 0
+    exec "$0"
+  fi
+
+  if [[ "$classification" == UNVERIFIED ]]; then
+    rm -f "$ACTIVE_MARKER"
+
+    log "$task has an unavailable automated validation/prerequisite."
+    log "No human verification is requested and the task will not be automatically retried."
+
+    [[ "$MODE" == once ]] && exit 2
     exec "$0"
   fi
   reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
