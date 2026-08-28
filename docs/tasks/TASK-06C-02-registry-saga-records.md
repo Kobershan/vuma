@@ -100,6 +100,17 @@ Later group behavior belongs to Stage 06d.
   or Docker, including migrate, rollback, and re-apply.
   PRIORITY: HIGH
 
+- FOUND: The documented disposable PostgreSQL cluster starts, but the integration fixture fails
+  before the registry tests because `VumaRetailDbContext` reports pending model changes via
+  `PendingModelChangesWarning` while creating its company template database.
+  WHY IT MATTERS: Registry migration up/down and persistence behavior still cannot be exercised
+  through the shared integration fixture; changing the company migration chain would exceed this
+  registry-only task's scope.
+  RECOMMENDED FOLLOW-UP: Reconcile the existing company model snapshot/migrations, then rerun
+  `VUMA_TEST_POSTGRES=... dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj
+  --filter 'FullyQualifiedName~RegistryPersistence' --no-restore` and the full persistence panel.
+  PRIORITY: HIGH
+
 - FOUND: Registry consumer-side redrive and exactly-once effect enforcement are not implemented in
   this persistence task.
   WHY IT MATTERS: Acknowledgement replay after a company restore needs the company inbox/handler and
@@ -146,3 +157,9 @@ Later group behavior belongs to Stage 06d.
   'FullyQualifiedName~RegistryPersistence' --no-restore`: 2 failed before execution because Docker
   and the local PostgreSQL endpoint were unavailable. Status remains NEEDS_VERIFICATION pending the
   registry migration and persistence panel against PostgreSQL.
+- 2026-08-28: Re-ran the required registry persistence filter sequentially after starting the
+  documented disposable PostgreSQL cluster with `scripts/pg-test.sh start`. Both tests failed before
+  registry fixture execution because the shared company migration chain raised
+  `Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning` for `VumaRetailDbContext`.
+  The cluster was stopped with `scripts/pg-test.sh stop`; task remains NEEDS_VERIFICATION pending
+  reconciliation of that unrelated company migration state and registry PostgreSQL verification.
