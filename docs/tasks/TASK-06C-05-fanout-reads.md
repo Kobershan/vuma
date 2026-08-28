@@ -2,7 +2,7 @@
 
 ## Status
 
-COMPLETE
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -99,3 +99,6 @@ Group read models belong to Stage 06d.
   timeout, operator-safe named failures, duplicate/empty input handling, and caller cancellation.
   Added coverage for bounded concurrency, partial failure, timeout, cancellation, and duplicate IDs.
   `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore` passed (838 tests).
+- 2026-08-28: `git push` was attempted and blocked by network infrastructure: `fatal: unable to access
+  'https://github.com/kobershan/vuma/': Recv failure: Connection reset by peer`. The local commits are
+  complete; task remains NEEDS_VERIFICATION because the required push could not be verified.
