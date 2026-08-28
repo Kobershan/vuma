@@ -1,24 +1,25 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
-public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbContext> factory) : ICompanyConnectionResolver
+public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbContext> factory, IClock clock) : ICompanyConnectionResolver
 {
     private readonly ConcurrentDictionary<Guid, (CompanyConnection Value, DateTimeOffset Expires)> _cache = new();
     public async Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
     {
-        if (_cache.TryGetValue(companyId, out var cached) && cached.Expires > DateTimeOffset.UtcNow && cached.Value.TenantId == tenantId) return cached.Value;
+        if (_cache.TryGetValue(companyId, out var cached) && cached.Expires > clock.UtcNow && cached.Value.TenantId == tenantId) return cached.Value;
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var company = await db.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Company was not found.");
         if (!company.CanServe || string.IsNullOrWhiteSpace(company.ConnectionSecretRef)) throw new InvalidOperationException("Company is not available for business operations.");
         var value = new CompanyConnection(company.Id, company.TenantId, company.ConnectionSecretRef, company.SchemaVersion);
-        _cache[companyId] = (value, DateTimeOffset.UtcNow.AddMinutes(5)); return value;
+        _cache[companyId] = (value, clock.UtcNow.AddMinutes(5)); return value;
     }
     public void Invalidate(Guid companyId) => _cache.TryRemove(companyId, out _);
 }
@@ -35,11 +36,6 @@ public sealed class AmbientCompanyContext : ICompanyContext
 public interface ICompanyDbContextFactory
 {
     Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default);
-}
-
-public interface ICompanyConnectionSecretStore
-{
-    Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default);
 }
 
 internal sealed class UnconfiguredCompanyConnectionSecretStore : ICompanyConnectionSecretStore
@@ -60,20 +56,20 @@ public sealed class CompanyDbContextFactory(ICompanyContext context, ICompanyCon
     }
 }
 
-public sealed class CompanyFanOut : ICompanyFanOut
+public sealed class CompanyFanOut(IClock clock) : ICompanyFanOut
 {
     public async Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default)
     {
         var ids = companyIds.Distinct().ToArray(); var gate = new SemaphoreSlim(4); var results = new ConcurrentBag<FanOutResult<T>>();
-        await Task.WhenAll(ids.Select(async id => { await gate.WaitAsync(cancellationToken); try { results.Add(new(id, await read(id, cancellationToken), null, DateTimeOffset.UtcNow)); } catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { results.Add(new(id, default, "Timed out", DateTimeOffset.UtcNow)); } catch (Exception ex) { results.Add(new(id, default, ex.Message, DateTimeOffset.UtcNow)); } finally { gate.Release(); } }));
+        await Task.WhenAll(ids.Select(async id => { await gate.WaitAsync(cancellationToken); try { results.Add(new(id, await read(id, cancellationToken), null, clock.UtcNow)); } catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { results.Add(new(id, default, "Timed out", clock.UtcNow)); } catch (Exception ex) { results.Add(new(id, default, ex.Message, clock.UtcNow)); } finally { gate.Release(); } }));
         return ids.Select(id => results.Single(x => x.CompanyId == id)).ToArray();
     }
 }
 
-public sealed class CompanyLifecycleService(VumaRegistryDbContext db) : ICompanyLifecycleService
+public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork) : ICompanyLifecycleService
 {
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
-    { if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason)); var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken) ?? throw new InvalidOperationException("Company was not found."); company.Deactivate(); await db.SaveChangesAsync(cancellationToken); }
+    { if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason)); var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken) ?? throw new InvalidOperationException("Company was not found."); company.Deactivate(); await unitOfWork.CommitAsync(cancellationToken); }
 }
 
 /// <summary>Small adapter seam for the physical database and seed operations.</summary>
@@ -84,7 +80,7 @@ public interface ICompanyProvisioningStep
 }
 
 /// <summary>Runs provisioning steps in order and only publishes an active registry row last.</summary>
-public sealed class CompanyProvisioner(VumaRegistryDbContext db, IEnumerable<ICompanyProvisioningStep> steps) : ICompanyProvisioner
+public sealed class CompanyProvisioner(VumaRegistryDbContext db, IUnitOfWork unitOfWork, IEnumerable<ICompanyProvisioningStep> steps) : ICompanyProvisioner
 {
     public async Task<Company> ProvisionAsync(Company company, CancellationToken cancellationToken = default)
     {
@@ -94,13 +90,13 @@ public sealed class CompanyProvisioner(VumaRegistryDbContext db, IEnumerable<ICo
             cancellationToken.ThrowIfCancellationRequested();
             await step.ExecuteAsync(company, cancellationToken);
             company.SetMigration(company.SchemaVersion, step.Name);
-            await db.SaveChangesAsync(cancellationToken);
+            await unitOfWork.CommitAsync(cancellationToken);
         }
 
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
-        await db.SaveChangesAsync(cancellationToken);
+        await unitOfWork.CommitAsync(cancellationToken);
         return company;
     }
 }

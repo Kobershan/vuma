@@ -96,6 +96,32 @@ public sealed class Company
     /// <summary>Advances the registry lifecycle state.</summary>
     public void SetLifecycle(CompanyLifecycleState state, bool isActive = false)
     {
+        if (state == LifecycleState)
+        {
+            IsActive = state == CompanyLifecycleState.Active && isActive;
+            return;
+        }
+
+        bool validTransition = (LifecycleState, state) switch
+        {
+            (CompanyLifecycleState.Provisioning, CompanyLifecycleState.Seeding) => true,
+            (CompanyLifecycleState.Seeding, CompanyLifecycleState.Registered) => true,
+            (CompanyLifecycleState.Registered, CompanyLifecycleState.Active) => true,
+            (CompanyLifecycleState.Active, CompanyLifecycleState.Deactivated) => true,
+            _ => false,
+        };
+
+        if (!validTransition)
+        {
+            throw new InvalidOperationException(
+                $"Company lifecycle cannot move from {LifecycleState} to {state}.");
+        }
+
+        if (state == CompanyLifecycleState.Active && string.IsNullOrWhiteSpace(ConnectionSecretRef))
+        {
+            throw new InvalidOperationException("An active company requires a connection secret reference.");
+        }
+
         LifecycleState = state;
         IsActive = state == CompanyLifecycleState.Active && isActive;
     }

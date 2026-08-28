@@ -101,6 +101,9 @@ public sealed class ReplicationRulesTests
             // thumbprint and the token hash — which is how the tenant is discovered in the first
             // place. Stage 02, ADR-040.
             "src/VumaRetail.Infrastructure/Persistence/Repositories/IdentityRepositories.cs",
+            // The migration runner creates a fixed tenant context for each selected company.
+            // Its explicit implementation is an adapter, not a cross-tenant query scope.
+            "src/VumaRetail.Infrastructure/Registry/CompanyMigrationServices.cs",
             // The demo seeder asking whether the demo tenant exists at all.
             "src/VumaRetail.StoreServer/DemoSeed.cs");
 

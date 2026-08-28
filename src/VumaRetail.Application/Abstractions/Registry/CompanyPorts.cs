@@ -17,6 +17,12 @@ public interface ICompanyContext
     Guid RequireCompany();
 }
 
+/// <summary>Resolves encrypted company connection details without exposing them to callers.</summary>
+public interface ICompanyConnectionSecretStore
+{
+    Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default);
+}
+
 public sealed record FanOutResult<T>(Guid CompanyId, T? Value, string? Error, DateTimeOffset AsAt)
 { public bool Succeeded => Error is null; }
 

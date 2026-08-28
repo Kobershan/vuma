@@ -18,7 +18,8 @@ public interface ICompanyMigrationRunner
 public sealed class CompanyMigrationRunner(
     VumaRegistryDbContext registry,
     ICompanyConnectionSecretStore secrets,
-    ICompanyConnectionResolver resolver) : ICompanyMigrationRunner
+    ICompanyConnectionResolver resolver,
+    IUnitOfWork unitOfWork) : ICompanyMigrationRunner
 {
     public async Task<IReadOnlyList<CompanyMigrationResult>> MigrateAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
@@ -49,7 +50,7 @@ public sealed class CompanyMigrationRunner(
             }
             finally { gate.Release(); }
         }));
-        await registry.SaveChangesAsync(cancellationToken);
+        await unitOfWork.CommitAsync(cancellationToken);
         return results.ToArray();
     }
 

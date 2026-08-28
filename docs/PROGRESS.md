@@ -7,6 +7,13 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 06c — TASK-06C-01 complete (2026-08-28):** Added the tenant registry `Company` aggregate,
+secret-reference seam, independent registry context/design-time wiring, and reversible companies-only
+registry migration. Registry verification: 821 unit tests and 35 architecture tests passed; full
+solution build succeeded with 0 errors. EF tooling lists the registry migration, but database-backed
+migration execution remains unverified because the local PostgreSQL endpoint returned permission denied.
+Existing registry XML/analyzer warnings remain and are not part of this task.
+
 **Autonomous pipeline note (2026-08-27):** This repository uses `docs/PROGRESS.md` and stage/task
 documents rather than the root-file `PROGRESS.md`/`pushed` vocabulary in the generic runner. Stage 05
 has a completed implementation on `origin/stage-05-workflow` but remains a divergent branch; it is not

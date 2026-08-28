@@ -17,15 +17,31 @@ public sealed class CompanyTests
     }
 
     [Fact]
-    public void Active_requires_the_explicit_active_flag()
+    public void Active_requires_registered_secret_and_explicit_active_flag()
     {
         Company company = CreateCompany();
 
+        company.SetLifecycle(CompanyLifecycleState.Seeding);
+        company.SetLifecycle(CompanyLifecycleState.Registered);
+        var act = () => company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+        act.Should().Throw<InvalidOperationException>();
+
+        company.SetConnectionSecretRef("secret://tenant/company");
         company.SetLifecycle(CompanyLifecycleState.Active);
         company.IsActive.Should().BeFalse();
 
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         company.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Lifecycle_rejects_skipping_provisioning_states()
+    {
+        Company company = CreateCompany();
+
+        var act = () => company.SetLifecycle(CompanyLifecycleState.Active);
+
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]

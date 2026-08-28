@@ -2,7 +2,7 @@
 
 ## Status
 
-READY
+COMPLETE
 
 ## Stage
 
@@ -95,3 +95,29 @@ Record unrelated issues only; do not expand into routing or provisioning.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-005.
+- 2026-08-28: Implemented the tenant-scoped `Company` registry aggregate with UUID v7 identity,
+  explicit provisioning lifecycle transitions, activation guards, migration/schema state, and a
+  secret-reference-only connection seam. Added the independent `VumaRegistryDbContext`, design-time
+  factory, DI registration, and reversible `registry.companies` migration. The foundation migration
+  intentionally contains no groups, saga records, outbox, business tables, or company context; those
+  belong to later tasks.
+
+## Verification Evidence
+
+- `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore` — 821 passed, 0 failed.
+- `dotnet test tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore`
+  — 35 passed, 0 failed.
+- `dotnet build VumaRetail.sln --no-restore` — succeeded, 0 errors. The existing registry scaffolding
+  emits XML/analyzer warnings; no warning cleanup was included in this task.
+- Reviewed the migration `Up`/`Down`: it creates and removes only `registry.companies`, with unique
+  `(tenant_id, code)` and `(tenant_id, document_prefix)` indexes plus the active lookup index.
+- `dotnet ef migrations list --project src/VumaRetail.Infrastructure --startup-project
+  src/VumaRetail.StoreServer --context VumaRegistryDbContext --no-build` — migration discovered;
+  applied-state lookup was unverified because the local PostgreSQL endpoint returned permission denied.
+
+## Follow-up Findings
+
+- FOUND: Registry migration execution could not connect to the configured local PostgreSQL endpoint.
+- WHY IT MATTERS: Live migration up/down behavior and applied-state cannot be confirmed here.
+- RECOMMENDED FOLLOW-UP: Run the registry migration panel against an available PostgreSQL instance.
+- PRIORITY: MEDIUM

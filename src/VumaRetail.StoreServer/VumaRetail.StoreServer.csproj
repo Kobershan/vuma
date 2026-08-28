@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
     <ProjectReference Include="..\VumaRetail.Web\VumaRetail.Web.csproj" />
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />

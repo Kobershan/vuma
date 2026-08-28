@@ -74,12 +74,17 @@ public sealed class PipelineRulesTests
             // finishes, deliberately: a full dump is minutes of streaming I/O, and holding a write
             // transaction open across it would block every till in the store. The two commits are
             // also what makes a crashed backup visible at all (R4).
-            "src/VumaRetail.Infrastructure/Backup/BackupService.cs");
+            "src/VumaRetail.Infrastructure/Backup/BackupService.cs",
+            // Registry lifecycle and migration operations are administrative workflows, not
+            // dispatched message handlers. They own the separate registry database boundary.
+            "src/VumaRetail.Infrastructure/Registry/CompanyMigrationServices.cs",
+            "src/VumaRetail.Infrastructure/Registry/RegistryServices.cs",
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""
             Something outside the pipeline commits the unit of work. The exemptions are
             AuthenticationService (ADR-040 — sign-in is an edge service, not a command), the
-            transaction behaviour itself, the DbContext that implements the boundary, the demo
+            transaction behaviour itself, the DbContexts that implement their boundaries, the demo
             seeder's two platform rows, and Stage 04's outbox dispatcher and backup service — neither
             of which is a message, and both of which are commented above with why.
 
