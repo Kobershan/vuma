@@ -29,7 +29,7 @@ Implements ADR-099's redundant identity and ADR-119 projection key; architecture
 ## Definition of done
 All scoped tables migrated/backfilled, tests and review green, exceptions documented as follow-up.
 ## Status
-NOT_STARTED
+IN_PROGRESS
 ## Work log
 - 2026-08-27: Planned as a bounded retrofit inventory rather than a broad refactor.
-
+- 2026-08-28: Added shared `Entity.CompanyId`, base EF mapping/index, reversible schema retrofit migration, and migration-runner backfill path. Real database inventory/backfill verification remains before completion.

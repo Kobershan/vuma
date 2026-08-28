@@ -38,6 +38,19 @@ public sealed class CompanyTests
         company.ConnectionSecretRef.Should().Be("secret://tenant/company");
     }
 
+    [Fact]
+    public void Business_entity_can_be_assigned_a_company_identity_for_retrofit()
+    {
+        var entity = new TestEntity(Guid.NewGuid());
+        var companyId = Guid.NewGuid();
+
+        entity.AssignCompany(companyId);
+
+        entity.CompanyId.Should().Be(companyId);
+    }
+
+    private sealed class TestEntity(Guid tenantId) : VumaRetail.Domain.Entities.Entity(tenantId);
+
     private static Company CreateCompany()
         => Company.Create(Guid.NewGuid(), "hardware", "Siyaya Hardware", "Siyaya Hardware", "ZAR", "en-ZA", "SH");
 }
