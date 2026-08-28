@@ -117,3 +117,10 @@ Later group behavior belongs to Stage 06d.
   architecture tests: 35 passed; infrastructure build: 0 errors. Integration tests: 401 failed at
   PostgreSQL fixture startup because Docker/local PostgreSQL was unavailable; task remains
   NEEDS_VERIFICATION until the database panel runs.
+- 2026-08-28: Corrected registry composite foreign-key principals to use PostgreSQL unique
+  constraints (rather than unique indexes), included tenant_id in group-member and saga-leg keys,
+  and made compensation explicit for pending/dispatched/failed/timed-out legs while preserving
+  acknowledged legs. Added duplicate-acknowledgement and partial-timeout compensation coverage.
+  Unit tests: 827 passed; architecture tests: 35 passed; infrastructure build: 0 errors.
+  Targeted migration tests: 3 failed during fixture startup because Docker and the local PostgreSQL
+  endpoint were unavailable; task remains NEEDS_VERIFICATION.

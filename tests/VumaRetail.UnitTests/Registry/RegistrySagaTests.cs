@@ -38,6 +38,41 @@ public sealed class RegistrySagaTests
     }
 
     [Fact]
+    public void Repeated_acknowledgement_is_idempotent_and_preserves_the_first_completion_time()
+    {
+        var leg = new SagaLeg(UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid());
+        var acknowledgedAt = DateTimeOffset.UtcNow;
+        leg.MarkDispatched(acknowledgedAt);
+        leg.Acknowledge(acknowledgedAt);
+
+        leg.Acknowledge(acknowledgedAt.AddMinutes(1));
+
+        leg.State.Should().Be(SagaLegState.Acknowledged);
+        leg.AcknowledgedAt.Should().Be(acknowledgedAt);
+        leg.Attempts.Should().Be(1);
+    }
+
+    [Fact]
+    public void Timed_out_intent_can_be_compensated_after_partial_leg_completion()
+    {
+        var intent = SagaIntent.Create(UuidV7.NewGuid(), "group-receipt", "request-3", DateTimeOffset.UtcNow);
+        intent.Authorize(UuidV7.NewGuid(), "user:operator", new HlcStamp(1, 0, "store:test").ToString());
+        intent.AddLeg(UuidV7.NewGuid());
+        intent.AddLeg(UuidV7.NewGuid());
+        intent.Start("worker:registry");
+        intent.Legs[0].MarkDispatched();
+        intent.Legs[0].Acknowledge(DateTimeOffset.UtcNow);
+        intent.Legs[1].MarkDispatched();
+        intent.Timeout(DateTimeOffset.UtcNow.AddMinutes(15));
+
+        intent.Compensate();
+
+        intent.State.Should().Be(SagaIntentState.Compensated);
+        intent.Legs[0].State.Should().Be(SagaLegState.Acknowledged);
+        intent.Legs[1].State.Should().Be(SagaLegState.Compensated);
+    }
+
+    [Fact]
     public void Group_rejects_duplicate_members()
     {
         var group = CompanyGroup.Create(UuidV7.NewGuid(), "Trading group");

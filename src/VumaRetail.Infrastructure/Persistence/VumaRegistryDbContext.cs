@@ -53,6 +53,7 @@ public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext
             builder.Property(company => company.ConnectionSecretRef).HasMaxLength(512);
             builder.Property(company => company.MigrationState).HasMaxLength(32).IsRequired();
             builder.Property(company => company.LifecycleState).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.HasAlternateKey(company => new { company.TenantId, company.Id });
             builder.HasIndex(company => new { company.TenantId, company.Code }).IsUnique();
             builder.HasIndex(company => new { company.TenantId, company.DocumentPrefix }).IsUnique();
             builder.HasIndex(company => new { company.TenantId, company.IsActive });
@@ -81,7 +82,7 @@ public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext
         });
         modelBuilder.Entity<CompanyGroupMember>(builder =>
         {
-            builder.ToTable("company_group_members", "registry"); builder.HasKey(x => new { x.GroupId, x.CompanyId });
+            builder.ToTable("company_group_members", "registry"); builder.HasKey(x => new { x.TenantId, x.GroupId, x.CompanyId });
             builder.Property(x => x.GroupId).ValueGeneratedNever(); builder.Property(x => x.CompanyId).ValueGeneratedNever(); builder.Property(x => x.TenantId).IsRequired();
             builder.HasOne<Company>().WithMany().HasForeignKey(x => new { x.TenantId, x.CompanyId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         });
@@ -97,7 +98,7 @@ public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext
         });
         modelBuilder.Entity<SagaLeg>(builder =>
         {
-            builder.ToTable("saga_legs", "registry"); builder.HasKey(x => new { x.IntentId, x.LegId });
+            builder.ToTable("saga_legs", "registry"); builder.HasKey(x => new { x.TenantId, x.IntentId, x.LegId });
             builder.Property(x => x.IntentId).ValueGeneratedNever(); builder.Property(x => x.LegId).ValueGeneratedNever(); builder.Property(x => x.TenantId).IsRequired(); builder.Property(x => x.CompanyId).IsRequired(); builder.Property(x => x.OperationStamp).HasMaxLength(128).IsRequired();
             builder.Property(x => x.State).HasConversion<string>().HasMaxLength(16).IsRequired(); builder.Property(x => x.LastError).HasMaxLength(1024);
             builder.HasOne<Company>().WithMany().HasForeignKey(x => new { x.TenantId, x.CompanyId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);

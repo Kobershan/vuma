@@ -96,7 +96,7 @@ public sealed class SagaIntent
         if (Legs.Any(x => x.State != SagaLegState.Acknowledged)) throw new InvalidOperationException("All saga legs must be acknowledged.");
         State = SagaIntentState.Completed;
     }
-    public void Compensate() { if (State is not (SagaIntentState.InProgress or SagaIntentState.TimedOut)) throw new InvalidOperationException("Only an in-flight or timed-out intent can be compensated."); foreach (var leg in Legs.Where(x => x.State != SagaLegState.Compensated)) leg.Compensate(); State = SagaIntentState.Compensated; }
+    public void Compensate() { if (State is not (SagaIntentState.InProgress or SagaIntentState.TimedOut)) throw new InvalidOperationException("Only an in-flight or timed-out intent can be compensated."); foreach (var leg in Legs.Where(x => x.State is not (SagaLegState.Acknowledged or SagaLegState.Compensated))) leg.Compensate(); State = SagaIntentState.Compensated; }
     public void Timeout(DateTimeOffset expiresAt) { if (State is not SagaIntentState.InProgress) throw new InvalidOperationException("Only an in-flight intent can time out."); ExpiresAt = expiresAt; State = SagaIntentState.TimedOut; }
     private void RequireState(SagaIntentState expected) { if (State != expected) throw new InvalidOperationException($"Saga intent must be {expected}."); }
     private static string Require(string value, string parameterName) => string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("A value is required.", parameterName) : value.Trim();
@@ -121,7 +121,15 @@ public sealed class SagaLeg
     public void MarkDispatched(DateTimeOffset? attemptedAt = null, string? operationStamp = null) { if (State is SagaLegState.Acknowledged or SagaLegState.Compensated) throw new InvalidOperationException("A completed leg cannot be dispatched."); State = SagaLegState.Dispatched; Attempts++; LastAttemptAt = attemptedAt; if (operationStamp is not null) OperationStamp = ParseStamp(operationStamp); }
     public void Acknowledge(DateTimeOffset acknowledgedAt) { if (State == SagaLegState.Acknowledged) return; if (State is SagaLegState.Pending or SagaLegState.Compensated or SagaLegState.TimedOut) throw new InvalidOperationException("This leg cannot be acknowledged."); State = SagaLegState.Acknowledged; AcknowledgedAt = acknowledgedAt; LastError = null; }
     public void Fail(string error) { if (State is SagaLegState.Acknowledged or SagaLegState.Compensated) throw new InvalidOperationException("A completed leg cannot fail."); State = SagaLegState.Failed; LastError = string.IsNullOrWhiteSpace(error) ? throw new ArgumentException("An error is required.", nameof(error)) : error.Trim(); }
-    public void Compensate() { if (State is SagaLegState.Acknowledged or SagaLegState.Failed or SagaLegState.TimedOut) State = SagaLegState.Compensated; else throw new InvalidOperationException("Only attempted legs can be compensated."); }
+    public void Compensate()
+    {
+        // A pending leg has not reached a company, so compensation is a durable no-op that
+        // prevents a timed-out intent from being redriven after the coordinator closes it.
+        if (State is SagaLegState.Pending or SagaLegState.Dispatched or SagaLegState.Failed or SagaLegState.TimedOut)
+            State = SagaLegState.Compensated;
+        else
+            throw new InvalidOperationException("A completed leg cannot be compensated.");
+    }
     public void Timeout(DateTimeOffset timedOutAt) { if (State is SagaLegState.Acknowledged or SagaLegState.Compensated) throw new InvalidOperationException("A completed leg cannot time out."); State = SagaLegState.TimedOut; TimedOutAt = timedOutAt; }
     private static string ParseStamp(string value) { try { HlcStamp.Parse(value); return value; } catch (MalformedHlcStampException) { throw new ArgumentException("A valid HLC stamp is required.", nameof(value)); } }
 }

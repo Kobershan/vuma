@@ -1153,9 +1153,12 @@ idempotent registry outbox. Intent and leg transitions are explicit and guarded;
 composite constraints, HLC operation metadata, idempotency indexes, and JSONB payload mappings are
 included in migration `20260828100000_RegistryGroupsAndSagas`.
 
-Evidence: unit tests 825 passed; architecture tests 35 passed; Infrastructure build 0 errors.
-Integration tests could not initialize PostgreSQL because Docker and the local PostgreSQL endpoint
-were unavailable (401 fixture-startup failures, 24 passed). Registry migration up/down therefore
-remains NEEDS_VERIFICATION. Follow-up: run the database panel with `scripts/pg-test.sh start` or Docker.
+Evidence: unit tests 827 passed; architecture tests 35 passed; Infrastructure build 0 errors.
+The registry migration now uses PostgreSQL unique constraints for tenant-scoped composite foreign-key
+principals, and group-member/saga-leg primary keys include `tenant_id`. Compensation preserves
+acknowledged legs and closes pending or attempted legs explicitly. Targeted migration tests (3) could
+not initialize PostgreSQL because Docker and the local PostgreSQL endpoint were unavailable.
+Registry migration up/down therefore remains NEEDS_VERIFICATION. Follow-up: run the database panel with
+`scripts/pg-test.sh start` or Docker.
 
 *(End of file.)*
