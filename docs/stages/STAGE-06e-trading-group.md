@@ -3,6 +3,17 @@
 **Status:** NOT_STARTED · **Depends on:** 04b (the signed licence the Operator ID rides in), 06c (the registry), 06d (the saga coordinator and group services) · **Reference reading:** `docs/TRADING_GROUP.md` in full, `docs/MULTI_COMPANY.md` §1–§2, `docs/LICENSING.md` §2–§4, `docs/DECISIONS.md` ADR-121, ADR-122, ADR-123, ADR-124, ADR-127, ADR-099, ADR-116, `CLAUDE.md` §3 (R13), §7 rule 20, `docs/EXECUTION_STANDARD.md`
 
 ## Task index
+## Second-pass architecture and task map
+
+The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
+
+**Architecture checklist:** WHAT/WHY come from this stage's Objective; affected layers/components come from its Deliverables; data, API, security, multi-company, synchronization, licensing, and testing rules come from the linked authority documents. Missing answers are **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs in the header apply; a new ADR is required only for a new decision. Nothing outside stated scope may change.
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| 06e-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+
+This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|

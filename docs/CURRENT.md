@@ -4,23 +4,10 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 06c — Multi-company foundation
-CURRENT TASK: TASK-013 — company_id retrofit across business tables
-STATUS: NOT_STARTED
-
-LAST COMPLETED: Stage 09 closure fixes for §4.10, §4.11, §4.13, §4.14 and §4.15; commits
-`39e8783`, `6b014ce`, `86f8dbd`; merged to `main`.
-
-NEXT ACTION: Implement exactly TASK-012 after rereading its named references and verifying the working
-tree.
-
-BLOCKERS: Independent panel was unavailable in the last session because of the account usage limit.
-Linux cannot execute WPF/FlaUI checks; Docker is unavailable, but local PostgreSQL is available.
-
-IMPORTANT DECISIONS: ADR-135–ADR-138 govern the closure fixes. Do not reopen locked ADRs.
-
-FILES CURRENTLY RELEVANT: `docs/tasks/STAGE-06c-INDEX.md`, `docs/tasks/TASK-005-stage-06c-registry-foundation.md`,
-`docs/stages/STAGE-06c-multi-company.md`, `docs/MULTI_COMPANY.md`, `docs/DATA_MODEL.md`, and the
-registry source files named by TASK-005.
-
-TEST STATUS: Infrastructure build succeeds with 0 errors. TASK-013 retrofit code compiles; database-backed
-backfill and migration tests remain unverified because Docker is unavailable.
+CURRENT TASK: None (design pass complete; implementation has not started)
+CURRENT TASK STATUS: NOT_STARTED
+NEXT READY TASK: TASK-06C-01 — Registry foundation
+LAST COMPLETED TASK: None for Stage 06c (legacy records are preserved, not trusted as completion)
+BLOCKERS: None for design work. Docker/WPF limitations remain implementation verification constraints.
+TEST STATUS: No tests run; application and test implementation files were not changed.
+IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.

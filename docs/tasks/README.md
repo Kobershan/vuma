@@ -5,8 +5,10 @@ discover, plan, implement, test, review, and document without loading the whole 
 
 ## Naming and status
 
-Use `TASK-NNN-short-name.md`. Status is one of `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, or
-`COMPLETE`. Only one task may be `IN_PROGRESS` at a time. `docs/CURRENT.md` points to it.
+Use `TASK-<STAGE>-<NUMBER>-<name>.md`, for example `TASK-06C-01-registry-foundation.md`.
+Canonical status is one of `NOT_STARTED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `COMPLETE`, or
+`NEEDS_VERIFICATION`. `READY` is derived only when every listed dependency is `COMPLETE`. Only one
+task may be `IN_PROGRESS` unless the stage index explicitly marks parallel work safe.
 
 Stage documents remain the authority for stage scope and acceptance. Their task indexes identify
 the tasks that make up the stage; task files contain the implementation detail for one unit.
@@ -35,9 +37,14 @@ Do not silently refactor, repair, or redesign unrelated code.
 
 ## Required task template
 
-Every task contains: objective, why, scope, out of scope, affected files, dependencies, relevant
-references, implementation requirements, acceptance criteria, tests, edge cases, security
-considerations, architectural decision impact, definition of done, status, and a short work log.
+Every canonical task contains the full execution template: `Status`, `Stage`, `Type`, `Objective`,
+`Why`, `Scope`, `Out of Scope`, `Architecture`, `Architectural Boundaries`, `Dependencies`,
+`Relevant Files`, `Relevant Documentation`, `Implementation Requirements`, `Data/Database Impact`,
+`API Impact`, `Security`, `Multi-Company/Tenant Impact`, `Sync/Offline Impact`, `Acceptance Criteria`,
+`Tests Required`, `Edge Cases`, `Definition of Done`, `Follow-up Findings`, and `Work Log`.
+
+Historical `TASK-NNN-*` files remain preserved as legacy records; they are not queue entries unless a
+canonical stage index links them.
 
 ## Session rule
 

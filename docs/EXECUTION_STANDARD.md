@@ -139,3 +139,15 @@ Written from `PROGRESS.md` §4. Read them once; they are cheaper to avoid than t
 9. **Hard-coding what is configuration** — tax rates, locale, currency, timeouts. Tax is a rules engine.
 10. **Fixing the document instead of the code, or the code instead of the document.** Both, together, in
     one commit.
+# Second-pass task-system rule
+
+The delivery hierarchy is: **stage → stage architecture → dependency graph → individual task →
+implement → test → review → complete**. A stage document defines what the stage accomplishes; its
+architecture section defines boundaries; its task table is the queue; its linked task files are the
+only independently executable units.
+
+Canonical task states are `NOT_STARTED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `COMPLETE`, and
+`NEEDS_VERIFICATION`. `READY` is deterministic: every required dependency in the stage table is
+`COMPLETE`, the task is not blocked, and no earlier non-parallel task remains. A runner must select
+the first READY row in stage order unless the stage explicitly declares safe parallelism. Historical
+task files are evidence, not queue entries, unless linked by the canonical stage index.

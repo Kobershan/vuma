@@ -1,0 +1,97 @@
+# Task
+
+## Status
+
+NOT_STARTED
+
+## Stage
+
+Stage 06c — Multi-company foundation
+
+## Type
+
+APPLICATION, INFRASTRUCTURE, DATABASE, SECURITY
+
+## Objective
+
+Build resumable company provisioning: create, migrate, seed, register, activate.
+
+## Why
+
+A failed setup must never expose a half-ready company.
+
+## Scope
+
+Command/orchestrator, lifecycle steps, progress/error records, database creation, migrations, seed hooks, resume/idempotency.
+
+## Out of Scope
+
+Public API, migration fleet runner, backup/sync, groups, and deactivation policy.
+
+## Architecture
+
+Layer: Application orchestration with Infrastructure adapters. Data flow: authorized command → registry state → company DB → seed → registry activation. Registry owns lifecycle; company DB owns seeded business configuration.
+
+## Architectural Boundaries
+
+Register only after migration/seed; no cross-database transaction. Authorization/entitlement required; API exposed later; sync starts only for Active company.
+
+## Dependencies
+
+TASK-06C-02 and TASK-06C-04; ADR-118.
+
+## Relevant Files
+
+Provisioning ports/services, migration/seed adapters, registry persistence, integration tests.
+
+## Relevant Documentation
+
+`docs/MULTI_COMPANY.md` §9, `docs/DATA_MODEL.md` §4l, `docs/LICENSING.md`, ADR-099/118.
+
+## Implementation Requirements
+
+Make each step recorded and idempotent; resume from failure; seed chart, numbering, tax, permissions; activate last.
+
+## Data/Database Impact
+
+Create isolated company databases and seed required company-owned data.
+
+## API Impact
+
+Application command only; endpoint is TASK-06C-10.
+
+## Security
+
+Require management permission and entitlement; use secret references; redact failures.
+
+## Multi-Company/Tenant Impact
+
+Enforce tenant company limits and never activate across tenants.
+
+## Sync/Offline Impact
+
+No sync registration before activation; provisioning is online/control-plane work.
+
+## Acceptance Criteria
+
+Three companies provision independently; interruption after creation resumes without active interim state.
+
+## Tests Required
+
+Failure injection, resume/idempotency, isolation, seed, entitlement, and lifecycle race tests.
+
+## Edge Cases
+
+Existing DB, duplicate request, partial seed, registration failure, activation race, limit exceeded.
+
+## Definition of Done
+
+Resumable workflow and tests are green with no half-registered company.
+
+## Follow-up Findings
+
+External installer orchestration remains later-stage work.
+
+## Work Log
+
+- 2026-08-28: Canonical task created from legacy TASK-010.

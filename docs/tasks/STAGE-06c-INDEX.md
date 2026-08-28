@@ -1,7 +1,29 @@
 # Stage 06c task index — Multi-company foundation
 
-This index decomposes Stage 06c into independently executable sessions. Execute in order; a task may
-only start when its dependencies are green. The stage document remains the scope authority.
+This legacy index is retained for history. The canonical executable index is the table below and in
+the Stage 06c document. A task is `READY` only when every dependency is `COMPLETE`; no parallelism is
+approved for this stage.
+
+## Canonical queue
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| [TASK-06C-01](TASK-06C-01-registry-foundation.md) | DOMAIN / INFRASTRUCTURE / DATABASE | Registry foundation | — | READY |
+| [TASK-06C-02](TASK-06C-02-registry-saga-records.md) | DOMAIN / INFRASTRUCTURE / DATABASE | Registry saga records | 06C-01 | NOT_STARTED |
+| [TASK-06C-03](TASK-06C-03-company-routing.md) | APPLICATION / INFRASTRUCTURE / SECURITY | Company routing | 06C-01 | NOT_STARTED |
+| [TASK-06C-04](TASK-06C-04-company-context.md) | APPLICATION / INFRASTRUCTURE / SECURITY / TEST | Company context | 06C-03 | NOT_STARTED |
+| [TASK-06C-05](TASK-06C-05-fanout-reads.md) | APPLICATION / INTEGRATION / TEST | Bounded fan-out reads | 06C-04 | NOT_STARTED |
+| [TASK-06C-06](TASK-06C-06-provisioning.md) | APPLICATION / INFRASTRUCTURE / DATABASE / SECURITY | Resumable provisioning | 06C-02, 06C-04 | NOT_STARTED |
+| [TASK-06C-07](TASK-06C-07-deactivation.md) | APPLICATION / API / SECURITY / TEST | Deactivation | 06C-06 | NOT_STARTED |
+| [TASK-06C-08](TASK-06C-08-migration-fanout.md) | INFRASTRUCTURE / DATABASE / APPLICATION / TEST | Migration fan-out | 06C-01, 06C-03, 06C-06 | NOT_STARTED |
+| [TASK-06C-09](TASK-06C-09-company-id-retrofit.md) | DOMAIN / INFRASTRUCTURE / DATABASE / TEST | Company identity retrofit | 06C-04, 06C-08 | NOT_STARTED |
+| [TASK-06C-10](TASK-06C-10-backup-sync.md) | INFRASTRUCTURE / INTEGRATION / SECURITY / TEST | Per-database backup/sync | 06C-02, 06C-04, 06C-09 | NOT_STARTED |
+| [TASK-06C-11](TASK-06C-11-companies-api.md) | API / APPLICATION / SECURITY / TEST | Companies and migration API | 06C-06, 06C-07, 06C-08 | NOT_STARTED |
+| [TASK-06C-12](TASK-06C-12-acceptance.md) | TEST / DOCUMENTATION | Acceptance evidence | 06C-01…06C-11 | NOT_STARTED |
+| [TASK-06C-13](TASK-06C-13-specialist-review.md) | REVIEW | Specialist review | 06C-12 | NOT_STARTED |
+| [TASK-06C-14](TASK-06C-14-stage-closure.md) | STAGE-CLOSURE / DOCUMENTATION / REVIEW | Stage closure | 06C-13 | NOT_STARTED |
+
+Only TASK-06C-01 is deterministic READY.
 
 | Order | Task | Status | Depends on |
 |---:|---|---|---|

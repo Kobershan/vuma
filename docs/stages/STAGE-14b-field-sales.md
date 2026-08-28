@@ -3,6 +3,17 @@
 **Status:** NOT_STARTED · **Depends on:** 14, 10c, 08c, 05 · **Reference reading:** `docs/FIELD_SALES.md` in full, `docs/MULTI_COMPANY.md` §4, §6, `docs/DECISIONS.md` ADR-107, ADR-108, ADR-103, ADR-109, ADR-110, ADR-112, `CLAUDE.md` §7 rules 12, 13
 
 ## Task index
+## Second-pass architecture and task map
+
+The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
+
+**Architecture checklist:** WHAT/WHY come from this stage's Objective; affected layers/components come from its Deliverables; data, API, security, multi-company, synchronization, licensing, and testing rules come from the linked authority documents. Missing answers are **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs in the header apply; a new ADR is required only for a new decision. Nothing outside stated scope may change.
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| 14b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+
+This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|

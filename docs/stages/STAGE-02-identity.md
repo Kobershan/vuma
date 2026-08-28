@@ -3,6 +3,17 @@
 **Status:** DONE (2026-08-10) · **Depends on:** 01 · **Reference reading:** `CLAUDE.md` §4 (auth row), §7 (rules 1–3, 8, 10, 11, 15), §8, `docs/CONVENTIONS.md` §3–§5, `docs/DECISIONS.md` ADR-008, ADR-010, ADR-013, ADR-021, ADR-026, ADR-028, ADR-034, `docs/TESTING.md` §2, `docs/SECURITY.md` (written by this stage)
 
 ## Task index
+## Second-pass architecture and task map
+
+The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
+
+**Architecture checklist:** WHAT/WHY come from this stage's Objective; affected layers/components come from its Deliverables; data, API, security, multi-company, synchronization, licensing, and testing rules come from the linked authority documents. Missing answers are **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs in the header apply; a new ADR is required only for a new decision. Nothing outside stated scope may change.
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| 02-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+
+This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
