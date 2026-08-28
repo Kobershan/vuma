@@ -33,7 +33,13 @@ public sealed class CompanyGroup
 public sealed class CompanyGroupMember
 {
     private CompanyGroupMember() { }
-    public CompanyGroupMember(Guid groupId, Guid companyId, Guid tenantId = default) { GroupId = groupId; CompanyId = companyId; TenantId = tenantId; }
+    public CompanyGroupMember(Guid groupId, Guid companyId, Guid tenantId)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (groupId == Guid.Empty) throw new ArgumentException("A group is required.", nameof(groupId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        GroupId = groupId; CompanyId = companyId; TenantId = tenantId;
+    }
     public Guid TenantId { get; private set; }
     public Guid GroupId { get; private set; }
     public Guid CompanyId { get; private set; }
@@ -108,7 +114,14 @@ public sealed class SagaIntent
 public sealed class SagaLeg
 {
     private SagaLeg() { }
-    public SagaLeg(Guid intentId, Guid companyId, Guid legId, Guid tenantId = default) { IntentId = intentId; CompanyId = companyId; TenantId = tenantId; LegId = legId; State = SagaLegState.Pending; OperationStamp = HlcStamp.MinValue.ToString(); }
+    public SagaLeg(Guid intentId, Guid companyId, Guid legId, Guid tenantId)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (intentId == Guid.Empty) throw new ArgumentException("An intent is required.", nameof(intentId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (legId == Guid.Empty) throw new ArgumentException("A leg is required.", nameof(legId));
+        IntentId = intentId; CompanyId = companyId; TenantId = tenantId; LegId = legId; State = SagaLegState.Pending; OperationStamp = HlcStamp.MinValue.ToString();
+    }
     public Guid IntentId { get; private set; }
     public Guid LegId { get; private set; }
     public Guid TenantId { get; private set; }

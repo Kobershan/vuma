@@ -26,7 +26,7 @@ public sealed class RegistrySagaTests
     [Fact]
     public void Acknowledged_leg_cannot_be_replayed_or_failed()
     {
-        var leg = new SagaLeg(UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid());
+        var leg = NewLeg();
         leg.MarkDispatched();
         leg.Acknowledge(DateTimeOffset.UtcNow);
 
@@ -40,7 +40,7 @@ public sealed class RegistrySagaTests
     [Fact]
     public void Repeated_acknowledgement_is_idempotent_and_preserves_the_first_completion_time()
     {
-        var leg = new SagaLeg(UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid());
+        var leg = NewLeg();
         var acknowledgedAt = DateTimeOffset.UtcNow;
         leg.MarkDispatched(acknowledgedAt);
         leg.Acknowledge(acknowledgedAt);
@@ -98,6 +98,14 @@ public sealed class RegistrySagaTests
     }
 
     [Fact]
+    public void Registry_legs_require_tenant_scoping_at_construction()
+    {
+        var create = () => new SagaLeg(UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid(), Guid.Empty);
+
+        create.Should().Throw<ArgumentException>().Which.ParamName.Should().Be("tenantId");
+    }
+
+    [Fact]
     public void Intent_and_outbox_payloads_redact_secrets_and_require_json()
     {
         var tenantId = UuidV7.NewGuid();
@@ -113,4 +121,7 @@ public sealed class RegistrySagaTests
         var invalid = () => SagaIntent.Create(tenantId, "split-sale", "request-5", DateTimeOffset.UtcNow, "not-json");
         invalid.Should().Throw<ArgumentException>();
     }
+
+    private static SagaLeg NewLeg()
+        => new(UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid(), UuidV7.NewGuid());
 }

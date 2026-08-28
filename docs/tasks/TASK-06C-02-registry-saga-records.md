@@ -163,3 +163,11 @@ Later group behavior belongs to Stage 06d.
   `Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning` for `VumaRetailDbContext`.
   The cluster was stopped with `scripts/pg-test.sh stop`; task remains NEEDS_VERIFICATION pending
   reconciliation of that unrelated company migration state and registry PostgreSQL verification.
+- 2026-08-28: Hardened public registry record constructors so tenant, intent, leg, group, and company
+  identifiers cannot be omitted or empty before persistence; added a unit test for tenant-scoped leg
+  construction. `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore`: 829
+  passed; `dotnet test tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore`:
+  35 passed; `dotnet build src/VumaRetail.Infrastructure/VumaRetail.Infrastructure.csproj --no-restore
+  --nologo`: succeeded with 0 warnings and 0 errors. Required registry persistence tests: 2 failed
+  before fixture execution because Docker is unavailable and no local PostgreSQL endpoint is available.
+  Status remains NEEDS_VERIFICATION pending database-backed migration and persistence verification.
