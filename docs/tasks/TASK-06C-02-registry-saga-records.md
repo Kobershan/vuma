@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -92,6 +92,28 @@ Models/migrations/tests are green and boundaries are documented.
 
 Later group behavior belongs to Stage 06d.
 
+- FOUND: Registry migration and persistence integration tests could not run because Docker and the
+  local PostgreSQL endpoint are unavailable in this environment.
+  WHY IT MATTERS: Migration up/down and database constraint behavior remain unverified against real
+  PostgreSQL, although the migration compiles and the domain/unit checks pass.
+  RECOMMENDED FOLLOW-UP: Run the registry migration integration panel with `scripts/pg-test.sh start`
+  or Docker, including migrate, rollback, and re-apply.
+  PRIORITY: HIGH
+
+- FOUND: Registry consumer-side redrive and exactly-once effect enforcement are not implemented in
+  this persistence task.
+  WHY IT MATTERS: Acknowledgement replay after a company restore needs the company inbox/handler and
+  restore-point query specified by ADR-120; those belong to later sync/restore work.
+  RECOMMENDED FOLLOW-UP: Add a stable `(intent_id, leg_id)` consumer idempotency seam and restore
+  redrive service in the per-database sync/backup task.
+  PRIORITY: HIGH
+
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-006.
+- 2026-08-28: Implemented registry groups, saga intents/legs, idempotent registry outbox records,
+  explicit transitions, tenant-scoped composite constraints, HLC metadata, migration, and unit
+  coverage. Unit tests: 825 passed;
+  architecture tests: 35 passed; infrastructure build: 0 errors. Integration tests: 401 failed at
+  PostgreSQL fixture startup because Docker/local PostgreSQL was unavailable; task remains
+  NEEDS_VERIFICATION until the database panel runs.

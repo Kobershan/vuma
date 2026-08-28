@@ -8,12 +8,17 @@ readonly REPO
 readonly CURRENT="$REPO/docs/CURRENT.md"
 readonly WORKER_GUIDE="$REPO/docs/automation/CODEX-WORKER.md"
 readonly LOG_DIR="$REPO/docs/automation/logs"
+readonly ACTIVE_MARKER="$LOG_DIR/.active-task"
 readonly TIMEOUT_SECONDS="${VUMA_WORKER_TIMEOUT_SECONDS:-3600}"
 MODE=continuous
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 timestamp() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 log() { printf '[%s] %s\n' "$(timestamp)" "$*"; }
+
+[[ "$TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] || die "VUMA_WORKER_TIMEOUT_SECONDS must be a positive integer"
+command -v codex >/dev/null 2>&1 || die "codex is not installed or not on PATH"
+command -v timeout >/dev/null 2>&1 || die "timeout is not installed or not on PATH"
 
 case "${1:-}" in
   --dry-run) MODE=dry-run ;;
@@ -25,7 +30,6 @@ esac
 git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null || die "not a git repository"
 [[ "$(git -C "$REPO" rev-parse --show-toplevel)" == "$REPO" ]] || die "unexpected repository root"
 [[ "$(git -C "$REPO" branch --show-current)" == main ]] || die "expected branch main"
-[[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "worktree is not clean before launch"
 git -C "$REPO" rev-parse --verify '@{u}' >/dev/null 2>&1 || die "main has no upstream"
 
 mkdir -p "$LOG_DIR"
@@ -78,9 +82,29 @@ dependency_complete() {
 }
 
 selected=-1
-for i in "${!task_ids[@]}"; do
-  if [[ "${task_statuses[$i]}" == READY || "${task_statuses[$i]}" == NOT_STARTED ]] && dependency_complete "${task_deps[$i]}"; then selected=$i; break; fi
-done
+active_task=""
+if [[ -f "$ACTIVE_MARKER" ]]; then
+  active_task=$(sed -nE 's/^task=([^[:space:]]+).*/\1/p' "$ACTIVE_MARKER" | head -1)
+  [[ "$active_task" =~ ^TASK-[0-9A-Za-z-]+$ ]] || die "invalid active-task marker"
+  for i in "${!task_ids[@]}"; do
+    if [[ "${task_ids[$i]}" == "$active_task" ]]; then selected=$i; break; fi
+  done
+  (( selected >= 0 )) || die "active task $active_task is not present in $stage_index"
+  if [[ "${task_statuses[$selected]}" == COMPLETE ]]; then
+    [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "completed active task has uncommitted changes"
+    rm -f "$ACTIVE_MARKER"
+    active_task=""
+    selected=-1
+  else
+    [[ -n "$(git -C "$REPO" status --porcelain)" ]] || die "active task marker exists but the worktree is clean"
+  fi
+fi
+if (( selected < 0 )); then
+  [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "worktree is not clean before launch"
+  for i in "${!task_ids[@]}"; do
+    if [[ "${task_statuses[$i]}" == READY || "${task_statuses[$i]}" == NOT_STARTED ]] && dependency_complete "${task_deps[$i]}"; then selected=$i; break; fi
+  done
+fi
 if (( selected < 0 )); then
   incomplete=0
   for status in "${task_statuses[@]}"; do [[ "$status" != COMPLETE ]] && incomplete=1; done
@@ -89,6 +113,7 @@ if (( selected < 0 )); then
 fi
 
 task="${task_ids[$selected]}"; task_path="${task_paths[$selected]}"; deps="${task_deps[$selected]}"
+
 codex_config_dir=${CODEX_HOME:-$HOME/.codex}
 model_setting=$(sed -nE 's/^model[[:space:]]*=[[:space:]]*//p' "$codex_config_dir/config.toml" 2>/dev/null | head -1 || true)
 prompt=$(cat <<EOF
@@ -111,6 +136,7 @@ printf 'Worker command: codex --ask-for-approval never --sandbox workspace-write
 
 before=$(git -C "$REPO" rev-parse HEAD)
 log_file="$LOG_DIR/$(date -u '+%Y%m%dT%H%M%SZ')-${task}.log"
+printf 'task=%s\nstage=%s\nstarted=%s\nlog=%s\n' "$task" "$stage" "$(timestamp)" "$log_file" > "$ACTIVE_MARKER"
 log "Launching fresh worker for $task (timeout ${TIMEOUT_SECONDS}s)"
 set +e
 printf '%s\n' "$prompt" | timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" codex --ask-for-approval never --sandbox workspace-write exec --ephemeral --cd "$REPO" -c 'sandbox_workspace_write.network_access=true' >"$log_file" 2>&1
@@ -126,8 +152,11 @@ completion_result=FAIL
   printf 'timestamp=%s\nstage=%s\ntask=%s\nworker_process=codex exec (fresh, ephemeral)\nexit_code=%s\ncommit=%s\npush_result=%s\ntask_status=%s\ncompletion_result=%s\n' "$(timestamp)" "$stage" "$task" "$exit_code" "$head_after" "$push_result" "$status_after" "$completion_result"
   [[ "$exit_code" == 124 ]] && echo 'failure_reason=worker timeout'
   [[ "$exit_code" != 0 ]] && echo "failure_reason=worker exited non-zero; see $log_file"
+  [[ "$status_after" != COMPLETE ]] && echo "failure_reason=task status is $status_after"
+  [[ -n "$(git -C "$REPO" status --porcelain)" ]] && echo 'failure_reason=worktree is not clean'
 } >> "$LOG_DIR/runs.log"
 [[ "$completion_result" == PASS ]] || die "worker failed verification for $task; see $log_file"
+rm -f "$ACTIVE_MARKER"
 log "Verified $task commit $head_after pushed and worktree clean"
 [[ "$MODE" == once ]] && exit 0
 exec "$0"

@@ -1146,4 +1146,16 @@ scripts/seed.sh                 # demo tenant; needs VUMA_CONNECTION or a config
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
 deliberately fail rather than skip without one (ADR-036).
 
+### TASK-06C-02 — Registry saga records (2026-08-28)
+
+Implemented UUID v7 registry company groups, membership, saga intents and legs, and a distinct
+idempotent registry outbox. Intent and leg transitions are explicit and guarded; tenant-scoped
+composite constraints, HLC operation metadata, idempotency indexes, and JSONB payload mappings are
+included in migration `20260828100000_RegistryGroupsAndSagas`.
+
+Evidence: unit tests 825 passed; architecture tests 35 passed; Infrastructure build 0 errors.
+Integration tests could not initialize PostgreSQL because Docker and the local PostgreSQL endpoint
+were unavailable (401 fixture-startup failures, 24 passed). Registry migration up/down therefore
+remains NEEDS_VERIFICATION. Follow-up: run the database panel with `scripts/pg-test.sh start` or Docker.
+
 *(End of file.)*

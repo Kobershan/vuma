@@ -8,6 +8,11 @@ namespace VumaRetail.Infrastructure.Persistence;
 public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<CompanyGroup> CompanyGroups => Set<CompanyGroup>();
+    public DbSet<CompanyGroupMember> CompanyGroupMembers => Set<CompanyGroupMember>();
+    public DbSet<SagaIntent> SagaIntents => Set<SagaIntent>();
+    public DbSet<SagaLeg> SagaLegs => Set<SagaLeg>();
+    public DbSet<RegistryOutboxMessage> RegistryOutboxMessages => Set<RegistryOutboxMessage>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -63,6 +68,46 @@ public sealed class VumaRegistryDbContext(DbContextOptions<VumaRegistryDbContext
                     "ck_companies_active_requires_secret",
                     "NOT is_active OR connection_secret_ref IS NOT NULL");
             });
+        });
+
+        modelBuilder.Entity<CompanyGroup>(builder =>
+        {
+            builder.ToTable("company_groups", "registry"); builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever(); builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            builder.HasAlternateKey(x => new { x.TenantId, x.Id });
+            builder.HasMany(x => x.Members).WithOne().HasForeignKey(x => new { x.TenantId, x.GroupId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<CompanyGroupMember>(builder =>
+        {
+            builder.ToTable("company_group_members", "registry"); builder.HasKey(x => new { x.GroupId, x.CompanyId });
+            builder.Property(x => x.GroupId).ValueGeneratedNever(); builder.Property(x => x.CompanyId).ValueGeneratedNever(); builder.Property(x => x.TenantId).IsRequired();
+            builder.HasOne<Company>().WithMany().HasForeignKey(x => new { x.TenantId, x.CompanyId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<SagaIntent>(builder =>
+        {
+            builder.ToTable("saga_intents", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Type).HasMaxLength(128).IsRequired(); builder.Property(x => x.IdempotencyKey).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.Payload).HasColumnType("jsonb").IsRequired(); builder.Property(x => x.State).HasConversion<string>().HasMaxLength(16).IsRequired();
+            builder.Property(x => x.Owner).HasMaxLength(128); builder.Property(x => x.InitiatedBy).HasMaxLength(128).IsRequired(); builder.Property(x => x.OperationStamp).HasMaxLength(128).IsRequired();
+            builder.HasAlternateKey(x => new { x.TenantId, x.Id });
+            builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.State, x.CreatedAt });
+            builder.HasMany(x => x.Legs).WithOne().HasForeignKey(x => new { x.TenantId, x.IntentId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<SagaLeg>(builder =>
+        {
+            builder.ToTable("saga_legs", "registry"); builder.HasKey(x => new { x.IntentId, x.LegId });
+            builder.Property(x => x.IntentId).ValueGeneratedNever(); builder.Property(x => x.LegId).ValueGeneratedNever(); builder.Property(x => x.TenantId).IsRequired(); builder.Property(x => x.CompanyId).IsRequired(); builder.Property(x => x.OperationStamp).HasMaxLength(128).IsRequired();
+            builder.Property(x => x.State).HasConversion<string>().HasMaxLength(16).IsRequired(); builder.Property(x => x.LastError).HasMaxLength(1024);
+            builder.HasOne<Company>().WithMany().HasForeignKey(x => new { x.TenantId, x.CompanyId }).HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            builder.HasIndex(x => new { x.CompanyId, x.State });
+        });
+        modelBuilder.Entity<RegistryOutboxMessage>(builder =>
+        {
+            builder.ToTable("outbox_messages", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Type).HasMaxLength(128).IsRequired(); builder.Property(x => x.Payload).HasColumnType("jsonb").IsRequired(); builder.Property(x => x.IdempotencyKey).HasMaxLength(256).IsRequired(); builder.Property(x => x.OperationStamp).HasMaxLength(128).IsRequired();
+            builder.Property(x => x.Attempts).IsRequired(); builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.DispatchedAt, x.CreatedAt });
         });
 
         base.OnModelCreating(modelBuilder);
