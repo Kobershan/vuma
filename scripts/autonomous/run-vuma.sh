@@ -361,6 +361,9 @@ EOF
     log "Verified $task: implementation, acceptance status, CURRENT.md, commit, push, and clean tree all confirmed"
 
     [[ "$MODE" == once ]] && exit 0
+    # exec does not run the EXIT trap, so release the supervisor lock first.
+    rmdir "$LOCK" 2>/dev/null || true
+    trap - EXIT
     exec "$0"
   fi
 
@@ -371,6 +374,9 @@ EOF
     log "No human verification is requested and the task will not be automatically retried."
 
     [[ "$MODE" == once ]] && exit 2
+    # exec does not run the EXIT trap, so release the supervisor lock first.
+    rmdir "$LOCK" 2>/dev/null || true
+    trap - EXIT
     exec "$0"
   fi
   reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
