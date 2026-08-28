@@ -2,6 +2,12 @@
 
 **Status:** DONE (2026-08-10) · **Depends on:** 03 · **Reference reading:** `CLAUDE.md` §3 (R1, R2, R4, R6, R8), §4 (messaging pattern, logging row), §7 (rules 2, 3, 6, 7, 8, 9), §8, `docs/DECISIONS.md` ADR-003, ADR-006, ADR-007, ADR-010, ADR-012, ADR-022, ADR-028, ADR-035, `docs/CONVENTIONS.md` §2, §5, §6, `docs/TESTING.md` §1–§2, `docs/API_STANDARDS.md` §5, §8–§9, `docs/SECURITY.md`, `docs/SYNC_AND_BACKUP.md` (written by this stage)
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-04-001 | Complete sync, backup, and restore foundation | Stage 03 | COMPLETE |
+
 ## Objective
 
 Stage 01 put `sync_state` on every row and `[Replicated(scope, policy)]` on every entity, and nothing

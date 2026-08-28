@@ -30,6 +30,12 @@ surface:
   landing, and Stage 05 configures a real policy against the same command later without a
   Finance-side code change (the command shape does not change — only whether the pipeline gates it).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-07-001 | Complete finance core | Stage 06 | COMPLETE |
+
 ## Objective
 
 The double-entry financial core ADR-016 calls for: a chart of accounts with analysis dimensions,

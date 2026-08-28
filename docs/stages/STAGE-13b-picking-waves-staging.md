@@ -2,6 +2,13 @@
 
 **Status:** NOT_STARTED · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | NOT_STARTED |
+| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | NOT_STARTED |
+
 ## Objective
 
 > "The picking list must have items for a period per town or city, so everything for that town can be

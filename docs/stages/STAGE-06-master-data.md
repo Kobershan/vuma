@@ -5,6 +5,12 @@
 ADR-037 (the boundary this stage closes), `docs/LICENSING.md` §6 (hard vs soft limits — items and
 partners are neither; do not invent a limit kind for them).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-06-001 | Complete master data | Stage 05 | COMPLETE |
+
 ## Objective
 The reference data every later module reads and nothing before it needed: what a tenant sells
 (items, variants, barcodes, units of measure) and who it trades with (suppliers, customers, and

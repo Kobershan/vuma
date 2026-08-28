@@ -2,6 +2,15 @@
 
 **Status:** NOT_STARTED · **Depends on:** 06c · **Reference reading:** `docs/MULTI_COMPANY.md` §3, §4, §6, §11, `docs/DECISIONS.md` ADR-100, ADR-101, ADR-116, ADR-119
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-06D-001 | Implement saga coordination | Stage 06c | NOT_STARTED |
+| TASK-06D-002 | Implement group credit holds | TASK-06D-001 | NOT_STARTED |
+| TASK-06D-003 | Implement barcode routing and group read models | TASK-06D-001 | NOT_STARTED |
+| TASK-06D-004 | Complete Stage 06d verification and seed | TASK-06D-001 through TASK-06D-003 | NOT_STARTED |
+
 ## Objective
 
 Everything that spans companies, built once: the saga coordinator that 07c, 08c and 14b all dispatch

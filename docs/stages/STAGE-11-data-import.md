@@ -7,6 +7,12 @@ lists as targets · **Reference reading:** `docs/IMPORT_PIPELINE.md` (written by
 numbering), ADR-068 (weighted-average cost), ADR-070 (a missing posting rule does not refuse a
 movement), **ADR-076**–**ADR-079** (the decisions this stage makes).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-11-001 | Verify data-import stage gaps | Stage 06; Stages 08/10 targets | NEEDS_VERIFICATION |
+
 ## Objective
 
 R5 is one line in `CLAUDE.md` §3 and it is the difference between a system somebody can start using

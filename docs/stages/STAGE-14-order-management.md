@@ -12,6 +12,12 @@ not here), ADR-085 (a new caller of an existing concept gets its own reference/e
 duplicate), ADR-087–ADR-091 (the Stage 13 shape this stage builds on), **ADR-092**–**ADR-096** (the
 decisions this stage makes).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-14-001 | Verify reopened order-management stage | Stages 10, 13, 08c | NEEDS_VERIFICATION |
+
 ## Objective
 
 Stage 09 rings up a till sale. Stage 10 prices it. Stage 13 can shelve and ship stock once something

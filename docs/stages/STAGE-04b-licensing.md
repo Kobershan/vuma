@@ -2,6 +2,12 @@
 
 **Status:** DONE (2026-08-11) · **Depends on:** 04 · **Reference reading:** `docs/LICENSING.md` (all of it), `docs/API_CONTROL_PLANE.md` §2, `docs/DECISIONS.md` ADR-028 (the live decision; ADR-023 and ADR-027 are superseded and must not be implemented)
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-04B-001 | Complete licensing and entitlement enforcement | Stage 04 | COMPLETE |
+
 ## Objective
 The client and tenant half of the SaaS model: activation against a licence key, a signed monthly
 licence refreshed by lease, entitlement gating that every later module plugs into, metering collection,

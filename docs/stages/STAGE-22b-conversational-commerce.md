@@ -2,6 +2,15 @@
 
 **Status:** NOT_STARTED · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-22B-001 | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | NOT_STARTED |
+| TASK-22B-002 | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | NOT_STARTED |
+| TASK-22B-003 | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | NOT_STARTED |
+| TASK-22B-004 | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | NOT_STARTED |
+
 ## Objective
 
 A customer sends a WhatsApp message saying "morning, can I get my statement" or "please send 10 bags of

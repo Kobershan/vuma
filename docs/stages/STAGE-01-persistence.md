@@ -2,6 +2,12 @@
 
 **Status:** DONE (2026-08-09) · **Depends on:** 00 · **Reference reading:** `CLAUDE.md` §7 (rules 1–11), §8, `docs/CONVENTIONS.md` §2 and §6, `docs/DECISIONS.md` ADR-002, ADR-004, ADR-005, ADR-006, ADR-007, ADR-010, ADR-012, `docs/TESTING.md` §2
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-01-001 | Complete persistence core | Stage 00 | COMPLETE |
+
 ## Objective
 
 The persistence layer every module from Stage 02 onward writes through. Stage 00 declared the

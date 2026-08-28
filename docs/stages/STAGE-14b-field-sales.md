@@ -2,6 +2,13 @@
 
 **Status:** NOT_STARTED · **Depends on:** 14, 10c, 08c, 05 · **Reference reading:** `docs/FIELD_SALES.md` in full, `docs/MULTI_COMPANY.md` §4, §6, `docs/DECISIONS.md` ADR-107, ADR-108, ADR-103, ADR-109, ADR-110, ADR-112, `CLAUDE.md` §7 rules 12, 13
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-14B-001 | Implement field-sales proposals and approval | Stages 14, 10c, 08c, 05 | NOT_STARTED |
+| TASK-14B-002 | Complete field-sales verification and performance | TASK-14B-001 | NOT_STARTED |
+
 ## Objective
 
 Reps on the road capture pro forma orders and pro forma credit notes against live availability;

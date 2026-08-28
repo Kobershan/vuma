@@ -5,6 +5,12 @@
 ADR-005 (the append-only ledger this stage implements), ADR-007 (conflict policies), ADR-016 and
 `CLAUDE.md` §7 rule 12 (no module names a GL account).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-08-001 | Complete inventory core | Stage 07 | COMPLETE |
+
 ## Objective
 What is on the shelf, what it cost, and every event that changed either. Stage 06 said what a tenant
 sells; this stage says how much of it there is and what it is worth, as an append-only ledger with a

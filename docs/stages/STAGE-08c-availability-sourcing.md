@@ -2,6 +2,14 @@
 
 **Status:** NOT_STARTED · **Depends on:** 08, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §4, §5, `docs/DECISIONS.md` ADR-102, ADR-103, ADR-108, ADR-116, ADR-119, ADR-005, `CLAUDE.md` §7 rule 6
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-08C-001 | Implement availability and reservation ledger | Stages 06c, 06d, 06e, 08 | NOT_STARTED |
+| TASK-08C-002 | Implement sourcing and split fulfilment | TASK-08C-001 | NOT_STARTED |
+| TASK-08C-003 | Complete Stage 08c verification | TASK-08C-001, TASK-08C-002 | NOT_STARTED |
+
 ## Objective
 
 Answer two questions the rest of the product keeps asking: **how much can I actually sell right now**,

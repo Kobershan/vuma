@@ -2,6 +2,12 @@
 
 **Status:** DONE (2026-08-10) · **Depends on:** 02 · **Reference reading:** `CLAUDE.md` §3 (R3), §4 (CQRS, validation, logging rows), §7 (rules 2, 5, 10, 11, 15), §8, `docs/CONVENTIONS.md` §3–§5, `docs/DECISIONS.md` ADR-008, ADR-009, ADR-028, ADR-034, ADR-039, ADR-040, `docs/TESTING.md` §1–§2, `docs/SECURITY.md` §4, `docs/API_STANDARDS.md` (written by this stage)
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-03-001 | Complete API platform | Stage 02 | COMPLETE |
+
 ## Objective
 
 Stage 02 left eight command handlers each committing for itself, endpoints returning bare `401`

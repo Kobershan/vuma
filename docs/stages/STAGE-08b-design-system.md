@@ -2,6 +2,13 @@
 
 **Status:** NOT_STARTED · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | NOT_STARTED |
+| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | NOT_STARTED |
+
 ## Objective
 Build the design system once, before the first pixel of POS is drawn, so that four surfaces — Windows
 desktop, Android, supplier portal, customer storefront — look like one product and stay that way. Every

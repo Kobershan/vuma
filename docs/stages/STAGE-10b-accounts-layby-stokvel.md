@@ -2,6 +2,13 @@
 
 **Status:** NOT_STARTED · **Depends on:** 07, 09, 10 · **Reference reading:** `docs/DATA_MODEL.md` (savings), `docs/DECISIONS.md` ADR-055
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-10B-001 | Implement customer credit accounts and lay-by | Stages 07, 09, 10 | NOT_STARTED |
+| TASK-10B-002 | Implement stokvels and complete Stage 10b verification | TASK-10B-001 | NOT_STARTED |
+
 ## Objective
 The three ways customers pay over time rather than all at once. Each has completely different accounting
 and completely different failure modes, and getting any of them wrong loses real money — so they get

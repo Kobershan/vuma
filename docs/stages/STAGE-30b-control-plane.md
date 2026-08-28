@@ -2,6 +2,14 @@
 
 **Status:** NOT_STARTED · **Depends on:** 04b, 29, 30 · **Reference reading:** `docs/API_CONTROL_PLANE.md` (all of it), `docs/LICENSING.md` §6–§9, `docs/DECISIONS.md` ADR-024, ADR-025
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-30B-001 | Build control-plane device/licence APIs | Stages 04b, 29, 30 | NOT_STARTED |
+| TASK-30B-002 | Implement metering, billing, dunning, and analytics | TASK-30B-001; Stage 21 | NOT_STARTED |
+| TASK-30B-003 | Implement abuse, fleet, support, provisioning, and vendor surfaces | TASK-30B-001, TASK-30B-002; Stage 30 | NOT_STARTED |
+
 ## Objective
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the

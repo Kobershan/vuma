@@ -2,6 +2,13 @@
 
 **Status:** DONE (2026-08-09) · **Depends on:** — · **Reference reading:** `CLAUDE.md` §4, §5, §7, §8, `docs/DECISIONS.md` ADR-001, ADR-004, ADR-009, ADR-010, `docs/CONVENTIONS.md`
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-00-001 | Establish foundation and engineering constraints | — | COMPLETE |
+| TASK-00-002 | Verify outstanding foundation CI observation | TASK-00-001 | NEEDS_VERIFICATION |
+
 ## Objective
 
 The skeleton every later stage builds inside: a solution whose **project references make the wrong

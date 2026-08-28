@@ -2,6 +2,13 @@
 
 **Status:** NOT_STARTED · **Depends on:** 12, 14, 21, 07 · **Reference reading:** `docs/API_CONNECT.md`, `docs/DATA_MODEL.md` (connect), `docs/DECISIONS.md` ADR-056
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | NOT_STARTED |
+| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | NOT_STARTED |
+
 ## Objective
 Turn Vuma from software each retailer runs alone into a **network they trade across**. A supplier gets
 their own login, publishes their catalogue and prices once, and every connected retailer sees it in

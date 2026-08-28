@@ -2,6 +2,12 @@
 
 **Status:** NOT_STARTED · **Depends on:** 09 (the till, and its four open defects must be fixed first — `PROGRESS.md` §4.11–§4.15), 06e (`SharedTill`), 06d (the saga coordinator and group receipt machinery), 07c (allocation and clearing), 08c (availability and reservations), 10c (the invoice document) · **Reference reading:** `docs/TRADING_GROUP.md` §4 in full, `docs/MULTI_COMPANY.md` §4–§5, `docs/DECISIONS.md` ADR-125, ADR-126, ADR-128, ADR-100, ADR-102, ADR-112, ADR-116, `docs/EXECUTION_STANDARD.md`, `docs/TESTING.md` §3
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-09B-001 | Implement mixed-basket transaction and per-company invoices | Stage 09 verification; 06e, 07c, 08c, 10c | BLOCKED |
+
 ## Objective
 
 A customer at Siyaya Cash and Carry puts two hot plates, a bag of maize and three pairs of gloves on the

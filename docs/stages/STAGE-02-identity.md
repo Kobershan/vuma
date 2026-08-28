@@ -2,6 +2,12 @@
 
 **Status:** DONE (2026-08-10) · **Depends on:** 01 · **Reference reading:** `CLAUDE.md` §4 (auth row), §7 (rules 1–3, 8, 10, 11, 15), §8, `docs/CONVENTIONS.md` §3–§5, `docs/DECISIONS.md` ADR-008, ADR-010, ADR-013, ADR-021, ADR-026, ADR-028, ADR-034, `docs/TESTING.md` §2, `docs/SECURITY.md` (written by this stage)
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-02-001 | Complete identity and RBAC | Stage 01 | COMPLETE |
+
 ## Objective
 
 Answer three questions the rest of the build has been unable to ask: **who is acting**, **which

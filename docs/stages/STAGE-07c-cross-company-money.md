@@ -2,6 +2,14 @@
 
 **Status:** NOT_STARTED · **Depends on:** 07, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §2, §7, §8, `docs/DECISIONS.md` ADR-104, ADR-105, ADR-106, ADR-116, ADR-016, `CLAUDE.md` §7 rules 7, 12
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-07C-001 | Implement group receipting and allocation | Stages 06c, 06d, 06e, 07 | NOT_STARTED |
+| TASK-07C-002 | Implement inter-company clearing and consolidated reporting | TASK-07C-001 | NOT_STARTED |
+| TASK-07C-003 | Complete Stage 07c verification | TASK-07C-001, TASK-07C-002 | NOT_STARTED |
+
 ## Objective
 
 Money arrives once and belongs to several companies — and those companies are separate databases

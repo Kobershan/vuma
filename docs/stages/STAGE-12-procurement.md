@@ -9,6 +9,12 @@ and 07's posting rules · **Reference reading:** `docs/DATA_MODEL.md` §1–§3,
 refused stock movement does not fail the document), ADR-075 (tax per line), **ADR-081**–**ADR-086**
 (the decisions this stage makes).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-12-001 | Verify reopened procurement stage | Stages 08, 11 | NEEDS_VERIFICATION |
+
 ## Objective
 
 Stage 09 and Stage 10 taught the system to sell. This one teaches it to buy, which is the other half

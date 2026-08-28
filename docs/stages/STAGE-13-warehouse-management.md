@@ -8,6 +8,12 @@ never replaces), ADR-068 (weighted-average cost — unchanged by this stage), AD
 existing movement type gets its own reference type, not a new movement type), **ADR-087**–**ADR-091**
 (the decisions this stage makes).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-13-001 | Verify reopened warehouse stage | Stage 08 | NEEDS_VERIFICATION |
+
 ## Objective
 
 Stage 08 said what is on hand and what it is worth, at the granularity of one `StockLocation` — a

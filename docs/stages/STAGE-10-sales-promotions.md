@@ -8,6 +8,12 @@ ADR-067 (optional `Money` is two columns), ADR-070 (a missing posting rule does 
 movement), **ADR-072** (the field this stage fills in), **ADR-073** (a refused stock issue does not
 fail the document).
 
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-10-001 | Verify reopened sales and promotions stage | Stage 09 verification | NEEDS_VERIFICATION |
+
 ## Objective
 
 Stage 09 built a till that sells at whatever price the caller hands it. This stage decides **what that
