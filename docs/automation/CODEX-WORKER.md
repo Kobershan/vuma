@@ -161,3 +161,47 @@ After handling the assigned task:
 STOP AND EXIT.
 
 Never begin another task.
+
+## Blocked-task remediation
+
+A task may be launched with status `BLOCKED`.
+
+When the supervisor explicitly launches a `BLOCKED` task, this is a new
+autonomous remediation attempt. The previous `BLOCKED` status does not tell
+you to stop.
+
+Read the blocker recorded in the assigned task and determine whether its cause
+can be repaired from inside the Vuma repository.
+
+You are authorized to repair repository-local prerequisites directly required
+to complete the assigned task, including relevant:
+
+- migrations and model snapshots
+- test fixtures
+- test infrastructure
+- local database setup scripts
+- configuration
+- build configuration
+- adjacent implementation defects
+- repository automation required by the task's tests
+
+This authority exists only to remove a blocker preventing the assigned task
+from satisfying its real acceptance criteria.
+
+Never:
+
+- ask a human to verify the task
+- wait for human input
+- suppress a legitimate failing test
+- delete a required test
+- weaken an assertion merely to make a test green
+- falsely record a test as passed
+- mark the task COMPLETE without satisfying its required automated validation
+
+When the blocker is repaired, run the required automated checks and continue
+the assigned task normally.
+
+If the blocker remains genuinely impossible after the remediation attempt,
+record the exact evidence and leave the appropriate non-complete status.
+The supervisor may launch another fresh remediation worker within its automatic
+retry budget.

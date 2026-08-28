@@ -252,7 +252,7 @@ if (( selected < 0 )); then
   # Implementation work has priority. NEEDS_VERIFICATION is deliberately
   # excluded: it represents an automated prerequisite/check that could not
   # execute, not a request for another Luna context or human approval.
-  for wanted_status in IN_PROGRESS READY NOT_STARTED NEEDS_VERIFICATION; do
+  for wanted_status in IN_PROGRESS READY NOT_STARTED NEEDS_VERIFICATION BLOCKED; do
     for i in "${!task_ids[@]}"; do
       if [[ "${task_statuses[$i]}" == "$wanted_status" ]] &&
          dependency_complete "${task_deps[$i]}"; then
@@ -281,8 +281,8 @@ fi
 task=${task_ids[$selected]}; task_path=${task_paths[$selected]}; task_rel=${task_path#"$REPO"/}; deps=${task_deps[$selected]}
 task_state=${task_statuses[$selected]}
 
-if [[ "$task_state" == NEEDS_VERIFICATION ]]; then
-  remediation_note="AUTOMATED REMEDIATION MODE: This task previously reached NEEDS_VERIFICATION. Read its recorded blocker and fix any repository-local prerequisite required to make its automated validation pass. You are explicitly authorized to repair adjacent migrations, test infrastructure, fixtures, configuration, or other repository-local prerequisites when they directly prevent this task's required automated checks. Do not bypass, suppress, delete, weaken, or falsely pass tests. Do not ask a human. If the blocker is genuinely external and cannot be repaired from this repository, record it accurately and exit NEEDS_VERIFICATION."
+if [[ "$task_state" == NEEDS_VERIFICATION || "$task_state" == BLOCKED ]]; then
+  remediation_note="AUTOMATED REMEDIATION MODE: This task was previously left in $task_state. Read its recorded blocker and fix any repository-local prerequisite required to make its automated validation pass. You are explicitly authorized to repair adjacent migrations, test infrastructure, fixtures, configuration, or other repository-local prerequisites when they directly prevent this task's required automated checks. Do not bypass, suppress, delete, weaken, or falsely pass tests. Do not ask a human. If the blocker is genuinely external and cannot be repaired from this repository, record it accurately and exit NEEDS_VERIFICATION."
 else
   remediation_note="NORMAL IMPLEMENTATION MODE: implement and verify the assigned task within its defined scope."
 fi
@@ -313,6 +313,12 @@ TASK FILE: $task_path
 TASK STATUS AT LAUNCH: $task_state
 
 $remediation_note
+
+If TASK STATUS AT LAUNCH is BLOCKED, that status describes the previous
+attempt only. Reassess the recorded blocker now. Do not treat the old BLOCKED
+status as an instruction to stop. If the cause is repository-local, fix it,
+update the task appropriately, rerun the required automated validation, and
+continue toward COMPLETE.
 
 Work fully unattended.
 
@@ -411,7 +417,7 @@ EOF
   fi
 
   reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
-  if [[ "$classification" == BLOCKED || "$attempts" -ge "$MAX_RETRIES_PER_TASK" ]]; then
+  if (( attempts >= MAX_RETRIES_PER_TASK )); then
     mark_blocked "$task" "$reason" "$task_path"
     rm -f "$ACTIVE_MARKER"
     die "BLOCKED $task after $attempts attempts: $reason"
