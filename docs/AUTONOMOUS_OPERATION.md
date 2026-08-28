@@ -101,3 +101,28 @@ These are in `CLAUDE.md` as well, because that is what Claude actually reads:
 a file Claude reads. Run it on a machine you can afford to lose: a dev box, a VM, or a container that
 holds nothing but this repository and no production credentials. Never point an unattended run at
 anything that can reach a live store's database.
+# Current task supervisor
+
+The supported unattended runner is the task-level supervisor:
+
+```bash
+# Run continuously until no executable canonical task remains.
+scripts/autonomous/run-vuma.sh
+
+# Launch exactly one fresh worker, then stop after verification.
+scripts/autonomous/run-vuma.sh --once
+
+# Select and print the recovered/current task without launching a worker.
+scripts/autonomous/run-vuma.sh --dry-run
+
+# Exercise the supervisor state-machine path with a mocked worker (no application work).
+scripts/autonomous/run-vuma.sh --self-test
+```
+
+It selects stages in the order documented by `docs/ROADMAP.md` and tasks only from canonical
+`docs/tasks/STAGE-*-INDEX.md` files. Historical `TASK-NNN` records are never executable. Each worker
+is a fresh `codex exec --ephemeral` invocation with approval policy `never`, full non-interactive access,
+and hook trust bypass enabled; the runner verifies the installed CLI supports those flags before launch.
+The active marker and per-task logs under `docs/automation/logs/` make crashes recoverable. A dead marker
+is classified from the task status, git history, worktree, and log state; a clean tree is not a failure.
+Three unsuccessful attempts mark the task `BLOCKED` and stop the run.

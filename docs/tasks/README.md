@@ -46,6 +46,9 @@ Every canonical task contains the full execution template: `Status`, `Stage`, `T
 Historical `TASK-NNN-*` files remain preserved as legacy records; they are not queue entries unless a
 canonical stage index links them.
 
+The supervisor's only selector is a canonical `STAGE-*-INDEX.md` queue, ordered by the numerical stage
+order in `docs/ROADMAP.md`. Legacy numbered records are historical evidence and must never be selected.
+
 ## Session rule
 
 Read `CLAUDE.md`, `docs/CURRENT.md`, the relevant roadmap section, the current stage, this task, and
