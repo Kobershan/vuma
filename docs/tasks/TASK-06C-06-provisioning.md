@@ -101,3 +101,8 @@ External installer orchestration remains later-stage work.
 - 2026-08-28: `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
   could not run because the harness reported no PostgreSQL/Docker service available; 24 unrelated
   tests passed before 403 infrastructure-dependent failures. Task remains NEEDS_VERIFICATION.
+- 2026-08-28: Added explicit database-create, migrate, seed, and connection-registration adapter
+  ports and ordered infrastructure steps, including secret-reference validation. Unit suite: 841
+  passed; architecture suite: 35 passed. Integration suite attempted again and was blocked by Docker
+  unavailable (`Docker is either not running or misconfigured`); 24 passed before 403 infrastructure
+  failures. Task remains NEEDS_VERIFICATION.

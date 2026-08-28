@@ -69,6 +69,30 @@ public interface ICompanyProvisioningStep
     Task ExecuteAsync(Company company, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Creates the isolated database for a company, or confirms an existing one.</summary>
+public interface ICompanyDatabaseCreator
+{
+    Task CreateAsync(Company company, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Applies the company database migration chain. Implementations must be re-runnable.</summary>
+public interface ICompanyDatabaseMigrator
+{
+    Task MigrateAsync(Company company, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Seeds company-owned defaults. Implementations must upsert by stable seed keys.</summary>
+public interface ICompanyDataSeeder
+{
+    Task SeedAsync(Company company, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Stores company connection details and returns only its encrypted secret reference.</summary>
+public interface ICompanyConnectionRegistrar
+{
+    Task<string> RegisterAsync(Company company, CancellationToken cancellationToken = default);
+}
+
 public interface ICompanyLifecycleService
 {
     Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default);
