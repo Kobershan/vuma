@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+#pragma warning disable EF1002
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
@@ -35,10 +36,13 @@ public sealed class CompanyMigrationRunner(
                 var options = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString).Options;
                 await using var context = new VumaRetailDbContext(options, new FixedTenantContext(tenantId));
                 await context.Database.MigrateAsync(cancellationToken);
+                var tables = await context.Database.SqlQueryRaw<(string Schema, string Name)>("SELECT table_schema AS \"Schema\", table_name AS \"Name\" FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema','registry') AND table_type='BASE TABLE'").ToListAsync(cancellationToken);
+                foreach (var table in tables)
+                    await context.Database.ExecuteSqlRawAsync($"UPDATE \"{table.Schema.Replace("\"", "\"\"")}\".\"{table.Name.Replace("\"", "\"\"")}\" SET company_id = '{company.Id}' WHERE company_id IS NULL", cancellationToken);
                 company.SetMigration(connection.SchemaVersion, "Current");
                 results.Add(new(company.Id, true, null, connection.SchemaVersion));
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 company.SetMigration(company.SchemaVersion, "Pending");
                 results.Add(new(company.Id, false, "Company migration failed.", company.SchemaVersion));

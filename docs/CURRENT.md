@@ -22,5 +22,5 @@ FILES CURRENTLY RELEVANT: `docs/tasks/STAGE-06c-INDEX.md`, `docs/tasks/TASK-005-
 `docs/stages/STAGE-06c-multi-company.md`, `docs/MULTI_COMPANY.md`, `docs/DATA_MODEL.md`, and the
 registry source files named by TASK-005.
 
-TEST STATUS: Infrastructure build succeeds with 0 warnings and 0 errors. Registry unit tests previously
-passed; Docker-backed migration tests remain unverified because Docker is unavailable.
+TEST STATUS: Infrastructure build succeeds with 0 errors. TASK-013 retrofit code compiles; database-backed
+backfill and migration tests remain unverified because Docker is unavailable.

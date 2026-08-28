@@ -11,6 +11,7 @@ required reading — only consult if you need historical detail on a specific pa
 documents rather than the root-file `PROGRESS.md`/`pushed` vocabulary in the generic runner. Stage 05
 has a completed implementation on `origin/stage-05-workflow` but remains a divergent branch; it is not
 being merged blindly into the current Stage 06c line. Stage 06c TASK-012 is complete in this run.
+TASK-013 retrofit implementation is in progress; database-backed backfill verification remains open.
 
 **Last updated:** 2026-08-24 · **Two branches of work that diverged after Stage 13 have just been
 merged together — read this note once, it will not repeat.** One line built Stage 14 (Order Management)
