@@ -61,9 +61,12 @@ public sealed class RegistryPersistenceTests(PostgresFixture fixture)
         context.ChangeTracker.Clear();
         (await context.RegistryOutboxMessages.CountAsync()).Should().Be(1);
 
-        await context.Database.ExecuteSqlRawAsync("BEGIN");
-        await context.Database.ExecuteSqlRawAsync("INSERT INTO registry.outbox_messages (id, tenant_id, type, payload, idempotency_key, created_at, attempts, operation_stamp) VALUES ({0}, {1}, 'rollback', '{{}}', 'rollback-key', now(), 0, '0-0-registry')", UuidV7.NewGuid(), tenantId);
-        await context.Database.ExecuteSqlRawAsync("ROLLBACK");
+        await using (Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+            await context.Database.BeginTransactionAsync())
+        {
+            await context.Database.ExecuteSqlRawAsync("INSERT INTO registry.outbox_messages (id, tenant_id, type, payload, idempotency_key, created_at, attempts, operation_stamp) VALUES ({0}, {1}, 'rollback', '{{}}', 'rollback-key', now(), 0, '0-0-registry')", UuidV7.NewGuid(), tenantId);
+            await transaction.RollbackAsync();
+        }
         (await context.RegistryOutboxMessages.AnyAsync(x => x.IdempotencyKey == "rollback-key")).Should().BeFalse();
     }
 

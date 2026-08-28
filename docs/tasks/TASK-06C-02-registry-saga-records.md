@@ -2,7 +2,7 @@
 
 ## Status
 
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -183,3 +183,9 @@ Later group behavior belongs to Stage 06d.
   and local PostgreSQL were unavailable; after `scripts/pg-test.sh start`, both failed during shared
   fixture setup on the existing `VumaRetailDbContext` PendingModelChangesWarning. The disposable
   cluster was stopped. Status remains NEEDS_VERIFICATION pending database-backed verification.
+- 2026-08-28: Repaired the repository-local PostgreSQL prerequisite that blocked verification. Added
+  EF model snapshots for the company and registry contexts, made the company identity index migration
+  idempotent after the existing column retrofit, ordered registry composite unique constraints before
+  their foreign keys, and fixed the rollback probe to use an explicit EF transaction. Infrastructure
+  build passed; unit tests: 829 passed; architecture tests: 35 passed; registry persistence tests: 2
+  passed; migration tests: 3 passed; `git diff --check` passed. Task is COMPLETE.
