@@ -1,8 +1,7 @@
 # Task
 
 ## Status
-BLOCKED
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -113,3 +112,8 @@ External installer orchestration remains later-stage work.
   running or misconfigured` from `PostgresFixture`. Task remains NEEDS_VERIFICATION.
 
 - BLOCKED after 3 attempts: automated validation still unavailable after remediation attempt 3/3; exit=0 status=NEEDS_VERIFICATION; see /home/kob/Documents/vuma/docs/automation/logs/20260828T213150Z-TASK-06C-06-attempt-3.log
+- 2026-08-28: Remediated the repository-local migration prerequisite: the company identity retrofit
+  migration lacked EF migration metadata and the registry model snapshot omitted provisioning fields.
+  Added the discovered, idempotent `CompanyIdentityRepair` migration and synchronized the registry
+  snapshot. Unit tests: 841 passed; architecture tests: 35 passed; registry persistence tests: 2
+  passed; full integration suite: 427 passed against the documented local PostgreSQL fallback.
