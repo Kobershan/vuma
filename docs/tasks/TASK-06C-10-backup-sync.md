@@ -2,7 +2,7 @@
 
 ## Status
 
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -101,3 +101,7 @@ Full disaster recovery drill belongs to Stage 31.
   PostgreSQL integration command was attempted with `VUMA_TEST_POSTGRES` from `scripts/pg-test.sh
   start`; it remains blocked by the existing `VumaRegistryDbContext` pending-model-changes error
   and StoreServer's pre-existing missing `ICompanyLifecycleService` registration.
+- 2026-08-29: Remediation verification completed. The registry migration model and StoreServer
+  lifecycle registration prerequisites are present; focused registry persistence tests passed (2),
+  and the required full CI-style command `scripts/test.sh` passed: 841 unit, 35 architecture, and
+  427 PostgreSQL integration tests. No repository-local implementation change was required.
