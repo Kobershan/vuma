@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,8 @@ New module tables must adopt the invariant in later stages.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-013.
+- 2026-08-29: Completed the retrofit implementation: required EF mapping and migration backfill,
+  tenant/company indexes, active-company query filtering, production row stamping, reassignment
+  rejection, audit-row propagation, and migration-runner company identity setting. Scoped automated
+  checks passed: unit company tests 11, architecture tests 35, and persistence/query/sync integration
+  tests 70. The full integration command (`export VUMA_TEST_POSTGRES='Host=127.0.0.1;Port=55432;Database=postgres;Username=vuma;Password=vuma'; dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`) ran 427 tests with 343 passed and 84 failures in unrelated procurement, registry, licensing, orders, finance, and API setup/contract areas; representative failure: expected pre-existing `ux_rfq_responses_rfq_id_partner_id` index name was absent. Per automation policy the task remains NEEDS_VERIFICATION.

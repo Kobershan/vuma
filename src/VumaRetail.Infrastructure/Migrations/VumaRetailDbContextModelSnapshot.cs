@@ -35,7 +35,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("checksum");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -181,7 +181,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -307,7 +307,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -435,7 +435,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("attributes");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -551,7 +551,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -666,7 +666,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -801,7 +801,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("closed_by");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -906,7 +906,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1066,7 +1066,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ap_invoice_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1215,7 +1215,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1346,7 +1346,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ap_payment_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1450,7 +1450,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1609,7 +1609,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ar_invoice_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1758,7 +1758,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1889,7 +1889,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ar_receipt_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -1999,7 +1999,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("account_number");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2113,7 +2113,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2248,7 +2248,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2350,7 +2350,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("accounting_period_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2497,7 +2497,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("channel_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2640,7 +2640,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2754,7 +2754,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("amount_key");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2877,7 +2877,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("checked_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -2992,7 +2992,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3107,7 +3107,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3240,7 +3240,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3350,7 +3350,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3465,7 +3465,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3598,7 +3598,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3756,7 +3756,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -3870,7 +3870,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("committed_by");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4058,7 +4058,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4181,7 +4181,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4306,7 +4306,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("before_image");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4448,7 +4448,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4588,7 +4588,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4766,7 +4766,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -4871,7 +4871,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5022,7 +5022,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5160,7 +5160,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5273,7 +5273,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("activation_reference");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5413,7 +5413,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5520,7 +5520,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("code_reference");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5643,7 +5643,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("amount_due_value");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5805,7 +5805,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("activation_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -5941,7 +5941,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6059,7 +6059,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6196,7 +6196,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6324,7 +6324,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("channel");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6523,7 +6523,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6713,7 +6713,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("authorised_by_user_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -6883,7 +6883,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7099,7 +7099,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7230,7 +7230,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("changes");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7360,7 +7360,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7477,7 +7477,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnName("base_currency")
                         .IsFixedLength();
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7594,7 +7594,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7709,7 +7709,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -7942,7 +7942,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -8188,7 +8188,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("captured_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -8318,7 +8318,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("closed_by_user_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -8467,7 +8467,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -8631,7 +8631,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -8878,7 +8878,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closed_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9081,7 +9081,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9321,7 +9321,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9467,7 +9467,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9627,7 +9627,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closes_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9752,7 +9752,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -9891,7 +9891,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("awarded_by_user_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -10046,7 +10046,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -10210,7 +10210,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -10457,7 +10457,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -10725,7 +10725,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -10931,7 +10931,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11066,7 +11066,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11198,7 +11198,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11378,7 +11378,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11553,7 +11553,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("category_code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11666,7 +11666,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -11863,7 +11863,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12105,7 +12105,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12259,7 +12259,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12392,7 +12392,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12566,7 +12566,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(86)")
                         .HasColumnName("acknowledged_stamp");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12686,7 +12686,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12806,7 +12806,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -12949,7 +12949,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13086,7 +13086,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13200,7 +13200,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13338,7 +13338,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13452,7 +13452,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("numeric(18,6)")
                         .HasColumnName("allocated_quantity_value");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13586,7 +13586,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13699,7 +13699,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13861,7 +13861,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("carrier");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 
@@ -13969,7 +13969,7 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
-                    b.Property<Guid?>("CompanyId")
+                    b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
 

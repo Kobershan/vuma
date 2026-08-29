@@ -1,5 +1,6 @@
 #pragma warning disable EF1002
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Registry;
@@ -84,8 +85,14 @@ public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
                 return new(company.Id, false, "Company has no registered database connection.", company.SchemaVersion);
 
             var connectionString = await _secrets.ResolveAsync(company.ConnectionSecretRef, cancellationToken);
+            var connection = new NpgsqlConnectionStringBuilder(connectionString)
+            {
+                // The company database is physically isolated, but the redundant key must still
+                // carry the registry identity when the retrofit backfills existing rows.
+                Options = $"-c vuma.company_id={company.Id:D}",
+            }.ConnectionString;
             var options = new DbContextOptionsBuilder<VumaRetailDbContext>()
-                .UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", Schemas.Platform))
+                .UseNpgsql(connection, n => n.MigrationsHistoryTable("__ef_migrations_history", Schemas.Platform))
                 .UseSnakeCaseNamingConvention()
                 .Options;
             await using var context = new VumaRetailDbContext(options, new FixedTenantContext(tenantId));

@@ -106,6 +106,9 @@ public sealed class AuditInterceptor(AuditStamper stamper) : SaveChangesIntercep
             // Stamped here rather than by a second pass: an audit entry is itself a row and needs its
             // §7 rule 3 columns, but it must not produce an audit entry of its own.
             auditEntry.MarkCreated(principal, now);
+            // Audit rows are created during interception, after VumaRetailDbContext's normal
+            // company-stamping pass. They belong to the same company as the changed row.
+            auditEntry.AssignCompany(changes.First(change => change.Entry.Entity.Id == auditEntry.EntityId).Entry.Entity.CompanyId ?? Guid.Empty);
             auditEntry.SetRowVersion(AuditStamper.NewRowVersion());
             context.Add(auditEntry);
         }

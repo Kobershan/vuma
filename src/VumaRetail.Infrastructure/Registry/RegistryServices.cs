@@ -132,7 +132,7 @@ public sealed class CompanyDbContextFactory(
         var connectionString = await secrets.ResolveAsync(connection.SecretReference, cancellationToken);
         var options = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform")).UseSnakeCaseNamingConvention().Options;
         _created = true;
-        return new VumaRetailDbContext(options, tenant);
+        return new VumaRetailDbContext(options, tenant, context);
     }
 }
 

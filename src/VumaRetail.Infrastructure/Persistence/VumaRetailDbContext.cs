@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Entities;
 using VumaRetail.Domain.Platform;
 
@@ -27,14 +28,17 @@ namespace VumaRetail.Infrastructure.Persistence;
 public class VumaRetailDbContext : DbContext, IUnitOfWork
 {
     private readonly ITenantContext _tenantContext;
+    private readonly ICompanyContext? _companyContext;
 
     /// <summary>Creates the context.</summary>
     /// <param name="options">EF options, including the Npgsql provider and the interceptors.</param>
     /// <param name="tenantContext">Supplies the tenant the global query filter scopes to.</param>
-    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext)
+    /// <param name="companyContext">Supplies the active company for row stamping and filtering.</param>
+    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null)
         : base(options)
     {
         _tenantContext = tenantContext;
+        _companyContext = companyContext;
     }
 
     /// <summary>Tenants — the isolation root every other row hangs off.</summary>
@@ -347,9 +351,26 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Whether the caller has opened an explicit cross-tenant scope. See <see cref="ITenantContext"/>.</summary>
     internal bool IsTenantFilterBypassed => _tenantContext.IsFilterBypassed;
 
+    /// <summary>The active company, or null for legacy/bootstrap contexts.</summary>
+    internal Guid? CurrentCompanyId => _companyContext?.CompanyId;
+
     /// <inheritdoc />
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc />
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
@@ -430,5 +451,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // Guid.Empty means "no tenant resolved yet" — the activation wizard and the login screen —
         // and must not silently return every tenant's rows, so it matches nothing.
         => entity => entity.DeletedAt == null
-            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId);
+            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId)
+            && (CurrentCompanyId == null || entity.CompanyId == CurrentCompanyId);
+
+    private void ApplyCompanyIdentity()
+    {
+        Guid companyId = _companyContext?.CompanyId ?? Guid.Empty;
+
+        foreach (var entry in ChangeTracker.Entries<Entity>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (_companyContext?.CompanyId is { } activeCompany)
+                    entry.Entity.AssignCompany(activeCompany);
+                else if (entry.Entity.CompanyId is null)
+                    entry.Entity.AssignCompany(companyId);
+            }
+            else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active)
+            {
+                throw new InvalidOperationException("A business row cannot be reassigned to another company.");
+            }
+        }
+    }
 }

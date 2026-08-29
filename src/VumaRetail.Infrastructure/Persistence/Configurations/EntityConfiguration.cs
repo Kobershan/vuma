@@ -50,7 +50,8 @@ public abstract class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TE
 
         builder.Property(entity => entity.StoreId);
 
-        builder.Property(entity => entity.CompanyId);
+        builder.Property(entity => entity.CompanyId)
+            .IsRequired();
         builder.HasIndex(entity => new { entity.TenantId, entity.CompanyId })
             .HasDatabaseName($"ix_{TableName}_tenant_id_company_id");
 
