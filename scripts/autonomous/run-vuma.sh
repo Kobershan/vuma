@@ -4,8 +4,6 @@ set -Eeuo pipefail
 # Vuma autonomous supervisor. One fresh, non-interactive Codex process per task.
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO=$(cd -- "$SCRIPT_DIR/../.." && pwd)
-VUMA_LOCAL_SHIM_BIN="$REPO/scripts/autonomous/local-bin"
-export PATH="$VUMA_LOCAL_SHIM_BIN:$PATH"
 CURRENT="$REPO/docs/CURRENT.md"
 WORKER_GUIDE="$REPO/docs/automation/CODEX-WORKER.md"
 ARCH_INDEX="$REPO/docs/ARCHITECTURE-INDEX.md"
@@ -19,7 +17,7 @@ TIMEOUT_SECONDS="${VUMA_WORKER_TIMEOUT_SECONDS:-3600}"
 MODE=continuous
 
 WORKER_BACKEND="${VUMA_WORKER_BACKEND:-opencode}"
-LOCAL_MODEL="${VUMA_LOCAL_MODEL:-ollama/qwen2.5-coder:3b}"
+LOCAL_MODEL="${VUMA_LOCAL_MODEL:-ollama/qwen2.5-coder:7b}"
 
 # Fully unattended execution. Never open credential, GUI, or terminal prompts.
 export CI=1
@@ -345,15 +343,6 @@ classify_result() {
     return
   fi
 
-  # Non-zero worker exit with no repository change is a runtime/model
-  # failure, not a Vuma implementation failure.
-  if [[ "$exit_code" != 0 &&
-        "$base" == "$head" &&
-        "$clean" == 1 ]]; then
-    printf 'WORKER_ERROR'
-    return
-  fi
-
   if [[ "$base" == "$head" && "$clean" == 1 ]]; then
     printf 'NO_CHANGE'
     return
@@ -465,9 +454,9 @@ fi
 printf 'Current stage: Stage %s\nCurrent task: %s\nTask file: %s\nDependencies: %s\n' "$stage" "$task" "$task_path" "${deps:-none}"
 printf 'Worker configuration: approval_policy=never; full non-interactive access; network enabled\n'
 if [[ "$WORKER_BACKEND" == opencode ]]; then
-  printf 'Worker backend: Direct Ollama + Qwen local worker\n'
+  printf 'Worker backend: OpenCode + Ollama\n'
   printf 'Worker model: %s\n' "$LOCAL_MODEL"
-  printf 'Worker mode: CANONICAL-TASK; direct 4K Ollama tool loop\n'
+  printf 'Worker mode: FAST-SLICE; fresh local session per slice\n'
 else
   printf 'Worker backend: Codex\n'
   printf 'Worker mode: FAST-SLICE; fresh ephemeral session per slice\n'
@@ -477,10 +466,6 @@ fi
 if [[ -z "$(git -C "$REPO" status --porcelain)" || -f "$ACTIVE_MARKER" ]]; then :; else die "worktree is not clean before launch"; fi
 before=$(git -C "$REPO" rev-parse HEAD)
 attempts=0
-# FAST_SLICE_RETRY_RESET
-if [[ "$(task_status "$task_path")" == IN_PROGRESS ]]; then
-  attempts=0
-fi
 
 if [[ -f "$ACTIVE_MARKER" ]]; then
   prior_attempt=$(marker_value attempt || true)
@@ -595,29 +580,6 @@ EOF
     echo 'diff_check:'; git -C "$REPO" diff --check 2>&1 || true
   } >>"$log_file"
   printf 'timestamp=%s\ttask=%s\texit=%s\tstatus=%s\tclassification=%s\tcommit=%s\tpush=%s\tclean=%s\tbase=%s\thead=%s\tlog=%s\n' "$(timestamp)" "$task" "$exit_code" "$status_after" "$classification" "$([[ "$before" != "$head_after" ]] && echo 1 || echo 0)" "$pushed" "$clean" "$before" "$head_after" "$log_file" >>"$RUNS_FILE"
-  if [[ "$classification" == WORKER_ERROR ]]; then
-    rm -f "$ACTIVE_MARKER"
-
-    log "$task local worker failed before committing repository changes."
-    log "The Vuma task has NOT been marked BLOCKED."
-    log "Worker log: $log_file"
-
-    echo >&2
-    echo "=== LOCAL WORKER ERROR ===" >&2
-    tail -100 "$log_file" >&2 || true
-
-    exit 3
-  fi
-
-  if [[ "$classification" == NO_CHANGE ]]; then
-    rm -f "$ACTIVE_MARKER"
-
-    log "$task local worker exited without a repository change."
-    log "Not burning three identical task attempts."
-
-    exit 4
-  fi
-
   if [[ "$classification" == PROGRESS ]]; then
     rm -f "$ACTIVE_MARKER"
 
