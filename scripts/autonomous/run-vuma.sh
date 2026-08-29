@@ -162,22 +162,86 @@ load_tasks() {
   ((${#task_ids[@]} > 0)) || die "no canonical tasks found in $index"
 }
 dependency_complete() {
-  local raw=${1//…/..} dep i found
+  local raw=${1//…/..}
+  local token dep prefix first last n i found status
+
   [[ -z "$raw" || "$raw" == "—" || "$raw" == "-" ]] && return 0
+
+  # Dependencies can be comma-separated.
   raw=${raw//,/ }
-  for dep in $raw; do
-    dep=$(sed -E 's/[^0-9A-Za-z-]//g' <<<"$dep"); [[ -z "$dep" ]] && continue
-    if [[ "$dep" =~ ^([0-9A-Za-z]+)-([0-9]+)\.\.([0-9A-Za-z]+)-([0-9]+)$ ]]; then
-      local prefix=${BASH_REMATCH[1]} first=${BASH_REMATCH[2]} last=${BASH_REMATCH[4]} n
-      for ((n=10#$first; n<=10#$last; n++)); do dependency_complete "$prefix-$(printf '%02d' "$n")" || return 1; done
+
+  for token in $raw; do
+    [[ -z "$token" ]] && continue
+
+    # IMPORTANT:
+    # Detect ranges BEFORE stripping punctuation, otherwise:
+    #
+    #   06C-01..06C-11
+    #
+    # becomes:
+    #
+    #   06C-0106C-11
+    #
+    # and can never match the range expression.
+    if [[ "$token" =~ ^([0-9A-Za-z]+)-([0-9]+)\.\.([0-9A-Za-z]+)-([0-9]+)$ ]]; then
+      prefix=${BASH_REMATCH[1]}
+      first=${BASH_REMATCH[2]}
+      last=${BASH_REMATCH[4]}
+
+      # Require the same prefix on both sides of the range.
+      [[ "${BASH_REMATCH[1]}" == "${BASH_REMATCH[3]}" ]] || return 1
+
+      for ((n=10#$first; n<=10#$last; n++)); do
+        dep="TASK-${prefix}-$(printf '%02d' "$n")"
+        found=0
+
+        for i in "${!task_ids[@]}"; do
+          if [[ "${task_ids[$i]}" == "$dep" ]]; then
+            found=1
+            status=${task_statuses[$i]}
+
+            # COMPLETE is fully satisfied.
+            # NEEDS_VERIFICATION is provisionally satisfied so that
+            # downstream implementation and stage acceptance can proceed.
+            [[ "$status" == COMPLETE ||
+               "$status" == NEEDS_VERIFICATION ]] || return 1
+
+            break
+          fi
+        done
+
+        [[ "$found" == 1 ]] || return 1
+      done
+
       continue
     fi
-    [[ "$dep" == TASK-* ]] || dep="TASK-$dep"; found=0
-    for i in "${!task_ids[@]}"; do [[ "${task_ids[$i]}" == "$dep" ]] && { found=1; [[ "${task_statuses[$i]}" == COMPLETE ||
-          "${task_statuses[$i]}" == NEEDS_VERIFICATION ]] || return 1; }; done
+
+    # Normal single dependency.
+    dep=$(sed -E 's/[^0-9A-Za-z-]//g' <<<"$token")
+    [[ -z "$dep" ]] && continue
+
+    [[ "$dep" == TASK-* ]] || dep="TASK-$dep"
+
+    found=0
+
+    for i in "${!task_ids[@]}"; do
+      if [[ "${task_ids[$i]}" == "$dep" ]]; then
+        found=1
+        status=${task_statuses[$i]}
+
+        [[ "$status" == COMPLETE ||
+           "$status" == NEEDS_VERIFICATION ]] || return 1
+
+        break
+      fi
+    done
+
     [[ "$found" == 1 ]] || return 1
   done
+
+  return 0
 }
+
 worker_running() {
   local pid=${1:-}; [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
