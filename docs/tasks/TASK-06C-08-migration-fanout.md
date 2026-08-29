@@ -106,3 +106,7 @@ Full fleet operational tooling is outside this stage.
   'FullyQualifiedName~MigrationTests'`. Result: all 3 tests failed during fixture initialization with
   `No PostgreSQL available for the integration tests` / Docker endpoint unavailable. Remains
   NEEDS_VERIFICATION.
+- 2026-08-29: Re-ran the required migration integration command during autonomous verification; the same
+  three tests failed during `PostgresFixture` initialization because Docker is unavailable and
+  `VUMA_TEST_POSTGRES` is unset. Unit tests (841), architecture tests (35), and the serial solution build
+  passed. Remains NEEDS_VERIFICATION.
