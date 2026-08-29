@@ -1,7 +1,7 @@
 # Task
 
 ## Status
-BLOCKED
+NOT_STARTED
 NOT_STARTED
 
 ## Stage
@@ -95,5 +95,3 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-016.
-
-- BLOCKED after 3 attempts: classification=NO_CHANGE exit=1 status=NOT_STARTED commit=0 push=1 clean=1; see /home/kob/Documents/vuma/docs/automation/logs/20260829T144251Z-TASK-06C-12-attempt-3.log
