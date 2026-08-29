@@ -5,7 +5,9 @@ using VumaRetail.Domain.Sync;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Registry;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Persistence;
@@ -13,6 +15,52 @@ namespace VumaRetail.IntegrationTests.Persistence;
 [Collection(PostgresCollection.Name)]
 public sealed class RegistryPersistenceTests(PostgresFixture fixture)
 {
+    [Fact]
+    public async Task Company_with_pending_model_changes_is_refused_until_migration_is_current()
+    {
+        Guid tenantId = UuidV7.NewGuid();
+        string companyConnectionString = await fixture.CreateEmptyDatabaseAsync();
+        string registryConnectionString = await fixture.CreateEmptyDatabaseAsync();
+        Guid companyId;
+
+        await using (VumaRegistryDbContext registry = For(registryConnectionString, tenantId))
+        {
+            await registry.Database.MigrateAsync();
+            Company company = Company.Create(tenantId, "pending", "Pending Company", "Pending Company", "ZAR", "en-ZA", "PD");
+            company.SetConnectionSecretRef("test-company-connection");
+            company.SetLifecycle(CompanyLifecycleState.Seeding);
+            company.SetLifecycle(CompanyLifecycleState.Registered);
+            company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+            company.SetMigration(0, "Pending");
+            company.RecordProvisioningFailure("Company migration failed; retry pending migration '20260809200337_InitialCreate'.");
+            registry.Companies.Add(company);
+            await registry.SaveChangesAsync();
+            companyId = company.Id;
+        }
+
+        await using (VumaRetailDbContext companyDatabase = TestDbContextFactory.For(companyConnectionString))
+        {
+            (await companyDatabase.Database.GetPendingMigrationsAsync())
+                .Should().Contain("20260809200337_InitialCreate");
+        }
+
+        await using (VumaRegistryDbContext registry = For(registryConnectionString, tenantId))
+        {
+            CompanyServingGuard guard = new(registry);
+
+            Func<Task> access = () => guard.EnsureAccessibleAsync(
+                tenantId,
+                companyId,
+                CompanyAccessMode.Read);
+
+            var exception = await access.Should().ThrowAsync<InvalidOperationException>();
+            exception.Which.Message.Should().Be(
+                "COMPANY_MIGRATION_REQUIRED: company 'pending' is not served until Company migration failed; retry pending migration '20260809200337_InitialCreate'.");
+            exception.Which.Message.Should().NotContain("Host=");
+            exception.Which.Message.Should().NotContain("Password=");
+        }
+    }
+
     [Fact]
     public async Task Three_provisioned_company_databases_are_physically_isolated()
     {

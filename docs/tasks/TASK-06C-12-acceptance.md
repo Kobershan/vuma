@@ -102,3 +102,9 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
   company databases retain separate database identities and company-specific outbox payloads.
   Next smallest slice: add the migration-refusal acceptance test for a company with pending model
   changes.
+- 2026-08-29: Added and passed the PostgreSQL acceptance test proving a company with a genuinely
+  pending EF migration remains refused by the serving guard with a named, provider-safe migration
+  error. Validation: `dotnet build tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj
+  --no-restore --nologo`; focused `dotnet test` passed with the throwaway PostgreSQL harness.
+  Next smallest slice: add the migration fan-out acceptance test where one sibling database is
+  unreachable while the other companies migrate successfully.
