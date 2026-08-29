@@ -837,10 +837,18 @@ else:
         flush=True,
     )
 
-candidate_files = discover_candidate_files(
-    task_text if LOCAL_MODE == "task"
-    else current_slice_text
-)
+# Canonical TASK mode deliberately gives repository discovery back to
+# the model. Python does not pre-plan or pre-select source files.
+if LOCAL_MODE == "task":
+    candidate_files = []
+
+elif "discover_candidate_files" in globals():
+    candidate_files = discover_candidate_files(
+        current_slice_text
+    )
+
+else:
+    candidate_files = []
 
 if candidate_files:
     print(
