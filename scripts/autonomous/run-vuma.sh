@@ -16,6 +16,9 @@ MAX_RETRIES_PER_TASK="${MAX_RETRIES_PER_TASK:-3}"
 TIMEOUT_SECONDS="${VUMA_WORKER_TIMEOUT_SECONDS:-3600}"
 MODE=continuous
 
+WORKER_BACKEND="${VUMA_WORKER_BACKEND:-opencode}"
+LOCAL_MODEL="${VUMA_LOCAL_MODEL:-ollama/qwen2.5-coder:7b}"
+
 # Fully unattended execution. Never open credential, GUI, or terminal prompts.
 export CI=1
 export GIT_TERMINAL_PROMPT=0
@@ -35,7 +38,23 @@ case "${1:-}" in
 esac
 [[ "$MAX_RETRIES_PER_TASK" =~ ^[1-9][0-9]*$ ]] || die "MAX_RETRIES_PER_TASK must be a positive integer"
 [[ "$TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] || die "VUMA_WORKER_TIMEOUT_SECONDS must be a positive integer"
-command -v codex >/dev/null 2>&1 || die "codex is not installed or not on PATH"
+case "$WORKER_BACKEND" in
+  codex)
+    command -v codex >/dev/null 2>&1 ||
+      die "codex is not installed or not on PATH"
+    ;;
+  opencode)
+    command -v opencode >/dev/null 2>&1 ||
+      die "opencode is not installed or not on PATH"
+    command -v ollama >/dev/null 2>&1 ||
+      die "ollama is not installed or not on PATH"
+    ollama list >/dev/null 2>&1 ||
+      die "Ollama is not running"
+    ;;
+  *)
+    die "VUMA_WORKER_BACKEND must be codex or opencode"
+    ;;
+esac
 command -v timeout >/dev/null 2>&1 || die "timeout is not installed or not on PATH"
 [[ -f "$CURRENT" && -f "$WORKER_GUIDE" && -f "$ARCH_INDEX" ]] || die "automation context is incomplete"
 git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null || die "not a git repository"
@@ -43,12 +62,31 @@ git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null || die "not a git repo
 [[ "$(git -C "$REPO" branch --show-current)" == main ]] || die "expected branch main"
 git -C "$REPO" rev-parse --verify '@{u}' >/dev/null 2>&1 || die "main has no upstream"
 
-# Verify the installed CLI, rather than inventing flags.
-EXEC_HELP=$(codex exec --help 2>&1) || die "unable to inspect codex exec --help"
-for flag in --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust; do
-  grep -q -- "$flag" <<<"$EXEC_HELP" || die "installed Codex lacks $flag; cannot establish unattended operation"
-done
-grep -q -- '--ephemeral' <<<"$EXEC_HELP" || die "installed Codex lacks --ephemeral; cannot establish fresh worker sessions"
+# Verify the installed worker CLI rather than inventing flags.
+if [[ "$WORKER_BACKEND" == codex ]]; then
+  EXEC_HELP=$(codex exec --help 2>&1) ||
+    die "unable to inspect codex exec --help"
+
+  for flag in \
+    --dangerously-bypass-approvals-and-sandbox \
+    --dangerously-bypass-hook-trust
+  do
+    grep -q -- "$flag" <<<"$EXEC_HELP" ||
+      die "installed Codex lacks $flag"
+  done
+
+  grep -q -- '--ephemeral' <<<"$EXEC_HELP" ||
+    die "installed Codex lacks --ephemeral"
+else
+  EXEC_HELP=$(opencode run --help 2>&1) ||
+    die "unable to inspect opencode run --help"
+
+  grep -q -- '--model' <<<"$EXEC_HELP" ||
+    die "installed OpenCode lacks --model"
+
+  grep -q -- '--auto' <<<"$EXEC_HELP" ||
+    die "installed OpenCode lacks --auto"
+fi
 
 mkdir -p "$LOG_DIR"
 LOCK="$LOG_DIR/.run.lock"
@@ -143,7 +181,7 @@ dependency_complete() {
 worker_running() {
   local pid=${1:-}; [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
-  [[ -r "/proc/$pid/cmdline" ]] && tr '\0' ' ' <"/proc/$pid/cmdline" | grep -q 'codex.*exec'
+  [[ -r "/proc/$pid/cmdline" ]] && tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Eq '(codex.*exec|opencode.*run)'
 }
 resolve_active() {
   local active=$1 pid p state=ABANDONED history marker_log
@@ -181,7 +219,7 @@ run_self_test() {
     echo 'PASS commit detection: compares HEAD before/after and reviews every new commit'
     echo 'PASS push detection: compares pushed remote HEAD separately from commit evidence'
     echo 'PASS stale marker recovery: dead worker is classified and relaunched or finalized from repository state'
-    echo 'PASS failure classification: COMPLETE, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, BLOCKED; no human-wait state'
+    echo 'PASS failure classification: COMPLETE, PROGRESS, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, BLOCKED; no human-wait state'
     echo "PASS retry policy: implementation failures may retry; BLOCKED/UNVERIFIED are attempted once per repository HEAD"
     echo "PASS next-task selection: next canonical task would be $next"
     echo PASS
@@ -243,6 +281,18 @@ classify_result() {
 
   if [[ "$base" == "$head" && "$clean" == 1 ]]; then
     printf 'NO_CHANGE'
+    return
+  fi
+
+  # A clean pushed IN_PROGRESS commit is a successful micro-slice.
+  # It is progress, not a failed task attempt.
+  if [[ "$status" == IN_PROGRESS &&
+        "$exit_code" == 0 &&
+        "$committed" == 1 &&
+        "$current_changed" == 1 &&
+        "$clean" == 1 &&
+        "$pushed" == 1 ]]; then
+    printf 'PROGRESS'
     return
   fi
 
@@ -339,7 +389,14 @@ else
 fi
 printf 'Current stage: Stage %s\nCurrent task: %s\nTask file: %s\nDependencies: %s\n' "$stage" "$task" "$task_path" "${deps:-none}"
 printf 'Worker configuration: approval_policy=never; full non-interactive access; network enabled\n'
-printf 'Worker command: codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C %q - (prompt via stdin)\n' "$REPO"
+if [[ "$WORKER_BACKEND" == opencode ]]; then
+  printf 'Worker backend: OpenCode + Ollama\n'
+  printf 'Worker model: %s\n' "$LOCAL_MODEL"
+  printf 'Worker mode: FAST-SLICE; fresh local session per slice\n'
+else
+  printf 'Worker backend: Codex\n'
+  printf 'Worker mode: FAST-SLICE; fresh ephemeral session per slice\n'
+fi
 [[ "$MODE" == dry-run ]] && exit 0
 [[ "$MODE" == self-test ]] && { run_self_test; exit 0; }
 if [[ -z "$(git -C "$REPO" status --porcelain)" || -f "$ACTIVE_MARKER" ]]; then :; else die "worktree is not clean before launch"; fi
@@ -354,63 +411,84 @@ while (( attempts < "$MAX_RETRIES_PER_TASK" )); do
   attempts=$((attempts + 1)); log_file="$LOG_DIR/$(date -u '+%Y%m%dT%H%M%SZ')-${task}-attempt-${attempts}.log"
   printf 'task=%s\nstage=%s\npid=unknown\nattempt=%s\nbase=%s\nstarted=%s\nlog=%s\n' "$task" "$stage" "$attempts" "$before" "$(timestamp)" "$log_file" >"$ACTIVE_MARKER"
   prompt=$(cat <<EOF
-You are the autonomous implementation worker for exactly one Vuma task.
+You are the autonomous implementation worker for exactly one Vuma canonical task.
 
 Read $WORKER_GUIDE and follow it exactly.
 
 CURRENT STAGE: Stage $stage
 CURRENT TASK: $task
 TASK FILE: $task_path
-TASK STATUS AT LAUNCH: $task_state
 
-$remediation_note
+FAST-SLICE MODE IS MANDATORY.
 
-If TASK STATUS AT LAUNCH is BLOCKED, that status describes the previous
-attempt only. Reassess the recorded blocker now. Do not treat the old BLOCKED
-status as an instruction to stop. If the cause is repository-local, fix it,
-update the task appropriately, rerun the required automated validation, and
-continue toward COMPLETE.
+Your invocation is NOT responsible for finishing the entire canonical task.
 
-Work fully unattended.
-
-Never ask for approval, confirmation, permission, user input, or human verification.
-Never wait for a human.
-Never start another task.
+Choose exactly ONE smallest coherent unfinished implementation slice from
+$task_path and implement only that slice.
 
 Read only:
-
 1. CLAUDE.md
 2. docs/CURRENT.md
 3. $task_path
-4. applicable AGENTS.md for directories you modify
-5. documentation sections and ADRs explicitly referenced by $task_path
-6. source files and tests directly relevant to this task
+4. applicable AGENTS.md for files you modify
+5. documentation/ADRs explicitly referenced by the task
+6. source and tests directly relevant to the chosen slice
 
 Do not enumerate the repository.
-Do not automatically read broad architecture/history documents.
+Do not read other tasks.
+Do not read unrelated stages.
+Do not fix unrelated defects.
 
-If implementation already exists, verify it rather than inventing extra work.
+NORMAL SLICE VALIDATION:
+- never run a solution-wide dotnet build
+- never run the full test suite
+- build only the directly affected csproj
+- run only directly related filtered/project tests
+- normally one targeted build and one targeted test command
+- restore only the affected project if restore is required
 
-Run the required AUTOMATED checks.
+Do not start PostgreSQL, Docker, migration fan-out, backup/restore drills or
+full sync verification unless THIS PARTICULAR SLICE directly requires that
+infrastructure.
 
-If a required check cannot run because of environment, infrastructure, credentials,
-network, an external service, PostgreSQL, Docker, or an unrelated prerequisite:
-
-- record the exact blocker
-- leave the task NEEDS_VERIFICATION
-- keep the worktree clean
+When this slice is complete but more implementation remains:
+- leave/set task status IN_PROGRESS
+- add a short progress note to $task_path
+- record the exact next smallest slice
+- update docs/CURRENT.md
+- commit
+- push
 - EXIT
 
-NEEDS_VERIFICATION never means wait for a human.
+Do NOT continue into another slice.
 
-Execute only this task:
+Only when all implementation requirements in the canonical task are already
+implemented may you run its broader required acceptance checks and mark it
+COMPLETE or NEEDS_VERIFICATION.
 
-UNDERSTAND -> IMPLEMENT -> TEST -> REVIEW -> UPDATE TASK -> UPDATE docs/CURRENT.md -> COMMIT -> PUSH -> EXIT
+Work fully unattended.
+Never ask for approval or human verification.
+Never begin another canonical task.
 EOF
 )
   log "Launching fresh worker for $task attempt $attempts/${MAX_RETRIES_PER_TASK} (timeout ${TIMEOUT_SECONDS}s)"
   set +e
-  timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust -C "$REPO" - <<<"$prompt" >"$log_file" 2>&1 &
+  if [[ "$WORKER_BACKEND" == opencode ]]; then
+    timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" \
+      opencode run \
+      --auto \
+      --model "$LOCAL_MODEL" \
+      --dir "$REPO" \
+      "$prompt" >"$log_file" 2>&1 &
+  else
+    timeout --signal=TERM --kill-after=30 "$TIMEOUT_SECONDS" \
+      codex exec \
+      --ephemeral \
+      --dangerously-bypass-approvals-and-sandbox \
+      --dangerously-bypass-hook-trust \
+      -C "$REPO" \
+      - <<<"$prompt" >"$log_file" 2>&1 &
+  fi
   worker_pid=$!
   sed -i "s/^pid=.*/pid=$worker_pid/" "$ACTIVE_MARKER"
   wait "$worker_pid"
@@ -438,6 +516,19 @@ EOF
     echo 'diff_check:'; git -C "$REPO" diff --check 2>&1 || true
   } >>"$log_file"
   printf 'timestamp=%s\ttask=%s\texit=%s\tstatus=%s\tclassification=%s\tcommit=%s\tpush=%s\tclean=%s\tbase=%s\thead=%s\tlog=%s\n' "$(timestamp)" "$task" "$exit_code" "$status_after" "$classification" "$([[ "$before" != "$head_after" ]] && echo 1 || echo 0)" "$pushed" "$clean" "$before" "$head_after" "$log_file" >>"$RUNS_FILE"
+  if [[ "$classification" == PROGRESS ]]; then
+    rm -f "$ACTIVE_MARKER"
+
+    log "$task completed one fast implementation slice."
+    log "Starting a fresh context for the next unfinished slice."
+
+    [[ "$MODE" == once ]] && exit 0
+
+    rmdir "$LOCK" 2>/dev/null || true
+    trap - EXIT
+    exec "$0"
+  fi
+
   if [[ "$classification" == COMPLETE ]]; then
     rm -f "$ACTIVE_MARKER"
     log "Verified $task: implementation, acceptance status, CURRENT.md, commit, push, and clean tree all confirmed"
