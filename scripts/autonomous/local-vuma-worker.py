@@ -870,6 +870,9 @@ current_text = (
 )
 
 # Keep initial context deliberately small.
+# Load the canonical task document before constructing the Ollama prompt.
+task_text = task_path.read_text(errors="replace")
+
 task_excerpt = task_text[:7200]
 current_excerpt = current_text[:1600]
 
