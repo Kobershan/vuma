@@ -11,6 +11,7 @@ LAST COMPLETED TASK: TASK-06C-06 — Resumable provisioning
 BLOCKERS: Required integration tests cannot initialize PostgreSQL: Docker is unavailable and no
 `VUMA_TEST_POSTGRES` local fallback is configured. The implementation is committed for a later
 automated verification run.
-TEST STATUS: Unit tests — 841 passed; architecture tests — 35 passed; full integration command
-attempted but blocked at fixture initialization by unavailable Docker/PostgreSQL; build passed.
+TEST STATUS: Unit tests — 841 passed; architecture tests — 35 passed; serial solution build passed;
+full integration command attempted again, with 24 tests passing before 403 fixture-dependent tests
+were blocked at fixture initialization by unavailable Docker/PostgreSQL.
 IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.
