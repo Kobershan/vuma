@@ -172,24 +172,75 @@ def read_file(path, start_line=1, max_lines=120):
 def search(query, path=".", regex=False):
     p = safe_path(path)
 
+    # Prefer ripgrep when available, but do NOT require it.
+    # Ubuntu's standard grep provides a perfectly adequate fallback for
+    # these deliberately small targeted searches.
+    import shutil
+
+    rg = shutil.which("rg")
+
+    if rg:
+        cmd = [
+            rg,
+            "-n",
+            "--no-heading",
+            "--color",
+            "never",
+            "--glob",
+            "!.git/**",
+            "--glob",
+            "!bin/**",
+            "--glob",
+            "!obj/**",
+            "--glob",
+            "!docs/automation/logs/**",
+        ]
+
+        if not regex:
+            cmd.append("--fixed-strings")
+
+        cmd.extend(["--", query, str(p)])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                timeout=20,
+            )
+        except subprocess.TimeoutExpired:
+            return "ERROR: search timed out"
+
+        lines = result.stdout.splitlines()[:35]
+
+        return limit_text(
+            "\n".join(lines) if lines else "NO MATCHES",
+            6000,
+        )
+
+    # ---------------------------------------------------------
+    # Portable grep fallback.
+    # ---------------------------------------------------------
+
+    grep = shutil.which("grep")
+
+    if not grep:
+        return "ERROR: neither rg nor grep is available"
+
     cmd = [
-        "rg",
+        grep,
+        "-R",
         "-n",
-        "--no-heading",
-        "--color",
-        "never",
-        "--glob",
-        "!.git/**",
-        "--glob",
-        "!bin/**",
-        "--glob",
-        "!obj/**",
-        "--glob",
-        "!docs/automation/logs/**",
+        "-I",
+        "--exclude-dir=.git",
+        "--exclude-dir=bin",
+        "--exclude-dir=obj",
+        "--exclude-dir=logs",
     ]
 
     if not regex:
-        cmd.append("--fixed-strings")
+        cmd.append("-F")
 
     cmd.extend(["--", query, str(p)])
 
@@ -199,12 +250,20 @@ def search(query, path=".", regex=False):
             cwd=repo,
             text=True,
             capture_output=True,
-            timeout=20,
+            timeout=25,
         )
-    except FileNotFoundError:
-        return "ERROR: rg/ripgrep is not installed"
     except subprocess.TimeoutExpired:
         return "ERROR: search timed out"
+
+    # grep returns:
+    # 0 = matches
+    # 1 = no matches
+    # >1 = actual error
+    if result.returncode > 1:
+        return limit_text(
+            "ERROR: grep failed:\n" + result.stderr,
+            2500,
+        )
 
     lines = result.stdout.splitlines()[:35]
 
@@ -1141,6 +1200,10 @@ coherent micro-slice per invocation.
 Use tools. Do not merely explain what should be done.
 
 Rules:
+- NEVER install packages or dependencies.
+- NEVER request apt, sudo, pip, npm, cargo, brew or package installation.
+- If a tool reports an unavailable utility, choose another advertised tool
+  or use the capability exposed by the wrapper.
 - NEVER manually edit the assigned task file.
 - NEVER manually edit docs/CURRENT.md.
 - NEVER change NOT_STARTED/IN_PROGRESS/COMPLETE using replace_text.
