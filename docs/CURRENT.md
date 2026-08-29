@@ -12,6 +12,6 @@ BLOCKERS: Required integration tests cannot initialize PostgreSQL: Docker is una
 `VUMA_TEST_POSTGRES` local fallback is configured. The implementation is committed for a later
 automated verification run.
 TEST STATUS: Unit tests — 841 passed; architecture tests — 35 passed; serial solution build passed;
-full integration command attempted again, with 24 tests passing before 403 fixture-dependent tests
-were blocked at fixture initialization by unavailable Docker/PostgreSQL.
+full integration command completed with 24 passed and 403 fixture-dependent tests failing at
+fixture initialization because Docker/PostgreSQL is unavailable.
 IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.

@@ -108,3 +108,12 @@ Removal/export remains a separate future task.
   command again failed during fixture initialization because Docker is unavailable and no
   `VUMA_TEST_POSTGRES` fallback is configured; 24 tests passed before 403 fixture-dependent tests
   reported `No PostgreSQL available`. Task remains NEEDS_VERIFICATION.
+- 2026-08-29: Final automated verification rerun. `dotnet test
+  tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore --verbosity minimal` passed
+  841 tests; `dotnet test
+  tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore --verbosity
+  minimal` passed 35 tests; and `dotnet build VumaRetail.sln --no-restore --verbosity minimal`
+  passed with 0 warnings and 0 errors. The required integration command completed with 24 passed
+  and 403 failed at `PostgresFixture` initialization because Docker is unavailable and no
+  `VUMA_TEST_POSTGRES` fallback is configured (`Docker is either not running or misconfigured` /
+  `No PostgreSQL available`). Task remains NEEDS_VERIFICATION.
