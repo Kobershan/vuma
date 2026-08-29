@@ -1,7 +1,7 @@
 # Task
 
 ## Status
-
+BLOCKED
 NEEDS_VERIFICATION
 
 ## Stage
@@ -117,3 +117,5 @@ Removal/export remains a separate future task.
   and 403 failed at `PostgresFixture` initialization because Docker is unavailable and no
   `VUMA_TEST_POSTGRES` fallback is configured (`Docker is either not running or misconfigured` /
   `No PostgreSQL available`). Task remains NEEDS_VERIFICATION.
+
+- BLOCKED after 3 attempts: automated validation still unavailable after remediation attempt 3/3; exit=0 status=NEEDS_VERIFICATION; see /home/kob/Documents/vuma/docs/automation/logs/20260829T002328Z-TASK-06C-07-attempt-3.log
