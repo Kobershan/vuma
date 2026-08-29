@@ -48,6 +48,33 @@ public partial class CompanyIdentityRepair : Migration
               END LOOP;
             END $$;
             """);
+
+        // Keep the retrofit migration safe for databases whose earlier module migration was
+        // recorded after its invariant DDL was only partially applied.
+        migrationBuilder.Sql("""
+            DO $$ BEGIN
+              IF to_regclass('procurement.rfq_responses') IS NOT NULL
+                 AND NOT EXISTS (
+                   SELECT 1 FROM pg_indexes
+                   WHERE schemaname = 'procurement'
+                     AND indexname = 'ux_rfq_responses_rfq_id_partner_id') THEN
+                CREATE UNIQUE INDEX ux_rfq_responses_rfq_id_partner_id
+                  ON procurement.rfq_responses (rfq_id, partner_id)
+                  WHERE deleted_at IS NULL;
+              END IF;
+
+              IF to_regclass('finance.journal_lines') IS NOT NULL
+                 AND NOT EXISTS (
+                   SELECT 1 FROM pg_constraint
+                   WHERE connamespace = 'finance'::regnamespace
+                     AND conrelid = 'finance.journal_lines'::regclass
+                     AND conname = 'ck_journal_lines_exactly_one_side') THEN
+                ALTER TABLE finance.journal_lines
+                  ADD CONSTRAINT ck_journal_lines_exactly_one_side
+                  CHECK (((debit_amount IS NOT NULL)::int + (credit_amount IS NOT NULL)::int) = 1);
+              END IF;
+            END $$;
+            """);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
