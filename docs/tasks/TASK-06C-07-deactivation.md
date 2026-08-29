@@ -1,7 +1,7 @@
 # Task
 
 ## Status
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -134,3 +134,7 @@ Removal/export remains a separate future task.
   passed and 403 fixture-dependent tests failed with `No PostgreSQL available` / `Docker is either not
   running or misconfigured`. No repository-local prerequisite remains to repair; task remains
   NEEDS_VERIFICATION.
+- 2026-08-29: Remediated the repository-local fixture mismatch caused by the company identity retrofit:
+  the three direct PostgreSQL assertions now provide the required `company_id`. Unit tests passed (841),
+  architecture tests passed (35), solution build passed with 0 warnings and 0 errors, and the required
+  PostgreSQL-backed integration suite passed all 427 tests. Task is COMPLETE.

@@ -517,10 +517,10 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
         Func<Task> raw = () => harness.Context.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO procurement.rfq_responses
-                (id, tenant_id, store_id, rfq_id, partner_id, currency, quoted_at, lead_time_days,
+                (id, tenant_id, company_id, store_id, rfq_id, partner_id, currency, quoted_at, lead_time_days,
                  status, total_amount, total_currency, created_at, created_by, updated_at, updated_by,
                  row_version, sync_state, sync_stamp)
-            SELECT gen_random_uuid(), tenant_id, store_id, rfq_id, partner_id, currency, quoted_at,
+            SELECT gen_random_uuid(), tenant_id, company_id, store_id, rfq_id, partner_id, currency, quoted_at,
                    lead_time_days, status, total_amount, total_currency, created_at, created_by,
                    updated_at, updated_by, row_version, sync_state, sync_stamp
             FROM procurement.rfq_responses WHERE id = {0}
