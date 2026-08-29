@@ -649,6 +649,95 @@ FUNCTIONS = {
 }
 
 
+def parse_text_tool_call(content):
+    """
+    Qwen2.5-Coder sometimes emits a valid tool request as plain JSON text
+    instead of Ollama's structured message.tool_calls field.
+
+    Accept forms such as:
+
+      {"name":"read_file","arguments":{"path":"..."}}
+
+    and:
+
+      {"function":{"name":"read_file","arguments":{...}}}
+
+    Also tolerate fenced ```json blocks.
+    """
+    if not content:
+        return []
+
+    text = content.strip()
+
+    if text.startswith("```"):
+        lines = text.splitlines()
+
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
+        text = "\n".join(lines).strip()
+
+    # Occasionally the model writes a little prose before/after the object.
+    first = text.find("{")
+    last = text.rfind("}")
+
+    if first >= 0 and last > first:
+        text = text[first:last + 1]
+
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return []
+
+    if not isinstance(obj, dict):
+        return []
+
+    # Simple Qwen form:
+    # {"name":"read_file","arguments":{...}}
+    if isinstance(obj.get("name"), str):
+        name = obj["name"]
+        arguments = obj.get("arguments", {})
+
+        if name in FUNCTIONS and isinstance(arguments, dict):
+            return [
+                {
+                    "function": {
+                        "name": name,
+                        "arguments": arguments,
+                    }
+                }
+            ]
+
+    # OpenAI/Ollama-like nested form.
+    fn = obj.get("function")
+
+    if isinstance(fn, dict) and isinstance(fn.get("name"), str):
+        name = fn["name"]
+        arguments = fn.get("arguments", {})
+
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except Exception:
+                arguments = {}
+
+        if name in FUNCTIONS and isinstance(arguments, dict):
+            return [
+                {
+                    "function": {
+                        "name": name,
+                        "arguments": arguments,
+                    }
+                }
+            ]
+
+    return []
+
+
+
 task_text = task_path.read_text(errors="replace")
 current_text = (
     current_path.read_text(errors="replace")
@@ -775,6 +864,20 @@ try:
         }
 
         calls = msg.get("tool_calls") or []
+
+        # Qwen2.5-Coder may express the tool call as plain JSON in
+        # message.content rather than Ollama's structured tool_calls field.
+        # Convert that JSON into the normal internal representation.
+        if not calls:
+            calls = parse_text_tool_call(
+                msg.get("content") or ""
+            )
+
+            if calls:
+                print(
+                    "[local-worker] recovered JSON text tool call",
+                    flush=True,
+                )
 
         if calls:
             assistant["tool_calls"] = calls
