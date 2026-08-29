@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,5 @@ Group business endpoints belong to later stages.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-015.
+- 2026-08-29: Implemented versioned company list, provision, activation, deactivation, migration-status, and selection endpoints; added registry contracts and application lifecycle commands with permission, tenant, entitlement, audit, and secret-redaction boundaries.
+- 2026-08-29: `dotnet build VumaRetail.sln --no-restore` passed; registry unit tests passed (25/25). API contract tests were attempted with `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore --filter 'FullyQualifiedName~ApiContractTests|FullyQualifiedName~MalformedRequestTests'` but could not start because Docker/Testcontainers reported no PostgreSQL (`Docker is either not running or misconfigured`). Task requires rerun with PostgreSQL and remains NEEDS_VERIFICATION.

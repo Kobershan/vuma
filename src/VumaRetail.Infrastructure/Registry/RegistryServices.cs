@@ -203,6 +203,17 @@ public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan
 
 public sealed class CompanyLifecycleService(VumaRegistryDbContext db, ICompanyConnectionResolver resolver, IPrincipalAccessor? principal = null, IClock? clock = null) : ICompanyLifecycleService
 {
+    public async Task ActivateAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+    {
+        var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("COMPANY_NOT_FOUND");
+        if (company.LifecycleState == CompanyLifecycleState.Active) return;
+        if (company.LifecycleState != CompanyLifecycleState.Registered || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("COMPANY_NOT_READY");
+        company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+        await db.CommitAsync(cancellationToken).ConfigureAwait(false);
+        resolver.Invalidate(companyId);
+    }
+
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason));
@@ -291,6 +302,8 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
             company = persisted;
         else if (await _db.Companies.IgnoreQueryFilters().AnyAsync(x => x.Id == company.Id, cancellationToken))
             throw new InvalidOperationException("COMPANY_TENANT_MISMATCH");
+        else if (await _db.Companies.AnyAsync(x => x.TenantId == company.TenantId && (x.Code == company.Code || x.DocumentPrefix == company.DocumentPrefix), cancellationToken))
+            throw new InvalidOperationException("COMPANY_DUPLICATE");
         else
             _db.Companies.Add(company);
 

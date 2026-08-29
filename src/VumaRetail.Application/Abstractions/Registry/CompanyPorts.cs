@@ -97,6 +97,7 @@ public interface ICompanyConnectionRegistrar
 
 public interface ICompanyLifecycleService
 {
+    Task ActivateAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
     Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default);
 }
 

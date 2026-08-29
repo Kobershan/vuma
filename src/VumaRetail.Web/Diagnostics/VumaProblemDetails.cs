@@ -56,6 +56,9 @@ public sealed class VumaExceptionHandler(
             ValidationFailedException validation => Validation(validation),
             DomainException domain => Domain(domain),
             InvalidOperationException { Message: "COMPANY_NOT_FOUND" } => Build(StatusCodes.Status404NotFound, "Not found", "The company was not found.", "COMPANY_NOT_FOUND"),
+            InvalidOperationException { Message: "COMPANY_NOT_READY" } => Build(StatusCodes.Status422UnprocessableEntity, "Rule violation", "The company is not ready to activate.", "COMPANY_NOT_READY"),
+            InvalidOperationException { Message: "COMPANY_SELECTION_REQUIRED" } => Build(StatusCodes.Status400BadRequest, "Bad request", "A valid company selection header is required.", "COMPANY_SELECTION_REQUIRED"),
+            InvalidOperationException { Message: "COMPANY_DUPLICATE" } => Build(StatusCodes.Status409Conflict, "Conflict", "A company with those identifying details already exists.", "COMPANY_DUPLICATE"),
             BadHttpRequestException malformed => Malformed(malformed),
             _ => Unhandled(exception, httpContext),
         };
