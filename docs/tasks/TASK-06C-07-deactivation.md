@@ -126,3 +126,11 @@ Removal/export remains a separate future task.
   existing persistence assertions in procurement/finance expecting PostgreSQL constraint metadata;
   they are unrelated to company deactivation. Task remains NEEDS_VERIFICATION pending that residual
   integration failure.
+- 2026-08-29: Automated remediation rerun. Unit tests passed (841), architecture tests passed (35),
+  and `dotnet build VumaRetail.sln --no-restore --verbosity minimal` passed with 0 warnings and 0
+  errors. The required integration command ran but could not initialize PostgreSQL: Docker is absent,
+  `VUMA_TEST_POSTGRES` is unset/unusable, and only the `psql` client is installed (the documented
+  `scripts/pg-test.sh` fallback cannot find PostgreSQL server binaries). The suite reported 24 tests
+  passed and 403 fixture-dependent tests failed with `No PostgreSQL available` / `Docker is either not
+  running or misconfigured`. No repository-local prerequisite remains to repair; task remains
+  NEEDS_VERIFICATION.
