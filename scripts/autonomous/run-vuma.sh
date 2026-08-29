@@ -16,7 +16,7 @@ MAX_RETRIES_PER_TASK="${MAX_RETRIES_PER_TASK:-3}"
 TIMEOUT_SECONDS="${VUMA_WORKER_TIMEOUT_SECONDS:-3600}"
 MODE=continuous
 
-WORKER_BACKEND="${VUMA_WORKER_BACKEND:-opencode}"
+WORKER_BACKEND="${VUMA_WORKER_BACKEND:-codex}"
 LOCAL_MODEL="${VUMA_LOCAL_MODEL:-ollama/qwen2.5-coder:7b}"
 
 # Fully unattended execution. Never open credential, GUI, or terminal prompts.
