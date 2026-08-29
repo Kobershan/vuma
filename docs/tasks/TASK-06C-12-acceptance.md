@@ -2,7 +2,6 @@
 
 ## Status
 NOT_STARTED
-NOT_STARTED
 
 ## Stage
 

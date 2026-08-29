@@ -23,6 +23,9 @@ checks_used = 0
 read_paths = set()
 check_results = []
 
+last_error_fingerprint = None
+same_error_count = 0
+
 
 def fail(msg, code=1):
     print(f"LOCAL_WORKER_ERROR: {msg}", file=sys.stderr)
@@ -209,6 +212,13 @@ def search(query, path=".", regex=False):
 def replace_text(path, old, new):
     p = safe_path(path)
 
+    if p in {task_path, current_path}:
+        return (
+            "ERROR: task status/progress metadata is managed exclusively "
+            "by finish(). Do not edit the task file or docs/CURRENT.md. "
+            "Work on implementation/tests or run the acceptance check."
+        )
+
     if not p.exists():
         return "ERROR: target file does not exist"
 
@@ -237,6 +247,12 @@ def replace_text(path, old, new):
 
 def write_file(path, content):
     p = safe_path(path)
+
+    if p in {task_path, current_path}:
+        return (
+            "ERROR: task status/progress metadata is managed exclusively "
+            "by finish(). Do not write the task file or docs/CURRENT.md."
+        )
 
     if len(content) > 22000:
         return "ERROR: file content too large for one micro-slice"
@@ -444,6 +460,35 @@ def finish(status, summary, next_slice=""):
         return (
             "ERROR: COMPLETE requires at least one automated "
             "check in this invocation"
+        )
+
+    # Do not allow the model to manufacture progress simply by asking
+    # finish() to edit task metadata. A slice must either modify a real
+    # implementation/test file or execute an automated check.
+    before_finish = git("status", "--porcelain").stdout.splitlines()
+
+    meaningful_changes = []
+
+    task_rel = relative(task_path)
+    current_rel = relative(current_path)
+
+    for line in before_finish:
+        if len(line) < 4:
+            continue
+
+        changed_path = line[3:].strip()
+
+        if changed_path not in {task_rel, current_rel}:
+            meaningful_changes.append(changed_path)
+
+    if (
+        status == "IN_PROGRESS"
+        and not meaningful_changes
+        and not check_results
+    ):
+        return (
+            "ERROR: no implementation change or automated check was "
+            "completed. Do real work before calling finish()."
         )
 
     task_text = task_path.read_text(errors="replace")
@@ -758,6 +803,13 @@ coherent micro-slice per invocation.
 Use tools. Do not merely explain what should be done.
 
 Rules:
+- NEVER manually edit the assigned task file.
+- NEVER manually edit docs/CURRENT.md.
+- NEVER change NOT_STARTED/IN_PROGRESS/COMPLETE using replace_text.
+- finish() alone owns task status, task progress and CURRENT metadata.
+- First perform actual implementation or an actual automated acceptance check.
+- For an acceptance task, verify ONE acceptance requirement per invocation.
+- Do not mark progress before performing that requirement.
 - Never inspect the whole repository.
 - Use targeted search only.
 - Normally touch no more than 2-6 implementation/test files.
@@ -952,6 +1004,25 @@ try:
                 flush=True,
             )
 
+            fingerprint = json.dumps(
+                {
+                    "tool": fn,
+                    "arguments": fn_args,
+                },
+                sort_keys=True,
+                default=str,
+            )
+
+            if str(result).startswith("ERROR:"):
+                if fingerprint == last_error_fingerprint:
+                    same_error_count += 1
+                else:
+                    last_error_fingerprint = fingerprint
+                    same_error_count = 1
+            else:
+                last_error_fingerprint = None
+                same_error_count = 0
+
             messages.append(
                 {
                     "role": "tool",
@@ -959,6 +1030,23 @@ try:
                     "content": str(result),
                 }
             )
+
+            if same_error_count >= 2:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "STOP repeating that tool call. It is invalid. "
+                            "Do not edit task status or CURRENT manually. "
+                            "Choose an actual unfinished requirement, inspect "
+                            "the relevant implementation/test, run or implement "
+                            "that requirement, then call finish()."
+                        ),
+                    }
+                )
+
+                last_error_fingerprint = None
+                same_error_count = 0
 
             if fn == "finish" and finished:
                 break
