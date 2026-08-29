@@ -62,6 +62,25 @@ stage_sort_key() {
   printf '%05d-%s' "$((10#$n))" "$suffix"
 }
 
+result_already_seen_at_head() {
+  local task=$1 classification=$2 head=$3
+
+  [[ -f "$RUNS_FILE" ]] || return 1
+
+  awk -F'\t' \
+    -v wanted_task="task=$task" \
+    -v wanted_class="classification=$classification" \
+    -v wanted_head="head=$head" '
+      $2 == wanted_task &&
+      $5 == wanted_class &&
+      $10 == wanted_head {
+        found=1
+      }
+      END { exit(found ? 0 : 1) }
+    ' "$RUNS_FILE"
+}
+
+
 # The roadmap defines order; canonical indexes define executable work. Legacy
 # TASK-NNN files are deliberately never scanned for selection.
 canonical_stage_ids() {
@@ -116,7 +135,8 @@ dependency_complete() {
       continue
     fi
     [[ "$dep" == TASK-* ]] || dep="TASK-$dep"; found=0
-    for i in "${!task_ids[@]}"; do [[ "${task_ids[$i]}" == "$dep" ]] && { found=1; [[ "${task_statuses[$i]}" == COMPLETE ]] || return 1; }; done
+    for i in "${!task_ids[@]}"; do [[ "${task_ids[$i]}" == "$dep" ]] && { found=1; [[ "${task_statuses[$i]}" == COMPLETE ||
+          "${task_statuses[$i]}" == NEEDS_VERIFICATION ]] || return 1; }; done
     [[ "$found" == 1 ]] || return 1
   done
 }
@@ -162,7 +182,7 @@ run_self_test() {
     echo 'PASS push detection: compares pushed remote HEAD separately from commit evidence'
     echo 'PASS stale marker recovery: dead worker is classified and relaunched or finalized from repository state'
     echo 'PASS failure classification: COMPLETE, UNVERIFIED, FAILED, CRASHED, NO_CHANGE, BLOCKED; no human-wait state'
-    echo "PASS retry counting: maximum $MAX_RETRIES_PER_TASK attempts, then BLOCKED"
+    echo "PASS retry policy: implementation failures may retry; BLOCKED/UNVERIFIED are attempted once per repository HEAD"
     echo "PASS next-task selection: next canonical task would be $next"
     echo PASS
   } | tee "$out"
@@ -247,12 +267,13 @@ if [[ -f "$ACTIVE_MARKER" ]]; then
   resolve_active "$active_task" || selected=-1
 fi
 if (( selected < 0 )); then
-  [[ -z "$(git -C "$REPO" status --porcelain)" ]] || die "worktree is not clean before launch"
+  [[ -z "$(git -C "$REPO" status --porcelain)" ]] ||
+    die "worktree is not clean before launch"
 
-  # Implementation work has priority. NEEDS_VERIFICATION is deliberately
-  # excluded: it represents an automated prerequisite/check that could not
-  # execute, not a request for another Luna context or human approval.
-  for wanted_status in IN_PROGRESS READY NOT_STARTED NEEDS_VERIFICATION BLOCKED; do
+  selection_head=$(git -C "$REPO" rev-parse HEAD)
+
+  # First: actual implementation work.
+  for wanted_status in IN_PROGRESS READY NOT_STARTED; do
     for i in "${!task_ids[@]}"; do
       if [[ "${task_statuses[$i]}" == "$wanted_status" ]] &&
          dependency_complete "${task_deps[$i]}"; then
@@ -261,6 +282,36 @@ if (( selected < 0 )); then
       fi
     done
   done
+
+  # Second: one BLOCKED remediation attempt for this repository state.
+  if (( selected < 0 )); then
+    for i in "${!task_ids[@]}"; do
+      if [[ "${task_statuses[$i]}" == BLOCKED ]] &&
+         dependency_complete "${task_deps[$i]}" &&
+         ! result_already_seen_at_head \
+             "${task_ids[$i]}" BLOCKED "$selection_head"; then
+        selected=$i
+        break
+      fi
+    done
+  fi
+
+  # Last: deferred verification.
+  #
+  # Try each NEEDS_VERIFICATION task only once at a particular HEAD.
+  # Later commits change HEAD and make it eligible for another useful
+  # verification pass.
+  if (( selected < 0 )); then
+    for i in "${!task_ids[@]}"; do
+      if [[ "${task_statuses[$i]}" == NEEDS_VERIFICATION ]] &&
+         dependency_complete "${task_deps[$i]}" &&
+         ! result_already_seen_at_head \
+             "${task_ids[$i]}" UNVERIFIED "$selection_head"; then
+        selected=$i
+        break
+      fi
+    done
+  fi
 fi
 if (( selected < 0 )); then
   log "Stage $stage currently has no runnable task."
@@ -398,22 +449,31 @@ EOF
     exec "$0"
   fi
 
+  if [[ "$classification" == BLOCKED ]]; then
+    rm -f "$ACTIVE_MARKER"
+
+    log "$task remains BLOCKED after this remediation attempt."
+    log "Not repeating the same remediation at repository HEAD $head_after."
+
+    [[ "$MODE" == once ]] && exit 2
+
+    rmdir "$LOCK" 2>/dev/null || true
+    trap - EXIT
+    exec "$0"
+  fi
+
   if [[ "$classification" == UNVERIFIED ]]; then
-    reason="automated validation still unavailable after remediation attempt $attempts/$MAX_RETRIES_PER_TASK; exit=$exit_code status=$status_after; see $log_file"
+    rm -f "$ACTIVE_MARKER"
 
-    if (( attempts >= MAX_RETRIES_PER_TASK )); then
-      log "$task exhausted automatic remediation attempts."
-      log "No human verification will be requested."
-      mark_blocked "$task" "$reason" "$task_path"
-      rm -f "$ACTIVE_MARKER"
-      exit 2
-    fi
+    log "$task remains NEEDS_VERIFICATION."
+    log "Verification has already been attempted at repository HEAD $head_after."
+    log "Deferring it instead of burning another Luna context."
 
-    log "$task still requires automated verification."
-    log "Launching a fresh unattended remediation worker; no human action is requested."
+    [[ "$MODE" == once ]] && exit 2
 
-    before="$head_after"
-    continue
+    rmdir "$LOCK" 2>/dev/null || true
+    trap - EXIT
+    exec "$0"
   fi
 
   reason="classification=$classification exit=$exit_code status=$status_after commit=$([[ "$before" != "$head_after" ]] && echo 1 || echo 0) push=$pushed clean=$clean; see $log_file"
