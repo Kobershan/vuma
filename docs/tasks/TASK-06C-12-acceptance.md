@@ -1,7 +1,7 @@
 # Task
 
 ## Status
-NOT_STARTED
+IN_PROGRESS
 
 ## Stage
 
@@ -94,3 +94,7 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-016.
+- 2026-08-29: Added the deterministic three-company acceptance fixture and focused unit evidence
+  for shared tenant scope, unique company/document identities, initial provisioning state, and
+  secret-free reproducible inputs. Next smallest slice: add the registry/PostgreSQL acceptance
+  test proving three provisioned companies remain physically isolated.
