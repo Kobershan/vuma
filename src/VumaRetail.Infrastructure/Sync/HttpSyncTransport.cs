@@ -125,7 +125,9 @@ public sealed class HttpSyncTransport(HttpClient client, SyncPeerOptions options
                 operation.Operation.ToString(),
                 operation.Stamp.ToString(),
                 operation.Payload,
-                operation.OccurredAt))]);
+                operation.OccurredAt)
+            { CompanyId = operation.CompanyId })])
+        { CompanyId = batch.CompanyId };
 
     private static SyncAcknowledgement FromResponse(SyncBatchResponse response)
         => new(

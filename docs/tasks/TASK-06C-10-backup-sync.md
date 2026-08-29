@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,9 @@ Full disaster recovery drill belongs to Stage 31.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-014.
+- 2026-08-29: Added company-qualified snapshot identity and vault layout, company identity on sync
+  batches/operations with mixed-company rejection, and idempotent registry saga-leg redrive seam.
+  `dotnet build VumaRetail.sln --no-restore` passed; scoped unit tests passed (84). The required
+  PostgreSQL integration command was attempted with `VUMA_TEST_POSTGRES` from `scripts/pg-test.sh
+  start`; it remains blocked by the existing `VumaRegistryDbContext` pending-model-changes error
+  and StoreServer's pre-existing missing `ICompanyLifecycleService` registration.

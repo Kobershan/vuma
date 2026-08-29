@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
@@ -216,6 +217,39 @@ public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWor
             CompanyLifecycleState.Deactivated, actor, reason, occurredAt));
         await unitOfWork.CommitAsync(cancellationToken);
         resolver.Invalidate(companyId);
+    }
+}
+
+/// <summary>Re-drives pending saga legs after an isolated company restore.</summary>
+public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork unitOfWork) : IRegistrySagaRedriver
+{
+    public async Task<int> RedriveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+
+        var intents = await db.SagaIntents
+            .Include(intent => intent.Legs)
+            .Where(intent => intent.TenantId == tenantId && intent.Legs.Any(leg => leg.CompanyId == companyId
+                && leg.State != SagaLegState.Acknowledged && leg.State != SagaLegState.Compensated))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        int queued = 0;
+        foreach (var intent in intents)
+        {
+            foreach (var leg in intent.Legs.Where(leg => leg.CompanyId == companyId
+                && leg.State is not (SagaLegState.Acknowledged or SagaLegState.Compensated)))
+            {
+                string key = $"saga-leg:{intent.Id:D}:{leg.LegId:D}";
+                if (await db.RegistryOutboxMessages.AnyAsync(message => message.TenantId == tenantId
+                    && message.IdempotencyKey == key, cancellationToken).ConfigureAwait(false)) continue;
+                db.RegistryOutboxMessages.Add(new RegistryOutboxMessage(tenantId, "saga.leg.redrive",
+                    JsonSerializer.Serialize(new { intentId = intent.Id, legId = leg.LegId, companyId }),
+                    DateTimeOffset.UtcNow, key, intent.OperationStamp));
+                queued++;
+            }
+        }
+        if (queued > 0) await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return queued;
     }
 }
 

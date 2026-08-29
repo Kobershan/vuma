@@ -99,3 +99,9 @@ public interface ICompanyLifecycleService
 {
     Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Requeues the durable legs belonging to one restored company.</summary>
+public interface IRegistrySagaRedriver
+{
+    Task<int> RedriveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
+}

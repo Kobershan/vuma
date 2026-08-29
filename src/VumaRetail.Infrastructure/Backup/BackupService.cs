@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Backup;
 using VumaRetail.Application.Abstractions.Sync;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Backup;
 
 namespace VumaRetail.Infrastructure.Backup;
@@ -39,6 +40,7 @@ namespace VumaRetail.Infrastructure.Backup;
 /// <param name="node">Which node took it.</param>
 /// <param name="clock">When.</param>
 /// <param name="logger">Where the run summaries go.</param>
+/// <param name="companyContext">The acting company, when this is a company-database backup.</param>
 public sealed class BackupService(
     IBackupEngine engine,
     ISnapshotCipher cipher,
@@ -48,7 +50,8 @@ public sealed class BackupService(
     ITenantContext tenant,
     INodeIdentity node,
     IClock clock,
-    ILogger<BackupService> logger) : IBackupService
+    ILogger<BackupService> logger,
+    ICompanyContext? companyContext = null) : IBackupService
 {
     /// <inheritdoc />
     public async Task<BackupSnapshot> CreateSnapshotAsync(
@@ -56,15 +59,12 @@ public sealed class BackupService(
         CancellationToken cancellationToken = default)
     {
         DateTimeOffset startedAt = clock.UtcNow;
-        string objectKey = ObjectKeyFor(tenant.TenantId, node.NodeId, startedAt);
+        Guid? companyId = companyContext?.CompanyId;
+        string objectKey = ObjectKeyFor(tenant.TenantId, companyId, node.NodeId, startedAt);
 
-        BackupSnapshot snapshot = BackupSnapshot.Begin(
-            tenant.TenantId,
-            tenant.StoreId,
-            kind,
-            node.NodeId,
-            objectKey,
-            startedAt);
+        BackupSnapshot snapshot = companyId is { } id
+            ? BackupSnapshot.BeginForCompany(tenant.TenantId, id, tenant.StoreId, kind, node.NodeId, objectKey, startedAt)
+            : BackupSnapshot.Begin(tenant.TenantId, tenant.StoreId, kind, node.NodeId, objectKey, startedAt);
 
         snapshots.Add(snapshot);
         await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -206,10 +206,10 @@ public sealed class BackupService(
     /// storage layer as well as in code. Sortable timestamp so a retention job and a human listing
     /// the prefix see the same order without parsing anything.
     /// </remarks>
-    private static string ObjectKeyFor(Guid tenantId, string nodeId, DateTimeOffset at)
+    private static string ObjectKeyFor(Guid tenantId, Guid? companyId, string nodeId, DateTimeOffset at)
         => string.Create(
             CultureInfo.InvariantCulture,
-            $"tenants/{tenantId:D}/{Sanitise(nodeId)}/{at.UtcDateTime:yyyy/MM/dd}/snapshot-{at.UtcDateTime:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}.vsnap");
+            $"tenants/{tenantId:D}/{(companyId is { } id ? $"companies/{id:D}/" : "registry/")}{Sanitise(nodeId)}/{at.UtcDateTime:yyyy/MM/dd}/snapshot-{at.UtcDateTime:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}.vsnap");
 
     /// <summary>Keeps a node id from turning an object key into a path.</summary>
     private static string Sanitise(string nodeId)

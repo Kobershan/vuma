@@ -78,6 +78,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ICompanyConnectionResolver, CompanyConnectionResolver>();
         services.AddScoped<ICompanyFanOut, CompanyFanOut>();
         services.AddScoped<ICompanyLifecycleService, CompanyLifecycleService>();
+        services.AddScoped<IRegistrySagaRedriver, RegistrySagaRedriver>();
         services.AddScoped<ICompanyProvisioner, CompanyProvisioner>();
         services.AddScoped<ICompanyDbContextFactory, CompanyDbContextFactory>();
         services.AddScoped<ICompanyConnectionSecretStore, UnconfiguredCompanyConnectionSecretStore>();

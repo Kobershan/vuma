@@ -428,6 +428,13 @@ pg_dump -Fc  →  AES-256-GCM  →  vault (S3 / filesystem)  →  SHA-256 record
 restore:  checksum confirmed  →  decrypt  →  pg_restore --clean --if-exists  →  ledger stamped
 ```
 
+In the multi-company topology the ledger and encrypted object key are database-scoped. A company
+snapshot carries its `company_id` and uses a `tenants/<tenant>/companies/<company>/` vault prefix;
+the registry has its own cadence and `registry/` prefix. Sync batches carry the same one-company
+identity and are rejected if operations from sibling databases are mixed. Restoring a company
+therefore never restores its siblings; the registry can safely re-drive that company's outstanding
+saga legs by their `(intent_id, leg_id)` idempotency key (ADR-120).
+
 **Encryption.** AES-256-GCM in 1 MiB framed chunks — GCM is one-shot and will not stream, and a
 snapshot does not fit in memory. The chunk index is authenticated as associated data, so chunks
 cannot be reordered, dropped or duplicated while their individual tags still verify; a zero-length
