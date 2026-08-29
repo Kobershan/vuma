@@ -23,6 +23,11 @@ checks_used = 0
 read_paths = set()
 check_results = []
 
+# The Python wrapper, NOT the small model, owns task decomposition.
+slice_plan = []
+current_slice_id = None
+current_slice_text = ""
+
 last_error_fingerprint = None
 same_error_count = 0
 
@@ -453,8 +458,32 @@ def finish(status, summary, next_slice=""):
     if not summary:
         return "ERROR: summary is required"
 
-    if status == "IN_PROGRESS" and not next_slice:
-        return "ERROR: IN_PROGRESS requires next_slice"
+    # The model does not choose the next micro-slice.
+    # The deterministic wrapper does.
+    if status == "IN_PROGRESS":
+        if (
+            current_slice_id is not None
+            and current_slice_id < len(slice_plan)
+        ):
+            next_slice = (
+                f"Slice {current_slice_id + 1}: "
+                + slice_plan[current_slice_id]
+            )
+        else:
+            next_slice = (
+                "Reconcile remaining task evidence and requirements."
+            )
+
+    # COMPLETE is forbidden before the final planned slice.
+    if (
+        status == "COMPLETE"
+        and current_slice_id is not None
+        and current_slice_id < len(slice_plan)
+    ):
+        return (
+            "ERROR: remaining deterministic micro-slices exist. "
+            "Use IN_PROGRESS for this completed slice."
+        )
 
     if status == "COMPLETE" and not check_results:
         return (
@@ -498,8 +527,15 @@ def finish(status, summary, next_slice=""):
         datetime.timezone.utc
     ).strftime("%Y-%m-%d %H:%M UTC")
 
+    slice_marker = (
+        str(current_slice_id)
+        if current_slice_id is not None
+        else "0"
+    )
+
     progress = (
-        f"\n- {stamp} LOCAL-SLICE: {summary}"
+        f"\n- {stamp} LOCAL-SLICE-DONE "
+        f"{slice_marker}: {summary}"
     )
 
     if next_slice:
@@ -578,6 +614,266 @@ def finish(status, summary, next_slice=""):
             ),
         }
     )
+
+
+
+def section_text(text, heading):
+    pattern = re.compile(
+        rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+
+    match = pattern.search(text)
+
+    if not match:
+        return ""
+
+    return match.group(1).strip()
+
+
+def clean_requirement(text):
+    text = re.sub(r"^[-*]\s*", "", text.strip())
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" .")
+
+
+def split_requirements(text, split_commas=False):
+    if not text:
+        return []
+
+    items = []
+
+    # First split actual bullets/lines and semicolon-separated requirements.
+    parts = re.split(r"\n+|;\s*", text)
+
+    for part in parts:
+        part = clean_requirement(part)
+
+        if not part:
+            continue
+
+        if split_commas:
+            subparts = re.split(
+                r",\s*|\s+and\s+",
+                part,
+                flags=re.IGNORECASE,
+            )
+
+            for sub in subparts:
+                sub = clean_requirement(sub)
+
+                if len(sub) >= 4:
+                    items.append(sub)
+        else:
+            items.append(part)
+
+    return items
+
+
+def completed_slice_ids(text):
+    return {
+        int(x)
+        for x in re.findall(
+            r"LOCAL-SLICE-DONE\s+(\d+)",
+            text,
+        )
+    }
+
+
+def build_slice_plan(text):
+    """
+    Convert a canonical Vuma task into small deterministic work packets.
+
+    The model never decides what the next packet is.
+    """
+
+    # --------------------------------------------------------
+    # Stage 06c acceptance has a deliberately explicit plan.
+    # This task is broad enough that a 3B model must NOT infer
+    # the matrix itself.
+    # --------------------------------------------------------
+
+    if task_id == "TASK-06C-12":
+        return [
+            (
+                "Isolation acceptance. Find the narrowest existing Stage 06c "
+                "unit/integration tests proving one company cannot read or "
+                "write another company's data. If coverage is missing, add "
+                "only the smallest focused test. Run only the relevant "
+                "test-project/filter."
+            ),
+            (
+                "Active-company filtering acceptance. Find or add the "
+                "narrowest test proving inactive/deactivated companies are "
+                "excluded from ordinary company operations and fan-out reads. "
+                "Run only the relevant filtered/project test."
+            ),
+            (
+                "No-cross-company-write acceptance. Find or add the narrowest "
+                "architecture/unit test proving one request/handler cannot "
+                "write through two company database contexts. Run only that "
+                "targeted validation."
+            ),
+            (
+                "Three-company fixture acceptance. Inspect the existing "
+                "Stage 06c fixture/seed support. Verify three deterministic "
+                "companies can be created independently and fixture setup is "
+                "rerunnable. Add only narrowly missing fixture coverage and "
+                "run the relevant test."
+            ),
+            (
+                "Company API acceptance. Verify the narrow API tests for "
+                "company selection, tenant/company access and active-company "
+                "filtering. Add only missing focused coverage and run the "
+                "relevant API/integration filter."
+            ),
+            (
+                "Backup/restore and sync boundary acceptance. Find the "
+                "Stage 06c per-company backup/restore or sync tests and run "
+                "the narrowest relevant filter. If narrowly missing, add one "
+                "focused test. Do not run unrelated backup suites."
+            ),
+            (
+                "PostgreSQL Stage 06c acceptance. Use the documented "
+                "disposable PostgreSQL test mechanism if required, and run "
+                "only the narrow Stage 06c/company persistence or migration "
+                "filter. If infrastructure genuinely cannot run, capture the "
+                "exact automated failure rather than changing unrelated code."
+            ),
+            (
+                "Architecture acceptance. Run the narrowest architecture "
+                "validation covering Stage 06c multi-company boundaries. "
+                "Only use the complete architecture test project if there is "
+                "no usable Stage 06c filter."
+            ),
+            (
+                "Acceptance evidence reconciliation. Review the LOCAL-SLICE "
+                "evidence already recorded for this task and the task's "
+                "Acceptance Criteria / Tests Required. Run only any remaining "
+                "required automated check. Mark COMPLETE only when every "
+                "required acceptance area has evidence; otherwise use "
+                "NEEDS_VERIFICATION only for a genuinely unavailable required "
+                "automated prerequisite."
+            ),
+        ]
+
+    # --------------------------------------------------------
+    # Generic planner for later canonical tasks.
+    # --------------------------------------------------------
+
+    plan = []
+
+    implementation = split_requirements(
+        section_text(text, "Implementation Requirements")
+    )
+
+    acceptance = split_requirements(
+        section_text(text, "Acceptance Criteria")
+    )
+
+    tests = split_requirements(
+        section_text(text, "Tests Required"),
+        split_commas=True,
+    )
+
+    for item in implementation[:6]:
+        plan.append(
+            "Implementation requirement: "
+            + item
+            + ". Implement only the smallest coherent portion needed for "
+              "this requirement and run one narrow validation."
+        )
+
+    for item in acceptance[:4]:
+        plan.append(
+            "Acceptance requirement: "
+            + item
+            + ". Verify this requirement only. Add narrowly missing test "
+              "coverage if necessary and run the targeted check."
+        )
+
+    for item in tests[:4]:
+        # Avoid turning phrases such as "full applicable suite" into a
+        # solution-wide build during an ordinary micro-slice.
+        if "full applicable suite" in item.lower():
+            plan.append(
+                "Test requirement: identify and run the smallest targeted "
+                "subset of the applicable suite that validates this task. "
+                "Do not run a solution-wide test command in this slice."
+            )
+        else:
+            plan.append(
+                "Test requirement: "
+                + item
+                + ". Run only the narrow project/filter relevant to the "
+                  "assigned canonical task."
+            )
+
+    if not plan:
+        objective = clean_requirement(
+            section_text(text, "Objective")
+        )
+
+        if objective:
+            plan.append(
+                "Implement or verify this objective in one small coherent "
+                f"slice: {objective}"
+            )
+        else:
+            plan.append(
+                "Inspect the assigned task and implement one smallest "
+                "coherent unfinished requirement."
+            )
+
+    # Keep local plans bounded.
+    return plan[:12]
+
+
+def meaningful_work_exists():
+    result = git("status", "--porcelain")
+    lines = result.stdout.splitlines()
+
+    ignored = {
+        relative(task_path),
+        relative(current_path),
+    }
+
+    for line in lines:
+        if len(line) < 4:
+            continue
+
+        changed = line[3:].strip()
+
+        # Handle "old -> new" rename format.
+        if " -> " in changed:
+            changed = changed.split(" -> ", 1)[1]
+
+        if changed not in ignored:
+            return True
+
+    return False
+
+
+def finish_allowed():
+    # A model may not finish before it has either:
+    # - produced a real source/test change, or
+    # - executed at least one actual automated check.
+    return meaningful_work_exists() or bool(check_results)
+
+
+def tools_for_turn():
+    if finish_allowed():
+        return TOOLS
+
+    # Do not even advertise finish() until real work happened.
+    return [
+        tool
+        for tool in TOOLS
+        if (
+            tool.get("function", {}).get("name")
+            != "finish"
+        )
+    ]
 
 
 TOOLS = [
@@ -784,6 +1080,48 @@ def parse_text_tool_call(content):
 
 
 task_text = task_path.read_text(errors="replace")
+
+slice_plan = build_slice_plan(task_text)
+completed = completed_slice_ids(task_text)
+
+pending_ids = [
+    i
+    for i in range(1, len(slice_plan) + 1)
+    if i not in completed
+]
+
+if pending_ids:
+    current_slice_id = pending_ids[0]
+    current_slice_text = slice_plan[current_slice_id - 1]
+else:
+    # All predefined packets have evidence but the canonical task is
+    # still not terminal. Give it a tightly scoped reconciliation pass.
+    current_slice_id = (
+        max(completed)
+        + 1
+        if completed
+        else 1
+    )
+
+    current_slice_text = (
+        "Final evidence reconciliation only. Inspect the assigned task's "
+        "existing LOCAL-SLICE-DONE records and required acceptance/tests. "
+        "Run one remaining required narrow automated check. Do not add new "
+        "product behavior. Mark COMPLETE only if all requirements genuinely "
+        "have automated evidence."
+    )
+
+    # Make this the final known item so COMPLETE is permitted.
+    while len(slice_plan) < current_slice_id:
+        slice_plan.append(current_slice_text)
+
+print(
+    f"[local-worker] selected slice "
+    f"{current_slice_id}/{len(slice_plan)}: "
+    f"{current_slice_text}",
+    flush=True,
+)
+
 current_text = (
     current_path.read_text(errors="replace")
     if current_path.exists()
@@ -807,8 +1145,11 @@ Rules:
 - NEVER manually edit docs/CURRENT.md.
 - NEVER change NOT_STARTED/IN_PROGRESS/COMPLETE using replace_text.
 - finish() alone owns task status, task progress and CURRENT metadata.
-- First perform actual implementation or an actual automated acceptance check.
-- For an acceptance task, verify ONE acceptance requirement per invocation.
+- The Python wrapper has ALREADY selected the exact micro-slice.
+- Do NOT choose, redesign, broaden or replace that micro-slice.
+- First perform actual implementation or the actual automated check required
+  by CURRENT MICRO-SLICE.
+- For an acceptance task, verify ONLY CURRENT MICRO-SLICE.
 - Do not mark progress before performing that requirement.
 - Never inspect the whole repository.
 - Use targeted search only.
@@ -843,9 +1184,26 @@ TASK CONTENT:
 CURRENT EXCERPT:
 {current_excerpt}
 
-Choose the smallest unfinished slice now.
-Use the tools to inspect only what is necessary, implement/verify it,
-run narrow validation, then call finish.
+CURRENT MICRO-SLICE {current_slice_id}/{len(slice_plan)}:
+{current_slice_text}
+
+Do EXACTLY CURRENT MICRO-SLICE.
+
+Do not choose another requirement.
+Do not manually edit task status.
+Do not manually edit docs/CURRENT.md.
+
+Your first useful action should normally be:
+- targeted search for the relevant implementation/test symbol, OR
+- read the directly relevant source/test file if already known.
+
+Then implement or execute the narrow validation.
+
+finish() is intentionally unavailable until you have either:
+- changed a real implementation/test file, or
+- executed a real automated check.
+
+After completing this one slice, call finish().
 """
 
 
@@ -860,7 +1218,7 @@ def ollama_chat(msgs):
         "model": model,
         "messages": msgs,
         "stream": False,
-        "tools": TOOLS,
+        "tools": tools_for_turn(),
         "keep_alive": "30m",
         "options": {
             "num_ctx": 4096,
@@ -992,6 +1350,14 @@ try:
 
             if fn not in FUNCTIONS:
                 result = f"ERROR: unknown tool {fn}"
+
+            elif fn == "finish" and not finish_allowed():
+                result = (
+                    "ERROR: finish is unavailable because no real "
+                    "implementation/test change or automated check has "
+                    "occurred. Perform CURRENT MICRO-SLICE first."
+                )
+
             else:
                 try:
                     result = FUNCTIONS[fn](**fn_args)
