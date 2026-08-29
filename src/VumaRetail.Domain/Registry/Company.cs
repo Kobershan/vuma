@@ -81,6 +81,12 @@ public sealed class Company
     public CompanyLifecycleState LifecycleState { get; private set; }
     /// <summary>Whether business operations may select this company.</summary>
     public bool IsActive { get; private set; }
+    /// <summary>When the company entered retained read-only state.</summary>
+    public DateTimeOffset? DeactivatedAt { get; private set; }
+    /// <summary>The actor that deactivated the company.</summary>
+    public string? DeactivatedBy { get; private set; }
+    /// <summary>The operator-supplied reason for deactivation.</summary>
+    public string? DeactivationReason { get; private set; }
 
     /// <summary>Creates a company in the provisioning state.</summary>
     public static Company Create(
@@ -136,7 +142,17 @@ public sealed class Company
     public bool CanServe => LifecycleState == CompanyLifecycleState.Active && IsActive;
 
     /// <summary>Moves the company to retained, read-only state.</summary>
-    public void Deactivate() => SetLifecycle(CompanyLifecycleState.Deactivated);
+    public bool Deactivate(string actor, string reason, DateTimeOffset occurredAt)
+    {
+        if (string.IsNullOrWhiteSpace(actor)) { throw new ArgumentException("An actor is required.", nameof(actor)); }
+        if (string.IsNullOrWhiteSpace(reason)) { throw new ArgumentException("A reason is required.", nameof(reason)); }
+        if (LifecycleState == CompanyLifecycleState.Deactivated) { return false; }
+        SetLifecycle(CompanyLifecycleState.Deactivated);
+        DeactivatedAt = occurredAt;
+        DeactivatedBy = actor.Trim();
+        DeactivationReason = reason.Trim();
+        return true;
+    }
 
     /// <summary>Records the company schema version and migration state.</summary>
     public void SetMigration(long schemaVersion, string migrationState)

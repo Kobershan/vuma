@@ -55,6 +55,7 @@ public sealed class VumaExceptionHandler(
         {
             ValidationFailedException validation => Validation(validation),
             DomainException domain => Domain(domain),
+            InvalidOperationException { Message: "COMPANY_NOT_FOUND" } => Build(StatusCodes.Status404NotFound, "Not found", "The company was not found.", "COMPANY_NOT_FOUND"),
             BadHttpRequestException malformed => Malformed(malformed),
             _ => Unhandled(exception, httpContext),
         };

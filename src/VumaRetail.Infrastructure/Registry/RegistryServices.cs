@@ -15,7 +15,10 @@ public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbCo
     private readonly ConcurrentDictionary<(Guid TenantId, Guid CompanyId), CacheEntry> _cache = new();
     private readonly ConcurrentDictionary<(Guid TenantId, Guid CompanyId), long> _generations = new();
 
-    public async Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+    public Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+        => ResolveAsync(tenantId, companyId, CompanyAccessMode.Write, cancellationToken);
+
+    public async Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default)
     {
         var key = (tenantId, companyId);
         long generation = _generations.GetOrAdd(key, 0);
@@ -26,7 +29,9 @@ public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbCo
         var company = await db.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Company was not found.");
 
-        if (!company.CanServe || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)
+        if ((access == CompanyAccessMode.Write && !company.CanServe)
+            || (access == CompanyAccessMode.Read && company.LifecycleState is not (CompanyLifecycleState.Active or CompanyLifecycleState.Deactivated))
+            || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Company is not available for business operations.");
 
@@ -80,12 +85,14 @@ public sealed class AmbientCompanyContext : ICompanyContext
 public interface ICompanyDbContextFactory
 {
     Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default);
+    Task<VumaRetailDbContext> CreateAsync(CompanyAccessMode access, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Checks that a company is authorized and safe to serve before its database is opened.</summary>
 public interface ICompanyServingGuard
 {
     Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
+    Task EnsureAccessibleAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default);
 }
 
 internal sealed class UnconfiguredCompanyConnectionSecretStore : ICompanyConnectionSecretStore
@@ -103,7 +110,10 @@ public sealed class CompanyDbContextFactory(
 {
     private bool _created;
 
-    public async Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default)
+    public Task<VumaRetailDbContext> CreateAsync(CancellationToken cancellationToken = default)
+        => CreateAsync(CompanyAccessMode.Write, cancellationToken);
+
+    public async Task<VumaRetailDbContext> CreateAsync(CompanyAccessMode access, CancellationToken cancellationToken = default)
     {
         if (_created)
             throw new InvalidOperationException("Only one company DbContext may be created per operation.");
@@ -112,8 +122,10 @@ public sealed class CompanyDbContextFactory(
         if (tenant.TenantId == Guid.Empty)
             throw new InvalidOperationException("An authenticated tenant is required before opening a company database.");
 
-        await servingGuard.EnsureServableAsync(tenant.TenantId, companyId, cancellationToken);
-        var connection = await resolver.ResolveAsync(tenant.TenantId, companyId, cancellationToken);
+        await servingGuard.EnsureAccessibleAsync(tenant.TenantId, companyId, access, cancellationToken);
+        var connection = access == CompanyAccessMode.Write
+            ? await resolver.ResolveAsync(tenant.TenantId, companyId, cancellationToken)
+            : await resolver.ResolveAsync(tenant.TenantId, companyId, access, cancellationToken);
         if (connection.TenantId != tenant.TenantId || connection.CompanyId != companyId)
             throw new InvalidOperationException("The resolved company is outside the acting tenant or context.");
 
@@ -188,14 +200,20 @@ public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan
     }
 }
 
-public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork, ICompanyConnectionResolver resolver) : ICompanyLifecycleService
+public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork, ICompanyConnectionResolver resolver, IPrincipalAccessor? principal = null, IClock? clock = null) : ICompanyLifecycleService
 {
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason));
         var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Company was not found.");
-        company.Deactivate();
+        string actor = principal?.Principal ?? "system:company-lifecycle";
+        DateTimeOffset occurredAt = clock?.UtcNow
+            ?? throw new InvalidOperationException("A clock is required for lifecycle audit timestamps.");
+        CompanyLifecycleState fromState = company.LifecycleState;
+        if (!company.Deactivate(actor, reason, occurredAt)) return;
+        db.CompanyLifecycleAudits.Add(CompanyLifecycleAudit.Record(tenantId, companyId, fromState,
+            CompanyLifecycleState.Deactivated, actor, reason, occurredAt));
         await unitOfWork.CommitAsync(cancellationToken);
         resolver.Invalidate(companyId);
     }

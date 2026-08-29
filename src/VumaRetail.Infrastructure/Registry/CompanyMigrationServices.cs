@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
@@ -68,9 +69,20 @@ public sealed class CompanyServingGuard(VumaRegistryDbContext registry) : ICompa
 {
     public async Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
     {
+        await EnsureAccessibleAsync(tenantId, companyId, CompanyAccessMode.Write, cancellationToken);
+    }
+
+    public async Task EnsureAccessibleAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default)
+    {
         var company = await registry.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken);
-        if (company is null || !company.CanServe) throw new InvalidOperationException("COMPANY_NOT_SERVABLE");
+        if (company is null) throw new InvalidOperationException("COMPANY_NOT_FOUND");
+        if (access == CompanyAccessMode.Write && !company.CanServe) throw new CompanyReadOnlyException(company.LifecycleState);
+        if (access == CompanyAccessMode.Read && company.LifecycleState is not (CompanyLifecycleState.Active or CompanyLifecycleState.Deactivated))
+            throw new InvalidOperationException("COMPANY_NOT_SERVABLE");
         if (!string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("COMPANY_MIGRATION_REQUIRED");
     }
 }
+
+public sealed class CompanyReadOnlyException(CompanyLifecycleState state)
+    : DomainException("COMPANY_READ_ONLY", $"The company is {state.ToString().ToLowerInvariant()} and does not accept business writes.", DomainProblemKind.Forbidden);

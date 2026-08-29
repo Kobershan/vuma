@@ -4,9 +4,11 @@ using VumaRetail.Domain.Registry;
 namespace VumaRetail.Application.Abstractions.Registry;
 
 public sealed record CompanyConnection(Guid CompanyId, Guid TenantId, string SecretReference, long SchemaVersion);
+public enum CompanyAccessMode { Write, Read }
 public interface ICompanyConnectionResolver
 {
     Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
+    Task<CompanyConnection> ResolveAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default);
     void Invalidate(Guid companyId);
 }
 

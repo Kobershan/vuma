@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+NEEDS_VERIFICATION
 
 ## Stage
 
@@ -95,3 +95,11 @@ Removal/export remains a separate future task.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-011.
+- 2026-08-29: Implemented idempotent deactivation with retained lifecycle metadata, actor/reason
+  audit records, tenant-scoped company access modes, named `COMPANY_READ_ONLY` write refusal,
+  separate company view/manage permissions, and versioned company lifecycle endpoints. Unit suite:
+  841 passed. Integration command attempted:
+  `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore --verbosity minimal`.
+  It could not initialize because Docker is unavailable and no local PostgreSQL fallback was
+  configured (`Docker is either not running or misconfigured` / `No PostgreSQL available`).
+  Task remains NEEDS_VERIFICATION until the required integration checks can execute.

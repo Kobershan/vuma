@@ -12,6 +12,7 @@ public sealed class VumaRegistryDbContext(
     private readonly ITenantContext _tenantContext = tenantContext;
 
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<CompanyLifecycleAudit> CompanyLifecycleAudits => Set<CompanyLifecycleAudit>();
     public DbSet<CompanyGroup> CompanyGroups => Set<CompanyGroup>();
     public DbSet<CompanyGroupMember> CompanyGroupMembers => Set<CompanyGroupMember>();
     public DbSet<SagaIntent> SagaIntents => Set<SagaIntent>();
@@ -59,6 +60,8 @@ public sealed class VumaRegistryDbContext(
             builder.Property(company => company.ProvisioningStep).HasMaxLength(64).IsRequired();
             builder.Property(company => company.ProvisioningError).HasMaxLength(256);
             builder.Property(company => company.ProvisioningAttempts).IsRequired();
+            builder.Property(company => company.DeactivatedBy).HasMaxLength(256);
+            builder.Property(company => company.DeactivationReason).HasMaxLength(500);
             builder.Property(company => company.LifecycleState).HasConversion<string>().HasMaxLength(32).IsRequired();
             builder.HasAlternateKey(company => new { company.TenantId, company.Id });
             builder.HasIndex(company => new { company.TenantId, company.Code }).IsUnique();
@@ -76,6 +79,17 @@ public sealed class VumaRegistryDbContext(
                     "ck_companies_active_requires_secret",
                     "NOT is_active OR connection_secret_ref IS NOT NULL");
             });
+        });
+
+        modelBuilder.Entity<CompanyLifecycleAudit>(builder =>
+        {
+            builder.ToTable("company_lifecycle_audits", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Actor).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+            builder.Property(x => x.FromState).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.Property(x => x.ToState).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.OccurredAt });
         });
 
         modelBuilder.Entity<CompanyGroup>(builder =>
@@ -127,6 +141,7 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<SagaIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<SagaLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<RegistryOutboxMessage>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<CompanyLifecycleAudit>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }

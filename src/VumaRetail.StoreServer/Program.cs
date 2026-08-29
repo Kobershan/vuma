@@ -24,6 +24,7 @@ using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
+using VumaRetail.Web.Registry;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
@@ -230,6 +231,7 @@ if (args.Contains("--restore", StringComparer.Ordinal))
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
+app.MapVumaCompanies();
 app.MapVumaSync();
 app.MapVumaLicensing();
 app.MapVumaCatalog();
