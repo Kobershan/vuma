@@ -2,7 +2,7 @@
 
 ## Status
 
-NEEDS_VERIFICATION
+COMPLETE
 
 ## Stage
 
@@ -110,3 +110,7 @@ Full fleet operational tooling is outside this stage.
   three tests failed during `PostgresFixture` initialization because Docker is unavailable and
   `VUMA_TEST_POSTGRES` is unset. Unit tests (841), architecture tests (35), and the serial solution build
   passed. Remains NEEDS_VERIFICATION.
+- 2026-08-29: Remediated the repository-local verification prerequisite by starting the disposable local
+  PostgreSQL cluster with `scripts/pg-test.sh start` and exporting its connection string. The required
+  migration integration command passed all 3 tests. Registry unit tests passed 25/25, architecture tests
+  passed 35/35, and the serial solution build passed with 0 warnings and 0 errors. Task is COMPLETE.
