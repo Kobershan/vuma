@@ -6,7 +6,7 @@
 CURRENT STAGE: Stage 06c — Multi-company foundation
 CURRENT TASK: TASK-06C-12 — Acceptance evidence
 CURRENT TASK STATUS: IN_PROGRESS
-NEXT READY TASK: TASK-06C-12 — registry/PostgreSQL isolation acceptance slice
+NEXT READY TASK: TASK-06C-12 — migration-refusal acceptance slice
 LAST COMPLETED TASK: TASK-06C-11 — Companies API
 BLOCKERS: None. The previously recorded registry pending-model-changes and StoreServer lifecycle
 registration blockers are resolved in the repository and verified.

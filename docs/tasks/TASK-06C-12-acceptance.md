@@ -98,3 +98,7 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
   for shared tenant scope, unique company/document identities, initial provisioning state, and
   secret-free reproducible inputs. Next smallest slice: add the registry/PostgreSQL acceptance
   test proving three provisioned companies remain physically isolated.
+- 2026-08-29: Added and passed the PostgreSQL acceptance test proving three independently migrated
+  company databases retain separate database identities and company-specific outbox payloads.
+  Next smallest slice: add the migration-refusal acceptance test for a company with pending model
+  changes.

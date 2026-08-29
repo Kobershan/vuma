@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Sync;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -11,6 +13,48 @@ namespace VumaRetail.IntegrationTests.Persistence;
 [Collection(PostgresCollection.Name)]
 public sealed class RegistryPersistenceTests(PostgresFixture fixture)
 {
+    [Fact]
+    public async Task Three_provisioned_company_databases_are_physically_isolated()
+    {
+        Guid tenantId = Guid.Parse("01900000-0000-7000-8000-0000000006c0");
+        Guid operationId = Guid.Parse("01900000-0000-7000-8000-0000000006c1");
+        string[] companyCodes = ["hardware", "distribution", "groceries"];
+        Guid[] entityIds =
+        [
+            Guid.Parse("01900000-0000-7000-8000-0000000006c2"),
+            Guid.Parse("01900000-0000-7000-8000-0000000006c3"),
+            Guid.Parse("01900000-0000-7000-8000-0000000006c4"),
+        ];
+        string[] databaseNames = new string[companyCodes.Length];
+
+        for (int index = 0; index < companyCodes.Length; index++)
+        {
+            string connectionString = await fixture.CreateDatabaseAsync();
+            await using VumaRetailDbContext context = TestDbContextFactory.For(connectionString);
+
+            context.OutboxMessages.Add(OutboxMessage.Capture(
+                tenantId,
+                storeId: null,
+                operationId,
+                sourceNode: $"company:{companyCodes[index]}",
+                entityType: "Stage06cIsolationProbe",
+                entityId: entityIds[index],
+                operation: SyncOperationKind.Upsert,
+                scope: ReplicationScope.StoreToCloud,
+                conflictPolicy: ConflictPolicy.LastWriterWins,
+                stamp: new HlcStamp(index + 1, 0, companyCodes[index]),
+                payload: $"{{\"companyCode\":\"{companyCodes[index]}\"}}",
+                occurredAt: DateTimeOffset.UtcNow));
+            await context.SaveChangesAsync();
+
+            databaseNames[index] = await context.Database.SqlQuery<string>($"SELECT current_database() AS \"Value\"").SingleAsync();
+            (await context.OutboxMessages.SingleAsync(message => message.OperationId == operationId))
+                .Payload.Should().Be($"{{\"companyCode\":\"{companyCodes[index]}\"}}");
+        }
+
+        databaseNames.Should().OnlyHaveUniqueItems();
+    }
+
     [Fact]
     public async Task Registry_migration_persists_saga_records_and_is_tenant_scoped()
     {
