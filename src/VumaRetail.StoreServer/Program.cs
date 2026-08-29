@@ -89,8 +89,12 @@ string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
     ?? Path.Combine(AppContext.BaseDirectory, "licensing-state");
 
 // Order matters: AddVumaWeb registers the authenticated IPrincipalAccessor, and
-// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
+// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot. The
+// registry is registered first so the business database remains the default IUnitOfWork for the
+// ordinary command pipeline; lifecycle services resolve the registry context explicitly.
 builder.Services.AddVumaWeb(jwt, host);
+builder.Services.AddVumaRegistryPersistence(
+    builder.Configuration.GetConnectionString("Registry") ?? connectionString);
 builder.Services.AddVumaPersistence(connectionString);
 
 // Stage 06. Master data: items, variants, barcodes, units of measure, and suppliers/customers. Both

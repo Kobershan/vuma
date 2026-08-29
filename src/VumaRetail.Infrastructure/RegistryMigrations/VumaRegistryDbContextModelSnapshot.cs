@@ -46,6 +46,20 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                         .HasColumnType("character varying(512)")
                         .HasColumnName("connection_secret_ref");
 
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deactivated_at");
+
+                    b.Property<string>("DeactivatedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("deactivated_by");
+
+                    b.Property<string>("DeactivationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("deactivation_reason");
+
                     b.Property<string>("DocumentPrefix")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -144,6 +158,57 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
 
                             t.HasCheckConstraint("ck_companies_lifecycle_state", "lifecycle_state IN ('Provisioning', 'Seeding', 'Registered', 'Active', 'Deactivated')");
                         });
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Registry.CompanyLifecycleAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("actor");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("FromState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("from_state");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("ToState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("to_state");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_lifecycle_audits");
+
+                    b.HasIndex("TenantId", "CompanyId", "OccurredAt")
+                        .HasDatabaseName("ix_company_lifecycle_audits_tenant_id_company_id_occurred_at");
+
+                    b.ToTable("company_lifecycle_audits", "registry");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Registry.CompanyGroup", b =>

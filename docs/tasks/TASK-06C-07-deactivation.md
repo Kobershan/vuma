@@ -1,7 +1,6 @@
 # Task
 
 ## Status
-BLOCKED
 NEEDS_VERIFICATION
 
 ## Stage
@@ -119,3 +118,11 @@ Removal/export remains a separate future task.
   `No PostgreSQL available`). Task remains NEEDS_VERIFICATION.
 
 - BLOCKED after 3 attempts: automated validation still unavailable after remediation attempt 3/3; exit=0 status=NEEDS_VERIFICATION; see /home/kob/Documents/vuma/docs/automation/logs/20260829T002328Z-TASK-06C-07-attempt-3.log
+- 2026-08-29: Repository-local remediation completed: restored the registry model snapshot, registered
+  registry persistence in StoreServer, replaced the incompatible pooled registry factory with a
+  compatible factory/options lifetime, and injected `IClock` into saga redrive. Solution build passed;
+  unit tests passed (841); architecture tests passed (35). The required PostgreSQL-backed integration
+  suite ran using `VUMA_TEST_POSTGRES` and reached 424 passed / 3 failed. The remaining failures are
+  existing persistence assertions in procurement/finance expecting PostgreSQL constraint metadata;
+  they are unrelated to company deactivation. Task remains NEEDS_VERIFICATION pending that residual
+  integration failure.

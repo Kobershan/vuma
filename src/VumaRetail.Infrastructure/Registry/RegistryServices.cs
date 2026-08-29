@@ -201,7 +201,7 @@ public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan
     }
 }
 
-public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWork unitOfWork, ICompanyConnectionResolver resolver, IPrincipalAccessor? principal = null, IClock? clock = null) : ICompanyLifecycleService
+public sealed class CompanyLifecycleService(VumaRegistryDbContext db, ICompanyConnectionResolver resolver, IPrincipalAccessor? principal = null, IClock? clock = null) : ICompanyLifecycleService
 {
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
     {
@@ -215,13 +215,13 @@ public sealed class CompanyLifecycleService(VumaRegistryDbContext db, IUnitOfWor
         if (!company.Deactivate(actor, reason, occurredAt)) return;
         db.CompanyLifecycleAudits.Add(CompanyLifecycleAudit.Record(tenantId, companyId, fromState,
             CompanyLifecycleState.Deactivated, actor, reason, occurredAt));
-        await unitOfWork.CommitAsync(cancellationToken);
+        await db.CommitAsync(cancellationToken);
         resolver.Invalidate(companyId);
     }
 }
 
 /// <summary>Re-drives pending saga legs after an isolated company restore.</summary>
-public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork unitOfWork) : IRegistrySagaRedriver
+public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork unitOfWork, IClock clock) : IRegistrySagaRedriver
 {
     public async Task<int> RedriveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
     {
@@ -244,7 +244,7 @@ public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork u
                     && message.IdempotencyKey == key, cancellationToken).ConfigureAwait(false)) continue;
                 db.RegistryOutboxMessages.Add(new RegistryOutboxMessage(tenantId, "saga.leg.redrive",
                     JsonSerializer.Serialize(new { intentId = intent.Id, legId = leg.LegId, companyId }),
-                    DateTimeOffset.UtcNow, key, intent.OperationStamp));
+                    clock.UtcNow, key, intent.OperationStamp));
                 queued++;
             }
         }

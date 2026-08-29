@@ -70,8 +70,8 @@ public static class PersistenceServiceCollectionExtensions
             options.UseNpgsql(registryConnectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
             options.UseSnakeCaseNamingConvention();
-        });
-        services.AddPooledDbContextFactory<VumaRegistryDbContext>((_, options) =>
+        }, optionsLifetime: ServiceLifetime.Singleton);
+        services.AddDbContextFactory<VumaRegistryDbContext>((_, options) =>
         { options.UseNpgsql(registryConnectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry")); options.UseSnakeCaseNamingConvention(); });
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRegistryDbContext>());
         services.AddScoped<ICompanyContext, AmbientCompanyContext>();
