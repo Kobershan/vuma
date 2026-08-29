@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MAX_TURNS = 12
+MAX_TURNS = 16
 MAX_TOOL_CALLS = 24
 MAX_CHECKS = 3
 
@@ -147,6 +147,19 @@ def limit_text(text, size=7000):
 def read_file(path, start_line=1, max_lines=120):
     p = safe_path(path)
 
+    if p == task_path:
+        return (
+            "TASK FILE ALREADY PROVIDED IN THE INITIAL PROMPT. "
+            "Do not reread it. Inspect implementation/tests for "
+            "CURRENT MICRO-SLICE instead."
+        )
+
+    if p == current_path:
+        return (
+            "docs/CURRENT.md ALREADY PROVIDED IN THE INITIAL PROMPT. "
+            "Do not reread it. Inspect implementation/tests instead."
+        )
+
     if not p.exists() or not p.is_file():
         return f"ERROR: file not found: {relative(p)}"
 
@@ -169,107 +182,269 @@ def read_file(path, start_line=1, max_lines=120):
     return limit_text("\n".join(output), 7500)
 
 
+def repository_text_files(root):
+    allowed_suffixes = {
+        ".cs",
+        ".csproj",
+        ".props",
+        ".targets",
+        ".json",
+        ".md",
+        ".yml",
+        ".yaml",
+        ".xml",
+        ".sql",
+        ".sh",
+        ".py",
+    }
+
+    excluded_dirs = {
+        ".git",
+        "bin",
+        "obj",
+        "node_modules",
+        ".idea",
+        ".vs",
+        "__pycache__",
+        "logs",
+    }
+
+    if root.is_file():
+        return [root]
+
+    result = []
+
+    for base, dirs, files in os.walk(root):
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in excluded_dirs
+        ]
+
+        base_path = Path(base)
+
+        # Never search historical automation logs.
+        try:
+            rel = base_path.relative_to(repo)
+            rel_text = str(rel)
+        except ValueError:
+            continue
+
+        if rel_text.startswith("docs/automation/logs"):
+            dirs[:] = []
+            continue
+
+        for name in files:
+            fp = base_path / name
+
+            if fp.suffix.lower() not in allowed_suffixes:
+                continue
+
+            try:
+                if fp.stat().st_size > 400_000:
+                    continue
+            except OSError:
+                continue
+
+            result.append(fp)
+
+    return result
+
+
+SEARCH_STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "to",
+    "of",
+    "for",
+    "in",
+    "on",
+    "with",
+    "that",
+    "this",
+    "is",
+    "are",
+    "be",
+    "been",
+    "one",
+    "only",
+    "existing",
+    "find",
+    "test",
+    "tests",
+    "prove",
+    "proving",
+    "relevant",
+    "narrow",
+    "narrowest",
+}
+
+
+def search_terms(query):
+    words = re.findall(
+        r"[A-Za-z][A-Za-z0-9_-]{2,}",
+        query.lower(),
+    )
+
+    terms = []
+
+    for word in words:
+        if word in SEARCH_STOPWORDS:
+            continue
+
+        if word not in terms:
+            terms.append(word)
+
+    return terms[:10]
+
+
 def search(query, path=".", regex=False):
     p = safe_path(path)
 
-    # Prefer ripgrep when available, but do NOT require it.
-    # Ubuntu's standard grep provides a perfectly adequate fallback for
-    # these deliberately small targeted searches.
-    import shutil
+    files = repository_text_files(p)
 
-    rg = shutil.which("rg")
+    if not files:
+        return "NO SEARCHABLE FILES"
 
-    if rg:
-        cmd = [
-            rg,
-            "-n",
-            "--no-heading",
-            "--color",
-            "never",
-            "--glob",
-            "!.git/**",
-            "--glob",
-            "!bin/**",
-            "--glob",
-            "!obj/**",
-            "--glob",
-            "!docs/automation/logs/**",
-        ]
+    matches = []
 
-        if not regex:
-            cmd.append("--fixed-strings")
-
-        cmd.extend(["--", query, str(p)])
-
+    if regex:
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=repo,
-                text=True,
-                capture_output=True,
-                timeout=20,
+            pattern = re.compile(
+                query,
+                re.IGNORECASE,
             )
-        except subprocess.TimeoutExpired:
-            return "ERROR: search timed out"
+        except re.error as e:
+            return f"ERROR: invalid regex: {e}"
 
-        lines = result.stdout.splitlines()[:35]
+        for fp in files:
+            try:
+                lines = fp.read_text(
+                    errors="replace"
+                ).splitlines()
+            except Exception:
+                continue
 
-        return limit_text(
-            "\n".join(lines) if lines else "NO MATCHES",
-            6000,
+            for number, line in enumerate(lines, 1):
+                if pattern.search(line):
+                    try:
+                        rel = relative(fp)
+                    except Exception:
+                        continue
+
+                    matches.append(
+                        (
+                            1,
+                            rel,
+                            number,
+                            line.strip(),
+                        )
+                    )
+
+                    if len(matches) >= 60:
+                        break
+
+        if not matches:
+            return "NO MATCHES"
+
+    else:
+        terms = search_terms(query)
+
+        if not terms:
+            return (
+                "ERROR: search query contains no useful keywords"
+            )
+
+        for fp in files:
+            try:
+                rel = relative(fp)
+                rel_lower = rel.lower()
+
+                lines = fp.read_text(
+                    errors="replace"
+                ).splitlines()
+            except Exception:
+                continue
+
+            filename_score = sum(
+                3
+                for term in terms
+                if term in rel_lower
+            )
+
+            for number, line in enumerate(lines, 1):
+                lower = line.lower()
+
+                present = [
+                    term
+                    for term in terms
+                    if term in lower
+                ]
+
+                if not present:
+                    continue
+
+                # Reward lines matching multiple concepts.
+                score = (
+                    filename_score
+                    + len(present) * 4
+                )
+
+                # Tests are usually what an acceptance slice needs.
+                if rel.startswith("tests/"):
+                    score += 4
+
+                if "test" in rel_lower:
+                    score += 2
+
+                matches.append(
+                    (
+                        score,
+                        rel,
+                        number,
+                        line.strip(),
+                    )
+                )
+
+        if not matches:
+            return (
+                "NO MATCHES for keywords: "
+                + ", ".join(terms)
+            )
+
+        matches.sort(
+            key=lambda x: (
+                -x[0],
+                x[1],
+                x[2],
+            )
         )
 
-    # ---------------------------------------------------------
-    # Portable grep fallback.
-    # ---------------------------------------------------------
+    output = []
 
-    grep = shutil.which("grep")
+    seen = set()
 
-    if not grep:
-        return "ERROR: neither rg nor grep is available"
+    for score, rel, number, line in matches:
+        key = (rel, number)
 
-    cmd = [
-        grep,
-        "-R",
-        "-n",
-        "-I",
-        "--exclude-dir=.git",
-        "--exclude-dir=bin",
-        "--exclude-dir=obj",
-        "--exclude-dir=logs",
-    ]
+        if key in seen:
+            continue
 
-    if not regex:
-        cmd.append("-F")
+        seen.add(key)
 
-    cmd.extend(["--", query, str(p)])
-
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=repo,
-            text=True,
-            capture_output=True,
-            timeout=25,
-        )
-    except subprocess.TimeoutExpired:
-        return "ERROR: search timed out"
-
-    # grep returns:
-    # 0 = matches
-    # 1 = no matches
-    # >1 = actual error
-    if result.returncode > 1:
-        return limit_text(
-            "ERROR: grep failed:\n" + result.stderr,
-            2500,
+        output.append(
+            f"{rel}:{number}: {line}"
         )
 
-    lines = result.stdout.splitlines()[:35]
+        if len(output) >= 35:
+            break
 
     return limit_text(
-        "\n".join(lines) if lines else "NO MATCHES",
-        6000,
+        "\n".join(output),
+        7000,
     )
 
 
@@ -888,6 +1063,85 @@ def build_slice_plan(text):
     return plan[:12]
 
 
+
+def discover_candidate_files(slice_text):
+    """
+    Give the small model a tiny repository map before it starts.
+
+    This deliberately prefers tests and only returns a handful of files.
+    """
+
+    terms = search_terms(slice_text)
+
+    # Domain terms that are especially useful for multi-company work.
+    extras = [
+        "company",
+        "tenant",
+        "multicompany",
+        "multi-company",
+        "isolation",
+        "context",
+        "active",
+        "routing",
+    ]
+
+    for term in extras:
+        if term not in terms:
+            terms.append(term)
+
+    terms = terms[:12]
+
+    roots = []
+
+    for name in ("tests", "src"):
+        candidate = repo / name
+
+        if candidate.exists():
+            roots.append(candidate)
+
+    scored = {}
+
+    for root in roots:
+        for fp in repository_text_files(root):
+            try:
+                rel = relative(fp)
+                rel_lower = rel.lower()
+
+                # Small bounded sample is enough for discovery.
+                content = fp.read_text(
+                    errors="replace"
+                )[:50000].lower()
+            except Exception:
+                continue
+
+            score = 0
+
+            for term in terms:
+                if term in rel_lower:
+                    score += 8
+
+                count = content.count(term)
+
+                if count:
+                    score += min(count, 5) * 2
+
+            if rel.startswith("tests/"):
+                score += 8
+
+            if fp.name.endswith("Tests.cs"):
+                score += 5
+
+            if score > 0:
+                scored[rel] = score
+
+    ranked = sorted(
+        scored.items(),
+        key=lambda x: (-x[1], x[0]),
+    )
+
+    return ranked[:12]
+
+
 def meaningful_work_exists():
     result = git("status", "--porcelain")
     lines = result.stdout.splitlines()
@@ -1181,6 +1435,27 @@ print(
     flush=True,
 )
 
+candidate_files = discover_candidate_files(
+    current_slice_text
+)
+
+if candidate_files:
+    print(
+        "[local-worker] candidate files:",
+        flush=True,
+    )
+
+    for candidate, score in candidate_files:
+        print(
+            f"  score={score:>3} {candidate}",
+            flush=True,
+        )
+else:
+    print(
+        "[local-worker] candidate files: none",
+        flush=True,
+    )
+
 current_text = (
     current_path.read_text(errors="replace")
     if current_path.exists()
@@ -1236,10 +1511,21 @@ Rules:
 - Always call finish exactly once after this micro-slice is done.
 """
 
+candidate_text = "\n".join(
+    f"- {path} (relevance {score})"
+    for path, score in candidate_files
+)
+
+if not candidate_text:
+    candidate_text = "- none discovered automatically"
+
 user = f"""\
 STAGE: {stage}
 TASK: {task_id}
 TASK FILE: {relative(task_path)}
+
+LIKELY RELEVANT FILES:
+{candidate_text}
 
 TASK CONTENT:
 {task_excerpt}
@@ -1256,9 +1542,21 @@ Do not choose another requirement.
 Do not manually edit task status.
 Do not manually edit docs/CURRENT.md.
 
+LIKELY RELEVANT FILES above were selected automatically by the
+Python wrapper. Start with those files.
+
 Your first useful action should normally be:
-- targeted search for the relevant implementation/test symbol, OR
-- read the directly relevant source/test file if already known.
+- read_file on the most relevant candidate test file, OR
+- search using 2-5 SHORT KEYWORDS if candidates are insufficient.
+
+IMPORTANT SEARCH RULE:
+Do NOT send a sentence to search().
+Good:
+  "company isolation tenant"
+  "active company"
+  "CompanyContext"
+Bad:
+  "find the test proving that one company cannot write another company"
 
 Then implement or execute the narrow validation.
 
