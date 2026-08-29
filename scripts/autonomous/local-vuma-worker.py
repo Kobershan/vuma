@@ -13,9 +13,17 @@ from pathlib import Path
 
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MAX_TURNS = 16
+MAX_TURNS = 24
 MAX_TOOL_CALLS = 24
-MAX_CHECKS = 3
+MAX_CHECKS = 4
+
+LOCAL_MODE = os.environ.get(
+    "VUMA_LOCAL_MODE",
+    "task",
+).strip().lower()
+
+if LOCAL_MODE not in {"task", "slice"}:
+    LOCAL_MODE = "task"
 
 finished = False
 tool_calls_used = 0
@@ -695,7 +703,13 @@ def finish(status, summary, next_slice=""):
     # The model does not choose the next micro-slice.
     # The deterministic wrapper does.
     if status == "IN_PROGRESS":
-        if (
+        if LOCAL_MODE == "task":
+            next_slice = (
+                "Resume the same canonical task from its remaining "
+                "unfinished requirements using a fresh context."
+            )
+
+        elif (
             current_slice_id is not None
             and current_slice_id < len(slice_plan)
         ):
@@ -703,6 +717,7 @@ def finish(status, summary, next_slice=""):
                 f"Slice {current_slice_id + 1}: "
                 + slice_plan[current_slice_id]
             )
+
         else:
             next_slice = (
                 "Reconcile remaining task evidence and requirements."
@@ -710,7 +725,8 @@ def finish(status, summary, next_slice=""):
 
     # COMPLETE is forbidden before the final planned slice.
     if (
-        status == "COMPLETE"
+        LOCAL_MODE == "slice"
+        and status == "COMPLETE"
         and current_slice_id is not None
         and current_slice_id < len(slice_plan)
     ):
@@ -755,693 +771,80 @@ def finish(status, summary, next_slice=""):
         )
 
     task_text = task_path.read_text(errors="replace")
-    task_text = set_task_status(task_text, status)
 
-    stamp = datetime.datetime.now(
-        datetime.timezone.utc
-    ).strftime("%Y-%m-%d %H:%M UTC")
-
-    slice_marker = (
-        str(current_slice_id)
-        if current_slice_id is not None
-        else "0"
-    )
-
-    progress = (
-        f"\n- {stamp} LOCAL-SLICE-DONE "
-        f"{slice_marker}: {summary}"
-    )
-
-    if next_slice:
-        progress += f" Next: {next_slice}"
-
-    progress += "\n"
-
-    if "## Local worker progress" not in task_text:
-        task_text = (
-            task_text.rstrip()
-            + "\n\n## Local worker progress\n"
-            + progress
-        )
-    else:
-        task_text = task_text.rstrip() + progress
-
-    task_path.write_text(task_text)
-    update_current(summary, next_slice, status)
-
-    diff_check = git("diff", "--check")
-
-    if diff_check.returncode != 0:
-        return (
-            "ERROR: git diff --check failed:\n"
-            + diff_check.stdout
-            + diff_check.stderr
-        )
-
-    changed = git("status", "--porcelain").stdout.strip()
-
-    if not changed:
-        return "ERROR: finish produced no repository changes"
-
-    git("add", "-A", check=True)
-
-    scope = f"stage-{stage.lower()}"
-
-    if status == "COMPLETE":
-        message = f"feat({scope}): complete {task_id}"
-    else:
-        message = f"feat({scope}): local slice for {task_id}"
-
-    commit = git(
-        "commit",
-        "-m",
-        message,
-        timeout=120,
-    )
-
-    if commit.returncode != 0:
-        git("reset")
-        return (
-            "ERROR: commit failed:\n"
-            + commit.stdout
-            + commit.stderr
-        )
-
-    push = git("push", timeout=180)
-
-    pushed = push.returncode == 0
-
-    finished = True
-
-    return json.dumps(
-        {
-            "ok": True,
-            "status": status,
-            "commit": git(
-                "rev-parse",
-                "HEAD",
-            ).stdout.strip(),
-            "pushed": pushed,
-            "push_output": limit_text(
-                push.stdout + push.stderr,
-                1500,
-            ),
-        }
-    )
-
-
-
-def section_text(text, heading):
-    pattern = re.compile(
-        rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-
-    match = pattern.search(text)
-
-    if not match:
-        return ""
-
-    return match.group(1).strip()
-
-
-def clean_requirement(text):
-    text = re.sub(r"^[-*]\s*", "", text.strip())
-    text = re.sub(r"\s+", " ", text)
-    return text.strip(" .")
-
-
-def split_requirements(text, split_commas=False):
-    if not text:
-        return []
-
-    items = []
-
-    # First split actual bullets/lines and semicolon-separated requirements.
-    parts = re.split(r"\n+|;\s*", text)
-
-    for part in parts:
-        part = clean_requirement(part)
-
-        if not part:
-            continue
-
-        if split_commas:
-            subparts = re.split(
-                r",\s*|\s+and\s+",
-                part,
-                flags=re.IGNORECASE,
-            )
-
-            for sub in subparts:
-                sub = clean_requirement(sub)
-
-                if len(sub) >= 4:
-                    items.append(sub)
-        else:
-            items.append(part)
-
-    return items
-
-
-def completed_slice_ids(text):
-    return {
-        int(x)
-        for x in re.findall(
-            r"LOCAL-SLICE-DONE\s+(\d+)",
-            text,
-        )
-    }
-
-
-def build_slice_plan(text):
-    """
-    Convert a canonical Vuma task into small deterministic work packets.
-
-    The model never decides what the next packet is.
-    """
-
-    # --------------------------------------------------------
-    # Stage 06c acceptance has a deliberately explicit plan.
-    # This task is broad enough that a 3B model must NOT infer
-    # the matrix itself.
-    # --------------------------------------------------------
-
-    if task_id == "TASK-06C-12":
-        return [
-            (
-                "Isolation acceptance. Find the narrowest existing Stage 06c "
-                "unit/integration tests proving one company cannot read or "
-                "write another company's data. If coverage is missing, add "
-                "only the smallest focused test. Run only the relevant "
-                "test-project/filter."
-            ),
-            (
-                "Active-company filtering acceptance. Find or add the "
-                "narrowest test proving inactive/deactivated companies are "
-                "excluded from ordinary company operations and fan-out reads. "
-                "Run only the relevant filtered/project test."
-            ),
-            (
-                "No-cross-company-write acceptance. Find or add the narrowest "
-                "architecture/unit test proving one request/handler cannot "
-                "write through two company database contexts. Run only that "
-                "targeted validation."
-            ),
-            (
-                "Three-company fixture acceptance. Inspect the existing "
-                "Stage 06c fixture/seed support. Verify three deterministic "
-                "companies can be created independently and fixture setup is "
-                "rerunnable. Add only narrowly missing fixture coverage and "
-                "run the relevant test."
-            ),
-            (
-                "Company API acceptance. Verify the narrow API tests for "
-                "company selection, tenant/company access and active-company "
-                "filtering. Add only missing focused coverage and run the "
-                "relevant API/integration filter."
-            ),
-            (
-                "Backup/restore and sync boundary acceptance. Find the "
-                "Stage 06c per-company backup/restore or sync tests and run "
-                "the narrowest relevant filter. If narrowly missing, add one "
-                "focused test. Do not run unrelated backup suites."
-            ),
-            (
-                "PostgreSQL Stage 06c acceptance. Use the documented "
-                "disposable PostgreSQL test mechanism if required, and run "
-                "only the narrow Stage 06c/company persistence or migration "
-                "filter. If infrastructure genuinely cannot run, capture the "
-                "exact automated failure rather than changing unrelated code."
-            ),
-            (
-                "Architecture acceptance. Run the narrowest architecture "
-                "validation covering Stage 06c multi-company boundaries. "
-                "Only use the complete architecture test project if there is "
-                "no usable Stage 06c filter."
-            ),
-            (
-                "Acceptance evidence reconciliation. Review the LOCAL-SLICE "
-                "evidence already recorded for this task and the task's "
-                "Acceptance Criteria / Tests Required. Run only any remaining "
-                "required automated check. Mark COMPLETE only when every "
-                "required acceptance area has evidence; otherwise use "
-                "NEEDS_VERIFICATION only for a genuinely unavailable required "
-                "automated prerequisite."
-            ),
-        ]
-
-    # --------------------------------------------------------
-    # Generic planner for later canonical tasks.
-    # --------------------------------------------------------
-
-    plan = []
-
-    implementation = split_requirements(
-        section_text(text, "Implementation Requirements")
-    )
-
-    acceptance = split_requirements(
-        section_text(text, "Acceptance Criteria")
-    )
-
-    tests = split_requirements(
-        section_text(text, "Tests Required"),
-        split_commas=True,
-    )
-
-    for item in implementation[:6]:
-        plan.append(
-            "Implementation requirement: "
-            + item
-            + ". Implement only the smallest coherent portion needed for "
-              "this requirement and run one narrow validation."
-        )
-
-    for item in acceptance[:4]:
-        plan.append(
-            "Acceptance requirement: "
-            + item
-            + ". Verify this requirement only. Add narrowly missing test "
-              "coverage if necessary and run the targeted check."
-        )
-
-    for item in tests[:4]:
-        # Avoid turning phrases such as "full applicable suite" into a
-        # solution-wide build during an ordinary micro-slice.
-        if "full applicable suite" in item.lower():
-            plan.append(
-                "Test requirement: identify and run the smallest targeted "
-                "subset of the applicable suite that validates this task. "
-                "Do not run a solution-wide test command in this slice."
-            )
-        else:
-            plan.append(
-                "Test requirement: "
-                + item
-                + ". Run only the narrow project/filter relevant to the "
-                  "assigned canonical task."
-            )
-
-    if not plan:
-        objective = clean_requirement(
-            section_text(text, "Objective")
-        )
-
-        if objective:
-            plan.append(
-                "Implement or verify this objective in one small coherent "
-                f"slice: {objective}"
-            )
-        else:
-            plan.append(
-                "Inspect the assigned task and implement one smallest "
-                "coherent unfinished requirement."
-            )
-
-    # Keep local plans bounded.
-    return plan[:12]
-
-
-
-def discover_candidate_files(slice_text):
-    """
-    Give the small model a tiny repository map before it starts.
-
-    This deliberately prefers tests and only returns a handful of files.
-    """
-
-    terms = search_terms(slice_text)
-
-    # Domain terms that are especially useful for multi-company work.
-    extras = [
-        "company",
-        "tenant",
-        "multicompany",
-        "multi-company",
-        "isolation",
-        "context",
-        "active",
-        "routing",
-    ]
-
-    for term in extras:
-        if term not in terms:
-            terms.append(term)
-
-    terms = terms[:12]
-
-    roots = []
-
-    for name in ("tests", "src"):
-        candidate = repo / name
-
-        if candidate.exists():
-            roots.append(candidate)
-
-    scored = {}
-
-    for root in roots:
-        for fp in repository_text_files(root):
-            try:
-                rel = relative(fp)
-                rel_lower = rel.lower()
-
-                # Small bounded sample is enough for discovery.
-                content = fp.read_text(
-                    errors="replace"
-                )[:50000].lower()
-            except Exception:
-                continue
-
-            score = 0
-
-            for term in terms:
-                if term in rel_lower:
-                    score += 8
-
-                count = content.count(term)
-
-                if count:
-                    score += min(count, 5) * 2
-
-            if rel.startswith("tests/"):
-                score += 8
-
-            if fp.name.endswith("Tests.cs"):
-                score += 5
-
-            if score > 0:
-                scored[rel] = score
-
-    ranked = sorted(
-        scored.items(),
-        key=lambda x: (-x[1], x[0]),
-    )
-
-    return ranked[:12]
-
-
-def meaningful_work_exists():
-    result = git("status", "--porcelain")
-    lines = result.stdout.splitlines()
-
-    ignored = {
-        relative(task_path),
-        relative(current_path),
-    }
-
-    for line in lines:
-        if len(line) < 4:
-            continue
-
-        changed = line[3:].strip()
-
-        # Handle "old -> new" rename format.
-        if " -> " in changed:
-            changed = changed.split(" -> ", 1)[1]
-
-        if changed not in ignored:
-            return True
-
-    return False
-
-
-def finish_allowed():
-    # A model may not finish before it has either:
-    # - produced a real source/test change, or
-    # - executed at least one actual automated check.
-    return meaningful_work_exists() or bool(check_results)
-
-
-def tools_for_turn():
-    if finish_allowed():
-        return TOOLS
-
-    # Do not even advertise finish() until real work happened.
-    return [
-        tool
-        for tool in TOOLS
-        if (
-            tool.get("function", {}).get("name")
-            != "finish"
+if LOCAL_MODE == "task":
+    slice_plan = [
+        (
+            "Complete the entire assigned canonical task. "
+            "Use the task MD as the authoritative implementation plan. "
+            "Inspect only relevant source/tests, make the required changes, "
+            "run the required targeted automated checks, and finish the "
+            "canonical task. If the full task genuinely cannot be completed "
+            "in this invocation, finish IN_PROGRESS with a concise summary; "
+            "the next fresh invocation will receive the same canonical task."
         )
     ]
 
+    current_slice_id = 1
+    current_slice_text = slice_plan[0]
 
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read a small line range from one repository file.",
-            "parameters": {
-                "type": "object",
-                "required": ["path"],
-                "properties": {
-                    "path": {"type": "string"},
-                    "start_line": {"type": "integer"},
-                    "max_lines": {"type": "integer"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search",
-            "description": "Targeted ripgrep search inside the repository.",
-            "parameters": {
-                "type": "object",
-                "required": ["query"],
-                "properties": {
-                    "query": {"type": "string"},
-                    "path": {"type": "string"},
-                    "regex": {"type": "boolean"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "replace_text",
-            "description": "Replace one exact text occurrence in a file.",
-            "parameters": {
-                "type": "object",
-                "required": ["path", "old", "new"],
-                "properties": {
-                    "path": {"type": "string"},
-                    "old": {"type": "string"},
-                    "new": {"type": "string"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Create a text file or rewrite a file already read.",
-            "parameters": {
-                "type": "object",
-                "required": ["path", "content"],
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_check",
-            "description": "Run one targeted build/test/restore or git diff/status check.",
-            "parameters": {
-                "type": "object",
-                "required": ["command"],
-                "properties": {
-                    "command": {"type": "string"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "finish",
-            "description": "Finish this micro-slice, update task/current, commit and push.",
-            "parameters": {
-                "type": "object",
-                "required": ["status", "summary"],
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "enum": [
-                            "IN_PROGRESS",
-                            "COMPLETE",
-                            "NEEDS_VERIFICATION",
-                        ],
-                    },
-                    "summary": {"type": "string"},
-                    "next_slice": {"type": "string"},
-                },
-            },
-        },
-    },
-]
-
-
-FUNCTIONS = {
-    "read_file": read_file,
-    "search": search,
-    "replace_text": replace_text,
-    "write_file": write_file,
-    "run_check": run_check,
-    "finish": finish,
-}
-
-
-def parse_text_tool_call(content):
-    """
-    Qwen2.5-Coder sometimes emits a valid tool request as plain JSON text
-    instead of Ollama's structured message.tool_calls field.
-
-    Accept forms such as:
-
-      {"name":"read_file","arguments":{"path":"..."}}
-
-    and:
-
-      {"function":{"name":"read_file","arguments":{...}}}
-
-    Also tolerate fenced ```json blocks.
-    """
-    if not content:
-        return []
-
-    text = content.strip()
-
-    if text.startswith("```"):
-        lines = text.splitlines()
-
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-
-        text = "\n".join(lines).strip()
-
-    # Occasionally the model writes a little prose before/after the object.
-    first = text.find("{")
-    last = text.rfind("}")
-
-    if first >= 0 and last > first:
-        text = text[first:last + 1]
-
-    try:
-        obj = json.loads(text)
-    except Exception:
-        return []
-
-    if not isinstance(obj, dict):
-        return []
-
-    # Simple Qwen form:
-    # {"name":"read_file","arguments":{...}}
-    if isinstance(obj.get("name"), str):
-        name = obj["name"]
-        arguments = obj.get("arguments", {})
-
-        if name in FUNCTIONS and isinstance(arguments, dict):
-            return [
-                {
-                    "function": {
-                        "name": name,
-                        "arguments": arguments,
-                    }
-                }
-            ]
-
-    # OpenAI/Ollama-like nested form.
-    fn = obj.get("function")
-
-    if isinstance(fn, dict) and isinstance(fn.get("name"), str):
-        name = fn["name"]
-        arguments = fn.get("arguments", {})
-
-        if isinstance(arguments, str):
-            try:
-                arguments = json.loads(arguments)
-            except Exception:
-                arguments = {}
-
-        if name in FUNCTIONS and isinstance(arguments, dict):
-            return [
-                {
-                    "function": {
-                        "name": name,
-                        "arguments": arguments,
-                    }
-                }
-            ]
-
-    return []
-
-
-
-task_text = task_path.read_text(errors="replace")
-
-slice_plan = build_slice_plan(task_text)
-completed = completed_slice_ids(task_text)
-
-pending_ids = [
-    i
-    for i in range(1, len(slice_plan) + 1)
-    if i not in completed
-]
-
-if pending_ids:
-    current_slice_id = pending_ids[0]
-    current_slice_text = slice_plan[current_slice_id - 1]
 else:
-    # All predefined packets have evidence but the canonical task is
-    # still not terminal. Give it a tightly scoped reconciliation pass.
-    current_slice_id = (
-        max(completed)
-        + 1
-        if completed
-        else 1
-    )
+    slice_plan = build_slice_plan(task_text)
+    completed = completed_slice_ids(task_text)
 
-    current_slice_text = (
-        "Final evidence reconciliation only. Inspect the assigned task's "
-        "existing LOCAL-SLICE-DONE records and required acceptance/tests. "
-        "Run one remaining required narrow automated check. Do not add new "
-        "product behavior. Mark COMPLETE only if all requirements genuinely "
-        "have automated evidence."
-    )
+    pending_ids = [
+        i
+        for i in range(1, len(slice_plan) + 1)
+        if i not in completed
+    ]
 
-    # Make this the final known item so COMPLETE is permitted.
-    while len(slice_plan) < current_slice_id:
-        slice_plan.append(current_slice_text)
+    if pending_ids:
+        current_slice_id = pending_ids[0]
+        current_slice_text = slice_plan[
+            current_slice_id - 1
+        ]
+    else:
+        current_slice_id = (
+            max(completed) + 1
+            if completed
+            else 1
+        )
+
+        current_slice_text = (
+            "Final evidence reconciliation only. "
+            "Inspect existing evidence and run one remaining "
+            "required narrow automated check."
+        )
+
+        while len(slice_plan) < current_slice_id:
+            slice_plan.append(current_slice_text)
 
 print(
-    f"[local-worker] selected slice "
-    f"{current_slice_id}/{len(slice_plan)}: "
-    f"{current_slice_text}",
+    f"[local-worker] mode={LOCAL_MODE}",
     flush=True,
 )
 
+if LOCAL_MODE == "task":
+    print(
+        f"[local-worker] canonical task: {task_id}",
+        flush=True,
+    )
+else:
+    print(
+        f"[local-worker] selected slice "
+        f"{current_slice_id}/{len(slice_plan)}: "
+        f"{current_slice_text}",
+        flush=True,
+    )
+
 candidate_files = discover_candidate_files(
-    current_slice_text
+    task_text if LOCAL_MODE == "task"
+    else current_slice_text
 )
 
 if candidate_files:
     print(
-        "[local-worker] candidate files:",
+        "[local-worker] likely relevant files:",
         flush=True,
     )
 
@@ -1450,11 +853,7 @@ if candidate_files:
             f"  score={score:>3} {candidate}",
             flush=True,
         )
-else:
-    print(
-        "[local-worker] candidate files: none",
-        flush=True,
-    )
+
 
 current_text = (
     current_path.read_text(errors="replace")
@@ -1469,8 +868,13 @@ current_excerpt = current_text[:1600]
 system = """\
 You are the Vuma local autonomous coding worker.
 
-You have exactly ONE canonical task and must perform exactly ONE small
-coherent micro-slice per invocation.
+You have exactly ONE canonical Vuma task.
+
+In TASK mode, execute the entire canonical task described by the task MD.
+The task document is your implementation plan.
+
+Do not invent another planning system.
+Do not select another task.
 
 Use tools. Do not merely explain what should be done.
 
@@ -1483,12 +887,13 @@ Rules:
 - NEVER manually edit docs/CURRENT.md.
 - NEVER change NOT_STARTED/IN_PROGRESS/COMPLETE using replace_text.
 - finish() alone owns task status, task progress and CURRENT metadata.
-- The Python wrapper has ALREADY selected the exact micro-slice.
-- Do NOT choose, redesign, broaden or replace that micro-slice.
-- First perform actual implementation or the actual automated check required
-  by CURRENT MICRO-SLICE.
-- For an acceptance task, verify ONLY CURRENT MICRO-SLICE.
-- Do not mark progress before performing that requirement.
+- The supervisor has already selected the canonical task.
+- The assigned task MD is authoritative.
+- Work through the task's Scope, Implementation Requirements,
+  Acceptance Criteria, Tests Required and Definition of Done.
+- Do not start another canonical task.
+- Do not invent unrelated requirements.
+- Perform real implementation/testing before calling finish().
 - Never inspect the whole repository.
 - Use targeted search only.
 - Normally touch no more than 2-6 implementation/test files.
@@ -1533,12 +938,16 @@ TASK CONTENT:
 CURRENT EXCERPT:
 {current_excerpt}
 
-CURRENT MICRO-SLICE {current_slice_id}/{len(slice_plan)}:
-{current_slice_text}
+EXECUTION MODE: {LOCAL_MODE.upper()}
 
-Do EXACTLY CURRENT MICRO-SLICE.
+{"COMPLETE THIS ENTIRE CANONICAL TASK." if LOCAL_MODE == "task" else f"CURRENT MICRO-SLICE {current_slice_id}/{len(slice_plan)}: {current_slice_text}"}
 
-Do not choose another requirement.
+The TASK CONTENT above is authoritative.
+
+Do the work now.
+
+Do not merely propose a plan.
+Do not choose another canonical task.
 Do not manually edit task status.
 Do not manually edit docs/CURRENT.md.
 

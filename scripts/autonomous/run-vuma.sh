@@ -467,7 +467,7 @@ printf 'Worker configuration: approval_policy=never; full non-interactive access
 if [[ "$WORKER_BACKEND" == opencode ]]; then
   printf 'Worker backend: Direct Ollama + Qwen local worker\n'
   printf 'Worker model: %s\n' "$LOCAL_MODEL"
-  printf 'Worker mode: FAST-SLICE; direct 4K Ollama tool loop\n'
+  printf 'Worker mode: CANONICAL-TASK; direct 4K Ollama tool loop\n'
 else
   printf 'Worker backend: Codex\n'
   printf 'Worker mode: FAST-SLICE; fresh ephemeral session per slice\n'
