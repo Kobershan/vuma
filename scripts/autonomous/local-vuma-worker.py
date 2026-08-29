@@ -999,7 +999,7 @@ def ollama_chat(msgs):
         "model": model,
         "messages": msgs,
         "stream": False,
-        "tools": tools_for_turn(),
+        "tools": TOOLS,
         "keep_alive": "30m",
         "options": {
             "num_ctx": 4096,
