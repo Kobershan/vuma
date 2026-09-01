@@ -19,6 +19,8 @@ public sealed class PipelineRulesTests
         typeof(VumaRetail.Application.AssemblyMarker).Assembly,
         typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
         typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
+        // Stage 05: the approval, notification and document command/query handlers.
+        typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
     ];
 
     [Fact]
@@ -79,6 +81,10 @@ public sealed class PipelineRulesTests
             // dispatched message handlers. They own the separate registry database boundary.
             "src/VumaRetail.Infrastructure/Registry/CompanyMigrationServices.cs",
             "src/VumaRetail.Infrastructure/Registry/RegistryServices.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupCreditService.cs",
+            "src/VumaRetail.Infrastructure/Registry/BarcodeResolver.cs",
+            "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
+            "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""

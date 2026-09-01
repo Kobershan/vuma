@@ -3,7 +3,7 @@
   <!-- Solution-wide build settings. See CLAUDE.md §4 (locked stack) and §7 rule 10. -->
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>13.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

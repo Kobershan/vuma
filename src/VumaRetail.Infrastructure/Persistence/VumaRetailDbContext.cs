@@ -107,6 +107,23 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Tenant-granted, time-boxed vendor support access.</summary>
     public DbSet<Domain.Licensing.SupportGrant> SupportGrants => Set<Domain.Licensing.SupportGrant>();
 
+    /// <summary>Configured gates on threshold-sensitive actions (Stage 05, ADR-019).</summary>
+    public DbSet<Domain.Workflow.ApprovalPolicy> ApprovalPolicies => Set<Domain.Workflow.ApprovalPolicy>();
+
+    /// <summary>Pending and decided approval requests — the unified inbox's own rows.</summary>
+    public DbSet<Domain.Workflow.ApprovalRequest> ApprovalRequests => Set<Domain.Workflow.ApprovalRequest>();
+
+    /// <summary>The append-only approval decision history.</summary>
+    public DbSet<Domain.Workflow.ApprovalDecisionEntry> ApprovalDecisionEntries => Set<Domain.Workflow.ApprovalDecisionEntry>();
+
+    /// <summary>One message to one recipient on one channel.</summary>
+    public DbSet<Domain.Workflow.Notification> Notifications => Set<Domain.Workflow.Notification>();
+
+    /// <summary>Document metadata — never the bytes, which live behind <c>IDocumentBlobStore</c>.</summary>
+    public DbSet<Domain.Workflow.Document> Documents => Set<Domain.Workflow.Document>();
+
+    /// <summary>The append-only document version history.</summary>
+    public DbSet<Domain.Workflow.DocumentVersion> DocumentVersions => Set<Domain.Workflow.DocumentVersion>();
     /// <summary>Units an item can be counted, weighed or measured in (Stage 06).</summary>
     public DbSet<Domain.Catalog.UnitOfMeasure> UnitsOfMeasure => Set<Domain.Catalog.UnitOfMeasure>();
 
