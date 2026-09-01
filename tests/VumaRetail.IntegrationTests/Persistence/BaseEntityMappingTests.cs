@@ -30,6 +30,18 @@ public sealed class BaseEntityMappingTests(PostgresFixture fixture)
         { "identity", "user_role_assignments" },
         { "identity", "terminals" },
         { "identity", "refresh_tokens" },
+
+        // Stage 10. Stages 06 through 09 did not extend this list, so `catalog`, `partners`,
+        // `finance`, `inventory` and `pos` are still absent from it — a real gap, recorded in
+        // docs/PROGRESS.md rather than closed here, because adding twenty-two tables at once to a
+        // suite this stage did not write is a change whose failures would belong to other stages.
+        { "sales", "price_lists" },
+        { "sales", "price_list_lines" },
+        { "sales", "promotions" },
+        { "sales", "promotion_lines" },
+        { "sales", "sales_returns" },
+        { "sales", "sales_return_lines" },
+        { "sales", "price_override_logs" },
     };
 
     [Theory]

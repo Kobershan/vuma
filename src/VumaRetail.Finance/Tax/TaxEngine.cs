@@ -4,20 +4,17 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Finance.Tax;
 
-/// <summary>The result of applying a <see cref="TaxRule"/> to an amount.</summary>
-/// <param name="TaxCode">The rule's code.</param>
-/// <param name="NetAmount">The amount excluding tax.</param>
-/// <param name="TaxAmount">The tax.</param>
-/// <param name="GrossAmount">Net plus tax.</param>
-/// <param name="Rate">The rate that was applied, as a fraction.</param>
-public sealed record TaxCalculation(string TaxCode, Money NetAmount, Money TaxAmount, Money GrossAmount, decimal Rate);
-
 /// <summary>
 /// Calculates tax from configured <see cref="TaxRule"/> data (CLAUDE.md §9 — a rules engine, never a
 /// constant).
 /// </summary>
+/// <remarks>
+/// Implements <see cref="ITaxCalculator"/>, the port Stage 09 added so a module outside Finance can
+/// price a line without referencing the Finance assembly — the same shape
+/// <see cref="IFinancialEventPoster"/> already has. This class stays the only implementation.
+/// </remarks>
 /// <param name="taxRules">Where tax rules are stored.</param>
-public sealed class TaxEngine(ITaxRuleRepository taxRules)
+public sealed class TaxEngine(ITaxRuleRepository taxRules) : ITaxCalculator
 {
     /// <summary>
     /// Calculates net, tax and gross for a stated amount under the rule effective for a code on a date.

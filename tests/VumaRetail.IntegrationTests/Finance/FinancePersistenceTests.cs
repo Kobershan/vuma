@@ -127,11 +127,11 @@ public sealed class FinancePersistenceTests(PostgresFixture fixture)
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO finance.journal_lines
-                (id, tenant_id, journal_id, line_number, account_id, description,
+                (id, tenant_id, company_id, journal_id, line_number, account_id, description,
                  debit_amount, debit_currency, credit_amount, credit_currency,
                  created_at, created_by, updated_at, updated_by, row_version, sync_state, sync_stamp)
             VALUES
-                (gen_random_uuid(), @tenantId, @journalId, 99, gen_random_uuid(), 'both sides',
+                (gen_random_uuid(), @tenantId, @tenantId, @journalId, 99, gen_random_uuid(), 'both sides',
                  100, 'ZAR', 100, 'ZAR',
                  now(), 'test', now(), 'test', '\x00'::bytea, 'Pending', 'test-stamp')
             """;
@@ -165,11 +165,11 @@ public sealed class FinancePersistenceTests(PostgresFixture fixture)
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO finance.journal_lines
-                (id, tenant_id, journal_id, line_number, account_id, description,
+                (id, tenant_id, company_id, journal_id, line_number, account_id, description,
                  debit_amount, debit_currency, credit_amount, credit_currency,
                  created_at, created_by, updated_at, updated_by, row_version, sync_state, sync_stamp)
             VALUES
-                (gen_random_uuid(), @tenantId, @journalId, 98, gen_random_uuid(), 'neither side',
+                (gen_random_uuid(), @tenantId, @tenantId, @journalId, 98, gen_random_uuid(), 'neither side',
                  NULL, NULL, NULL, NULL,
                  now(), 'test', now(), 'test', '\x00'::bytea, 'Pending', 'test-stamp')
             """;

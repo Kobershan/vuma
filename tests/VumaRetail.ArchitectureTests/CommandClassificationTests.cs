@@ -1,5 +1,6 @@
 using System.Reflection;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.TestSupport;
 
 namespace VumaRetail.ArchitectureTests;
 
@@ -14,24 +15,23 @@ namespace VumaRetail.ArchitectureTests;
 /// rather than a customer finding out by ringing up a sale during a lapse.
 /// </para>
 /// <para>
-/// There are no commands yet. These tests are written before there is anything to check on purpose —
-/// the first command anyone adds is already governed.
+/// Written in Stage 00, before there was a single command to check, so that the first command anybody
+/// added was already governed. The assembly list it sweeps became derived rather than hand-maintained
+/// in Stage 11, after the hand-maintained one went stale by a whole module (ADR-078).
 /// </para>
 /// </remarks>
 public sealed class CommandClassificationTests
 {
     /// <summary>
-    /// Every assembly that may define commands. Module assemblies get appended here as stages add them.
+    /// Every assembly that may define commands.
     /// </summary>
-    private static readonly Assembly[] CommandAssemblies =
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        // Stage 05: the approval, notification and document commands.
-        typeof(VumaRetail.Workflow.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
-    ];
+    /// <remarks>
+    /// Derived rather than listed, since Stage 11 (ADR-078). It used to be a hand-maintained array,
+    /// and it went stale: <c>VumaRetail.Finance</c> shipped 18 commands entirely outside this sweep
+    /// for a whole stage (<c>PROGRESS.md</c> §4.16), which meant an unattributed command there would
+    /// have written while a tenant was read-only. See <see cref="ModuleAssemblies"/>.
+    /// </remarks>
+    private static Assembly[] CommandAssemblies => ModuleAssemblies.All;
 
     [Fact]
     public void Every_command_declares_a_side_effect()
@@ -62,14 +62,14 @@ public sealed class CommandClassificationTests
     }
 
     [Fact]
-    public void Read_only_exemptions_stay_confined_to_the_three_ADR_028_carve_outs()
+    public void Read_only_exemptions_stay_confined_to_the_four_ADR_028_ADR_135_carve_outs()
     {
         // The cap is on *kinds*, not commands (ADR-052) — counting commands would fail the build the
         // moment a second command legitimately shared a kind that already had one user, which is
         // exactly what Stage 04b's licence-screen commands do under Payment (SideEffect.cs's own
         // remarks on ReadOnlyExemption.Payment name six of them by design). What must stay closed is
-        // the set of *kinds*: Payment, OfflineFlush and Backup, asserted by name so a fourth needs a
-        // superseding ADR rather than a code review.
+        // the set of *kinds*: Payment, OfflineFlush, Backup and, since ADR-135, ReceiptReprint —
+        // asserted by name so a fifth needs a superseding ADR rather than a code review.
         List<(Type Type, ReadOnlyExemption Exemption)> exempt = AllCommands()
             .Select(command => (Type: command, Attribute: command.GetCustomAttribute<CommandSideEffectAttribute>()))
             .Where(entry => entry.Attribute is { Exemption: not ReadOnlyExemption.None })
@@ -83,11 +83,12 @@ public sealed class CommandClassificationTests
             ReadOnlyExemption.Payment,
             ReadOnlyExemption.OfflineFlush,
             ReadOnlyExemption.Backup,
+            ReadOnlyExemption.ReceiptReprint,
         ];
 
-        Assert.True(kinds.IsSubsetOf(permitted) && kinds.Count <= 3, $"""
-            A read-only exemption kind outside ADR-028's closed list of three (Payment, OfflineFlush,
-            Backup) is in use. Widening the set of kinds needs a superseding ADR.
+        Assert.True(kinds.IsSubsetOf(permitted) && kinds.Count <= 4, $"""
+            A read-only exemption kind outside the closed list of four (Payment, OfflineFlush, Backup,
+            ReceiptReprint) is in use. Widening the set of kinds needs a superseding ADR.
 
             Currently exempt:
             {string.Join(Environment.NewLine, exempt.Select(entry => $"  - {entry.Type.FullName} — {entry.Exemption}"))}

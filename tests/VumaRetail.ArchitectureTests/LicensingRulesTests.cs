@@ -70,6 +70,92 @@ public sealed class LicensingRulesTests
             """);
     }
 
+    /// <summary>Every module assembly, excluding <c>VumaRetail.Licensing</c> itself — that one is licensing.</summary>
+    private static readonly Assembly[] BusinessModuleAssemblies =
+    [
+        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
+        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
+        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
+    ];
+
+    /// <summary>
+    /// The licensing-internal types only <c>VumaRetail.Licensing</c> may depend on directly.
+    /// <see cref="IEntitlementService"/> is deliberately not here — <c>CheckLimitAsync</c> is the
+    /// sanctioned choke point a handler is expected to call for a seat/device/store limit, exactly the
+    /// "nothing else" RequireModule's doc comment carves out. What this rule forbids is bypassing that
+    /// choke point to read the raw lease/activation state or the enforcement level directly.
+    /// </summary>
+    private static readonly Type[] LicensingInternals =
+    [
+        typeof(IEnforcementStatusReader),
+        typeof(IActivationRepository),
+        typeof(ILeaseRepository),
+        typeof(ILicenceStateRepository),
+    ];
+
+    /// <summary>
+    /// The one handler outside <c>VumaRetail.Licensing</c> sanctioned to depend on
+    /// <see cref="IEnforcementStatusReader"/> directly, and the single type it may depend on (§4.10,
+    /// ADR-135).
+    /// </summary>
+    /// <remarks>
+    /// <c>RecordReceiptPrintCommand</c> is exempt from the read-only guard itself
+    /// (<c>ReadOnlyExemption.ReceiptReprint</c>) on the "cannot originate trade" argument, which only
+    /// holds for a sale that already exists in full — so the handler is the one place left that can
+    /// still ask whether the tenant is read-only, to refuse the case the exemption does not cover: a
+    /// first print of a sale that is still <c>Open</c>. This is not a second "are we allowed to" for
+    /// something <c>RequireModule</c>/<c>CheckLimitAsync</c> already answer — it is the bound a command
+    /// exempted from the pipeline's own check has to enforce for itself. A closed, named list rather
+    /// than a blanket carve-out: a handler earns its way onto this list one entry at a time, the same
+    /// shape as <c>ReadOnlyExemption</c>'s own cap.
+    /// </remarks>
+    private static readonly (Type Handler, Type Dependency)[] SanctionedEnforcementStatusReaders =
+    [
+        (typeof(VumaRetail.Application.Pos.Commands.RecordReceiptPrintCommandHandler),
+            typeof(IEnforcementStatusReader)),
+    ];
+
+    [Fact]
+    public void No_command_or_query_handler_outside_licensing_reads_enforcement_state_directly()
+    {
+        // RequireModule's own doc comment (LicensingEndpoints.cs) promises this: "it goes through
+        // IEntitlementService and nothing else — an architecture test fails the build on a module that
+        // reads a licence or an enforcement level for itself, because a second implementation of 'are
+        // we allowed to' is a second set of edge cases and only one of them gets fixed." No test backed
+        // that promise until now — found by architecture-guard against commits be301ae..8d4adcb, which
+        // wired RequireModule into five modules on the strength of that unenforced guarantee.
+        //
+        // VumaRetail.Licensing itself is exempt — its own command/query handlers (activation, heartbeat,
+        // the licence screen) are licensing, not a module reading it for itself.
+        List<string> offenders = BusinessModuleAssemblies
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type is { IsAbstract: false, IsInterface: false })
+            .Where(type => type.GetInterfaces().Any(i => i.IsGenericType
+                && (i.GetGenericTypeDefinition() == typeof(ICommandHandler<,>)
+                    || i.GetGenericTypeDefinition() == typeof(IQueryHandler<,>))))
+            .Where(type => type.GetConstructors()
+                .SelectMany(constructor => constructor.GetParameters())
+                .Select(parameter => parameter.ParameterType)
+                .Any(dependency => LicensingInternals.Contains(dependency)
+                    && !SanctionedEnforcementStatusReaders.Contains((type, dependency))))
+            .Select(type => type.FullName ?? type.Name)
+            .ToList();
+
+        Assert.True(offenders.Count == 0, $"""
+            A command or query handler outside VumaRetail.Licensing depends on a licensing-internal type
+            directly (IEnforcementStatusReader, IActivationRepository, ILeaseRepository or
+            ILicenceStateRepository) rather than going through IEntitlementService, the sanctioned choke
+            point. RequireModule's own doc comment promises this never happens — "are we allowed to" has
+            exactly one implementation. A handler that needs a seat/device/store limit calls
+            IEntitlementService.CheckLimitAsync; a module that needs to know whether it is entitled
+            belongs behind RequireModule at the endpoint; a screen that needs to display enforcement
+            state depends on IEnforcementStatusReader only through the licensing module's own query
+            handlers, not by reading it for itself.
+
+            {string.Join(Environment.NewLine, offenders.Select(name => $"  - {name}"))}
+            """);
+    }
+
     [Fact]
     public void No_query_handler_depends_on_IEntitlementService()
     {

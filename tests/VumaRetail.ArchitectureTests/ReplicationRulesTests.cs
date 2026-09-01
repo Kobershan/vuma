@@ -96,11 +96,15 @@ public sealed class ReplicationRulesTests
             "src/VumaRetail.Application/Abstractions/ITenantContext.cs",
             "src/VumaRetail.Infrastructure/Security/AmbientTenantContext.cs",
             "src/VumaRetail.Infrastructure/Persistence/DesignTimeDbContextFactory.cs",
+            "src/VumaRetail.Infrastructure/Persistence/RegistryDesignTimeDbContextFactory.cs",
             // A terminal presenting a client certificate, and a refresh token arriving at
             // /auth/refresh. Both are pre-authentication lookups keyed on a unique digest — the
             // thumbprint and the token hash — which is how the tenant is discovered in the first
             // place. Stage 02, ADR-040.
             "src/VumaRetail.Infrastructure/Persistence/Repositories/IdentityRepositories.cs",
+            // The migration runner creates a fixed tenant context for each selected company.
+            // Its explicit implementation is an adapter, not a cross-tenant query scope.
+            "src/VumaRetail.Infrastructure/Registry/CompanyMigrationServices.cs",
             // The demo seeder asking whether the demo tenant exists at all.
             "src/VumaRetail.StoreServer/DemoSeed.cs");
 

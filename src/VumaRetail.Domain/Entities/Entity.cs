@@ -72,6 +72,12 @@ public abstract class Entity
     /// <summary>The owning store, or <c>null</c> for tenant-wide records such as the chart of accounts.</summary>
     public Guid? StoreId { get; protected set; }
 
+    /// <summary>Redundant company identity used by exports, restores and sync projections.</summary>
+    public Guid? CompanyId { get; protected set; }
+
+    /// <summary>Assigns the owning company during the one-company migration/provisioning boundary.</summary>
+    public void AssignCompany(Guid companyId) => CompanyId = companyId;
+
     /// <summary>When the row was created, UTC.</summary>
     public DateTimeOffset CreatedAt { get; protected set; }
 

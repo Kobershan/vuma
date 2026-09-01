@@ -40,15 +40,32 @@ That's it. From then on the runner script works unattended.
 ## 3. Running overnight
 
 ```powershell
-.\scripts\run-autonomous.ps1                 # runs until every stage is DONE or it stalls
-.\scripts\run-autonomous.ps1 -MaxStages 3    # stop after three stages
+.\scripts\run-autonomous.ps1                 # defaults to Sonnet, stops after 4 stages
+.\scripts\run-autonomous.ps1 -MaxStages 4    # explicit daily batch — the recommended way to run this
+.\scripts\run-autonomous.ps1 -MaxStages 3 -Model opus   # only if a specific run needs heavier judgement
 ```
 
-The script runs **one stage per Claude invocation** in headless mode. That matters: each stage gets a
-fresh context window, so quality does not decay across a long night the way it does in one enormous
-session. Between stages it verifies real progress was made (`docs/PROGRESS.md` changed **and** a commit
-landed **and** the build is green) and stops cleanly if not, rather than burning eight hours going in
+The script runs **one stage per Claude invocation** in headless mode, and never more than one worktree
+at a time — it works directly against `main`. That matters for two reasons: each stage gets a fresh
+context window, so quality does not decay across a long run the way it does in one enormous session;
+and it means you are only ever paying for one session's worth of tokens at once, not several
+overlapping ones. Between stages it verifies real progress was made (`docs/PROGRESS.md` changed **and**
+a commit landed **and** the build is green) and stops cleanly if not, rather than burning hours going in
 circles.
+
+**Do not run a second instance of this script, or a second manual `claude` session, against a
+different worktree of this repo at the same time.** This project previously had three stages
+in-flight simultaneously across separate worktrees (`stage-05`, `stage-06`, `stage-07`), which cost
+far more in total tokens than running them one after another and produced hours of extra work
+reconciling the branches against each other afterwards. One stage, one worktree (the main one), one
+session — see `CLAUDE.md` §1a. Target pace is 3-4 stages a day (one script run with `-MaxStages 4`),
+21-28 a week, achieved by running the batch daily rather than by parallelising within a day.
+
+**Model default is now Sonnet, not Opus.** Opus costs several times more per token for work that, on
+this project, is mostly executing an already-fully-specified stage document — it rarely buys enough
+extra judgement to be worth the multiplier across dozens of stages. Pass `-Model opus` explicitly for
+a stage you have reason to expect is genuinely ambiguous or architecturally tricky; leave it off
+otherwise.
 
 Everything is logged to `logs/autonomous/<timestamp>/stage-NN.log`. Read the summary in the morning.
 
@@ -84,3 +101,29 @@ These are in `CLAUDE.md` as well, because that is what Claude actually reads:
 a file Claude reads. Run it on a machine you can afford to lose: a dev box, a VM, or a container that
 holds nothing but this repository and no production credentials. Never point an unattended run at
 anything that can reach a live store's database.
+# Current task supervisor
+
+The supported unattended runner is the task-level supervisor:
+
+```bash
+# Run continuously until no executable canonical task remains.
+scripts/autonomous/run-vuma.sh
+
+# Launch exactly one fresh worker, then stop after verification.
+scripts/autonomous/run-vuma.sh --once
+
+# Select and print the recovered/current task without launching a worker.
+scripts/autonomous/run-vuma.sh --dry-run
+
+# Exercise the supervisor state-machine path with a mocked worker (no application work).
+scripts/autonomous/run-vuma.sh --self-test
+```
+
+It selects stages in the order documented by `docs/ROADMAP.md` and tasks only from canonical
+`docs/tasks/STAGE-*-INDEX.md` files. Historical `TASK-NNN` records are never executable. Each worker
+is a fresh codex exec --ephemeral invocation with supported bypass flags for full non-interactive access,
+and hook trust bypass enabled; the runner verifies the installed CLI supports those flags before launch.
+The active marker and per-task logs under `docs/automation/logs/` make crashes recoverable. A dead marker
+is classified from the task status, git history, worktree, and log state; a clean tree is only a git-state observation.
+Results are classified as COMPLETE, UNVERIFIED/PARTIAL, FAILED, CRASHED, NO_CHANGE, WAITING_HUMAN, or BLOCKED.
+Three unsuccessful attempts mark the task BLOCKED and stop the run.

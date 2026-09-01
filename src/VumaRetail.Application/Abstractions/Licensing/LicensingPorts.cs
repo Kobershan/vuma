@@ -197,30 +197,63 @@ public interface ISessionScopedCommand
 }
 
 /// <summary>
+/// ADR-135's two hard deadlines, published so a module can register an in-flight sale or session
+/// against <see cref="IOpenSessionRegistry"/> without referencing <c>VumaRetail.Licensing</c> directly
+/// — the same reason <c>ITaxCalculator</c> exists rather than POS depending on
+/// <c>VumaRetail.Finance</c>.
+/// </summary>
+public interface IOpenSessionWindows
+{
+    /// <summary>How long an in-flight sale may still be rung, tendered, completed or voided.</summary>
+    TimeSpan InFlightSaleWindow { get; }
+
+    /// <summary>How long an in-flight till session may still be closed.</summary>
+    TimeSpan InFlightCashUpWindow { get; }
+}
+
+/// <summary>
 /// Which sessions were open when a restriction fell due, and may therefore still be finished.
 /// </summary>
 /// <remarks>
-/// Stage 09 opens and closes real till sessions against this; Stage 04b builds the mechanism, wires it
-/// into the guard and tests it, because retrofitting a carve-out into an enforcement path is how a
-/// carve-out ends up being half-applied.
+/// <para>
+/// Stage 09 opens and closes real till sessions <em>and sales</em> against this — a sale and its till
+/// session are tracked as two separate entries, not one, because bounding only the session would let
+/// one open till licence unlimited new sales for as long as the session stayed open (ADR-135).
+/// </para>
+/// <para>
+/// Stage 04b builds the mechanism, wires it into the guard and tests it, because retrofitting a
+/// carve-out into an enforcement path is how a carve-out ends up being half-applied.
+/// </para>
 /// </remarks>
 public interface IOpenSessionRegistry
 {
-    /// <summary>Records that a session has opened.</summary>
-    /// <param name="sessionId">The session.</param>
+    /// <summary>Records that a session or sale has opened.</summary>
+    /// <param name="id">The session or sale.</param>
     /// <param name="at">When, UTC.</param>
-    void Open(Guid sessionId, DateTimeOffset at);
+    /// <param name="maxDuration">
+    /// The longest this entry may carry on for after a restriction falls due, measured from
+    /// <paramref name="at"/> — ADR-135's second, independent bound. Without a deadline, a tenant who
+    /// simply never closes a session keeps trading on it indefinitely; with one, the carve-out's worst
+    /// case is bounded by wall-clock time no matter what else happens.
+    /// </param>
+    void Open(Guid id, DateTimeOffset at, TimeSpan maxDuration);
 
-    /// <summary>Records that a session has closed. It gets no further carve-out.</summary>
-    /// <param name="sessionId">The session.</param>
-    void Close(Guid sessionId);
+    /// <summary>Records that a session or sale has closed. It gets no further carve-out.</summary>
+    /// <param name="id">The session or sale.</param>
+    void Close(Guid id);
 
     /// <summary>
-    /// True when a session was open before the restriction began and may still be completed.
+    /// True when an entry was open before the restriction began, is still within its own deadline as of
+    /// <paramref name="evaluatedAt"/>, and may therefore still be carried on.
     /// </summary>
-    /// <param name="sessionId">The session.</param>
-    /// <param name="restrictedSince">When the restriction began, UTC.</param>
-    bool MayCarryOn(Guid sessionId, DateTimeOffset? restrictedSince);
+    /// <param name="id">The session or sale.</param>
+    /// <param name="restrictedSince">When the restriction began, UTC, or <c>null</c> if it has not.</param>
+    /// <param name="evaluatedAt">
+    /// The instant to evaluate the deadline against — the same watermarked clock reading the
+    /// enforcement decision itself was computed from (<c>LICENSING.md</c> §7: a clock wound back must
+    /// buy nothing, including here).
+    /// </param>
+    bool MayCarryOn(Guid id, DateTimeOffset? restrictedSince, DateTimeOffset evaluatedAt);
 }
 
 /// <summary>Raised when a write is refused because the tenant is read-only (ADR-028).</summary>

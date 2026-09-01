@@ -154,7 +154,17 @@ working payment link at every step, which is what makes the restriction defensib
 **Open-session carve-out** (default on, configurable off): if read-only falls due while a till has an
 open sale or an unclosed cash-up, that sale and that cash-up complete, then the terminal goes
 read-only. No new sale can start. This exists so a restriction does not leave a drawer of unrecorded
-cash and a customer holding goods.
+cash and a customer holding goods. Bounded twice over (ADR-135): the sale or session must have opened
+*before* the restriction began, and it must still be within its own hard deadline — 30 minutes for a
+sale, 12 hours for a cash-up, both configurable (`LicensingOptions.InFlightSaleWindow`/
+`InFlightCashUpWindow`), measured from when it opened and evaluated against the tamper-resistant
+watermarked clock, never against a plain system-clock read. Parking a sale and resuming a parked one are
+both refused outright while read-only — parking is how a sale is kept open indefinitely, and a parked
+sale has no customer at the counter and no cash in hand, so neither belongs in this carve-out.
+
+**Reprint carve-out**: reprinting an already-completed sale's receipt stays writable, on a different
+argument than the open-session carve-out above — it cannot originate trade. The handler refuses a
+first print of a sale that is still open, which is the open-session case and not this one.
 
 **Error codes.** Internal API and desktop return `403 LICENCE_READ_ONLY` with the amount due and a
 payment link, so the UI can offer the fix rather than a dead end. The **public** storefront and loyalty

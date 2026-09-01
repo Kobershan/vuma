@@ -188,7 +188,8 @@ public static class SyncEndpoints
                 ParseOperationKind(operation.Operation),
                 HlcStamp.Parse(operation.Stamp),
                 operation.Payload,
-                operation.OccurredAt))]);
+                operation.OccurredAt) { CompanyId = operation.CompanyId })])
+        { CompanyId = request.CompanyId };
 
     /// <summary>
     /// Parses an enum from the wire, refusing anything unrecognised.

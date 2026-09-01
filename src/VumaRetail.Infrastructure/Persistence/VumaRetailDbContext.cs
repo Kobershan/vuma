@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Entities;
 using VumaRetail.Domain.Platform;
 
@@ -27,14 +28,17 @@ namespace VumaRetail.Infrastructure.Persistence;
 public class VumaRetailDbContext : DbContext, IUnitOfWork
 {
     private readonly ITenantContext _tenantContext;
+    private readonly ICompanyContext? _companyContext;
 
     /// <summary>Creates the context.</summary>
     /// <param name="options">EF options, including the Npgsql provider and the interceptors.</param>
     /// <param name="tenantContext">Supplies the tenant the global query filter scopes to.</param>
-    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext)
+    /// <param name="companyContext">Supplies the active company for row stamping and filtering.</param>
+    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null)
         : base(options)
     {
         _tenantContext = tenantContext;
+        _companyContext = companyContext;
     }
 
     /// <summary>Tenants — the isolation root every other row hangs off.</summary>
@@ -153,6 +157,148 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One counted stock-keeping unit within a session.</summary>
     public DbSet<Domain.Inventory.StocktakeLine> StocktakeLines => Set<Domain.Inventory.StocktakeLine>();
 
+    /// <summary>A cashier's shift at one terminal, and the cash-up that closes it (Stage 09).</summary>
+    public DbSet<Domain.Pos.TillSession> TillSessions => Set<Domain.Pos.TillSession>();
+
+    /// <summary>Transactions at the till.</summary>
+    public DbSet<Domain.Pos.Sale> Sales => Set<Domain.Pos.Sale>();
+
+    /// <summary>What was rung up on a sale.</summary>
+    public DbSet<Domain.Pos.SaleLine> SaleLines => Set<Domain.Pos.SaleLine>();
+
+    /// <summary>How a sale was paid for. Immutable once captured.</summary>
+    public DbSet<Domain.Pos.SaleTender> SaleTenders => Set<Domain.Pos.SaleTender>();
+
+    /// <summary>The append-only record of every receipt printed and reprinted.</summary>
+    public DbSet<Domain.Pos.ReceiptPrint> ReceiptPrints => Set<Domain.Pos.ReceiptPrint>();
+
+    /// <summary>Named sets of prices — retail, wholesale, staff (Stage 10).</summary>
+    public DbSet<Domain.Sales.PriceList> PriceLists => Set<Domain.Sales.PriceList>();
+
+    /// <summary>One price on a list, from one quantity upwards.</summary>
+    public DbSet<Domain.Sales.PriceListLine> PriceListLines => Set<Domain.Sales.PriceListLine>();
+
+    /// <summary>Specials. Configuration, never a deployment.</summary>
+    public DbSet<Domain.Sales.Promotion> Promotions => Set<Domain.Sales.Promotion>();
+
+    /// <summary>What a promotion applies to.</summary>
+    public DbSet<Domain.Sales.PromotionLine> PromotionLines => Set<Domain.Sales.PromotionLine>();
+
+    /// <summary>The documents that take goods and money back.</summary>
+    public DbSet<Domain.Sales.SalesReturn> SalesReturns => Set<Domain.Sales.SalesReturn>();
+
+    /// <summary>One line coming back, refunded at what was actually charged.</summary>
+    public DbSet<Domain.Sales.SalesReturnLine> SalesReturnLines => Set<Domain.Sales.SalesReturnLine>();
+
+    /// <summary>The append-only record of every sale made at something other than the resolved price.</summary>
+    public DbSet<Domain.Sales.PriceOverrideLog> PriceOverrideLogs => Set<Domain.Sales.PriceOverrideLog>();
+
+    /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
+    public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
+
+    /// <summary>One source row, its verdict, what it produced, and the before-image a rollback restores.</summary>
+    public DbSet<Domain.Imports.ImportRow> ImportRows => Set<Domain.Imports.ImportRow>();
+
+    /// <summary>One target field bound to one source column, or to a constant.</summary>
+    public DbSet<Domain.Imports.ImportColumnMapping> ImportColumnMappings
+        => Set<Domain.Imports.ImportColumnMapping>();
+
+    /// <summary>A saved mapping, so the same supplier's file maps itself next month.</summary>
+    public DbSet<Domain.Imports.ImportMappingTemplate> ImportMappingTemplates
+        => Set<Domain.Imports.ImportMappingTemplate>();
+
+    /// <summary>Internal demand — somebody saying they need something (Stage 12).</summary>
+    public DbSet<Domain.Procurement.PurchaseRequisition> PurchaseRequisitions
+        => Set<Domain.Procurement.PurchaseRequisition>();
+
+    /// <summary>One thing a requisition asks for.</summary>
+    public DbSet<Domain.Procurement.PurchaseRequisitionLine> PurchaseRequisitionLines
+        => Set<Domain.Procurement.PurchaseRequisitionLine>();
+
+    /// <summary>The buyer asking suppliers what they would charge.</summary>
+    public DbSet<Domain.Procurement.Rfq> Rfqs => Set<Domain.Procurement.Rfq>();
+
+    /// <summary>One thing suppliers are being asked to price.</summary>
+    public DbSet<Domain.Procurement.RfqLine> RfqLines => Set<Domain.Procurement.RfqLine>();
+
+    /// <summary>One supplier's quote, frozen on submission.</summary>
+    public DbSet<Domain.Procurement.RfqResponse> RfqResponses => Set<Domain.Procurement.RfqResponse>();
+
+    /// <summary>What one supplier charges for one RFQ line.</summary>
+    public DbSet<Domain.Procurement.RfqResponseLine> RfqResponseLines
+        => Set<Domain.Procurement.RfqResponseLine>();
+
+    /// <summary>The commitment — the document a supplier holds the shop to.</summary>
+    public DbSet<Domain.Procurement.PurchaseOrder> PurchaseOrders => Set<Domain.Procurement.PurchaseOrder>();
+
+    /// <summary>One thing the shop committed to buy, at a stated cost.</summary>
+    public DbSet<Domain.Procurement.PurchaseOrderLine> PurchaseOrderLines
+        => Set<Domain.Procurement.PurchaseOrderLine>();
+
+    /// <summary>The claim that the goods physically arrived.</summary>
+    public DbSet<Domain.Procurement.GoodsReceipt> GoodsReceipts => Set<Domain.Procurement.GoodsReceipt>();
+
+    /// <summary>What arrived against one order line, and what was sent back.</summary>
+    public DbSet<Domain.Procurement.GoodsReceiptLine> GoodsReceiptLines
+        => Set<Domain.Procurement.GoodsReceiptLine>();
+
+    /// <summary>The three-way match: ordered against received against invoiced (ADR-082).</summary>
+    public DbSet<Domain.Procurement.SupplierInvoiceMatch> SupplierInvoiceMatches
+        => Set<Domain.Procurement.SupplierInvoiceMatch>();
+
+    /// <summary>One line of the comparison, with its two variances.</summary>
+    public DbSet<Domain.Procurement.SupplierInvoiceMatchLine> SupplierInvoiceMatchLines
+        => Set<Domain.Procurement.SupplierInvoiceMatchLine>();
+
+    /// <summary>One supplier's performance over one closed period, frozen (ADR-084).</summary>
+    public DbSet<Domain.Procurement.SupplierScorecard> SupplierScorecards
+        => Set<Domain.Procurement.SupplierScorecard>();
+
+    /// <summary>A named subdivision of a Stage 08 location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.Zone> Zones => Set<Domain.Warehouse.Zone>();
+
+    /// <summary>A single storage position within a zone. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.Bin> Bins => Set<Domain.Warehouse.Bin>();
+
+    /// <summary>On-hand quantity per bin per stock-keeping unit — the bin-level projection. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.BinStock> BinStocks => Set<Domain.Warehouse.BinStock>();
+
+    /// <summary>The append-only bin-level movement ledger. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.BinStockMovement> BinStockMovements => Set<Domain.Warehouse.BinStockMovement>();
+
+    /// <summary>One line of unbinned received stock waiting to be shelved. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PutawayTask> PutawayTasks => Set<Domain.Warehouse.PutawayTask>();
+
+    /// <summary>A batch of outbound demand to fulfil from one location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PickWave> PickWaves => Set<Domain.Warehouse.PickWave>();
+
+    /// <summary>One demand line within a pick wave. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PickTask> PickTasks => Set<Domain.Warehouse.PickTask>();
+
+    /// <summary>A wave's packing record. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.PackTask> PackTasks => Set<Domain.Warehouse.PackTask>();
+
+    /// <summary>The document recording a wave's shipment — stock leaving the location. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.ShipmentConfirmation> ShipmentConfirmations => Set<Domain.Warehouse.ShipmentConfirmation>();
+
+    /// <summary>A physical count of one or more bins. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.CycleCount> CycleCounts => Set<Domain.Warehouse.CycleCount>();
+
+    /// <summary>One counted bin/stock-keeping-unit pair within a cycle count. Stage 13.</summary>
+    public DbSet<Domain.Warehouse.CycleCountLine> CycleCountLines => Set<Domain.Warehouse.CycleCountLine>();
+
+    /// <summary>A promise to fulfil what a customer wants, by delivery or click &amp; collect. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrder> SalesOrders => Set<Domain.Orders.SalesOrder>();
+
+    /// <summary>One demand line on a sales order. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderLine> SalesOrderLines => Set<Domain.Orders.SalesOrderLine>();
+
+    /// <summary>Goods fulfilled off a sales order coming back. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderReturn> SalesOrderReturns => Set<Domain.Orders.SalesOrderReturn>();
+
+    /// <summary>One line coming back on a sales order return. Stage 14.</summary>
+    public DbSet<Domain.Orders.SalesOrderReturnLine> SalesOrderReturnLines => Set<Domain.Orders.SalesOrderReturnLine>();
+
     /// <summary>The chart of accounts (Stage 07, ADR-016).</summary>
     public DbSet<Domain.Finance.Account> Accounts => Set<Domain.Finance.Account>();
 
@@ -222,9 +368,26 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Whether the caller has opened an explicit cross-tenant scope. See <see cref="ITenantContext"/>.</summary>
     internal bool IsTenantFilterBypassed => _tenantContext.IsFilterBypassed;
 
+    /// <summary>The active company, or null for legacy/bootstrap contexts.</summary>
+    internal Guid? CurrentCompanyId => _companyContext?.CompanyId;
+
     /// <inheritdoc />
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc />
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
@@ -305,5 +468,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // Guid.Empty means "no tenant resolved yet" — the activation wizard and the login screen —
         // and must not silently return every tenant's rows, so it matches nothing.
         => entity => entity.DeletedAt == null
-            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId);
+            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId)
+            && (CurrentCompanyId == null || entity.CompanyId == CurrentCompanyId);
+
+    private void ApplyCompanyIdentity()
+    {
+        Guid companyId = _companyContext?.CompanyId ?? Guid.Empty;
+
+        foreach (var entry in ChangeTracker.Entries<Entity>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (_companyContext?.CompanyId is { } activeCompany)
+                    entry.Entity.AssignCompany(activeCompany);
+                else if (entry.Entity.CompanyId is null)
+                    entry.Entity.AssignCompany(companyId);
+            }
+            else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active)
+            {
+                throw new InvalidOperationException("A business row cannot be reassigned to another company.");
+            }
+        }
+    }
 }

@@ -8,6 +8,7 @@ using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Registry;
 using VumaRetail.Web.Sync;
 
 // The cloud tier: the replica of every store, tenant-keyed, and the backup vault's home. Source of
@@ -76,6 +77,7 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
+app.MapVumaCompanies();
 app.MapVumaSync();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))

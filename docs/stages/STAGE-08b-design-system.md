@@ -1,6 +1,24 @@
 # STAGE 08b — Design System & Theming
+## Second-pass architecture and task map
+
+The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) to navigate project and boundary rules, then load only the references named above. The stage must be decomposed into canonical task files before implementation begins; do not infer missing requirements.
+
+**Architecture checklist:** WHAT/WHY are defined by this stage's Objective; affected layers and components are the projects named by its Deliverables; data/API/security/multi-company/sync/testing constraints are inherited from the linked authority documents. Any missing answer is **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs listed in the stage header apply; a new ADR is required only for a genuinely new architectural decision. Nothing outside this stage's stated scope may change.
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| 08b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+
+This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
 **Status:** NOT_STARTED · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
+
+## Task index
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | NOT_STARTED |
+| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | NOT_STARTED |
 
 ## Objective
 Build the design system once, before the first pixel of POS is drawn, so that four surfaces — Windows

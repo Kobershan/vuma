@@ -107,7 +107,9 @@ public sealed class PersistenceRulesTests
         IReadOnlyList<string> violations = SolutionSource.FindViolations(
             line => line.Contains("SaveChanges(", StringComparison.Ordinal)
                 || line.Contains("SaveChangesAsync(", StringComparison.Ordinal),
-            "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs",
+            // The registry has its own database and transaction boundary.
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

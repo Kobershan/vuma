@@ -5,6 +5,14 @@ and extended by every stage that adds a schema.
 
 `CONVENTIONS.md` §2 covers naming. This file covers shape, and the reasons.
 
+> **How to read this file for a stage.** This file is long (it grows a section every stage) and it is
+> reference material, not narrative — you do not need to read it top to bottom. §1-3 (mandatory
+> columns, types, schema list) are short and worth reading once. After that, **jump straight to the
+> `§4x. Tables in <schema>` section(s) for the module your stage actually touches** — each is
+> self-contained — plus §5's replication registry only for the entities your stage replicates. Reading
+> all fifteen module sections to work on one is the single most common way a session burns context on
+> this file for no reason.
+
 ---
 
 ## 1. The mandatory columns
@@ -69,24 +77,66 @@ Map money and quantity with `builder.HasMoney(...)` / `builder.HasQuantity(...)`
 
 ---
 
+## 2b. One database per company (from Stage 06c)
+
+A tenant's data lives in **one database per company**, plus **one registry database** holding what spans
+them (ADR-099, `docs/MULTI_COMPANY.md` §1). Every company database carries the same schema — the whole
+of §4 below — and the same migration chain. The registry has its own chain and is migrated first.
+
+```
+vuma_<tenant>_registry            companies + connections, company groups, credit groups + holds
+                                  + exposure ledger, catalogue routing index, group receipts/payments,
+                                  saga intents + legs + outbox, group read models
+vuma_<tenant>_<company_code>      the whole Vuma schema, once per company
+```
+
+Consequences that every table design has to respect:
+
+1. **No foreign key crosses a database**, which means no foreign key between companies. A cross-company
+   reference is an id plus the group document that ties them, resolved through the registry.
+2. **No transaction crosses a database** (ADR-116). Anything spanning companies is a saga: an immutable
+   intent in the registry, idempotent legs keyed by `(intent_id, leg_id)`, compensation by a new
+   document.
+3. **`company_id` stays on every business row** even though the database already implies it. It costs
+   nothing, it makes a restored or exported database self-describing, and it is the key the registry's
+   projections are built on.
+4. **Group read models are projections, never sources.** They are fed by each company's outbox, they
+   carry `AsAt`, and no commit is ever decided from one (ADR-119).
+
+`tenant_id` remains on every row for the same reasons it always was: the cloud tier holds many tenants'
+data side by side, and a restored database must be self-describing.
+
+---
+
 ## 3. Schemas
 
 Schema name = module name (ADR-010). Declared as constants on
 `VumaRetail.Infrastructure.Persistence.Schemas`, and an architecture test fails the build if a
 table lands anywhere else — including `public`, which belongs to no module and therefore to everyone.
 
+**Schemas below are the schemas *inside one company database*, except `registry`, which is the whole of
+the registry database.**
+
 | Schema | Owns | Stage |
 |---|---|---|
+| `registry` | **(registry database)** companies and connections, company groups, credit groups, holds and exposure, catalogue routing index, group receipts and payments, saga intents and legs, group read models | 06c, 06d, 07c |
 | `platform` | tenants, stores, the audit trail | 01 |
 | `identity` | users, roles, grants, role assignments, terminals, refresh tokens | 02 |
 | `sync` | outbox, inbox, cursors, conflict review queue | 04 |
 | `backup` | the snapshot ledger | 04 |
 | `licensing` | licences, leases, activations, entitlements, metering | 04b |
-| `workflow` | approval policies and requests, notifications, document metadata and versions | 05 |
 | `catalog` | items, variants, barcodes, units of measure | 06 |
 | `partners` | suppliers, customers, and partners who are both | 06 |
 | `finance` | chart of accounts, GL, AR, AP, banking, tax, posting rules | 07 |
-| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes | 08 |
+| `inventory` | stock locations, the stock ledger, balances, transfers, stocktakes, **reservations** | 08, 08c |
+| `pos` | till sessions, sales, sale lines, tenders, receipt prints | 09 |
+| `sales` | price lists, promotions, returns, price override logs | 10 |
+| `imports` | import batches, mappings, rows, templates | 11 |
+| `procurement` | requisitions, RFQs, purchase orders, goods receipts, matches, scorecards | 12 |
+| `warehouse` | zones, bins, bin stock, putaway, waves, packing, shipments, counts | 13, 13b |
+| `orders` | sales orders, allocations, fulfilments, order returns | 14 |
+| `fieldsales` | reps, territories, targets, pro formas, pro forma credit notes, performance snapshots | 14b |
+| `conversations` | conversation state, turns, bot order drafts (bindings live in the registry) | 22b |
 
 **No foreign key crosses a schema boundary.** Modules reference each other by ID and resolve through
 published contracts or domain events. This is the constraint that keeps the modular monolith
@@ -355,73 +405,971 @@ the same item is a recount of the existing line, never a second row that would d
 
 ---
 
-## 4f. Tables in `workflow`
+## 4f. Tables in `finance`
 
-Built in Stage 05 (ADR-019, ADR-072), before any module needs an approval chain, an in-app inbox or a
-file attachment — later modules configure against this schema rather than building their own. No
-foreign key leaves it; every business record a row here refers to (`SubjectEntityId`, `EntityId`) is an
-id into another module's own schema, resolved by convention rather than by constraint (§3).
+Built in Stage 07. The double-entry accounting spine: a chart of accounts, an immutable general
+ledger, the AR and AP sub-ledgers that reconcile to it, a minimal banking slice and tax as data.
+Lettered after `inventory` because that section was written first; §3's table is the stage-ordered
+index.
 
-### `workflow.approval_policies`
+Every partner reference below is a bare `uuid` and **never** a foreign key into `partners` —
+`CONVENTIONS.md` §2, and the same rule `inventory` follows for `catalog`. Finance does not resolve a
+partner to a name; that is a read model `partners` publishes.
 
-A gate a module has configured on one `module.entityType.action` key. `module`, `entity_type`,
-`action`, `threshold_amount` / `threshold_currency` (both nullable — absence means gate every
-occurrence, ADR-019), `required_permission`, `min_approvals`, `allow_self_approval`, `is_active`.
+**The one rule that shapes this whole schema:** no module outside `finance` may name a GL account
+(CLAUDE.md §7 rule 12). Other modules raise an `IFinancialEvent` carrying named amounts, and
+`posting_rules` — tenant data, not code — decides which accounts those amounts hit. So there is no
+`account_id` column anywhere outside this schema, and `FinanceRulesTests` fails the build if a type
+dependency on `Account` appears in one. Stage 08's inventory events were the first real test of that
+and needed no account column; see ADR-016 and the `pos.sale.tendered` rule in `DemoSeed`.
 
-The nullable threshold is **two flat columns**, not `ValueObjectMapping.HasMoney`'s complex-type form:
-EF Core 9's relational providers do not support an optional complex property (dotnet/efcore#31376, hit
-independently here and in Stage 07). That is **ADR-067**, and the naming it settled on — `{name}_amount`
-/ `{name}_currency`, with a computed `Money?` accessor over the pair — is what these columns use. See
-`ApprovalPolicy.ThresholdAmount` and `ApprovalRequest.Amount` alongside ADR-067's own worked example,
-`JournalLine`, and revisit `ValueObjectMapping.HasMoney`'s note once the upstream issue ships.
+### `finance.accounts`
 
-`ux_approval_policies_tenant_key` is unique on `(tenant_id, module, entity_type, action)`, **filtered to
-`is_active AND deleted_at IS NULL`** — the same shape `platform.stores`' code uniqueness takes, so a
-deactivated policy never blocks a replacement being defined for the same key.
+`code`, `name`, `type` (Asset/Liability/Equity/Revenue/Expense), `parent_account_id` for the
+hierarchy, `control_account_type`, `currency`, `is_active`.
+`ux_accounts_tenant_id_code` is unique on `(tenant_id, code)`, filtered to `deleted_at IS NULL`.
 
-### `workflow.approval_requests`
+`ix_accounts_control_account_type` is partial on `control_account_type <> 'None'`, because the only
+question ever asked of that column is "which accounts must reconcile to a sub-ledger?" — a handful of
+rows out of a chart that may run to hundreds. Both the period-close check and the daily variance job
+read exactly this index.
 
-One pending or decided gate. Snapshots the policy's `required_permission`, `min_approvals` and
-`allow_self_approval` at the moment it was raised, so an edited or deactivated policy never
-retroactively changes what an in-flight request needs to clear. `policy_id`, `module`, `entity_type`,
-`action`, `subject_entity_id`, `amount_amount` / `amount_currency` (nullable, same shape as the
-policy's threshold), `requested_by`, `requested_at`, `reason`, `approval_count`, `rejection_count`,
-`status`, `decided_at`.
+`parent_account_id` is a self-reference and the one place a foreign key would be legal inside the
+schema; it is deliberately a plain `uuid` anyway, so the hierarchy can be reparented without the
+database arguing about ordering.
 
-`ix_approval_requests_pending` is a partial index on `(tenant_id, store_id, status)` filtered to
-`status = 'Pending'` — the unified inbox's hot query, and a decided request is never read by it again.
+### `finance.accounting_periods`
 
-### `workflow.approval_decision_entries`
+`period_start`, `period_end`, `status` (Open/Closed), `closed_at`, `closed_by`. Tenant-wide, not
+per-store — one calendar, so `store_id` is null on every row.
 
-Append-only, one row per decision, independent of the request's own mutable `status` so the full
-history survives whatever the request currently says. `approval_request_id`, `decided_by`, `outcome`,
-`comment`, `decided_at`. `ux_approval_decision_entries_request_decider` is unique on
-`(approval_request_id, decided_by)` — the one-decision-per-person guard held at the database as well as
-in the engine, so two racing requests from the same principal cannot both land.
+`ix_accounting_periods_status` is partial on `status = 'Open'`. Open periods are a permanently small
+set no matter how many years of closed ones accumulate, and every posting resolves one.
 
-### `workflow.notifications`
+A close is refused while any control account disagrees with its sub-ledger, so a period's rows are
+only ever `Closed` once `reconciliation_variance_flags` has nothing to say about it.
 
-One message to one recipient on one channel — a fan-out to three recipients on two channels is six
-rows, not one row with a list, the same reasoning `identity.role_permissions` uses (§4b).
-`recipient_user_id`, `category`, `title`, `body`, `severity`, `channel`, `related_module` /
-`related_entity_type` / `related_entity_id`, `action_url`, `delivery_status`, `sent_at`,
-`delivery_error`, `is_read`, `read_at`.
+### `finance.journals` / `finance.journal_lines`
 
-`ix_notifications_recipient_unread` is partial on `channel = 'InApp' AND NOT is_read` — the inbox badge
-count is the hottest of the two queries this table answers, and it stays cheap as history grows.
+The immutable ledger (§7 rule 7). A journal carries `accounting_period_id`, `journal_number`,
+`posted_at`, `posted_by`, `source_module`, `source_event_type`, `source_reference`, `narration` and
+`reversal_of_journal_id`. Both entities are `IImmutableRecord`, so `AuditInterceptor` refuses them in
+`Modified` or `Deleted` — a posted journal is corrected by a reversal that links back through
+`reversal_of_journal_id`, never by an edit. `ix_journals_reversal_of_journal_id` is partial on
+`IS NOT NULL`, since reversals are the exception.
 
-### `workflow.documents` and `workflow.document_versions`
+A line carries `journal_id`, `line_number`, `account_id`, `description`, the five nullable analysis
+dimensions (`department_id`, `cost_centre_id`, `project_id`, `channel_id`, `employee_id` — all bare
+opaque ids, none resolved by this module; store is the base `store_id` column), and **four money
+columns**: `debit_amount`/`debit_currency` and `credit_amount`/`credit_currency`.
 
-Attachment and generation metadata — never the bytes, which live behind `IDocumentBlobStore` and are
-addressed through a version's `storage_key`. `documents`: `module`, `entity_type`, `entity_id`, `kind`,
-`title`, `content_type`, `current_version_number`, `is_generated`. `document_versions`: `document_id`,
-`version_number`, `storage_key`, `content_hash` (SHA-256, lower-case hex), `size_bytes`, `content_type`,
-`source`, `generated_by`.
+Four plain columns rather than two `Money` complex properties, which is the one piece of this schema
+that looks wrong until you know why (**ADR-067**). A line carries a debit *or* a credit, so each is
+optional on its own, and EF Core 9 cannot configure a complex property as optional at all. The domain
+still speaks `Money`: `JournalLine.Debit` and `.Credit` are computed `Money?` accessors over the
+pairs, and only the mapping knows about the split.
 
-A document is never overwritten in place — `RegisterNewVersion` only ever moves
-`current_version_number` forward, and the version it points away from stays retrievable, checked
-against its recorded hash on the way back out. `ux_document_versions_document_version` is unique on
-`(document_id, version_number)`.
+`ck_journal_lines_exactly_one_side` enforces
+`((debit_amount IS NOT NULL)::int + (credit_amount IS NOT NULL)::int) = 1`. The domain refuses the
+same thing in `Journal.Post`, but the constraint is the backstop that a restore, a sync apply or a
+hand-run SQL fix also has to pass. `ix_journal_lines_account_id` is what the trial balance and every
+account-balance query group by.
+
+Balance is **not** a constraint. Debits equalling credits per currency is checked in `Journal.Post`
+before insert, because it is a property of a set of rows rather than of one, and a deferred
+constraint that fires at commit would report it far from where it was caused.
+
+### `finance.ar_invoices` / `_lines`, `finance.ar_receipts` / `_allocations`
+
+The AR sub-ledger. An invoice carries `partner_id`, `invoice_number`, `invoice_date`, `due_date`,
+`currency`, `status` (Draft/Posted/Settled), `journal_id`, and `total_*` plus
+`outstanding_balance_*` money pairs.
+
+Unlike a journal an invoice is **not** `IImmutableRecord`, and the distinction is deliberate: its
+outstanding balance legitimately falls as receipts allocate. What freezes at posting is its *lines*,
+enforced in the entity (`ArInvoice.AddLine` refuses once status leaves Draft), not by the
+persistence-layer guard, which is for records with no legitimate mutation at all.
+
+`ix_ar_invoices_partner_id_status` is partial on `status <> 'Settled'`, which is the ageing report's
+and the variance check's whole working set — settled invoices are the vast majority of the table and
+neither query ever wants them.
+
+A receipt carries `partner_id`, `receipt_number`, `receipt_date`, `amount_*` and `journal_id`; its
+allocations carry `ar_receipt_id`, `ar_invoice_id` and `amount_*`. Over-allocation is refused in the
+domain (`OverAllocationException`) — allowing it is precisely how a control account silently stops
+matching its sub-ledger.
+
+### `finance.ap_invoices` / `_lines`, `finance.ap_payments` / `_allocations`
+
+The mirror of AR, column for column, with `supplier_invoice_number` in place of a tenant-issued
+number — the supplier issues it, so it is not drawn from `document_number_counters`. Event types
+`ap.invoice.posted` / `ap.payment.posted`.
+
+### `finance.bank_accounts` / `finance.bank_statement_lines`
+
+`ux_bank_accounts_gl_account_id` is unique on `gl_account_id`: one bank account per GL bank control
+account, or the variance check has two sub-ledgers claiming one balance.
+
+A statement line carries `bank_account_id`, `transaction_date`, `description`, a **signed**
+`amount_*` (positive in, negative out — one column, because a bank statement is a single running
+balance), `external_reference`, and `matched_journal_line_id`/`matched_at`/`matched_by`.
+
+`ux_bank_statement_lines_bank_account_id_external_reference` is unique and is what makes importing
+the same statement twice a no-op rather than a doubled balance.
+
+**There is no reconciliation-run table.** A line's matched state *is* the reconciliation: the bank
+control account's variance check sums the matched lines, so matching a line is the whole act of
+reconciling it. `ix_bank_statement_lines_bank_account_id_matched` serves exactly that sum. A separate
+run entity would give the reconciled balance two sources, which would eventually disagree.
+
+### `finance.posting_rules` / `finance.posting_rule_lines`
+
+The rule-12 mechanism, as data. A rule carries `event_type`, `description`, `is_active`; a line
+carries `posting_rule_id`, `line_number`, `account_id`, `side` (Debit/Credit), `amount_key` — which
+named amount on the incoming event it draws from, e.g. `Net`, `Tax`, `Gross` — `inherit_dimensions`
+and `description`.
+
+`ix_posting_rules_tenant_id_event_type` is partial on `is_active`, and rules are deactivated rather
+than deleted so a journal already posted still shows which rule produced it.
+
+Nothing validates that a rule's lines balance when it is configured — a rule may name any amounts in
+any combination. `Journal.Post`'s balance check is the backstop, and a mis-configured rule fails at
+posting time with the amounts in hand rather than at configuration time with a guess about them.
+
+### `finance.tax_rules`
+
+`code`, `name`, `rate`, `treatment` (Inclusive/Exclusive), `effective_from`, `effective_to`,
+`is_active`. `ix_tax_rules_tenant_id_code_effective_from` answers the only question the engine asks:
+which rule applies to this code on this date.
+
+`rate` is a plain `numeric` fraction, **not** a `Money` — it is a multiplier, not an amount, and
+routing it through `HasMoney` would attach a meaningless currency to it.
+
+A rate change is a **new row** with its own effective dates, never an edit, so a historical invoice
+always recalculates to what it actually charged. The `en-ZA` default seeds exactly one row —
+`STANDARD`, 15%, inclusive — and a second jurisdiction is a row, not a release (CLAUDE.md §9).
+
+### `finance.reconciliation_variance_flags`
+
+What the daily job writes: `accounting_period_id`, `account_id`, `control_account_type`,
+`gl_balance`, `sub_ledger_balance`, `variance`, `checked_at`.
+
+A row is written on **every** check, including a clean one, so "reconciled today" is distinguishable
+from "nobody looked" — an empty table otherwise reads as all-clear whether or not the job ran.
+`ix_reconciliation_variance_flags_variance` is partial on `variance <> 0`, which is the only subset
+anybody opens a screen to see.
+
+### `finance.document_number_counters`
+
+`series`, `next_value`. `ux_document_number_counters_tenant_id_series` is unique per tenant.
+
+`ReplicationScope.NodeLocal` and **deliberately not replicated** (ADR-065): the number is printed on
+the document before any replica could learn of it, so a converging counter would hand two stores the
+same invoice number and then agree on which was right. The repository takes a `SELECT ... FOR UPDATE`
+row lock inside the *caller's* transaction, so a rejected posting rolls the increment back with
+everything else and the series stays gap-free rather than merely unique.
+
+---
+
+## 4g. Tables in `pos`
+
+Built in Stage 09. The till: a cashier's shift, the sales rung up on it, what was paid and how, and
+the record of every receipt that came out of the printer.
+
+Every item, variant, customer, terminal and user reference below is a bare `uuid` and **never** a
+foreign key into `catalog`, `partners` or `identity` — `CONVENTIONS.md` §2, the same rule `inventory`
+follows. Foreign keys *within* this schema are used and correct: a sale line without its sale is
+meaningless.
+
+**The rule that shapes this schema is R1 — the till never stops.** Two of the tables below carry
+columns that exist only because something downstream is allowed to fail without taking the sale with
+it, and those columns are the ones to read first.
+
+### `pos.till_sessions`
+
+`terminal_id`, `operator_user_id`, `currency`, `opening_float_*`, `opened_at`, `status`
+(Open/Closed), `counted_cash_amount`, `expected_cash_amount`, `closed_at`, `closed_by_user_id`,
+`note`.
+
+`ux_till_sessions_tenant_id_terminal_id_open` is unique on `(tenant_id, terminal_id)` filtered to
+`status = 'Open' AND deleted_at IS NULL`. **One open session per terminal is a database guarantee, not
+only a check the handler performs** — two concurrent open requests on the same drawer collide here
+rather than both succeeding and leaving neither one's expected cash a real number.
+
+The counted and expected amounts are two plain `numeric(18,4)` columns behind computed `Money?`
+accessors, per ADR-067; the currency is the session's own. Both are meaningless until the session
+closes.
+
+**Nothing writes `expected_cash_amount` from an input.** It is derived at close from the opening float
+plus the session's own sales' `CashContribution` — cash tendered less change given, and only on sales
+that actually completed. That derivation is the entire control: a cash-up whose expected figure can be
+supplied by the person being counted tells you nothing.
+
+### `pos.sales`
+
+`sale_number` (ADR-065's sequence, series `SALE`), `till_session_id`, `terminal_id`,
+`operator_user_id`, `location_id`, optional `customer_id`, `currency`, `status`
+(Open/Parked/Completed/Voided), the `net_*`/`tax_*`/`gross_*` totals, `amount_tendered_*`,
+`change_given_*`, `opened_at`, `completed_at`, `voided_at`, `void_reason`.
+
+`ux_sales_tenant_id_sale_number` is unique per tenant, filtered to `deleted_at IS NULL`.
+`ix_sales_till_session_id_status` serves both the cash-up derivation and the check that blocks a close.
+`ix_sales_terminal_id_parked` is partial on `status = 'Parked'`, because parked sales are a handful out
+of a day's trading and it is the list a cashier opens for every customer who comes back.
+
+Three check constraints restate what the aggregate already enforces, because these are the columns
+every later report reads and a null in one of them would be silently wrong rather than loud: a
+`Completed` sale has a `completed_at`, a `Voided` one has both `voided_at` and `void_reason`, and
+`change_given_amount >= 0`.
+
+**The primary key may be minted by the caller.** UUID v7 is offline-safe by design (ADR-004), so a
+terminal that rang a sale up while the network was down replays it under the id it already printed on
+the customer's slip, and the replay is idempotent by primary key rather than by a deduplication table
+somebody has to remember to check.
+
+### `pos.sale_lines`
+
+`sale_id`, `line_number`, `item_id`/`item_variant_id`, a `description` snapshot taken at ring-up,
+`quantity_*`, `unit_price_*`, `discount_*`, `tax_code`, `net_*`, `tax_*`, `gross_*`, `is_voided`,
+`voided_at`, and the three stock-issue columns below.
+
+`ux_sale_lines_sale_id_line_number` is unique. Line numbers are never reused after a void: a receipt
+whose line 2 is a different item on the reprint than it was on the original is worse than one with a
+gap.
+
+The description is snapshotted rather than joined. Renaming the item next month must not rewrite what
+a customer was handed.
+
+`ck_sale_lines_balances` asserts `net_amount + tax_amount = gross_amount`, and
+`ck_sale_lines_quantity_positive` asserts a positive quantity — a return is a Stage 10 document that
+references this sale, not a negative line on it, and a later stage adding returns has to make a
+deliberate decision about this table rather than sliding one in.
+
+**`stock_issue` (Pending/Posted/Refused), `stock_ledger_entry_id` and `stock_issue_note` are ADR-073.**
+A sale completes even when Stage 08's ledger refuses to relieve the stock behind a line — the customer
+is holding the item, and Stage 08 rule 4 still forbids a negative balance, so the sale stands and the
+line says what happened. `ix_sale_lines_stock_issue_refused` is partial on `Refused` and is the
+reconciliation queue a manager works through. If it ever grows large, that is the signal that the
+shelf and the system have drifted apart, not that the index is wrong.
+
+### `pos.sale_tenders`
+
+`sale_id`, `type` (Cash/Card/Voucher/MobileMoney/CustomerAccount), `amount_*`, optional `reference`,
+`captured_at`. `IImmutableRecord`, so `AuditInterceptor` refuses the row in `Modified` or `Deleted` —
+money that changed hands is corrected by another tender, never by an edit, the same relationship a
+journal has with its reversal. `ck_sale_tenders_amount_positive` holds the sign.
+
+Only `Cash` counts towards the drawer, and only cash can produce change; a card overpayment asking for
+the difference back is a cash advance, which a till may not do. `CustomerAccount` is declared here and
+settled nowhere — ADR-055 gave money held on behalf of a customer its own module at Stage 10b.
+
+### `pos.receipt_prints`
+
+`sale_id`, `printed_by_user_id`, `terminal_id`, `is_reprint`, `reason`, `printed_at`. Append-only and
+`IImmutableRecord`.
+
+Reprinting a receipt is the oldest till fraud there is — a second copy of a real sale is what a refund
+scheme is built on — so R6's "who did what" covers printing even though printing changes nothing.
+`ck_receipt_prints_reprint_has_reason` makes the reason mandatory on a reprint, and **whether a print
+is a reprint is derived from the row count rather than supplied by the caller**: a caller who could
+declare "this is the first print" could reprint forever without any of them being marked, which would
+make the log worse than useless because it would look complete.
+
+## 4h. Tables in `sales`
+
+Built in Stage 10. What something should cost, the specials that change it, what came back over the
+counter, and every time somebody sold at a price the resolver did not give them.
+
+Every item, variant, customer, sale, sale-line, user and ledger-entry reference below is a bare `uuid`
+and **never** a foreign key into `catalog`, `partners`, `pos`, `identity` or `inventory` —
+`CONVENTIONS.md` §2, the same rule `pos` and `inventory` follow. Foreign keys *within* this schema are
+used and correct: a price without its list, or a return line without its return, is meaningless.
+
+**Its own schema rather than a corner of `pos`**, even though the till is the loudest caller of both. A
+price list is not a till concept — a quote, a lay-by, an ecommerce basket and a wholesale invoice are
+all priced off these rows, and a shop with no cash drawer still has prices. Folding them into `pos`
+would make every one of those later modules depend on the till.
+
+### `sales.price_lists`
+
+`code`, `name`, `currency`, `kind` (Retail/Wholesale/Staff), `prices_include_tax`, `priority`,
+`effective_from`, `effective_to`, `is_active`, optional `store_id`.
+
+`ux_price_lists_tenant_id_code` is unique per tenant. `ix_price_lists_store_id_effective_active` is
+partial on the active set and is what the resolver seeks on once per scanned line.
+
+`prices_include_tax` is on the **list**, not the line, because it is a property of how a list was
+authored: a South African shelf price is quoted inclusive and a wholesale list is not. Storing it here
+means the resolver hands `ITaxCalculator` a stated amount and lets the matched tax rule decide the
+split, rather than every caller having to know which kind of list it read.
+
+A `store_id` scopes a list to one branch, and **a scoped list beats a tenant-wide one whatever their
+priorities say**. A branch running its own prices set them for a local reason; head office raising the
+priority of a national list should not silently override that. Priority breaks ties within a scope, and
+`code` breaks ties on priority, so resolution is total rather than dependent on row order.
+
+Deactivated, never deleted (§7 rule 8) — a completed sale has to stay explicable next year.
+
+### `sales.price_list_lines`
+
+`price_list_id`, `item_id` **or** `item_variant_id` (exactly one, `ck_price_list_lines_exactly_one_sku`),
+`unit_price_*`, `minimum_quantity`.
+
+**A quantity break is a row rather than a feature.** "R12.99 each, R11.50 from a dozen" is two lines for
+the same item at minimum quantities of 1 and 12, so adding a break is data entry and the resolver needs
+one rule — take the largest break at or below the quantity being sold — instead of a pricing DSL.
+
+`ux_price_list_lines_list_id_sku_minimum_quantity` is what makes Stage 11's bulk price import
+idempotent: re-importing the same sheet updates rows rather than accumulating a second price for the
+same break. Two prices for one break is not a price, and the resolver would have to pick one
+arbitrarily.
+
+### `sales.promotions`
+
+`code`, `name`, `kind`, `discount_percentage`, `reward_amount` / `reward_currency`,
+`required_quantity`, `free_quantity`, `effective_from`, `effective_to`, `days`, `starts_at`, `ends_at`,
+`priority`, `is_exclusive`, `is_active`, optional `store_id`.
+
+**A promotion is configuration, not code.** Running "3 for R50 on Fridays" is a row here and a row in
+`promotion_lines`; it is never a deployment. That is the whole point of the stage — a shop changes its
+specials weekly and cannot wait for a release to do it.
+
+The reward parameters are flat nullable columns rather than a polymorphic hierarchy or a JSON blob.
+Five kinds cover what a South African shop actually runs, the set changes rarely, and a flat row is
+queryable, diffable and importable in bulk. What keeps the flatness honest is that a kind can only be
+*created* with the parameters it needs — `Promotion` has no public constructor, only five factories,
+each of which validates its own shape. `ck_promotions_quantities_positive` and
+`ck_promotions_percentage_range` re-assert the ranges at the boundary.
+
+`reward_amount` / `reward_currency` is ADR-067's pair: EF Core 9 cannot map an optional complex
+property, so an optional `Money` is two columns behind a computed accessor.
+`ck_promotions_reward_currency_pairs` asserts they move together — an amount with no currency is the
+exact bug §7 rule 4 exists to prevent, and it is invisible until something tries to add it up.
+
+`days` is a flags enum stored as its **integer**, unlike every other enum in this schema. It is a set
+rather than a member, and the string form of a combination ("Monday, Wednesday, Friday") is neither
+queryable nor stable across a member rename.
+
+A time window that wraps past midnight (22:00–02:00) runs through the small hours rather than reading
+as an empty set. A late-night garage forecourt is a real shop.
+
+### `sales.promotion_lines`
+
+`promotion_id`, and exactly one of `item_id`, `item_variant_id` or `category_code`
+(`ck_promotion_lines_exactly_one_target`).
+
+**A promotion with no lines applies to everything** — that is how a store-wide clearance is expressed,
+and it is why `is_exclusive` exists.
+
+### `sales.sales_returns`
+
+`sale_id`, `return_number` (ADR-065's sequence, series `RTN`), `location_id`, `customer_id`,
+`currency`, `reason`, `refund_tender_type`, `authorised_by_user_id`, `status`
+(Draft/Completed/Cancelled), `net_*`, `tax_*`, `gross_*`, `raised_at`, `completed_at`, `cancelled_at`.
+
+**A return is a new document, never an edit.** §7 rule 7 says a completed financial document is
+amended by a new document, and Stage 09 made that structural rather than advisory:
+`ck_sale_lines_quantity_positive` is on `pos.sale_lines` precisely so nobody could later slide a
+negative line into a sale a customer is holding a receipt for. This table is the other half of that
+decision, and the original sale is read and never written.
+
+`ck_sales_returns_balances` asserts `net + tax = gross`, and
+`ck_sales_returns_amounts_not_negative` asserts a refund does not take money off the customer. Both
+hold in the aggregate too; they are here because every later report reads these three columns and a
+wrong one would be silently wrong rather than loud.
+
+### `sales.sales_return_lines`
+
+`sales_return_id`, `sale_line_id`, `item_id` **or** `item_variant_id`, `description`, `quantity_*`,
+`original_quantity_*`, `previously_returned_quantity`, `unit_price_*`, `tax_code`, `net_*`, `tax_*`,
+`gross_*`, `original_stock_ledger_entry_id`, `stock_return`, `stock_ledger_entry_id`,
+`stock_return_note`.
+
+**`ck_sales_return_lines_within_quantity_sold` is business rule 5 as a database guarantee.** The two
+snapshot columns are what make it expressible on the row: `quantity + previously_returned <=
+original_quantity`, so a return line written around the aggregate — by an import, a repair script, a
+future bug — still cannot claim more than was sold. What the constraint cannot settle is two returns
+raced against the same line at the same instant, because each snapshot is honest at the moment it is
+taken; that case is settled by the aggregate reading the committed sum inside the command's
+transaction. `ux_sales_return_lines_return_id_sale_line_id` stops the other way past a per-row check —
+two rows for one original line, each passing on its own.
+
+**The money comes from the original line and its tax is derived, never recomputed** (ADR-075). The
+shares are cumulative rather than per-return: each amount is the rounded share of everything returned
+so far less the rounded share of everything returned before, so partial refunds telescope and their sum
+is exactly the original line. Rounding each return independently does not have that property, and the
+failure is a refund of money the shop never took.
+
+`original_stock_ledger_entry_id` is snapshotted because the *cost* is on the issue entry, not on the
+sale line — Stage 09 stored what the customer paid, which is right for a receipt and useless for a
+stock receipt. A null there is not a fault: it means the original sale completed without relieving
+stock (ADR-073), and the return has no cost basis to receive against. `stock_return` is ADR-073's
+shape for goods moving the other way, and `ix_sales_return_lines_stock_return_refused` is its
+reconciliation queue.
+
+### `sales.price_override_logs`
+
+`sale_id`, `sale_line_id`, `item_id` **or** `item_variant_id`, `operator_user_id`, `quantity_*`,
+`resolved_unit_price_*`, `actual_unit_price_*`, `reason`, `occurred_at`. Append-only and
+`IImmutableRecord` — a log a later write can overwrite is not a log, the same call `pos.receipt_prints`
+made.
+
+Selling off-price is legitimate and routine — a damaged tin, a price match, a manager's goodwill — and
+it is also the oldest shrinkage pattern in retail. Both facts are handled by the same thing: the till
+does not refuse the override, it records it, so a variance that is one cashier and one item every
+Friday is visible as a pattern rather than invisible as a series of individually reasonable decisions.
+`ix_price_override_logs_operator_user_id_occurred_at` leads on the operator because that is who the
+question is almost always asked about.
+
+The variance is **not stored**: it is a difference between two columns that are already here, and a
+stored copy is one more thing that can disagree with them.
+
+`sale_id` and `sale_line_id` are optional because an override is recorded at the point of override,
+which may be before the line exists or before the sale completes at all. An override on a sale later
+voided is still an override that happened.
+
+---
+
+## 4i. Tables in `imports`
+
+Built in Stage 11. One uploaded file, what it was read as, what it was mapped to, what each of its rows
+would do, and — the part rollback is built on — what each row overwrote.
+
+Every item, variant, partner, price-list, location and ledger-entry reference below is a bare `uuid`
+and **never** a foreign key out of this schema (`CONVENTIONS.md` §2). Foreign keys *within* `imports`
+are used and correct: a row without its batch, or a mapping without its batch, is meaningless.
+
+**Everything here is written before anything else is.** The whole schema exists so that upload, parse,
+map and validate have somewhere to happen that is not a business table — which is what makes the
+preview an honest preview rather than a report on damage already done. See `docs/IMPORT_PIPELINE.md`.
+
+### `imports.import_batches`
+
+`batch_number`, `target_kind`, `source_format`, `file_name`, `content_hash`, `size_bytes`, `status`,
+`duplicate_strategy`, `worksheet`, `source_columns` (`jsonb`), the six row counters, and the who/when
+of commit and rollback.
+
+`ux_import_batches_tenant_id_batch_number` is unique per tenant; the number comes from ADR-065's
+sequence, series `IMP`.
+
+`ix_import_batches_tenant_id_content_hash_committed` is **partial on committed batches only** and is
+the duplicate-file check, run once per upload. `content_hash` is the SHA-256 of the uploaded bytes, and
+matching on **content rather than on file name** is the point — the same sheet saved under two names is
+the same sheet, and re-importing it is how somebody doubles their opening stock. The index is partial
+because uploading the same file twice is fine while the first attempt is still a preview; refusing it
+would strand somebody who discarded a batch and started again.
+
+`source_columns` is a `jsonb` array rather than a child table because **order is the whole content**. A
+header row is a sequence, and a child table would need a sequence column to say so.
+
+The six counters (`total_rows`, `valid_rows`, `invalid_rows`, `created_rows`, `updated_rows`,
+`skipped_rows`) are **recomputed from the rows on every transition**, never incremented. A counter that
+is incremented is a counter that drifts, and this one is what a person reads before deciding to commit.
+
+The uploaded bytes are **not** a column here. A 40 MB workbook does not belong in a table a list
+endpoint pages over, and the bytes have a different lifetime from the record of what was imported —
+they are dropped on commit, while the batch and its rows are kept.
+
+### `imports.import_column_mappings`
+
+`import_batch_id`, `target_field`, `source_column` (nullable), `default_value` (nullable).
+
+`ix_import_column_mappings_batch_id_target_field` is unique — a target field bound twice is a mapping
+that cannot be applied, and it is refused at the point the mapping is set rather than discovered per
+row.
+
+`source_column` is nullable because of `default_value`: a **constant** for a column the file does not
+have at all — a supplier file with no `currency` column, for a tenant that trades in one currency. That
+is also why a saved template beats alias matching, which by definition cannot bind a column that is not
+there. A binding with neither is refused (`IMPORTS_MAPPING_BINDS_NOTHING`).
+
+### `imports.import_rows`
+
+The single most important table in the module. `import_batch_id`, `row_number`, `raw_values`
+(`jsonb`), `normalised_values` (`jsonb`), `status`, `errors` (`jsonb`), `outcome`, `target_entity_id`,
+`compensation_entity_id`, and `before_image` (`jsonb`).
+
+`ix_import_rows_batch_id_row_number` is the preview's keyset order. `ix_import_rows_batch_id_status_row_number`
+is what the filtered preview seeks on — nobody scrolls forty thousand rows looking for the eleven bad
+ones.
+
+`row_number` is the **file's line number, header counted as 1**, so data rows start at 2. A row error
+that says "line 400" has to mean the line the person sees in their spreadsheet, not an index.
+
+**Both value maps are kept.** `raw_values` is what the file said, keyed by source header, and it is
+what answers "what did the file actually say" a year later. `normalised_values` is the parsed,
+canonical form keyed by *target field* — a cell reading `R1 234,56` is stored raw as written and
+normalised to `1234.56`. Parsing happens **once**, at validation (`CONVENTIONS.md` §6), and a target
+handler reads only the normalised map; a preview and a commit that parse separately are a preview and a
+commit that can disagree.
+
+`before_image` is what makes ADR-076's rollback possible: the prior state of the entity this row
+updated, as JSON, written by the handler that changed it and read back by nobody else. Each handler
+stores **only the fields it can change** — storing the whole entity would break the image the first
+time a later stage adds a field, and restoring a field the handler never touched would undo somebody
+else's edit.
+
+`outcome` (`Created` / `Updated` / `Movement` / `None`) is what the rollback dispatches on, and
+`compensation_entity_id` records the reversing ledger entry for a movement, so the original and its
+reversal can be read back as a pair.
+
+`status` carries three *preview* verdicts and three *post-commit* ones. `Valid`, `Invalid` and
+`Skipped` are what validation produces — a duplicate is its own answer and not a kind of valid
+(ADR-080) — and `Committed`, `Skipped` and `RolledBack` are what the commit and rollback leave behind.
+
+### `imports.import_mapping_templates`
+
+`code`, `name`, `target_kind`, `source_signature`, `bindings` (`jsonb`), `is_active`, `use_count`,
+`last_used_at`.
+
+`ux_import_mapping_templates_tenant_id_code` is unique per tenant.
+`ix_import_mapping_templates_target_kind_source_signature` is the lookup done once per upload.
+
+`source_signature` is a hash of the **normalised header row**, and it is the mechanism that makes the
+second month's import free: a file whose headers match a saved template is mapped on upload with no
+human step at all. Normalised on both sides by stripping everything that is not a letter or a digit, so
+a supplier who changes `Unit Price` to `unit_price` between months does not silently lose their
+template.
+
+Deactivated, never deleted (§7 rule 8) — a batch that was mapped by a template has to stay explicable.
+
+---
+
+## 4j. Tables in `procurement`
+
+Built in Stage 12. Thirteen tables for the five documents buying is made of — a requisition that
+commits nothing, an RFQ that asks, an order that commits, a receipt that moves stock, and a match that
+decides whether anybody pays — plus the scorecard that is the reason to keep the records at all.
+
+Every item, variant, partner, location, ledger-entry and journal reference below is a bare `uuid` and
+**never** a foreign key out of this schema (`CONVENTIONS.md` §2). Foreign keys *within* `procurement`
+are used and correct: a line without its document is meaningless.
+
+**No table here names a GL account** (§7 rule 12). Receiving raises Stage 08's valuation event and a
+released match raises `procurement.invoice.matched`; Stage 07's rules engine decides the accounts.
+`supplier_invoice_matches.journal_id` records *which* journal resulted, which is the audit direction —
+not an instruction about what to post. See ADR-081 and ADR-085.
+
+### `procurement.purchase_requisitions` / `_lines`
+
+`requisition_number` (ADR-065's sequence, series `REQ`), `requested_by_user_id`, `location_id`,
+`required_by`, `justification`, `status`, and the who/when of raising, submission and the decision —
+`decided_by_user_id`, `decided_at`, `rejection_reason` covering approval and rejection in one pair
+rather than two.
+
+`ux_purchase_requisitions_tenant_id_number` is unique per tenant and filtered on `deleted_at IS NULL`,
+which is the shape every document number in this schema uses. `ix_purchase_requisitions_status_required_by`
+is the buyer's work queue: what is approved, ordered by when it is needed.
+
+**There is no `partner_id` on a requisition, deliberately.** A requisition is somebody saying they need
+something, before anybody has chosen who to buy it from — and that absence is what lets Stage 15 raise
+one from a forecast. A line carries `estimated_unit_cost_*` because the requester may know roughly what
+it costs, and nothing is held to it.
+
+`sourced_to_document_id` and `sourced_at` on the line are how a requisition answers "did this ever get
+bought?" without the downstream documents having to be searched for it.
+
+### `procurement.rfqs` / `_lines` / `procurement.rfq_responses` / `_lines`
+
+`rfq_number` (series `RFQ`), `title`, the originating `purchase_requisition_id` where there was one,
+`closes_at`, `status`, and `awarded_response_id` / `awarded_at`.
+
+A response is one supplier's quote: `partner_id`, `currency`, `quoted_at`, `valid_until`,
+`lead_time_days`, `status` and the who/when of the award. `ux_rfq_responses_rfq_id_partner_id` is
+unique — one supplier quotes once per RFQ, and a supplier who wants to change their price submits a new
+response rather than editing a promise they already made (business rule 2). `ux_rfq_response_lines_response_id_rfq_line_id`
+says the same thing one level down.
+
+A response line carries `requested_quantity_*` alongside `quoted_quantity_*` — what was asked for as
+well as what the supplier is willing to supply, because a quote for less than the quantity requested is
+a normal answer and the difference is the thing a buyer is comparing.
+
+### `procurement.purchase_orders` / `_lines`
+
+`order_number` (series `PO`), `partner_id`, `currency`, delivery `location_id`, `expected_at`,
+`status`, `version`, `amends_purchase_order_id`, `rfq_response_id`, and the who/when of approval,
+issue, closure and cancellation. `net_*`, `tax_*` and `gross_*` are the sum of the lines.
+
+**`currency` is on the order, not the line** (business rule 4). A line carries `unit_cost_currency`
+because `Money` is always paired with its currency, and `ck_purchase_order_lines_currency_matches_order`
+is what stops the two disagreeing — §4.13's lesson, that a document letting a currency in through a
+line is permanently broken, written as a constraint rather than as a convention.
+
+`ck_purchase_orders_version_positive` and `ix_purchase_orders_amends_purchase_order_id` are the
+amendment chain: an issued order is immutable (§7 rule 7), so a change is a new order at `version + 1`
+naming the one it supersedes, and the superseded one is cancelled.
+
+A line's `net_*` / `tax_*` / `gross_*` are computed **once, at authoring time**, through
+`ITaxCalculator` (ADR-075). Nothing downstream recomputes them — the three-way match compares against
+these stored figures, which is what makes the comparison reproducible after a tax rate changes.
+
+`received_quantity_*`, `rejected_quantity_*` and `invoiced_quantity_*` are maintained running totals.
+They are the exception to the rule that a running total is not trustworthy, and they are safe here for
+the reason `import_batches`' counters are not: they are only ever advanced inside the transaction that
+writes the receipt or releases the match, on the one node that owns the order.
+
+### `procurement.goods_receipts` / `_lines`
+
+`receipt_number` (series `GRN`), `purchase_order_id`, `partner_id`, `location_id`, `received_at`, the
+supplier's own `delivery_note_number`, `status`, and `received_value_*`.
+
+A line carries `accepted_quantity_*` and `rejected_quantity_*` **separately**, with
+`rejection_reason`: only the accepted quantity moves through the ledger and only the accepted quantity
+counts as received against the order (business rule 7). `unit_cost_*` is the order's cost, not today's
+average — that is what a purchase *is*, and it is the entry that moves the weighted average (ADR-068).
+
+`stock_posting`, `stock_ledger_entry_id` and `stock_posting_note` are ADR-073's surface: a movement the
+ledger refuses does not fail the receipt, because the goods are on the dock either way.
+`ix_goods_receipt_lines_stock_posting_refused` is **partial on refused rows only** — it exists to serve
+`GET /procurement/reconciliation/stock-issues`, which is a short list over a large table, and a full
+index on a column that is almost always `Posted` would earn nothing.
+
+`ux_goods_receipt_lines_receipt_id_order_line_id` is unique: one receipt records one line per order
+line. Receiving the same order line twice is two receipts, which is what makes cumulative
+over-receipt checking (ADR-083) meaningful.
+
+### `procurement.supplier_invoice_matches` / `_lines`
+
+The three-way match. `purchase_order_id`, `partner_id`, the supplier's own `supplier_invoice_number`
+and `invoice_date`, the `claimed_net_*` / `claimed_tax_*` / `claimed_gross_*` they are charging,
+`status`, `matched_at`, and the who/when of the release.
+
+**The row is written whatever the verdict, including `Blocked`** (ADR-082) — "why did we not pay this
+invoice" is a question somebody asks three weeks later.
+`ck_supplier_invoice_matches_blocked_not_released` is the database re-asserting that only a `Matched`
+or `MatchedWithinTolerance` document may be released.
+
+`price_tolerance_percentage` and `price_tolerance_floor_*` are **snapshotted onto the document**. Tenant
+policy changes, and a match that re-judged itself under this month's tolerance would be an audit record
+that changes its own story.
+
+A line carries ordered, received, invoiced and `previously_invoiced_quantity_*` side by side — the
+last is what makes "nothing is invoiced that was not received" cumulative across several invoices
+against one order (business rule 11) — plus the computed `quantity_variance_*` and `price_variance_*`
+and a per-line `status`. `ux_supplier_invoice_matches_order_id_invoice_number` stops the same supplier
+invoice being matched against the same order twice.
+
+`variances` is `jsonb` on both tables: a variance is a short list of reasons a human reads, and it is
+never queried by its contents.
+
+### `procurement.supplier_scorecards`
+
+A frozen snapshot for one supplier over one closed period: `orders_placed`, `lines_ordered`,
+`lines_delivered`, `lines_delivered_on_time`, `lines_with_rejections`, the three quantities, the
+`price_variance_*` total, and the four derived rates.
+
+`ux_supplier_scorecards_partner_period` is unique, which is the enforcement of ADR-084: **a period may
+be snapshotted once.** Recomputing yesterday's supplier rating from today's data restates history, and
+a rating that changes when nobody did anything is a rating nobody trusts. The derived rates are stored
+rather than computed on read for exactly the same reason.
+
+A period with no orders produces a snapshot of zeroes rather than no row — "we bought nothing from
+them" is an answer, and its absence is not.
+
+## 4k. Tables in `warehouse`
+
+Built in Stage 13. Eleven tables subdividing a Stage 08 `inventory.stock_locations` row into zones and
+bins, plus the movements and tasks that shelve, count, pick, pack and ship at that granularity.
+
+Every location, item, variant and bin reference below is a bare `uuid` and **never** a foreign key out
+of this schema, with one deliberate exception: `bin_id` on `inventory.stock_ledger_entries`, added by
+this stage's migration as a plain nullable column (ADR-087) — additive to the table Stage 08 owns, not
+a new foreign key relationship, and every historical row simply reads `null` there.
+
+**No table here names a GL account** (§7 rule 12). A cycle count variance raises the same
+`InventoryValuationEvent` a Stage 08 stocktake does, through the same `IStockLedgerPoster` — no new
+posting rule exists for this module.
+
+### `warehouse.zones` / `warehouse.bins`
+
+`zones`: `location_id`, `code`, `name`, `type` (Receiving/Storage/Picking/Packing/Shipping/Returns),
+`is_active`. `ux_zones_location_id_code` is unique per location.
+
+`bins`: `location_id` (denormalised from the zone, the same shape `stock_ledger_entries.location_id`
+uses), `zone_id`, `code`, `name`, `type` (Shelf/Pallet/Bulk/Staging/Dock), `capacity_value` /
+`capacity_unit_of_measure` (plain nullable columns, not a complex property — EF Core 9 cannot configure
+one as optional, ADR-067, the same reason `finance.journal_lines.debit_amount` is a plain column),
+`is_active`. `ux_bins_location_id_code` is unique per location. Capacity is informational only — not
+enforced (ADR-091, business rule 9).
+
+### `warehouse.bin_stock` / `warehouse.bin_stock_movements`
+
+`bin_stock` is the projection: `bin_id`, item/variant, `quantity_on_hand_*`. Quantity only, no cost —
+valuation stays at the location level in `inventory.stock_balances`. Node-local, not replicated
+(ADR-069's reasoning applied one level down). `ux_bin_stock_bin_id_item_id` /
+`_item_variant_id` are unique per bin.
+
+`bin_stock_movements` is the append-only ledger the projection sums to, at bin granularity:
+`bin_id`, item/variant, `movement_type` (PutawayIn/PutawayOut/PickReserve/PickRelease/
+InternalTransferIn/InternalTransferOut), signed `quantity`, `reference_type`
+(Putaway/Pick/InternalTransfer), `reference_id`. `IImmutableRecord`, the same structural guarantee
+`stock_ledger_entries` has. Posted only for movements that redistribute stock **inside** a location —
+a movement that changes what the location holds goes through the extended `IStockLedgerPoster`
+instead (business rules 2–4).
+
+### `warehouse.putaway_tasks`
+
+One line of unbinned received stock: `location_id`, item/variant, `quantity_*`,
+`source_reference_type` (GoodsReceipt/ManualReceipt/Adjustment), `source_reference_id`,
+`suggested_bin_id`, `status`, `confirmed_bin_id`, `confirmed_quantity_*`, `confirmed_at`.
+
+May be confirmed more than once — `confirmed_quantity` accumulates and `status` becomes `Confirmed`
+only once it equals `quantity`, which is what lets a picker split a task across two bins.
+`ix_putaway_tasks_pending_by_location` is partial on `status = 'Pending'`, the same shape
+`ix_stocktake_sessions_open_by_location` uses.
+
+### `warehouse.pick_waves` / `warehouse.pick_tasks`
+
+`pick_waves`: `location_id`, `status` (Open/Released/Picked/Packed/Shipped/Cancelled), and the
+`released_at` / `picked_at` / `packed_at` / `shipped_at` timestamps of each transition.
+
+`pick_tasks`: `pick_wave_id`, item/variant, `requested_quantity_*`, `outbound_reference` (free text —
+Stage 14's `SalesOrderLine.Id` as a string is its real caller now, unchanged shape exactly as this
+column's own remarks anticipated), `allocated_bin_id`,
+`allocated_quantity_value` / `picked_quantity_value` (plain nullable columns sharing
+`requested_quantity`'s own unit of measure, the same `ADR-067` shape `bins.capacity_value` uses),
+`status` (Pending/Allocated/Picked/ShortPicked/Cancelled).
+
+### `warehouse.pack_tasks` / `warehouse.shipment_confirmations`
+
+`pack_tasks`: `pick_wave_id` (unique — one pack record per wave), `package_count`, `note`, `packed_at`.
+
+`shipment_confirmations`: `pick_wave_id` (unique), `carrier`, `tracking_number`, `shipped_at`.
+`IImmutableRecord` — a correction is a new shipment document, not an edit. Its id is minted before the
+document exists (the same `Entity(id, tenantId, storeId)` shape `inventory.stock_transfers` uses) so
+the location-level `stock_ledger_entries` row(s) it produces can carry it as their `reference_id`.
+
+### `warehouse.cycle_counts` / `warehouse.cycle_count_lines`
+
+The bin-level mirror of `inventory.stocktake_sessions` / `_lines`: `cycle_counts` carries `location_id`,
+an optional `zone_id` narrowing the count, `status`, `scheduled_at`, `finalized_at`.
+`ix_cycle_counts_open_by_location` is the same partial-on-open shape stocktakes use.
+
+`cycle_count_lines` carries `bin_id`, item/variant, `system_quantity_*` (a `bin_stock` snapshot taken
+when the line is recorded, not read live at finalize — Stage 08's `StocktakeLine` reasoning, applied
+one level down) and `counted_quantity_*`. `ux_cycle_count_lines_count_bin_item_id` /
+`_item_variant_id` are unique per count per bin, so a recount replaces rather than adds.
+
+**Finalizing a cycle count posts through `inventory`, not only `warehouse`** (business rule 4): a
+non-zero line variance calls `IStockLedgerPoster.PostCycleCountVarianceAsync`, which corrects
+`inventory.stock_balances` and writes a bin-tagged `inventory.stock_ledger_entries` row, and the same
+delta is applied to the line's own `bin_stock` row. A bin-level count that disagrees with the system is
+real inventory variance at the location, not a bin reshuffle.
+
+## 4l. Tables in `orders`
+
+Built in Stage 14. Four tables: a promise to fulfil what a customer wants (`sales_orders` /
+`sales_order_lines`), and what comes back once some of it shipped (`sales_order_returns` /
+`sales_order_return_lines`). Every partner, location, sale and customer-account reference below is a
+bare `uuid` and never a foreign key out of this schema (business rule 11); `sales_order_lines` and
+`sales_order_return_lines` do carry a real foreign key to their own parent table, the same in-schema
+aggregate shape `procurement.purchase_order_lines` uses.
+
+**No reservation ledger of its own, and no table names a GL account** (ADR-092, §7 rule 12).
+`sales_order_lines` has no `allocated_quantity` or `fulfilled_quantity` column at all — both are
+computed on demand from `warehouse.pick_tasks`, keyed by `outbound_reference = sales_order_lines.id`.
+The two genuinely new financial events this stage raises (`orders.order.fulfilled`,
+`orders.return.completed`) choose no account; the stock side of a return reuses
+`inventory.sale.returned` with no new rule (`StockReferenceType.OrderReturn`'s own remarks, ADR-093).
+
+### `orders.sales_orders` / `orders.sales_order_lines`
+
+`sales_orders`: `order_number` (ADR-065's `ORD` series), `partner_id` (nullable — business rule 10),
+`channel` (InStore/Phone/Online/Marketplace — only the first two have a real caller this stage),
+`fulfilment_type` (Delivery/ClickAndCollect), `fulfilling_location_id`, `delivery_address_*` (an owned
+`Address`, all columns null for click & collect — the same optional-owned-type shape
+`sales_orders.delivery_address_*` and `stores.address_*` both use), `status`
+(Draft/Confirmed/PartiallyAllocated/Allocated/PartiallyFulfilled/Fulfilled/Cancelled/Closed, always
+derived from its lines by `RecomputeStatus`, never set directly outside `Confirm`/`MarkCancelled`),
+`payment_status` (Unpaid/Paid/OnAccount — a flag, not a tender of its own), `settling_sale_id` /
+`settling_customer_account_id` (both nullable, no foreign key), `currency`, `order_date`,
+`requested_fulfilment_date`, `is_revenue_recognised` (guards the one-time-only event, business rule 5),
+`cancelled_at` / `cancelled_by` / `cancel_reason`, `net_amount` / `tax_amount` / `gross_amount`.
+`ux_sales_orders_tenant_id_order_number` is unique per tenant.
+
+`sales_order_lines`: `sales_order_id` (real FK, in-schema), item/variant, `requested_quantity_*`, the
+price snapshot (`unit_price_*`, `discount_amount_*`, `tax_amount_*`, `price_list_id`,
+`promotions_summary` — the same shape `sales.price_override_logs` and `sales.sale_lines` already
+snapshot pricing onto), `backordered_quantity_*` (the one figure this line keeps of its own — nothing
+in `warehouse` can say how much of a line was never even attempted), `line_status`
+(Pending/Allocated/PartiallyAllocated/Backordered/Fulfilled/PartiallyFulfilled/Cancelled).
+
+### `orders.sales_order_returns` / `orders.sales_order_return_lines`
+
+`sales_order_returns`: `sales_order_id` (no FK — cross-schema), `return_number` (ADR-065's `ORT`
+series, deliberately not `sales.sales_returns`' `RTN` — the two document families must never be
+confused in an audit trail, ADR-085's precedent applied to a series, business rule 6),  `reason`,
+`authorised_by_user_id`, `status` (Open/Completed), `refund_status` (the same `Unpaid`/`Paid`/
+`OnAccount` flag shape as `sales_orders.payment_status`), `net_amount` / `tax_amount` / `gross_amount`,
+`raised_at`, `completed_at`. `ux_sales_order_returns_tenant_id_return_number` is unique per tenant.
+
+`sales_order_return_lines`: `sales_order_return_id` (real FK, in-schema), `sales_order_line_id` (no
+FK — the parent order line lives in a sibling table of this same schema but the aggregate boundary
+stops at the return document), item/variant, `quantity_*` (never more than what was fulfilled less
+what earlier returns already took, business rule 6), `fulfilled_quantity_*` (a snapshot of what
+`IOrderFulfilmentReader` reported at the moment this line was raised), `previously_returned_quantity`,
+the pro-rata refund (`unit_price_*`, `net_amount`, `tax_amount`, `gross_amount` — the same
+cumulative-fraction arithmetic `sales.sales_return_lines` documents in full), `stock_return`
+(Pending/Posted/Refused — ADR-070/073's precedent, applied to an order return), `stock_ledger_entry_id`,
+`stock_return_note`.
+
+---
+
+## 4l. Tables in `registry` — the registry database (Stages 06c, 06d, 07c)
+
+### `registry.companies`
+One row per company, and the only place its connection details live. `id`, `tenant_id`, `code`,
+`legal_name`, `trading_name`, `registration_number`, `tax_number`, `base_currency`, `locale`,
+`document_prefix`, `connection_secret_ref` (**encrypted at rest, never exported, never logged**),
+`schema_version`, `migration_state`, `lifecycle_state` (`Provisioning | Seeding | Registered | Active |
+Deactivated`), `is_active`. `code` and `document_prefix` unique per tenant. Business operations see
+`Active` rows only (ADR-118).
+
+### `registry.company_groups` / `registry.company_group_members`
+The sets consolidation and group scope operate over. A company belongs to at most one group.
+
+### `registry.saga_intents` / `registry.saga_legs`
+The whole of a cross-company operation, written **before** anything happens. An intent is immutable; a
+leg carries `company_id`, `leg_id`, payload, `state` (`Pending | Applied | Failed | Compensated`),
+attempt count, `acknowledged_at`, and is idempotent on `(intent_id, leg_id)`. An intent past its timeout
+is an alarm with a named owner (ADR-116).
+
+### `registry.credit_groups` / `registry.credit_group_members`
+`credit_groups`: `direction` (`Receivable` | `Payable`), `limit_amount` `decimal(18,4)` + currency,
+`exposure_policy`, `is_active`. Members carry `company_id`, `partner_id`, optional `sub_limit_amount`.
+The group row is the serialisation point — a `row_version` check is not sufficient, the transaction is
+**serialisable** (ADR-101).
+
+### `registry.credit_holds` / `registry.credit_exposure_entries`
+`credit_holds`: amount, company, document reference, `expires_at`, state. Append-only; a hold that is
+never confirmed expires by itself and the credit returns. `credit_exposure_entries`: append-only
+confirmed consumption, idempotent per document. **Exposure = confirmed + unexpired holds.**
+
+### `registry.catalog_routing_index`
+`(tenant_id, barcode)` → `company_id`, `item_id`, `variant_id`, `pack_size`, `pack_uom_id`, cached
+description, `published_at`. Fed by each company's outbox on barcode create/change/retire; rebuildable
+by asking every company to republish; tested against the incremental projection (ADR-100).
+
+### `registry.group_receipts` / `registry.group_receipt_allocations`
+Captures money once and splits it across companies. **The receipt posts nothing.** Each allocation is a
+saga leg keyed by `(group_receipt_id, allocation_id)` that creates a `finance.ar_receipts` row inside
+its own company's database; leg state is `Pending → Applied | Compensated`. Σ allocations ≤ captured
+amount, as a check constraint and in the aggregate (ADR-104).
+
+### `registry.group_payments` / `registry.group_payment_allocations`
+The same shape outbound, for a supplier several companies owe.
+
+### `registry.inter_company_clearing_intents`
+Immutable, carrying both legs and the group document that caused them. `Settled` only when both
+companies acknowledge. Net-zero is proven by a **scheduled reconciliation across the databases**, not by
+a transaction, and a period close refuses over an outstanding intent (ADR-105).
+
+### `registry.operators` (Stage 06e)
+The vendor-issued ownership identity, **projected from the signed licence and never created by a tenant
+command**: `operator_id` (e.g. `OP-4K2X-9QN7`), display name, licence fingerprint, `is_active`. Every
+`registry.companies` row carries `operator_id` (ADR-121).
+
+### `registry.company_links` (Stage 06e)
+`company_a_id`, `company_b_id` (stored smaller-GUID-first so a pair has one row), `operator_id`,
+`scopes` (`[Flags]`: `SharedFloor, SharedTill, SharedCredit, SharedReceipting, SharedSourcing,
+SharedPicking, SharedReporting`), `status` (`Proposed | Accepted | Active | Suspended | Revoked`),
+`accepted_by_a`/`_b` + timestamps + licence fingerprint at acceptance, `effective_from`/`_to`,
+`revoked_reason`. **Unique on `(company_a_id, company_b_id)`. Check constraint: `operator_id` equals both
+companies' `operator_id`** (ADR-121, ADR-122).
+
+### `registry.premises` / `registry.premises_occupancies` / `registry.premises_bin_layouts` (Stage 06e)
+The physical site, the companies occupying it (one store each, that store's row living in its own
+company's database), and the zone/bin layout mastered at the premises and mirrored into each occupant's
+`warehouse` schema. **A quantity never spans companies**; a shelf may hold both companies' goods
+(ADR-124).
+
+### `registry.users` / `registry.user_company_access` (Stage 06e)
+The user directory: one row per human, one login, owned by an `operator_id`. Access grants roles **per
+company**; the JWT carries the companies and the roles in each, and a request naming a company absent
+from the token is 403 (ADR-127). A user may only be granted companies under the same Operator ID.
+
+### `registry.terminals` (Stage 06e)
+Terminal id, `premises_id`, the companies it may sell for, device certificate thumbprint. Selling for a
+sister company requires `SharedTill`, checked per transaction.
+
+### `registry.trading_sessions` / `_segments` / `_lines` / `_tenders` / `_tender_allocations` (Stage 09b)
+The mixed basket. One session per customer visit; **one segment per company**, each pricing, taxing and
+rounding inside its own company's database; lines carry the resolved `company_id` from the routing index
+and a **pack size snapshot**; one tender captured against the session and allocated across segments,
+cent-exact. Completion is a saga producing one tax invoice per company, and is idempotent on the
+session's `idempotency_key` (ADR-125, ADR-126).
+
+### `registry.contact_bindings` (Stage 22b)
+Channel address (E.164 phone or email) → contact → the companies it may reach, with
+`verification_state`, `verified_at`, `consent_state`, `locked_until`. **Created tenant-side only** — never
+by a requester asserting an identity (ADR-130). OTP challenges are stored hashed with a 10-minute expiry
+and a 3-attempt limit.
+
+### `registry.group_availability` / `registry.group_partner_exposure` / `registry.company_period_figures`
+The group read models. Each row carries the contributing company and its `AsAt`. Planning inputs only —
+no commit is ever decided from one, and a stale contributor is disclosed rather than silently summed
+(ADR-119).
+
+---
+
+## 4m. Tables in `inventory`, added by Stage 08c
+
+### `inventory.stock_reservations`
+**Inside each company's own database.** Append-only, immutable rows: `company_id`, `location_id`, `item_id`, `variant_id`, `quantity`
+`decimal(18,6)` + uom, `source_document_type`, `source_document_id`, `state`
+(`Held | Consumed | Released | Expired`), `expires_at`, `reason`. A release or expiry is a **new row**,
+never an update — the same shape as the stock ledger (ADR-103).
+
+### `inventory.available_balances`
+Projection: `on_hand`, `reserved`, `in_staging`, `available`, `as_at`. Rebuildable from
+`stock_ledger_entries` + `stock_reservations` + `warehouse.bin_stock`, and the rebuild must equal the
+incremental projection.
+
+---
+
+## 4n. Tables in `warehouse`, added by Stage 13b
+
+### `warehouse.bins` — extended
+`bin_type` gains `Consolidation`, `Packing`, `Dispatch`. Stock in one of these is on hand and **not**
+available; `StockLocationState` is derived from where the quantity sits, never stored (ADR-114).
+
+### `warehouse.pick_waves` — extended
+`geography_level` (`Province | City | Suburb`), `geography_value`, `period_from`, `period_to`,
+`company_scope`. Built from the order's **snapshotted** geography, not a live address join (ADR-113).
+
+### `warehouse.pick_wave_line_breakdowns`
+The per-order split of a grouped wave line: `pick_wave_line_id`, `order_id`, `order_line_id`,
+`quantity`. Sums exactly to the grouped quantity — a check the consolidation step depends on.
+
+### `warehouse.count_schedules`
+`cadence`, `scope` (zone / class / value band / supplier), `slow_mover_days`, `random_sample_size`,
+`next_run_at`. Generates Stage 13 `cycle_counts`; adds no second counting model (ADR-115).
+
+---
+
+## 4o. Tables in `fieldsales` (Stage 14b)
+
+### `fieldsales.reps` / `fieldsales.rep_territories` / `fieldsales.rep_companies`
+The user, the customers and/or geography they cover, the companies they may sell for, and their
+visibility profile (cost? margin?).
+
+### `fieldsales.pro_forma_orders` / `_lines`
+Proposal documents. Own `PF-` sequence per company. Lines carry quantity, uom, **pack size**, quoted
+price, the price-list and promotion snapshot, and the availability `as_at` shown to the rep. Status:
+`Draft | Submitted | Approved | Amended | Rejected | Expired | Converted`. Posts nothing, reserves
+nothing (ADR-107).
+
+### `fieldsales.pro_forma_credit_notes` / `_lines`
+The same, against a supplied invoice and its lines, with a reason code. Approves into a Stage 10 credit
+note inside the original invoice's company.
+
+### `fieldsales.rep_targets`
+Versioned per rep, per company, per period. A target change never restates a measured period.
+
+### `fieldsales.rep_performance_snapshots`
+Closed-period, immutable, per rep per company with the group roll-up: captured, converted, invoiced,
+credited, net, margin (where permitted), collections, customer coverage. A recomputation writes a new
+version with a reason (ADR-110).
 
 ---
 
@@ -453,16 +1401,110 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `StockTransfer` | StoreToCloud | AppendOnly | The document is written once, when both its ledger entries already exist, and never edited. |
 | `StocktakeSession` | StoreToCloud | StoreWins | The count happens on one store's floor; the cloud observes the result rather than participating in it. |
 | `StocktakeLine` | StoreToCloud | StoreWins | Follows its session. |
+| `TillSession` | StoreToCloud | StoreWins | A shift happens at one drawer in one shop. The cloud observes the cash-up; it never participates in one, and two stores can never contend over the same till. |
+| `Sale` | StoreToCloud | StoreWins | A sale is rung up in one place and is frozen the moment it completes. `StoreWins` rather than `AppendOnly` because a sale is legitimately mutable while it is open — lines and tenders arrive one at a time — and the store is the only node that can be editing it. |
+| `SaleLine` | StoreToCloud | StoreWins | Follows its sale. |
+| `SaleTender` | StoreToCloud | AppendOnly | Money that changed hands. `IImmutableRecord`, so it accumulates and never overwrites — the same reason `AuditEntry` and `StockLedgerEntry` are append-only. |
+| `ReceiptPrint` | StoreToCloud | AppendOnly | A print log that a later write can overwrite is not a log. |
+| `PriceList` | Bidirectional | CloudWins | Head office publishes a national list; a branch maintains its own. Same shape as `Store` and `Item`, and the cloud is where a multi-store estate settles a genuine collision. |
+| `PriceListLine` | Bidirectional | CloudWins | Follows its list. |
+| `Promotion` | Bidirectional | CloudWins | A special is set centrally for a chain and locally for a branch clearance; both are normal, and head office reconciles. |
+| `PromotionLine` | Bidirectional | CloudWins | Follows its promotion. |
+| `SalesReturn` | StoreToCloud | StoreWins | Goods come back over one counter, and the document is frozen the moment it completes. `StoreWins` rather than `AppendOnly` for the reason `Sale` is: it is legitimately mutable while it is a draft, and the store is the only node that can be editing it. |
+| `SalesReturnLine` | StoreToCloud | StoreWins | Follows its return. |
+| `PriceOverrideLog` | StoreToCloud | AppendOnly | A log a later write can overwrite is not a log. `IImmutableRecord`, so it accumulates — the same reason `AuditEntry`, `StockLedgerEntry` and `ReceiptPrint` are append-only. |
+| `ImportBatch` | StoreToCloud | StoreWins | An import happens at the store, against that store's data, and the cloud observes the outcome — how many rows, what they did, who committed it. The store is the only node that can be editing one. |
+| `ImportColumnMapping` | StoreToCloud | StoreWins | Follows its batch. |
+| `ImportRow` | StoreToCloud | StoreWins | Follows its batch. `StoreWins` rather than `AppendOnly` because a row is legitimately rewritten several times before it settles — a verdict at validation, an outcome at commit, a compensation at rollback — and all of it happens on the one node that owns the batch. |
+| `ImportMappingTemplate` | Bidirectional | CloudWins | The one entity here head office has a reason to own: a chain negotiating a supplier's file format once and pushing the mapping to every branch is the point of templates. A branch still saves its own for a local supplier, and the cloud settles a genuine collision — the same shape as `PriceList`. |
+| `PurchaseRequisition` | Bidirectional | CloudWins | Demand is raised in a shop that has run out and by a head-office buyer working an estate; both are normal. Head office reconciles, the same shape as `Item`. |
+| `PurchaseRequisitionLine` | Bidirectional | CloudWins | Follows its requisition. |
+| `Rfq` | Bidirectional | CloudWins | Sourcing is the act most likely to happen centrally — a chain asks three suppliers once for every branch — while a store still sources locally for a local line. |
+| `RfqLine` | Bidirectional | CloudWins | Follows its RFQ. |
+| `RfqResponse` | Bidirectional | CloudWins | A quote is frozen on submission (business rule 2), so the policy rarely arbitrates anything. `CloudWins` rather than `AppendOnly` because a response *is* legitimately edited before it is submitted, and Stage 21b will have a connected supplier authoring one over the network. |
+| `RfqResponseLine` | Bidirectional | CloudWins | Follows its response. |
+| `PurchaseOrder` | Bidirectional | CloudWins | The commitment, and the one document in this chain head office most needs to own — buying centrally is the ordinary reason a multi-store estate exists. A branch still raises its own. Frozen once issued (§7 rule 7), so the policy arbitrates only over drafts. |
+| `PurchaseOrderLine` | Bidirectional | CloudWins | Follows its order. Its `received_` and `invoiced_` running totals are advanced only on the node that owns the order, inside the transaction that writes the receipt or releases the match. |
+| `GoodsReceipt` | StoreToCloud | StoreWins | Goods physically arrive at one door, and the cloud observes it. The same shape as `SalesReturn`: legitimately mutable while it is a draft, frozen once completed, and only the store can be editing it. |
+| `GoodsReceiptLine` | StoreToCloud | StoreWins | Follows its receipt. |
+| `SupplierInvoiceMatch` | Bidirectional | CloudWins | Matching an invoice is an accounts-payable act, and AP is usually head office's — but a single-store shop does it at the back-office machine. Frozen once released (§7 rule 7). |
+| `SupplierInvoiceMatchLine` | Bidirectional | CloudWins | Follows its match. |
+| `SupplierScorecard` | Bidirectional | CloudWins | A snapshot over a closed period, written once and never edited (ADR-084), so the policy arbitrates nothing in practice. Head office is where an estate compares suppliers across branches. |
+| `Zone` | Bidirectional | CloudWins | A store names its own receiving dock; head office lays out a new distribution centre's zones. Same shape as `StockLocation`. |
+| `Bin` | Bidirectional | CloudWins | Follows its zone. |
+| `BinStock` | NodeLocal | LastWriterWins | Deliberately not replicated as a value, for the same reason `StockBalance` is not (ADR-069 applied one level down): a running total is not safely mergeable, and each node rebuilds its own from the movements it has applied. |
+| `BinStockMovement` | StoreToCloud | AppendOnly | Bin-level stock physically moves at one store, and the ledger accumulates — the same reason `StockLedgerEntry` is append-only. |
+| `PutawayTask` | StoreToCloud | StoreWins | Shelving happens at one store's floor and is legitimately mutable while pending (a picker confirms it in more than one call); the cloud observes the outcome. |
+| `PickWave` | StoreToCloud | StoreWins | A wave is worked at one location and is legitimately mutable while open — lines are added, released, picked. The store is the only node that can be editing one. |
+| `PickTask` | StoreToCloud | StoreWins | Follows its wave. |
+| `PackTask` | StoreToCloud | StoreWins | One packing record per wave, written once the wave is picked; the store is the only node that can write it. |
+| `ShipmentConfirmation` | StoreToCloud | AppendOnly | The point stock leaves a store's door. `IImmutableRecord` — a correction is a new shipment, not an edit, the same shape `StockTransfer` uses. |
+| `CycleCount` | StoreToCloud | StoreWins | A physical count happens on one store's floor; the cloud observes the result. Same shape as `StocktakeSession`. |
+| `CycleCountLine` | StoreToCloud | StoreWins | Follows its count. |
+| `SalesOrder` | StoreToCloud | StoreWins | An order is taken at one counter or phone line and is legitimately mutable while it works through allocation and fulfilment — lines confirm, allocate, ship, backorder. The store taking it is the only node that can be editing it, the same shape `Sale` and `GoodsReceipt` both use. Unlike `BinStock`/`StockBalance`, this is the order itself, not a projection, and must sync. |
+| `SalesOrderLine` | StoreToCloud | StoreWins | Follows its order. |
+| `SalesOrderReturn` | StoreToCloud | StoreWins | Goods come back at one counter, and the document is frozen the moment it completes — the same shape `SalesReturn` and `GoodsReceipt` both use. |
+| `SalesOrderReturnLine` | StoreToCloud | StoreWins | Follows its return. |
+
+### Added by Stages 06c, 07c, 08c, 13b and 14b
+
+| Entity | Direction | Conflict policy | Why |
+|---|---|---|---|
+| `Company` | CloudToStore | CloudWins | A legal entity and its connection details are head-office data. A store reads them; it does not invent a company. Registry-database entity. |
+| `CompanyGroup` / `CompanyGroupMember` | CloudToStore | CloudWins | Group membership is a head-office decision. Registry. |
+| `SagaIntent` / `SagaLeg` | StoreToCloud | AppendOnly | The record of a cross-company operation, written where it was initiated. Immutable; a leg's acknowledgement is a new state, and re-driving after a restore is safe because legs are idempotent (ADR-120). Registry. |
+| `CreditGroup` / `CreditGroupMember` | CloudToStore | CloudWins | The limit is set centrally. Registry. |
+| `CreditHold` / `CreditExposureEntry` | StoreToCloud | AppendOnly | Exposure accrues where trade happens; holds expire on their own. Append-only is what makes replay after an outage safe. Registry. |
+| `CatalogRoutingIndexEntry` | CloudToStore | CloudWins | A projection of catalogue data, which is already CloudToStore. Registry. |
+| `GroupReceipt` / `GroupReceiptAllocation` | StoreToCloud | AppendOnly | Money is captured where the customer paid. `IImmutableRecord` once allocated — a correction is a reversal. Registry; the AR receipts its legs create replicate from their own company databases as normal. |
+| `GroupPayment` / `GroupPaymentAllocation` | StoreToCloud | AppendOnly | Same, outbound. |
+| `InterCompanyClearingIntent` | StoreToCloud | AppendOnly | A posted pair, never edited; settled only when both companies acknowledge. Registry. |
+| `StockReservation` | StoreToCloud | AppendOnly | A hold is taken where the stock is, in that company's own database, and released by a new entry. The append-only shape is what makes it safe to replay after a restore. |
+| `CountSchedule` | CloudToStore | CloudWins | A counting policy is head office's; the counts it generates are the store's. |
+| `PickWaveLineBreakdown` | StoreToCloud | StoreWins | Follows its wave. |
+| `Rep` / `RepTerritory` / `RepCompany` | CloudToStore | CloudWins | Who a rep is and what they may sell is head-office data. |
+| `ProFormaOrder` / `_Line` | Bidirectional | StoreWins | Captured on a rep's device offline, approved at the back office. The capturing node owns the content; approval is a separate, server-side transition. Replayed through the idempotent sync batch path. |
+| `ProFormaCreditNote` / `_Line` | Bidirectional | StoreWins | Same. |
+| `RepTarget` | CloudToStore | CloudWins | Targets are set centrally and versioned. |
+| `RepPerformanceSnapshot` | StoreToCloud | AppendOnly | A closed period, immutable. A recomputation is a new version. |
+| `Operator` | CloudToStore | CloudWins | Projected from the signed licence. A store never mints one. Registry. |
+| `CompanyLink` | Bidirectional | CloudWins | Proposed and accepted at either end; the cloud is authoritative on status so a revocation propagates even if one store is offline. Registry. |
+| `Premises` / `PremisesOccupancy` / `PremisesBinLayout` | CloudToStore | CloudWins | Site and layout are head-office data; the mirror into each company's `warehouse` schema is a saga leg, not replication. Registry. |
+| `RegistryUser` / `RegistryUserCompanyAccess` | CloudToStore | CloudWins | The directory and its grants are central; per-company role catalogues stay where Stage 02 put them. Registry. |
+| `RegistryTerminal` | Bidirectional | CloudWins | Registered at a store, entitled centrally. Registry. |
+| `TradingSession` / `_Segment` / `_Line` / `_Tender` | StoreToCloud | AppendOnly | A basket happens at one till. Immutable once completed; a correction is a return. The session id is the replay idempotency key (ADR-125). Registry. |
+| `ContactBinding` | Bidirectional | CloudWins | Created tenant-side, usable at any node; revocation must propagate promptly, so the cloud wins. Registry. |
+| `Conversation` / `ConversationTurn` | StoreToCloud | AppendOnly | Append-only transcript, retained per the tenant's policy. Company database. |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and
 one-line rationale per entity.
 
+**Replication runs per database.** Each company database has its own outbox, inbox and cursors, and the
+cloud tier mirrors the store's layout — a registry and N company databases (ADR-120). A restore of one
+company database is a supported operation on its own; afterwards the registry re-drives that company's
+outstanding intent legs, which is safe because every leg is idempotent.
+
+**The uploaded file itself is deliberately absent from this registry.** `IImportFileStore` keeps the
+bytes outside the database entirely, and they do not replicate: the store server is where an import
+happens and where the file was uploaded, and the cloud gets the batch, the rows and the outcome, which
+is what a head office asks about. R10 also applies — an uploaded customer list is exactly the sort of
+document that has no business leaving the premises for vendor purposes.
+
 ---
 
 ## 6. Migrations
 
-`src/VumaRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`.
+`src/VumaRetail.Infrastructure/Migrations`, history table `platform.__ef_migrations_history`. The
+registry database has its own chain and its own history table, and is always migrated first.
+
+**Migrations fan out** (ADR-117). The runner iterates every company database in the registry, applying
+the same chain with bounded parallelism, recording `schema_version` and `migration_state` per company. A
+company whose version is behind the running binary is **not served** — its endpoints return an
+actionable failure naming the company and the pending migration, rather than executing against a schema
+the code does not expect. A partially migrated tenant is a first-class, reportable state, and migration
+is resumable and re-runnable. A company restored from backup arrives at whatever version it was taken at
+and is migrated forward by the same path before it is served.
 
 Every migration is reversible and its `Down` is **run** in the test suite, not assumed —
 `MigrationTests` applies the chain to an empty database, reverses it to nothing, and re-applies it.

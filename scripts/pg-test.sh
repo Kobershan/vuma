@@ -15,7 +15,19 @@
 set -euo pipefail
 
 PORT="${VUMA_TEST_PG_PORT:-55432}"
-DATA_DIR="${VUMA_TEST_PG_DATA:-${TMPDIR:-/tmp}/vuma-test-pg}"
+
+# Under $HOME, not under $TMPDIR. On the machine this is built on — and on most Ubuntu server
+# installs — /tmp is a tmpfs sized at half of RAM and carrying a per-user quota, so the default used
+# to put a PostgreSQL cluster on a RAM disk. It works until it doesn't: during Stage 10 the cluster,
+# the test databases, the coverage output and the build artefacts together exhausted the quota
+# mid-run, which failed 182 integration tests with connection errors that looked nothing like a disk
+# problem and left the shell unable to start at all.
+#
+# $HOME/.cache is the right home for it: it survives a reboot (so a re-run reuses the migrated
+# template instead of rebuilding it), it is on real storage, and it is the directory the XDG spec
+# reserves for exactly this — regenerable data that is expensive to recreate. Override with
+# VUMA_TEST_PG_DATA when running two suites side by side; see docs/PROGRESS.md §4.9.
+DATA_DIR="${VUMA_TEST_PG_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/vuma-test-pg}"
 USER_NAME="vuma"
 
 find_pg_bin() {
@@ -33,11 +45,35 @@ find_pg_bin() {
     return
   fi
 
+  # The EDB Windows installer (what this repo's Windows dev/build machines use, per
+  # docs/AUTONOMOUS_OPERATION.md) puts the server binaries here and does not add them to PATH.
+  candidate="$(ls -d "/c/Program Files/PostgreSQL"/*/bin 2>/dev/null | sort -V | tail -1 || true)"
+
+  if [[ -n "${candidate}" && -x "${candidate}/initdb.exe" ]]; then
+    echo "${candidate}"
+    return
+  fi
+
   echo "PostgreSQL server binaries not found. Install postgresql (not just the client)." >&2
   exit 1
 }
 
 PG_BIN="$(find_pg_bin)"
+
+# True on the native-Windows EDB build (postgres.exe rather than a Linux ELF binary). Its
+# argument parsing does not do Git Bash's automatic POSIX-to-Windows path translation for a path
+# embedded inside a single quoted -o "..." string, only for a path passed as its own argv entry
+# (which is why -D above works unmodified but -k below needs converting first).
+IS_WINDOWS_PG=0
+[[ -f "${PG_BIN}/initdb.exe" ]] && IS_WINDOWS_PG=1
+
+to_native_path() {
+  if [[ "${IS_WINDOWS_PG}" -eq 1 ]] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    echo "$1"
+  fi
+}
 
 conn_string() {
   echo "Host=127.0.0.1;Port=${PORT};Database=postgres;Username=${USER_NAME};Password=vuma"
@@ -56,19 +92,10 @@ case "${1:-start}" in
     # after the run. There is no credential here worth protecting and none is ever committed.
     "${PG_BIN}/initdb" -D "${DATA_DIR}" -U "${USER_NAME}" --auth=trust -E UTF8 >/dev/null
 
-    # The unix socket directory (-k) is only added on non-Windows. It buys nothing here — the
-    # fixture and every test connect over TCP (Host=127.0.0.1) — and on a native Windows
-    # postgres.exe under git-bash it actively breaks startup: the value is embedded inside the
-    # single -o option string, which MSYS does not path-translate the way it translates a
-    # standalone argv entry, so postgres.exe receives the literal POSIX path and fails to create
-    # the socket lock file there.
-    PG_EXTRA_OPTS=""
-    if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* && "$(uname -s)" != CYGWIN* ]]; then
-      PG_EXTRA_OPTS="-k ${DATA_DIR}"
-    fi
+    SOCKET_DIR="$(to_native_path "${DATA_DIR}")"
 
     "${PG_BIN}/pg_ctl" -D "${DATA_DIR}" -l "${DATA_DIR}/server.log" \
-      -o "-p ${PORT} ${PG_EXTRA_OPTS} -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
+      -o "-p ${PORT} -k \"${SOCKET_DIR}\" -c listen_addresses=127.0.0.1 -c fsync=off -c full_page_writes=off" \
       start >/dev/null
 
     # fsync off is safe and much faster here: the entire cluster is disposable, so durability

@@ -6,6 +6,8 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Interceptors;
 using VumaRetail.Infrastructure.Security;
 using VumaRetail.Infrastructure.Time;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -51,6 +53,37 @@ public static class PersistenceServiceCollectionExtensions
         });
 
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRetailDbContext>());
+
+        return services;
+    }
+
+    /// <summary>Registers the registry context against its separate registry database.</summary>
+    public static IServiceCollection AddVumaRegistryPersistence(
+        this IServiceCollection services,
+        string registryConnectionString)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(registryConnectionString);
+
+        services.AddDbContext<VumaRegistryDbContext>((_, options) =>
+        {
+            options.UseNpgsql(registryConnectionString, npgsql =>
+                npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
+            options.UseSnakeCaseNamingConvention();
+        }, optionsLifetime: ServiceLifetime.Singleton);
+        services.AddDbContextFactory<VumaRegistryDbContext>((_, options) =>
+        { options.UseNpgsql(registryConnectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry")); options.UseSnakeCaseNamingConvention(); });
+        services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRegistryDbContext>());
+        services.AddScoped<ICompanyContext, AmbientCompanyContext>();
+        services.AddScoped<ICompanyConnectionResolver, CompanyConnectionResolver>();
+        services.AddScoped<ICompanyFanOut, CompanyFanOut>();
+        services.AddScoped<ICompanyLifecycleService, CompanyLifecycleService>();
+        services.AddScoped<IRegistrySagaRedriver, RegistrySagaRedriver>();
+        services.AddScoped<ICompanyProvisioner, CompanyProvisioner>();
+        services.AddScoped<ICompanyDbContextFactory, CompanyDbContextFactory>();
+        services.AddScoped<ICompanyConnectionSecretStore, UnconfiguredCompanyConnectionSecretStore>();
+        services.AddScoped<ICompanyMigrationRunner, CompanyMigrationRunner>();
+        services.AddScoped<ICompanyServingGuard, CompanyServingGuard>();
 
         return services;
     }

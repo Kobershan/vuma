@@ -103,6 +103,16 @@ public sealed class StockLedgerRepository(VumaRetailDbContext context) : IStockL
         => context.StockLedgerEntries.FirstOrDefaultAsync(entry => entry.Id == ledgerEntryId, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<StockLedgerEntry>> ListByReferenceAsync(
+        StockReferenceType referenceType, Guid referenceId, CancellationToken cancellationToken = default)
+        => await context.StockLedgerEntries
+            .AsNoTracking()
+            .Where(entry => entry.ReferenceType == referenceType && entry.ReferenceId == referenceId)
+            .OrderBy(entry => entry.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
     public void Add(StockLedgerEntry entry) => context.StockLedgerEntries.Add(entry);
 }
 

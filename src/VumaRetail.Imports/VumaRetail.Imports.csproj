@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Stage 11: the Excel/CSV/PDF ingestion engine behind R5, expressed against Application ports and
+    nothing else — no EF, no HTTP. Sits below Infrastructure for the same reason VumaRetail.Finance
+    and VumaRetail.Sync do (ADR-048, ADR-051): a reader's whole job is "what does this file say",
+    so every corner case of RFC 4180, of a cached formula value and of a PDF's word geometry is
+    assertable from a byte array with no database and no host in the room.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Imports</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CLAUDE.md §4: ClosedXML for Excel, PdfPig for PDF text. Neither is substituted (ADR-077). -->
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

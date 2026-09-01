@@ -54,4 +54,91 @@ public static class Schemas
     /// Stock locations, the append-only stock ledger, balances, transfers and stocktakes. Stage 08.
     /// </summary>
     public const string Inventory = "inventory";
+
+    /// <summary>
+    /// Till sessions, sales, sale lines, tenders and the receipt print log. Stage 09.
+    /// </summary>
+    /// <remarks>
+    /// Declaring the schema is also what puts POS into the daily metering rollup: usage is grouped on
+    /// the schema half of <c>schema.table</c> from the audit trail (<c>UsageCounterSource</c>), so a
+    /// module gets its counter by existing rather than by writing one. Rule 16 stays true — the count
+    /// is a count, and no business row is read to produce it.
+    /// </remarks>
+    public const string Pos = "pos";
+
+    /// <summary>
+    /// Price lists, promotions, returns and the price override log. Stage 10.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Pos"/> rather than folded into it, even though the till is the loudest
+    /// caller of both. A price list is not a till concept — a quote, a lay-by, an ecommerce basket and
+    /// a wholesale invoice are all priced off the same rows, and a shop with no cash drawer still has
+    /// prices. Sharing POS's schema would make every one of those later modules depend on the till.
+    /// </remarks>
+    public const string Sales = "sales";
+
+    /// <summary>
+    /// Import batches, their rows, their column mappings and the saved mapping templates. Stage 11.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own schema, and it is the schema that makes the module's central promise enforceable:
+    /// nothing outside <c>imports</c> is written before a batch commits. A person can read that
+    /// guarantee off the schema list rather than out of five handlers, and a reviewer can check it by
+    /// looking at what a table's writes touch.
+    /// </para>
+    /// <para>
+    /// The tables reference items, partners, price-list lines and ledger entries by bare
+    /// <see cref="Guid"/> and never by foreign key, as <c>CONVENTIONS.md</c> §2 requires — and here
+    /// the rule and the design coincide, since <c>ImportRow.TargetEntityId</c> points at a different
+    /// module depending on the batch's target kind, so no typed reference could describe it.
+    /// </para>
+    /// </remarks>
+    public const string Imports = "imports";
+
+    /// <summary>
+    /// Requisitions, RFQs and their quotes, purchase orders, goods receipts, three-way matches and
+    /// supplier scorecards. Stage 12.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="Inventory"/>, even though a goods receipt is the loudest producer of
+    /// stock movements. Buying and holding stock are different questions asked by different people: a
+    /// warehouse manager reads the ledger, a buyer reads the order book, and the one thing they share —
+    /// "what arrived" — is a reference, not a table. Folding procurement into inventory would also make
+    /// Stage 15's replenishment planning depend on the stock ledger's schema in order to raise a
+    /// requisition, which it has no business doing.
+    /// </para>
+    /// <para>
+    /// Declaring the schema is also what puts procurement into the daily metering rollup: usage is
+    /// grouped on the schema half of <c>schema.table</c> from the audit trail
+    /// (<c>UsageCounterSource</c>), so the module gets its counter by existing rather than by writing
+    /// one. Rule 16 stays true — the count is a count, and no business row is read to produce it.
+    /// </para>
+    /// </remarks>
+    public const string Procurement = "procurement";
+
+    /// <summary>
+    /// Zones, bins, bin-level stock, putaway, pick/pack/ship and cycle counts. Stage 13.
+    /// </summary>
+    /// <remarks>
+    /// Subdivides <see cref="Inventory"/>'s locations rather than folding into that schema — a bin is
+    /// additive to the ledger, never a replacement for it (see <c>Inventory.StockLedgerEntry.BinId</c>'s
+    /// own remarks). Declaring the schema is also what puts the module into the daily metering rollup,
+    /// the same way every schema since <see cref="Pos"/> does.
+    /// </remarks>
+    public const string Warehouse = "warehouse";
+
+    /// <summary>
+    /// Sales orders, their lines and their order returns — a promise to fulfil, tracked from placement
+    /// through allocation, backorder, shipment and return. Stage 14.
+    /// </summary>
+    /// <remarks>
+    /// Its own schema rather than a subdivision of <see cref="Sales"/> or <see cref="Warehouse"/> —
+    /// <c>SalesOrder</c> is a document in its own right, not a POS receipt or a warehouse task, even
+    /// though it drives both (business rule 1: allocation is read live from <see cref="Warehouse"/>'s
+    /// <c>PickTask</c>, never duplicated here). Declaring the schema is also what puts the module into
+    /// the daily metering rollup, the same way every schema since <see cref="Pos"/> does.
+    /// </remarks>
+    public const string Orders = "orders";
 }

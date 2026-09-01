@@ -126,7 +126,10 @@ public sealed class OutboxDispatcher(
             node.Kind,
             tenant.TenantId,
             tenant.StoreId,
-            [.. shippable.Select(ToOperation)]);
+            [.. shippable.Select(ToOperation)])
+        {
+            CompanyId = CompanyIdOf(shippable),
+        };
 
         try
         {
@@ -184,7 +187,16 @@ public sealed class OutboxDispatcher(
             message.Operation,
             message.OperationHlc,
             message.Payload,
-            message.OccurredAt);
+            message.OccurredAt)
+        { CompanyId = message.CompanyId };
+
+    private static Guid? CompanyIdOf(IReadOnlyList<OutboxMessage> messages)
+    {
+        Guid? companyId = messages[0].CompanyId;
+        if (messages.Any(message => message.CompanyId != companyId))
+            throw new InvalidOperationException("A sync batch cannot contain more than one company database.");
+        return companyId;
+    }
 
     private async Task SettleAsync(
         IReadOnlyList<OutboxMessage> shipped,

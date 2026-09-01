@@ -1,0 +1,790 @@
+using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Inventory;
+using VumaRetail.Application.Inventory.Commands;
+using VumaRetail.Application.Warehouse;
+using VumaRetail.Application.Warehouse.Commands;
+using VumaRetail.Application.Warehouse.Queries;
+using VumaRetail.Domain.Inventory;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Warehouse;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.IntegrationTests.Harness;
+
+namespace VumaRetail.IntegrationTests.Warehouse;
+
+/// <summary>
+/// Stage 13's commands through the real dispatcher against a real database: bins subdividing a Stage
+/// 08 location, putaway that never touches the location ledger, and pick/pack/ship and cycle counts
+/// that do (business rules 2–4).
+/// </summary>
+[Collection(PostgresCollection.Name)]
+public sealed class WarehouseCommandTests(PostgresFixture fixture)
+{
+    private static Quantity Each(decimal value) => new(value, "EA");
+
+    private static async Task<(Guid ZoneId, Guid BinId)> CreateZoneAndBinAsync(
+        WarehouseHarness harness, string zoneCode, string binCode)
+    {
+        Guid zoneId = await harness.SendAsync(new CreateZoneCommand(harness.LocationId, zoneCode, zoneCode, ZoneType.Storage));
+        Guid binId = await harness.SendAsync(new CreateBinCommand(zoneId, binCode, binCode, BinType.Shelf));
+        return (zoneId, binId);
+    }
+
+    [Fact]
+    public async Task A_zone_and_bin_can_be_created_and_read_back()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+
+        (Guid zoneId, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        var zones = await harness.QueryAsync(new ListZonesQuery(harness.LocationId));
+        zones.Should().ContainSingle(zone => zone.Id == zoneId && zone.Code == "STOR-A");
+
+        var bins = await harness.QueryAsync(new ListBinsForZoneQuery(zoneId));
+        bins.Should().ContainSingle(bin => bin.Id == binId && bin.Code == "A-01");
+    }
+
+    [Fact]
+    public async Task A_second_zone_with_the_same_code_at_the_same_location_is_refused()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        await harness.SendAsync(new CreateZoneCommand(harness.LocationId, "STOR-A", "Storage A", ZoneType.Storage));
+
+        Func<Task> creating = () => harness.SendAsync(
+            new CreateZoneCommand(harness.LocationId, "stor-a", "Storage A Again", ZoneType.Storage));
+
+        (await creating.Should().ThrowAsync<WarehouseConflictException>())
+            .Which.Code.Should().Be("WAREHOUSE_ZONE_CODE_TAKEN");
+    }
+
+    [Fact]
+    public async Task Putaway_shelves_stock_into_a_bin_without_touching_the_locations_own_balance()
+    {
+        // Business rule 2: the location-level receipt already happened (a Stage 08/12 concern);
+        // putaway only redistributes it inside bins.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "REC-A", "A-01");
+
+        Guid ledgerEntryId = await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(50m), new Money(10m, "ZAR"), "PO delivery"));
+
+        StockBalance? balanceBefore = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        balanceBefore!.QuantityOnHand.Value.Should().Be(50m);
+
+        Guid taskId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(50m), PutawaySourceReferenceType.ManualReceipt, ledgerEntryId));
+
+        await harness.SendAsync(new ConfirmPutawayCommand(taskId, binId, Each(50m)));
+
+        StockBalance? balanceAfter = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        balanceAfter!.QuantityOnHand.Value.Should().Be(50m, "putaway redistributes, it does not create or consume stock");
+
+        BinStockResult? binStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        binStock!.QuantityOnHand.Value.Should().Be(50m);
+
+        PutawayTaskResult task = await harness.QueryAsync(new GetPutawayTaskQuery(taskId));
+        task.Status.Should().Be(PutawayStatus.Confirmed);
+        task.ConfirmedBinId.Should().Be(binId);
+    }
+
+    [Fact]
+    public async Task A_putaway_task_can_be_confirmed_into_a_bin_that_differs_from_the_suggestion()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid suggestedBin) = await CreateZoneAndBinAsync(harness, "REC-A", "A-01");
+        Guid otherBin = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(5m, "ZAR"), null));
+
+        Guid taskId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+
+        await harness.SendAsync(new ConfirmPutawayCommand(taskId, otherBin, Each(10m)));
+
+        BinStockResult? atOther = await harness.QueryAsync(new GetBinStockQuery(otherBin, harness.ItemId, null));
+        atOther!.QuantityOnHand.Value.Should().Be(10m);
+
+        // The suggested bin never received anything — confirming elsewhere is a legitimate override.
+        _ = suggestedBin;
+    }
+
+    [Fact]
+    public async Task The_whole_chain_receive_putaway_pick_pack_ship_really_moves_stock_out_of_the_location()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(20m), new Money(15m, "ZAR"), "Opening stock"));
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(20m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(20m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(8m), "SO-2001"));
+
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult released = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        released.Status.Should().Be(PickWaveStatus.Released);
+        released.Tasks.Should().ContainSingle(task => task.Id == pickTaskId && task.AllocatedBinId == binId);
+
+        await harness.SendAsync(new ConfirmPickCommand(pickTaskId, Each(8m)));
+
+        PickWaveResult picked = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        picked.Status.Should().Be(PickWaveStatus.Picked, "every line on the wave is settled");
+
+        BinStockResult? binAfterPick = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        binAfterPick!.QuantityOnHand.Value.Should().Be(12m, "the bin was relieved at pick time");
+
+        await harness.SendAsync(new PackWaveCommand(waveId, 1, "One box"));
+        Guid shipmentId = await harness.SendAsync(new ShipWaveCommand(waveId, "Courier Co", "TRK-001"));
+
+        PickWaveResult shipped = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        shipped.Status.Should().Be(PickWaveStatus.Shipped);
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(12m, "the location itself really lost the shipped quantity");
+
+        StockLedgerEntry shipmentEntry = harness.Context.StockLedgerEntries
+            .Single(entry => entry.ReferenceId == shipmentId);
+
+        shipmentEntry.ReferenceType.Should().Be(StockReferenceType.Shipment);
+        shipmentEntry.Quantity.Value.Should().Be(-8m);
+        shipmentEntry.BinId.Should().BeNull("the wave may have picked from more than one bin; the location-level entry does not name one");
+
+        ShipmentConfirmationResult shipment = await harness.QueryAsync(new GetShipmentConfirmationQuery(waveId));
+        shipment.Id.Should().Be(shipmentId);
+        shipment.Carrier.Should().Be("Courier Co");
+
+        PackTaskResult pack = await harness.QueryAsync(new GetPackTaskQuery(waveId));
+        pack.PackageCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_short_pick_is_recorded_and_ships_only_what_was_actually_picked()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-2002"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        // Only 6 physically found, even though 10 was allocated — recorded, not refused.
+        await harness.SendAsync(new ConfirmPickCommand(pickTaskId, Each(6m)));
+
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        wave.Tasks.Should().ContainSingle(task => task.Status == PickTaskStatus.ShortPicked);
+        wave.Status.Should().Be(PickWaveStatus.Picked);
+
+        await harness.SendAsync(new PackWaveCommand(waveId, 1));
+        await harness.SendAsync(new ShipWaveCommand(waveId));
+
+        StockBalance? balance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        balance!.QuantityOnHand.Value.Should().Be(4m, "only the 6 actually picked left the location");
+    }
+
+    [Fact]
+    public async Task Shipping_a_wave_with_nothing_picked_is_refused()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+
+        Func<Task> shipping = () => harness.SendAsync(new ShipWaveCommand(waveId));
+
+        (await shipping.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_NOTHING_PICKED");
+    }
+
+    [Fact]
+    public async Task Releasing_a_wave_beyond_what_any_bin_holds_is_refused()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(5m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(5m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(5m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(20m), "SO-2003"));
+
+        Func<Task> releasing = () => harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        (await releasing.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE");
+    }
+
+    [Fact]
+    public async Task A_demand_line_spanning_two_bins_is_split_and_allocated_from_both()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), new Money(10m, "ZAR"), null));
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(9m)));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binTwo, Each(6m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(12m), "SO-2004"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+
+        wave.Tasks.Should().HaveCount(2, "demand beyond the largest bin spills into a second allocated line");
+        wave.Tasks.Sum(task => task.AllocatedQuantity!.Value.Value).Should().Be(12m);
+        wave.Tasks.Select(task => task.AllocatedBinId).Should().BeEquivalentTo([binOne, binTwo]);
+    }
+
+    [Fact]
+    public async Task A_cycle_count_variance_corrects_both_the_bin_and_the_locations_own_balance()
+    {
+        // Business rule 4: a bin-level count that disagrees with the system is real inventory
+        // variance at the location, not merely a reshuffle between bins.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+
+        // Physically found only 7, three fewer than the system expects.
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(7m)));
+
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        BinStockResult? binStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        binStock!.QuantityOnHand.Value.Should().Be(7m);
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(7m, "the location's own on-hand quantity moved too");
+
+        CycleCountResult count = await harness.QueryAsync(new GetCycleCountQuery(countId));
+        count.Status.Should().Be(CycleCountStatus.Finalized);
+        count.Lines.Should().ContainSingle(line => line.Variance.Value == -3m);
+
+        // The exit checklist's "reaches Stage 07 through Stage 08's existing rules, verified rather
+        // than assumed": the movement type is the whole of what picks the seeded rule key
+        // (`EventTypeFor` maps StocktakeVariance to inventory.stocktake.shortage / .surplus), so a
+        // cycle count raising StocktakeVariance is a cycle count reaching the rules Stage 08 seeded.
+        // If this stage had invented a movement type of its own, this assertion is what would fail.
+        InventoryValuationEvent variance = harness.ValuationEvents.Events
+            .Single(raised => raised.ReferenceType == StockReferenceType.CycleCount);
+
+        variance.MovementType.Should().Be(
+            StockMovementType.StocktakeVariance,
+            "no new posting rule is registered by this stage — a cycle count is economically a stocktake");
+        variance.Value.IsNegative.Should().BeTrue("a shortage, so inventory.stocktake.shortage is the rule it lands on");
+    }
+
+    [Fact]
+    public async Task A_legitimate_move_between_recording_and_finalizing_is_not_double_counted()
+    {
+        // §4.19 — Finalize used to apply the frozen snapshot's variance on top of whatever on-hand had
+        // become by finalize time, so a real movement in between got counted twice: once for real, once
+        // again as a phantom "shortage" the picker never actually found.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(10m)));
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+
+        // Physically found 7 against a system quantity of 10, snapshotted here.
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binOne, harness.ItemId, null, Each(7m)));
+
+        // Before finalize, 2 legitimately move out to another bin — nothing to do with the count.
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(2m)));
+
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        // The old frozen-variance bug: -3 applied to the post-move 8 would land on 5. The picker
+        // physically counted 7, and 7 is what genuinely disagrees with reality — that is what must post.
+        BinStockResult? binStock = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        binStock!.QuantityOnHand.Value.Should().Be(7m, "what was actually counted, not the frozen snapshot's arithmetic");
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(9m, "10 received, 2 moved out for real, only 1 more unaccounted for — not 3");
+    }
+
+    [Fact]
+    public async Task A_recount_before_finalize_replaces_the_line_rather_than_adding_a_second_one()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+
+        Guid lineId = await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(7m)));
+        Guid recountId = await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(9m)));
+
+        recountId.Should().Be(lineId);
+
+        CycleCountResult count = await harness.QueryAsync(new GetCycleCountQuery(countId));
+        count.Lines.Should().ContainSingle();
+        count.Lines[0].CountedQuantity.Value.Should().Be(9m);
+    }
+
+    [Fact]
+    public async Task A_finalized_cycle_count_refuses_a_further_count_and_a_second_finalize()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(5m), new Money(20m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(5m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(5m)));
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(5m)));
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        Func<Task> recounting = () => harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(1m)));
+        Func<Task> refinalizing = () => harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        (await recounting.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_CYCLE_COUNT_ALREADY_FINALIZED");
+        (await refinalizing.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_CYCLE_COUNT_ALREADY_FINALIZED");
+    }
+
+    [Fact]
+    public async Task Stock_can_be_moved_directly_from_one_bin_to_another()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(10m)));
+
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(4m)));
+
+        BinStockResult? fromBin = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        BinStockResult? toBin = await harness.QueryAsync(new GetBinStockQuery(binTwo, harness.ItemId, null));
+
+        fromBin!.QuantityOnHand.Value.Should().Be(6m);
+        toBin!.QuantityOnHand.Value.Should().Be(4m);
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(10m, "an internal move never changes what the location holds");
+    }
+
+    [Fact]
+    public async Task A_shipment_issues_one_ledger_entry_per_SKU_however_many_bins_it_was_picked_from()
+    {
+        // Business rule 3 and the stage document's ShipmentConfirmation acceptance: two pick lines for
+        // the same SKU in two different bins are one economic event at the location, so the wave must
+        // post one issue for their sum — not one per bin, and not one per line.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), new Money(10m, "ZAR"), null));
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(15m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(9m)));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binTwo, Each(6m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(12m), "SO-2005"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult released = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        released.Tasks.Should().HaveCount(2, "the demand spans two bins");
+
+        foreach (PickTaskResult task in released.Tasks)
+        {
+            await harness.SendAsync(new ConfirmPickCommand(task.Id, task.AllocatedQuantity!.Value));
+        }
+
+        await harness.SendAsync(new PackWaveCommand(waveId, 1, null));
+        Guid shipmentId = await harness.SendAsync(new ShipWaveCommand(waveId, "Courier Co", "TRK-005"));
+
+        StockLedgerEntry[] shipmentEntries = [.. harness.Context.StockLedgerEntries
+            .Where(entry => entry.ReferenceId == shipmentId)];
+
+        shipmentEntries.Should().ContainSingle("one issue per distinct SKU across the wave, not one per bin");
+        shipmentEntries[0].Quantity.Value.Should().Be(-12m, "the SKU's picked quantity is summed across both lines");
+
+        StockBalance? locationBalance = await harness.Balances.FindAsync(harness.LocationId, harness.ItemId, null);
+        locationBalance!.QuantityOnHand.Value.Should().Be(3m);
+
+        BinStockResult? fromBinOne = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        BinStockResult? fromBinTwo = await harness.QueryAsync(new GetBinStockQuery(binTwo, harness.ItemId, null));
+        (fromBinOne!.QuantityOnHand.Value + fromBinTwo!.QuantityOnHand.Value).Should().Be(3m,
+            "both bins were relieved, and between them they hold what the location still holds");
+    }
+
+    [Fact]
+    public async Task A_bin_tagged_post_carries_its_bin_onto_the_ledger_and_an_untagged_one_leaves_it_null()
+    {
+        // ADR-087's regression test: the bin id is additive. A Stage 08/09/10/12 call site that never
+        // passes one must keep producing exactly the entry it produced before this stage existed, and
+        // a Stage 13 call site that has one must record it.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(20m, "ZAR"), null));
+
+        StockLedgerEntry receipt = harness.Context.StockLedgerEntries
+            .Single(entry => entry.ReferenceType == StockReferenceType.Manual);
+
+        receipt.BinId.Should().BeNull("a Stage 08 receipt names no bin and must behave exactly as before");
+
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        harness.Context.StockLedgerEntries.Count().Should().Be(1, "business rule 2: putaway posts no ledger entry at all");
+
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(8m)));
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        StockLedgerEntry variance = harness.Context.StockLedgerEntries
+            .Single(entry => entry.ReferenceType == StockReferenceType.CycleCount);
+
+        variance.BinId.Should().Be(binId, "the count knew which bin disagreed, so the ledger records it");
+        variance.Quantity.Value.Should().Be(-2m);
+    }
+
+    [Fact]
+    public async Task AddPickTaskCommand_replayed_with_the_same_id_returns_the_existing_task_instead_of_adding_a_second_one()
+    {
+        // §4.19 — the dropped-connection retry that used to double-add the line.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid taskId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(
+            new AddPickTaskCommand(waveId, harness.ItemId, null, Each(8m), "SO-3001", taskId));
+        Guid replayed = await harness.SendAsync(
+            new AddPickTaskCommand(waveId, harness.ItemId, null, Each(8m), "SO-3001", taskId));
+
+        replayed.Should().Be(first);
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        wave.Tasks.Should().ContainSingle(task => task.Id == taskId, "the replay must not add a second line");
+    }
+
+    [Fact]
+    public async Task OpenPutawayTaskCommand_replayed_with_the_same_id_returns_the_existing_task_instead_of_opening_a_second_one()
+    {
+        // §4.19 — the dropped-connection retry that used to double-open the task.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(5m, "ZAR"), null));
+        Guid taskId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt, null, taskId));
+        Guid replayed = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt, null, taskId));
+
+        replayed.Should().Be(first);
+        IReadOnlyList<PutawayTaskResult> pending = await harness.QueryAsync(new ListPendingPutawayTasksQuery(harness.LocationId));
+        pending.Should().ContainSingle(task => task.Id == taskId, "the replay must not open a second task");
+    }
+
+    [Fact]
+    public async Task MoveBinStockCommand_replayed_with_the_same_transfer_id_does_not_move_the_quantity_twice()
+    {
+        // §4.19 — the dropped-connection retry that used to move the same quantity a second time.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (Guid zoneId, Guid binOne) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+        Guid binTwo = await harness.SendAsync(new CreateBinCommand(zoneId, "A-02", "A-02", BinType.Shelf));
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binOne, Each(10m)));
+
+        Guid transferId = UuidV7.NewGuid();
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(4m), transferId));
+        await harness.SendAsync(new MoveBinStockCommand(binOne, binTwo, harness.ItemId, null, Each(4m), transferId));
+
+        BinStockResult? fromBin = await harness.QueryAsync(new GetBinStockQuery(binOne, harness.ItemId, null));
+        BinStockResult? toBin = await harness.QueryAsync(new GetBinStockQuery(binTwo, harness.ItemId, null));
+
+        fromBin!.QuantityOnHand.Value.Should().Be(6m, "the replay must not relieve the source bin twice");
+        toBin!.QuantityOnHand.Value.Should().Be(4m, "the replay must not credit the destination bin twice");
+    }
+
+    [Fact]
+    public async Task Releasing_a_second_wave_against_the_same_bin_only_sees_what_the_first_wave_did_not_reserve()
+    {
+        // §4.19's other CRITICAL: allocation was advisory-only — nothing marked a bin's stock as spoken
+        // for, so two waves released one after another against the same bin could both allocate the full
+        // on-hand quantity. A wave's own release now writes a real reservation (Reserve), and the
+        // allocator ranks and filters on Available (on-hand less reserved), not raw on-hand.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid firstWaveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(firstWaveId, harness.ItemId, null, Each(7m), "SO-4001"));
+        await harness.SendAsync(new ReleasePickWaveCommand(firstWaveId));
+
+        BinStockResult? afterFirstRelease = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterFirstRelease!.QuantityOnHand.Value.Should().Be(10m, "a reservation never moves physical stock");
+        afterFirstRelease.QuantityReserved.Value.Should().Be(7m);
+        afterFirstRelease.Available.Value.Should().Be(3m);
+
+        Guid secondWaveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(secondWaveId, harness.ItemId, null, Each(5m), "SO-4002"));
+
+        Func<Task> releasingSecond = () => harness.SendAsync(new ReleasePickWaveCommand(secondWaveId));
+
+        // Only 3 is genuinely available — the other 7 already belongs to the first wave's reservation.
+        (await releasingSecond.Should().ThrowAsync<WarehouseRuleException>())
+            .Which.Code.Should().Be("WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE");
+    }
+
+    [Fact]
+    public async Task A_short_pick_releases_its_whole_reservation_not_only_what_was_picked()
+    {
+        // The unpicked remainder of a short pick must not sit as a phantom reservation forever.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4003"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        await harness.SendAsync(new ConfirmPickCommand(pickTaskId, Each(6m)));
+
+        BinStockResult? bin = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        bin!.QuantityOnHand.Value.Should().Be(4m, "only what was physically picked left the bin");
+        bin.QuantityReserved.Value.Should().Be(0m, "the whole reservation clears on confirm, even a short one");
+        bin.Available.Value.Should().Be(4m, "the unpicked remainder is available to the next wave immediately");
+    }
+
+    [Fact]
+    public async Task Cancelling_an_allocated_task_releases_its_reservation()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid pickTaskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4004"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        await harness.SendAsync(new CancelPickTaskCommand(pickTaskId));
+
+        BinStockResult? bin = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        bin!.QuantityReserved.Value.Should().Be(0m);
+        bin.Available.Value.Should().Be(10m, "an abandoned task must not leave its stock permanently unpromisable");
+    }
+
+    [Fact]
+    public async Task Cancelling_a_released_wave_releases_every_task_still_holding_a_reservation()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(10m), "SO-4005"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        BinStockResult? beforeCancel = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        beforeCancel!.QuantityReserved.Value.Should().Be(10m);
+
+        await harness.SendAsync(new CancelPickWaveCommand(waveId));
+
+        BinStockResult? afterCancel = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterCancel!.QuantityReserved.Value.Should().Be(0m, "cancelling the wave must not leak its tasks' reservations");
+        afterCancel.Available.Value.Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task A_cycle_count_correction_below_what_is_reserved_clamps_the_reservation_instead_of_taking_available_negative()
+    {
+        // Agent-panel finding against commit cefe371 (§7 rule 21): BinStock.ApplyOut only guarded
+        // against taking QuantityOnHand negative, not Available — a stocktake finding fewer units than
+        // an active, unconfirmed pick reservation promised used to leave Available negative. Refusing
+        // the correction outright would be worse (a cycle count could never correct a bin with any live
+        // reservation), so ApplyOut now clamps the reservation down to match reality instead.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(100m)));
+
+        // An active, unconfirmed pick reservation for 90 — nothing has physically left the bin yet.
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(90m), "SO-5001"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        BinStockResult? beforeCount = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        beforeCount!.QuantityReserved.Value.Should().Be(90m);
+
+        // A stocktake finds only 40 physically there — a real shortage, unrelated to the reservation.
+        Guid countId = await harness.SendAsync(new OpenCycleCountCommand(harness.LocationId));
+        await harness.SendAsync(new RecordCycleCountCommand(countId, binId, harness.ItemId, null, Each(40m)));
+        await harness.SendAsync(new FinalizeCycleCountCommand(countId));
+
+        BinStockResult? afterCount = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        afterCount!.QuantityOnHand.Value.Should().Be(40m, "the physical count is what actually happened and must post");
+        afterCount.QuantityReserved.Value.Should().Be(40m, "a reservation cannot survive on stock the count found is not there");
+        afterCount.Available.Value.Should().Be(0m, "Available must never go negative, even here (§7 rule 21)");
+    }
+
+    [Fact]
+    public async Task Two_tasks_for_different_stock_keeping_units_sharing_one_bin_are_both_fully_allocated_in_one_release()
+    {
+        // Agent-panel finding against commit cefe371: the within-one-release accumulator was keyed on
+        // BinId alone, so a second task for a *different* item sharing the same bin wrongly inherited
+        // the first task's reservation and could be short-allocated or refused even though its own
+        // stock-keeping unit was untouched.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), new Money(10m, "ZAR"), null));
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.SecondItemId, null, Each(50m), new Money(10m, "ZAR"), null));
+
+        Guid putawayFirst = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(100m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayFirst, binId, Each(100m)));
+
+        Guid putawaySecond = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.SecondItemId, null, Each(50m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawaySecond, binId, Each(50m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(20m), "SO-5002"));
+        await harness.SendAsync(new AddPickTaskCommand(waveId, harness.SecondItemId, null, Each(40m), "SO-5003"));
+
+        // Must not throw: the second task's 40 units of its own SKU are genuinely untouched by the
+        // first task's 20-unit reservation against a different SKU in the same bin.
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+
+        PickWaveResult wave = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        wave.Tasks.Should().HaveCount(2);
+        wave.Tasks.Should().OnlyContain(task => task.Status == PickTaskStatus.Allocated);
+
+        BinStockResult? firstStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.ItemId, null));
+        BinStockResult? secondStock = await harness.QueryAsync(new GetBinStockQuery(binId, harness.SecondItemId, null));
+
+        firstStock!.QuantityReserved.Value.Should().Be(20m);
+        secondStock!.QuantityReserved.Value.Should().Be(40m, "the second SKU's reservation must not have inherited the first's");
+    }
+
+    [Fact]
+    public async Task Two_genuinely_concurrent_reservations_against_the_same_bin_cannot_both_succeed()
+    {
+        // Agent-panel finding: the 5 tests above prove correctness once a reservation has already
+        // committed, but are all strictly sequential — they do not exercise two transactions racing
+        // before either commits, which is the actual scenario the commit message describes. What
+        // actually protects against that race is RowVersion optimistic concurrency (every Entity
+        // carries one, ADR-035) — untested and undocumented as the mechanism until now. This proves it
+        // directly: two independent contexts both read the same BinStock row, both reserve against the
+        // same on-hand figure, and only one commit can win.
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), null));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        await using VumaRetailDbContext contextA = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        await using VumaRetailDbContext contextB = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        BinStockRepository repositoryA = new(contextA);
+        BinStockRepository repositoryB = new(contextB);
+
+        // Both read the same row — on-hand 10, reserved 0, Available 10 — before either writes.
+        BinStock? balanceA = await repositoryA.FindAsync(binId, harness.ItemId, null);
+        BinStock? balanceB = await repositoryB.FindAsync(binId, harness.ItemId, null);
+        balanceA.Should().NotBeNull();
+        balanceB.Should().NotBeNull();
+
+        // Both reservations are individually valid against the on-hand each context saw (7 <= 10), and
+        // together they would take Available to -4 if both were allowed to commit.
+        balanceA!.Reserve(new Quantity(7m, "EA"));
+        balanceB!.Reserve(new Quantity(7m, "EA"));
+
+        await contextA.SaveChangesAsync();
+
+        // B's row version is now stale — its write must be refused, not silently applied on top.
+        Func<Task> secondSave = () => contextB.SaveChangesAsync();
+        await secondSave.Should().ThrowAsync<DbUpdateConcurrencyException>(
+            "a stale write must be refused outright, never merged into a negative Available");
+
+        // A fresh, independent read — not through harness.Context (already tracks this row, stale,
+        // from setup) or contextA/contextB (already tracking their own in-memory copies) — to prove
+        // what genuinely persisted, not what one context's identity map happens to hold.
+        await using VumaRetailDbContext contextC = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
+        BinStock? final = await new BinStockRepository(contextC).FindAsync(binId, harness.ItemId, null);
+
+        final!.QuantityReserved.Value.Should().Be(7m, "only the winning transaction's reservation may have persisted");
+        final.Available.Value.Should().Be(3m, "never negative — the second reservation never happened");
+    }
+}

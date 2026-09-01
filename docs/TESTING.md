@@ -27,19 +27,26 @@ Every stage adds, at minimum:
 Two things about the harness that cost a session in Stage 07. Both are usage, not code.
 
 **Free space.** `PostgresFixture` clones the template database once per test class, so a full run
-creates a great many complete PostgreSQL databases. Give it a few GB of headroom — and do not let the
-cluster live on a `tmpfs`. `scripts/pg-test.sh` defaults its data directory to `${TMPDIR:-/tmp}`,
-which on a typical Linux box is RAM, and a full run will fill it. Point it at real disk:
+creates a great many complete PostgreSQL databases. Give it a few GB of headroom, and **do not let the
+cluster live on a `tmpfs`**.
 
-```bash
-export VUMA_TEST_PG_DATA=~/.cache/vuma-test-pg
-```
+Since Stage 10 `scripts/pg-test.sh` defaults its data directory to `${XDG_CACHE_HOME:-$HOME/.cache}/vuma-test-pg`,
+so the safe thing now happens by default and there is nothing to export. It used to default to
+`${TMPDIR:-/tmp}`, which on a typical Linux box is RAM with a per-user quota — this section already
+told you to override it, and Stage 10 did not, which is how a build machine ended up with a
+PostgreSQL cluster, a seed database, the coverage output and every `bin`/`obj` sharing 16 GB of RAM.
 
-This matters more than it sounds, because **running out of space does not present as a disk error**.
+**A guardrail in a document is not a guardrail.** That is the general lesson: this advice was correct,
+prominent and a year old by the time it was ignored, and the fix that actually worked was changing the
+default so the failure mode is unreachable rather than merely documented.
+
+It matters more than it sounds, because **running out of space does not present as a disk error**.
 Some tests fail with an explicit `XX000: Disk quota exceeded`, but others fail as ordinary assertion
-failures on rows that were never written, and a full volume can stop the shell working at all. For an
-unattended overnight run it reads as a pile of confusing test failures. If a run fails in a way that
-makes no sense, check free space before believing any of it.
+failures on rows that were never written, others as `RelationalConnection.OpenAsync` errors that look
+like the server is down, and a full volume can stop the shell working at all — including stopping you
+from running the `rm` that would fix it. For an unattended overnight run it reads as a pile of
+confusing test failures. If a run fails in a way that makes no sense, check free space before believing
+any of it.
 
 **One cluster per session.** `scripts/pg-test.sh` uses a fixed port and data directory, and its
 `start` path short-circuits on `pg_isready` — so a second session gets a success message and silently
@@ -119,7 +126,10 @@ against **read-only** rather than a hard lock — see `docs/LICENSING.md` §4):
   time, cannot be reused, and cannot be forged without the signing key
 - Write unlock: a vendor-granted, time-limited restoration of write access to a read-only tenant; read
   access never needed unlocking because it was never blocked
-- Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start
+- Open-session carve-out: an in-progress sale and its cash-up complete; no new sale can start; past
+  its own deadline (30 minutes for a sale, 12 hours for a cash-up) every in-flight command is refused
+  regardless of when the restriction began, and winding the clock back does not reopen the window
+  (ADR-135)
 
 **Read-only correctness.** The other mandatory suite (ADR-028). In read-only, assert that:
 - every report, dashboard, export and reprint succeeds — sweep the full report catalogue, not a sample

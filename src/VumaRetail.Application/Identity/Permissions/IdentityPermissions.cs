@@ -63,6 +63,10 @@ public sealed class IdentityPermissions : IModulePermissions
 /// </summary>
 public sealed class PlatformPermissions : IModulePermissions
 {
+    /// <summary>See registered companies and their lifecycle state.</summary>
+    public const string CompanyView = "platform.company.view";
+    /// <summary>Deactivate a company and stop its business writes.</summary>
+    public const string CompanyManage = "platform.company.manage";
     /// <summary>See tenant settings: localisation, currency, timezone.</summary>
     public const string TenantView = "platform.tenant.view";
 
@@ -84,6 +88,8 @@ public sealed class PlatformPermissions : IModulePermissions
     /// <inheritdoc />
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [
+        new(PermissionKey.Parse(CompanyView), "See registered companies and their lifecycle state."),
+        new(PermissionKey.Parse(CompanyManage), "Deactivate a company and stop its business writes.", IsHighRisk: true),
         new(PermissionKey.Parse(TenantView), "See tenant settings."),
         new(PermissionKey.Parse(TenantManage), "Change tenant settings.", IsHighRisk: true),
         new(PermissionKey.Parse(StoreView), "See stores."),

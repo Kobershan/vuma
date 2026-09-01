@@ -42,6 +42,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      ADR-078. Shared source rather than a project reference: the read-only sweep here and the command
+      classification sweep in VumaRetail.ArchitectureTests must cover exactly the same set of
+      assemblies, and the way that guarantee was lost before was two hand-maintained copies of one list
+      (docs/PROGRESS.md §4.16). One file, compiled into both, cannot drift.
+    -->
+    <Compile Include="..\VumaRetail.ArchitectureTests\ModuleAssemblies.cs" Link="Harness\ModuleAssemblies.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="FluentAssertions" />
     <Using Include="VumaRetail.Infrastructure.Persistence" />

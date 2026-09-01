@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Imports;
+using VumaRetail.Application.Procurement;
 using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.DependencyInjection;
@@ -17,11 +19,18 @@ using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
+using VumaRetail.Web.Imports;
 using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
+using VumaRetail.Web.Pos;
+using VumaRetail.Web.Registry;
+using VumaRetail.Web.Procurement;
+using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
 using VumaRetail.Web.Workflow;
+using VumaRetail.Web.Warehouse;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -82,8 +91,12 @@ string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
     ?? Path.Combine(AppContext.BaseDirectory, "licensing-state");
 
 // Order matters: AddVumaWeb registers the authenticated IPrincipalAccessor, and
-// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
+// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot. The
+// registry is registered first so the business database remains the default IUnitOfWork for the
+// ordinary command pipeline; lifecycle services resolve the registry context explicitly.
 builder.Services.AddVumaWeb(jwt, host);
+builder.Services.AddVumaRegistryPersistence(
+    builder.Configuration.GetConnectionString("Registry") ?? connectionString);
 builder.Services.AddVumaPersistence(connectionString);
 
 // Stage 06. Master data: items, variants, barcodes, units of measure, and suppliers/customers. Both
@@ -105,6 +118,47 @@ builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantI
 // the binding is chosen when the publisher is resolved rather than when it is registered, so this
 // line's position relative to AddVumaFinance does not matter.
 builder.Services.AddVumaInventory();
+
+// Stage 09. The till: sessions, sales, tenders, receipts and the cash-up. Depends on catalog (what is
+// being sold), inventory (the stock it relieves) and finance (the tax it prices with and the journal a
+// completed sale raises). Registered after all three; like AddVumaInventory, the financial binding is
+// chosen when the publisher is resolved rather than when it is registered.
+builder.Services.AddVumaPos();
+
+// Stage 10. Price lists, promotions, returns and the price override log. After POS because a return
+// reads the sale it reverses, and after inventory because a completed return puts the stock back.
+builder.Services.AddVumaSales();
+
+// Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
+// validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
+// Like the two above it, the journal binding is resolved at build time, so this line only has to come
+// after the modules whose contracts it consumes.
+builder.Services.AddVumaProcurement(
+    builder.Configuration.GetSection(ProcurementOptions.SectionName).Get<ProcurementOptions>()
+        ?? new ProcurementOptions());
+
+// Stage 13. Zones, bins, bin stock, putaway, pick/pack/ship and cycle counts. After AddVumaInventory:
+// every warehouse command validates a Stage 08 location and a cycle count variance posts through Stage
+// 08's IStockLedgerPoster, extended additively with an optional bin id (docs/DECISIONS.md ADR-087) — no
+// new financial event publisher, the existing inventory binding carries it (see the module's own DI
+// extension for why).
+builder.Services.AddVumaWarehouse();
+
+// Stage 14. Sales orders, allocation, backorders, click & collect and order returns. After
+// AddVumaInventory (validates the fulfilling location), AddVumaWarehouse (allocates through Stage 13's
+// own PickWave/PickTask/bin-allocation seam), AddVumaSales (prices through IPriceResolver) and AddVumaPos
+// (resolves the item through ISellableItemResolver). Like the modules above it, the journal binding for
+// both new event types is resolved at build time, so this line only has to come after the modules whose
+// contracts it consumes.
+builder.Services.AddVumaOrders();
+
+// Stage 11. Excel/CSV/PDF ingestion. Last of the business modules because it is a caller of all of
+// them: its five target handlers write through catalog's, partners', inventory's and sales'
+// repositories rather than into their tables (ADR-079), and its batch numbers come from finance's
+// document number sequence. Registration order does not actually matter — every one of those is
+// resolved per request — but reading it here in dependency order is the point.
+builder.Services.AddVumaImports(
+    builder.Configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>() ?? new ImportOptions());
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -197,6 +251,7 @@ if (args.Contains("--restore", StringComparer.Ordinal))
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
+app.MapVumaCompanies();
 app.MapVumaSync();
 app.MapVumaLicensing();
 app.MapVumaWorkflow();
@@ -204,6 +259,12 @@ app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
+app.MapVumaPos();
+app.MapVumaSales();
+app.MapVumaProcurement();
+app.MapVumaWarehouse();
+app.MapVumaOrders();
+app.MapVumaImports();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

@@ -30,6 +30,23 @@ surface:
   landing, and Stage 05 configures a real policy against the same command later without a
   Finance-side code change (the command shape does not change — only whether the pipeline gates it).
 
+## Task index
+## Second-pass architecture and task map
+
+The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
+
+**Architecture checklist:** WHAT/WHY come from this stage's Objective; affected layers/components come from its Deliverables; data, API, security, multi-company, synchronization, licensing, and testing rules come from the linked authority documents. Missing answers are **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs in the header apply; a new ADR is required only for a new decision. Nothing outside stated scope may change.
+
+| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
+|---|---|---|---|---|
+| 07-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+
+This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
+
+| Task ID | Title | Dependencies | Status |
+|---|---|---|---|
+| TASK-07-001 | Complete finance core | Stage 06 | COMPLETE |
+
 ## Objective
 
 The double-entry financial core ADR-016 calls for: a chart of accounts with analysis dimensions,
