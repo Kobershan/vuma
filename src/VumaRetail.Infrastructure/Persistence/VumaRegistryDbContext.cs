@@ -19,6 +19,16 @@ public sealed class VumaRegistryDbContext(
     public DbSet<SagaLeg> SagaLegs => Set<SagaLeg>();
     public DbSet<RegistryOutboxMessage> RegistryOutboxMessages => Set<RegistryOutboxMessage>();
 
+    // Stage 06d: Group services
+    public DbSet<CreditGroup> CreditGroups => Set<CreditGroup>();
+    public DbSet<CreditGroupMember> CreditGroupMembers => Set<CreditGroupMember>();
+    public DbSet<CreditHold> CreditHolds => Set<CreditHold>();
+    public DbSet<CreditExposureEntry> CreditExposureEntries => Set<CreditExposureEntry>();
+    public DbSet<CatalogRoutingIndexEntry> CatalogRoutingIndex => Set<CatalogRoutingIndexEntry>();
+
+    // Stage 06e: Trading group
+    public DbSet<CompanyLink> CompanyLinks => Set<CompanyLink>();
+
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
 
@@ -130,6 +140,51 @@ public sealed class VumaRegistryDbContext(
             builder.ToTable("outbox_messages", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
             builder.Property(x => x.Type).HasMaxLength(128).IsRequired(); builder.Property(x => x.Payload).HasColumnType("jsonb").IsRequired(); builder.Property(x => x.IdempotencyKey).HasMaxLength(256).IsRequired(); builder.Property(x => x.OperationStamp).HasMaxLength(128).IsRequired();
             builder.Property(x => x.Attempts).IsRequired(); builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.DispatchedAt, x.CreatedAt });
+        });
+
+        // Stage 06d: Group services
+        modelBuilder.Entity<CreditGroup>(builder =>
+        {
+            builder.ToTable("credit_groups", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Name).HasMaxLength(128).IsRequired(); builder.Property(x => x.Direction).HasMaxLength(16).IsRequired(); builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            builder.HasMany(x => x.Members).WithOne().HasForeignKey(x => x.CreditGroupId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<CreditGroupMember>(builder =>
+        {
+            builder.ToTable("credit_group_members", "registry"); builder.HasKey(x => new { x.TenantId, x.CreditGroupId, x.CompanyId });
+            builder.Property(x => x.CreditGroupId).ValueGeneratedNever(); builder.Property(x => x.CompanyId).ValueGeneratedNever();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<CreditHold>(builder =>
+        {
+            builder.ToTable("credit_holds", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(); builder.Property(x => x.DocumentReference).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.State).HasConversion<string>().HasMaxLength(16).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.State });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<CreditExposureEntry>(builder =>
+        {
+            builder.ToTable("credit_exposure_entries", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(); builder.Property(x => x.DocumentReference).HasMaxLength(256).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.CompanyId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<CatalogRoutingIndexEntry>(builder =>
+        {
+            builder.ToTable("catalog_routing_index", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.Barcode).HasMaxLength(64).IsRequired(); builder.Property(x => x.CompanyCode).HasMaxLength(32).IsRequired(); builder.Property(x => x.ItemCode).HasMaxLength(64).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.Barcode }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Barcode });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+
+        // Stage 06e: Trading group
+        modelBuilder.Entity<CompanyLink>(builder =>
+        {
+            builder.ToTable("company_links", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.HasIndex(x => new { x.TenantId, x.CompanyAId, x.CompanyBId }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers

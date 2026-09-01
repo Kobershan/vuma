@@ -85,6 +85,15 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ICompanyMigrationRunner, CompanyMigrationRunner>();
         services.AddScoped<ICompanyServingGuard, CompanyServingGuard>();
 
+        // Stage 06d: Group services
+        services.AddScoped<ISagaCoordinator, SagaCoordinator>();
+        services.AddScoped<IGroupCreditService, GroupCreditService>();
+        services.AddScoped<IBarcodeResolver, BarcodeResolver>();
+        services.AddScoped<IGroupReadStore, GroupReadStore>();
+
+        // Stage 06e: Trading group
+        services.AddScoped<ICompanyLinkService, CompanyLinkService>();
+
         return services;
     }
 

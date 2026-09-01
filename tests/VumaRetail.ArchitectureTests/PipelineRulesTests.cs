@@ -81,6 +81,10 @@ public sealed class PipelineRulesTests
             // dispatched message handlers. They own the separate registry database boundary.
             "src/VumaRetail.Infrastructure/Registry/CompanyMigrationServices.cs",
             "src/VumaRetail.Infrastructure/Registry/RegistryServices.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupCreditService.cs",
+            "src/VumaRetail.Infrastructure/Registry/BarcodeResolver.cs",
+            "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
+            "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""
