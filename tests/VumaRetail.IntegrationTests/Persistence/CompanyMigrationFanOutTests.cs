@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -147,7 +149,7 @@ public sealed class CompanyMigrationFanOutTests(PostgresFixture fixture)
         DbContextOptions<VumaRegistryDbContext> options = new DbContextOptionsBuilder<VumaRegistryDbContext>()
             .UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry"))
             .UseSnakeCaseNamingConvention().Options;
-        return new VumaRegistryDbContext(options, new TestTenantContext(tenantId));
+        return new VumaRegistryDbContext(options, TestTenantContext.For(tenantId));
     }
 
     private sealed class TestCompanyConnectionSecretStore(Dictionary<string, string> secrets) : ICompanyConnectionSecretStore
@@ -155,7 +157,9 @@ public sealed class CompanyMigrationFanOutTests(PostgresFixture fixture)
         public Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default)
         {
             if (secrets.TryGetValue(secretReference, out var value))
+            {
                 return Task.FromResult(value);
+            }
             throw new InvalidOperationException($"Secret not found: {secretReference}");
         }
     }
