@@ -108,3 +108,4 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
   --no-restore --nologo`; focused `dotnet test` passed with the throwaway PostgreSQL harness.
   Next smallest slice: add the migration fan-out acceptance test where one sibling database is
   unreachable while the other companies migrate successfully.
+- 2026-09-02: Resolved EF Core snapshot mismatch for CompanyId. Generated AlignCompanyIdSnapshot migration and emptied Up/Down methods to prevent duplicate AddColumn errors against the raw SQL repair. Integration tests pass.

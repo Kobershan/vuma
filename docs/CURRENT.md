@@ -14,5 +14,5 @@ TEST STATUS: Prior handoff — Unit tests — 841 passed; architecture tests —
 427 passed; API contract/malformed-request filter — 29 passed; registry-focused unit tests — 25 passed;
 required full integration command `scripts/test.sh` passed. TASK-06C-12 focused migration-refusal acceptance
 test passed with the throwaway PostgreSQL harness. TASK-06C-11 is COMPLETE; Stage 06c remains pending
-supervisor stage review.
+supervisor stage review. The EF Core CompanyId snapshot mismatch was resolved by generating an empty migration.
 IMPORTANT DECISIONS: ADR-099, ADR-116, ADR-117, ADR-118, ADR-119, and ADR-120 govern Stage 06c.
