@@ -1454,6 +1454,26 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `CompanyGroup` / `CompanyGroupMember` | CloudToStore | CloudWins | Group membership is a head-office decision. Registry. |
 | `SagaIntent` / `SagaLeg` | StoreToCloud | AppendOnly | The record of a cross-company operation, written where it was initiated. Immutable; a leg's acknowledgement is a new state, and re-driving after a restore is safe because legs are idempotent (ADR-120). Registry. |
 | `CreditGroup` / `CreditGroupMember` | CloudToStore | CloudWins | The limit is set centrally. Registry. |
+### `registry.saga_intents` and `registry.saga_legs`
+`id`, `tenant_id`, `operation`, `payload`, `state`, `created_at`, `updated_at`.
+- Intent: Immutable record of a cross-company operation.
+- Leg: Idempotent action dispatched to a company, keyed by `(intent_id, leg_id)`.
+
+### `registry.credit_groups` and `registry.credit_group_members`
+- `credit_groups`: `direction`, `limit`, `currency`, `exposure_policy`.
+- `credit_group_members`: `company`, `partner`, optional sub-limit.
+
+### `registry.credit_holds` and `registry.credit_exposure_entries`
+- `credit_holds`: `amount`, `company`, `document_ref`, `expiry`, `state`.
+- `credit_exposure_entries`: Append-only, idempotent per document.
+
+### `registry.catalog_routing_index`
+- `barcode`, `company_id`, `item_id`, `retired_at`.
+- Projected from company outboxes.
+
+### `registry.group_availability`
+- `item_id`, `company_id`, `available_quantity`, `as_at`.
+- Read model rebuilt from company projections.
 | `CreditHold` / `CreditExposureEntry` | StoreToCloud | AppendOnly | Exposure accrues where trade happens; holds expire on their own. Append-only is what makes replay after an outage safe. Registry. |
 | `CatalogRoutingIndexEntry` | CloudToStore | CloudWins | A projection of catalogue data, which is already CloudToStore. Registry. |
 | `GroupReceipt` / `GroupReceiptAllocation` | StoreToCloud | AppendOnly | Money is captured where the customer paid. `IImmutableRecord` once allocated — a correction is a reversal. Registry; the AR receipts its legs create replicate from their own company databases as normal. |
