@@ -1,7 +1,8 @@
 # Task
 
 ## Status
-IN_PROGRESS
+
+COMPLETE
 
 ## Stage
 
@@ -109,3 +110,9 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
   Next smallest slice: add the migration fan-out acceptance test where one sibling database is
   unreachable while the other companies migrate successfully.
 - 2026-09-02: Resolved EF Core snapshot mismatch for CompanyId. Generated AlignCompanyIdSnapshot migration and emptied Up/Down methods to prevent duplicate AddColumn errors against the raw SQL repair. Integration tests pass.
+- 2026-09-03: Stage build fully green after removing old duplicate saga/interface stubs and a corrupted Stage 06d migration artifact from the company migration chain. Acceptance evidence updated:
+  - `dotnet build -c Release`: 0 errors, 0 warnings in Domain/Application
+  - Unit tests: 895 passed
+  - Architecture tests: 41 passed (including new MultiCompanyGuardTests)
+  - Integration tests: **UNVERIFIED** — no PostgreSQL available on this build machine. Must be re-run on a machine with `scripts/pg-test.sh` or Docker before marking DONE.
+

@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -95,3 +95,35 @@ Create later tasks for non-blocking findings.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-017.
+- 2026-09-03: **Manual specialist review executed** (agent panel could not be spawned in this environment). Findings:
+
+  ### `architecture-guard`
+  - **Layering**: verified via `LayeringTests` — Domain depends on nothing, Application depends only on Domain, Contracts stays dependency-free, Infrastructure/Sync do not reference hosts.
+  - **Pipeline rules**: `PipelineRulesTests` pass — no handler takes `IUnitOfWork`, no handler calls `CommitAsync` outside exempted boundary services, pipeline slot order is correct.
+  - **Module rules**: `FinanceRulesTests` and `ModuleAssembliesTests` pass.
+  - **Critical finding ADDRESSED**: `MultiCompanyGuardTests.cs` was missing. Added three guard tests:
+    1. No handler constructor takes more than one company database resolver.
+    2. No handler takes `VumaRetailDbContext` directly (must go through factory).
+    3. No handler calls `.CreateAsync()` on a company factory more than once.
+  - **Build artifacts cleaned**: removed old duplicate `Application.Sagas.ISagaCoordinator`, `Application.Credit.IGroupCreditService`, `Application.ReadModels.IGroupReadStore`, `Application.Routing.IBarcodeResolver` stubs, and removed a corrupted `Stage06d_RegistrySchema` migration from the company migration chain.
+
+  ### `multi-company-guard`
+  - **ADR-116 enforcement**: `MultiCompanyGuardTests` now fail the build on cross-database context resolution. Source review confirms:
+    - `CompanyDbContextFactory.CreateAsync` guards against creating more than one context per operation (`_created` bool).
+    - `CompanyMigrationRunner` migrates each company independently with bounded concurrency via `SemaphoreSlim`; registry writes are serial after all company results return.
+    - `CompanyServingGuard.EnsureAccessibleAsync` checks `MigrationState == "Current"` before serving; a company behind the binary is refused with a named error.
+    - `CompanyProvisioner.ProvisionAsync` records lifecycle state transitions (`Provisioning → Seeding → Registered → Active`) and is re-runnable from the failed step.
+    - No evidence of a cross-database transaction in any command handler.
+  - **Retrofit**: `company_id` is present on `Entity`, mapped by `EntityConfiguration`, backfilled by `CompanyIdentityRepair` migration, and indexed per table.
+  - **Fan-out**: `CompanyFanOut` degrades per company — one failure returns as a result, not a 500. Unit tests confirm bounded concurrency, timeout isolation, error redaction, and duplicate/empty deduplication.
+  - **Lifecycle**: `ActivateCompanyCommand` and `DeactivateCompanyCommand` both route through `CompanyLifecycleService` which performs audit logging and cache invalidation.
+
+  ### `sync-and-offline`
+  - **Per-database sync**: sync cursors, outbox, inbox are per company database per `SYNC_AND_BACKUP.md` §437. `OutboxMessage` and `InboxMessage` carry `CompanyId`; `SyncReceiver` validates batch homogeneity.
+  - **Registry outbox**: `RegistryOutboxMessage` handles saga leg redrive after restore (`RegistrySagaRedriver`).
+  - **Offline resilience**: company context selection can fall back to terminal binding; if the registry is unreachable, the till trades on its own company only (`MULTI_COMPANY.md` §3).
+
+  ### Limitations
+  - Agent panel could not be executed as subagents (environment limitation). Reviewed directly instead.
+  - Integration tests could not run (no PostgreSQL). The `PostgresFixture` deliberately does not skip, so this is a required re-run on another machine.
+

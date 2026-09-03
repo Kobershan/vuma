@@ -7,6 +7,15 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 06c — Stage closure session (2026-09-03):** EXECUTED. Build unblocked by removing broken
+`Application.Sagas/Credit/ReadModels/Routing` duplicate stubs and a corrupted `Stage06d_RegistrySchema`
+migration. Added `MultiCompanyGuardTests.cs` (3 tests) enforcing ADR-116: no handler resolves two
+company contexts. `dotnet build -c Release` = 0 errors. Unit tests = 895 passed. Architecture tests =
+41 passed (was 35). **Integration tests remain UNVERIFIED** — no PostgreSQL endpoint on this Windows
+machine. Exit checklist partially complete: DATA_MODEL.md and SYNC_AND_BACKUP.md verified; migration
+`Down` and seed of three companies require PostgreSQL re-run. Stage handoff to 06d is recorded in
+`docs/CURRENT.md` with honest environment limitation.
+
 **Stage 06c — TASK-06C-01 complete (2026-08-28):** Added the tenant registry `Company` aggregate,
 secret-reference seam, independent registry context/design-time wiring, and reversible companies-only
 registry migration. Registry verification: 821 unit tests and 35 architecture tests passed; full
