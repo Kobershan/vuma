@@ -50,7 +50,7 @@
       supplies it without a native library: MIT-licensed, pure managed, and therefore fine inside a
       WPF till and a WiX bundle. See ADR-050 for why not NSec and why not a substitute curve.
     -->
-    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.5.1" />
+    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.7.0" />
   </ItemGroup>
 
   <ItemGroup Label="Validation">
@@ -138,6 +138,8 @@
     <PackageVersion Include="Npgsql" Version="9.0.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <!-- ADR-039: pin SSH.NET to non-vulnerable version; 2024.1.0 has high-severity GHSA-q939-rpr3-3284. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
 </Project>
