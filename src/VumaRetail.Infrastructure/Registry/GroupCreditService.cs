@@ -13,11 +13,13 @@ public sealed class GroupCreditService : IGroupCreditService
 {
     private readonly VumaRegistryDbContext _registry;
     private readonly IClock _clock;
+    private readonly ICompanyLinkService _companyLinks;
 
-    public GroupCreditService(VumaRegistryDbContext registry, IClock clock)
+    public GroupCreditService(VumaRegistryDbContext registry, IClock clock, ICompanyLinkService companyLinks)
     {
         _registry = registry;
         _clock = clock;
+        _companyLinks = companyLinks;
     }
 
     public async Task<CreditPosition> GetPositionAsync(Guid tenantId, Guid creditGroupId, CancellationToken cancellationToken = default)
@@ -65,6 +67,20 @@ public sealed class GroupCreditService : IGroupCreditService
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return HoldResult.Failed(Guid.NewGuid());
+            }
+
+            // Holding against a group limit spends the whole group's headroom, so the acting
+            // company must hold SharedCredit with every other member — checked here, at the
+            // point of use, not when the group was configured (TRADING_GROUP §2).
+            List<Guid> others = await _registry.CreditGroupMembers
+                .Where(m => m.TenantId == tenantId && m.CreditGroupId == creditGroupId && m.CompanyId != companyId)
+                .Select(m => m.CompanyId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            foreach (Guid other in others)
+            {
+                await _companyLinks.RequireLink(companyId, other, CompanyLinkScope.SharedCredit, cancellationToken);
             }
 
             var hold = CreditHold.Create(tenantId, creditGroupId, companyId, amount, currency, documentReference, _clock.UtcNow.Add(expiry));

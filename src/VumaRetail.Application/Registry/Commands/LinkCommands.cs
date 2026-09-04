@@ -57,6 +57,24 @@ public sealed class SuspendCompanyLinkCommandHandler(
 }
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record ResumeCompanyLinkCommand(Guid LinkId) : ICommand;
+public sealed class ResumeCompanyLinkCommandValidator : AbstractValidator<ResumeCompanyLinkCommand>
+{
+    public ResumeCompanyLinkCommandValidator() => RuleFor(x => x.LinkId).NotEmpty();
+}
+
+public sealed class ResumeCompanyLinkCommandHandler(
+    ICompanyLinkService companyLinkService) : ICommandHandler<ResumeCompanyLinkCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ResumeCompanyLinkCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        await companyLinkService.ResumeAsync(command.LinkId, cancellationToken);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RevokeCompanyLinkCommand(Guid LinkId, string Reason) : ICommand;
 public sealed class RevokeCompanyLinkCommandValidator : AbstractValidator<RevokeCompanyLinkCommand>
 {

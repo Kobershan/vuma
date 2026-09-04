@@ -25,6 +25,9 @@ public interface ICompanyLinkService
     
     /// <summary>Suspends an active link.</summary>
     Task SuspendAsync(Guid linkId, string reason, CancellationToken cancellationToken = default);
+
+    /// <summary>Resumes a suspended link.</summary>
+    Task ResumeAsync(Guid linkId, CancellationToken cancellationToken = default);
     
     /// <summary>Revokes a link.</summary>
     Task RevokeAsync(Guid linkId, string reason, CancellationToken cancellationToken = default);

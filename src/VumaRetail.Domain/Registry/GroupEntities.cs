@@ -277,7 +277,7 @@ public sealed class CompanyLink
     /// caller, which loads both companies: the link only records the operator it was proposed
     /// under, and the registry trigger refuses a row whose operator differs from either company.
     /// </summary>
-    public static CompanyLink Create(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes, DateTimeOffset effectiveFrom)
+    public static CompanyLink Create(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes, DateTimeOffset effectiveFrom, string? operatorName = null)
     {
         if (companyAId == companyBId)
         {
@@ -290,6 +290,7 @@ public sealed class CompanyLink
 
         var link = new CompanyLink(tenantId, operatorId, companyAId, companyBId, scopes, effectiveFrom);
         link.Id = UuidV7.NewGuid();
+        link.OperatorName = operatorName?.Trim() ?? string.Empty;
         return link;
     }
 

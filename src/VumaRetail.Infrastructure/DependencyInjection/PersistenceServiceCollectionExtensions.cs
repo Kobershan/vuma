@@ -96,6 +96,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IOperatorContext, OperatorContext>();
         services.AddScoped<IPremisesService, PremisesService>();
         services.AddScoped<IRegistryUserService, RegistryUserService>();
+        services.AddScoped<ITerminalService, TerminalService>();
         services.AddScoped<IEntitlementCounters, EntitlementCounters>();
 
         return services;

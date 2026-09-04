@@ -12,12 +12,16 @@ public sealed class ProvisionCompanyCommandValidator : AbstractValidator<Provisi
 {
     public ProvisionCompanyCommandValidator() { RuleFor(x => x.Code).NotEmpty().MaximumLength(32); RuleFor(x => x.LegalName).NotEmpty().MaximumLength(200); RuleFor(x => x.TradingName).NotEmpty().MaximumLength(200); RuleFor(x => x.BaseCurrency).NotEmpty().Length(3); RuleFor(x => x.Locale).NotEmpty().MaximumLength(35); RuleFor(x => x.DocumentPrefix).NotEmpty().MaximumLength(32); }
 }
-public sealed class ProvisionCompanyCommandHandler(ICompanyProvisioner provisioner, ITenantContext tenant) : ICommandHandler<ProvisionCompanyCommand, Guid>
+public sealed class ProvisionCompanyCommandHandler(ICompanyProvisioner provisioner, ITenantContext tenant, IOperatorContext operatorContext) : ICommandHandler<ProvisionCompanyCommand, Guid>
 {
     public async Task<Guid> HandleAsync(ProvisionCompanyCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
         Company company = Company.Create(tenant.TenantId, command.Code, command.LegalName, command.TradingName, command.BaseCurrency, command.Locale, command.DocumentPrefix);
+
+        // Every company is provisioned under exactly one Operator ID, taken from the acting
+        // operator — never from the request body, which carries no operator (ADR-121).
+        company.AssignOperator(operatorContext.RequireOperatorId());
         await provisioner.ProvisionAsync(company, cancellationToken).ConfigureAwait(false);
         return company.Id;
     }

@@ -19,13 +19,14 @@ public sealed class RegisterTerminalCommandValidator : AbstractValidator<Registe
 }
 
 public sealed class RegisterTerminalCommandHandler(
+    ITerminalService terminalService,
     ITenantContext tenant) : ICommandHandler<RegisterTerminalCommand, Guid>
 {
     public async Task<Guid> HandleAsync(RegisterTerminalCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        _ = tenant.TenantId;
-        return command.PremisesId;
+        RegistryTerminal terminal = await terminalService.RegisterAsync(tenant.TenantId, command.PremisesId, command.TerminalId, command.DeviceCertThumbprint, cancellationToken);
+        return terminal.Id;
     }
 }
 
@@ -40,11 +41,13 @@ public sealed class SetTerminalCompaniesCommandValidator : AbstractValidator<Set
     }
 }
 
-public sealed class SetTerminalCompaniesCommandHandler : ICommandHandler<SetTerminalCompaniesCommand, Unit>
+public sealed class SetTerminalCompaniesCommandHandler(
+    ITerminalService terminalService) : ICommandHandler<SetTerminalCompaniesCommand, Unit>
 {
     public async Task<Unit> HandleAsync(SetTerminalCompaniesCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        await terminalService.SetCompaniesAsync(command.TerminalId, command.CompanyIds, cancellationToken);
         return Unit.Value;
     }
 }
