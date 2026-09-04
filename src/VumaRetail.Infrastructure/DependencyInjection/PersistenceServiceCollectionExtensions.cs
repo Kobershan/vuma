@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Infrastructure.Persistence;
@@ -7,6 +8,9 @@ using VumaRetail.Infrastructure.Persistence.Interceptors;
 using VumaRetail.Infrastructure.Security;
 using VumaRetail.Infrastructure.Time;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Registry;
 using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -98,6 +102,12 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IRegistryUserService, RegistryUserService>();
         services.AddScoped<ITerminalService, TerminalService>();
         services.AddScoped<IEntitlementCounters, EntitlementCounters>();
+        services.AddScoped<VumaRetail.Application.Identity.ITokenCompanyEnricher, RegistryTokenCompanyEnricher>();
+
+        // The registry module declares its permissions and its licence flag like every
+        // other module, so the catalogue assembles and the licence can gate it (R7).
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, RegistryPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, RegistryModuleManifest>());
 
         return services;
     }

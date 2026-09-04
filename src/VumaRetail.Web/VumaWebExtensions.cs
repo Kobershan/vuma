@@ -116,6 +116,7 @@ public static class VumaWebExtensions
 
         app.UseAuthentication();
         app.UseMiddleware<TenantResolutionMiddleware>();
+        app.UseMiddleware<OperatorResolutionMiddleware>();
         app.UseAuthorization();
 
         return app;

@@ -7,6 +7,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -331,6 +332,44 @@ public sealed class TerminalService(
 
         terminal.SetCompanies(distinct);
         await _registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+}
+
+/// <summary>
+/// Resolves a login's registry company membership at sign-in time (ADR-127).
+/// </summary>
+/// <remarks>
+/// Matches the identity login against the registry directory by sign-in name. A login with no
+/// registry row keeps the pre-registry token exactly — enrichment adds claims, never removes them.
+/// </remarks>
+public sealed class RegistryTokenCompanyEnricher(IDbContextFactory<VumaRegistryDbContext> factory) : ITokenCompanyEnricher
+{
+    private readonly IDbContextFactory<VumaRegistryDbContext> _factory = factory;
+
+    /// <inheritdoc />
+    public async Task<TokenCompanyEnrichment> EnrichAsync(Guid tenantId, string userName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+
+        await using VumaRegistryDbContext registry = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        string login = userName.Trim().ToLowerInvariant();
+
+        RegistryUser? user = await registry.RegistryUsers
+            .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Login.ToLower() == login, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (user is not { IsEnabled: true })
+        {
+            return TokenCompanyEnrichment.Empty;
+        }
+
+        List<CompanyMembership> companies = await registry.RegistryUserCompanyAccesses
+            .Where(a => a.TenantId == tenantId && a.RegistryUserId == user.Id)
+            .Select(a => new CompanyMembership(a.CompanyId, a.Roles))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return new TokenCompanyEnrichment(user.OperatorId, companies);
     }
 }
 

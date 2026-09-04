@@ -1,5 +1,6 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Domain.Identity;
@@ -39,4 +40,27 @@ public sealed class RegistryPermissions : IModulePermissions
         new(PermissionKey.Parse(RegistryUserManage), "Manage registry users.", IsHighRisk: true),
         new(PermissionKey.Parse(TerminalManage), "Manage terminals.", IsHighRisk: true),
     ];
+}
+
+/// <summary>
+/// The <c>registry</c> (trading group) module's manifest (R7).
+/// </summary>
+/// <remarks>
+/// Core. Company links, premises, the user directory and terminals are the substrate every
+/// cross-company operation stands on — a licence that omitted them would describe companies
+/// that can never cooperate, with no way back in to fix it.
+/// </remarks>
+public sealed class RegistryModuleManifest : IModuleManifest
+{
+    /// <inheritdoc />
+    public string Module => "registry";
+
+    /// <inheritdoc />
+    public string LicenceFlag => "registry";
+
+    /// <inheritdoc />
+    public string Description => "Operator ID, company links, shared premises, cross-company users and tills.";
+
+    /// <inheritdoc />
+    public bool IsCore => true;
 }
