@@ -9,18 +9,22 @@ public sealed class RegistryUserCompanyAccess
 {
     private RegistryUserCompanyAccess() { }
 
-    private RegistryUserCompanyAccess(Guid id, Guid registryUserId, Guid companyId, string roles, string grantedBy)
+    private RegistryUserCompanyAccess(Guid id, Guid tenantId, Guid registryUserId, Guid companyId, string roles, string grantedBy, DateTimeOffset grantedAt)
     {
         Id = id;
+        TenantId = tenantId;
         RegistryUserId = registryUserId;
         CompanyId = companyId;
         Roles = Require(roles, nameof(roles));
         GrantedBy = Require(grantedBy, nameof(grantedBy));
-        GrantedAt = DateTimeOffset.UtcNow;
+        GrantedAt = grantedAt;
     }
 
     /// <summary>The access grant identifier.</summary>
     public Guid Id { get; private set; }
+
+    /// <summary>The tenant that owns this grant.</summary>
+    public Guid TenantId { get; private set; }
 
     /// <summary>The registry user.</summary>
     public Guid RegistryUserId { get; private set; }
@@ -38,8 +42,12 @@ public sealed class RegistryUserCompanyAccess
     public DateTimeOffset GrantedAt { get; private set; }
 
     /// <summary>Creates a new access grant.</summary>
-    public static RegistryUserCompanyAccess Create(Guid registryUserId, Guid companyId, string roles, string grantedBy)
+    public static RegistryUserCompanyAccess Create(Guid tenantId, Guid registryUserId, Guid companyId, string roles, string grantedBy, DateTimeOffset grantedAt)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
         if (registryUserId == Guid.Empty)
         {
             throw new ArgumentException("A registry user is required.", nameof(registryUserId));
@@ -48,7 +56,7 @@ public sealed class RegistryUserCompanyAccess
         {
             throw new ArgumentException("A company is required.", nameof(companyId));
         }
-        return new RegistryUserCompanyAccess(UuidV7.NewGuid(), registryUserId, companyId, roles, grantedBy);
+        return new RegistryUserCompanyAccess(UuidV7.NewGuid(), tenantId, registryUserId, companyId, roles, grantedBy, grantedAt);
     }
 
     private static string Require(string value, string parameterName)

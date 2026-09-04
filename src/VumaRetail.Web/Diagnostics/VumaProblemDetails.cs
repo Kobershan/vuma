@@ -123,6 +123,13 @@ public sealed class VumaExceptionHandler(
         // stays in one place and each module still decides what it has to say (Stage 04b).
         if (exception is IProblemExtensions extended)
         {
+            // A named problem type (Stage 06e's company-link-required) travels on the document's
+            // type, where a client branches on it, not smuggled inside extensions.
+            if (extended.ProblemTypeUrl is not null)
+            {
+                problem.Type = extended.ProblemTypeUrl;
+            }
+
             foreach ((string name, object? value) in extended.ProblemExtensions)
             {
                 problem.Extensions[name] = value;

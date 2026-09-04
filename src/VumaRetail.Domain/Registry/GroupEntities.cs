@@ -168,7 +168,7 @@ public sealed class CompanyLink
 {
     private CompanyLink() { }
 
-    private CompanyLink(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes)
+    private CompanyLink(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes, DateTimeOffset effectiveFrom)
     {
         if (companyAId == Guid.Empty || companyBId == Guid.Empty)
         {
@@ -183,7 +183,7 @@ public sealed class CompanyLink
             throw new ArgumentException("A link must have at least one scope.");
         }
 
-        // Ordering rule: smaller GUID first
+        // Ordering rule: smaller GUID first, so one pair can hold at most one link row.
         if (companyAId.CompareTo(companyBId) < 0)
         {
             CompanyAId = companyAId;
@@ -199,7 +199,7 @@ public sealed class CompanyLink
         OperatorId = operatorId;
         Scopes = scopes;
         Status = CompanyLinkStatus.Proposed;
-        EffectiveFrom = DateTimeOffset.UtcNow;
+        EffectiveFrom = effectiveFrom;
     }
 
     /// <summary>The stable identifier.</summary>
@@ -232,7 +232,25 @@ public sealed class CompanyLink
     /// <summary>Whether company B has accepted.</summary>
     public bool AcceptedByB { get; private set; }
 
-    /// <summary>When both sides accepted.</summary>
+    /// <summary>Who accepted for company A, in audit-principal form.</summary>
+    public string? AcceptedByABy { get; private set; }
+
+    /// <summary>Who accepted for company B, in audit-principal form.</summary>
+    public string? AcceptedByBBy { get; private set; }
+
+    /// <summary>When company A accepted.</summary>
+    public DateTimeOffset? AcceptedByAAt { get; private set; }
+
+    /// <summary>When company B accepted.</summary>
+    public DateTimeOffset? AcceptedByBAt { get; private set; }
+
+    /// <summary>The licence fingerprint company A accepted under.</summary>
+    public string? AcceptedByAFingerprint { get; private set; }
+
+    /// <summary>The licence fingerprint company B accepted under.</summary>
+    public string? AcceptedByBFingerprint { get; private set; }
+
+    /// <summary>When both sides had accepted and the link became active.</summary>
     public DateTimeOffset? AcceptedAt { get; private set; }
 
     /// <summary>The reason for suspension.</summary>
@@ -255,17 +273,22 @@ public sealed class CompanyLink
 
     /// <summary>
     /// Creates a new proposed link between two companies under the same operator.
-    /// Enforces the operator-match invariant (ADR-121) and the ordering rule.
+    /// Enforces the ordering rule. The operator-match invariant (ADR-121) is enforced by the
+    /// caller, which loads both companies: the link only records the operator it was proposed
+    /// under, and the registry trigger refuses a row whose operator differs from either company.
     /// </summary>
-    public static CompanyLink Create(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes)
+    public static CompanyLink Create(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes, DateTimeOffset effectiveFrom)
     {
         if (companyAId == companyBId)
         {
             throw new ArgumentException("A company cannot link to itself.");
         }
+        if (operatorId == Guid.Empty)
+        {
+            throw new ArgumentException("An operator identifier is required.", nameof(operatorId));
+        }
 
-        // The operator-match invariant is enforced here and again by the database check constraint
-        var link = new CompanyLink(tenantId, operatorId, companyAId, companyBId, scopes);
+        var link = new CompanyLink(tenantId, operatorId, companyAId, companyBId, scopes, effectiveFrom);
         link.Id = UuidV7.NewGuid();
         return link;
     }
@@ -273,21 +296,52 @@ public sealed class CompanyLink
     /// <summary>Checks whether the operator matches both companies.</summary>
     public bool HasOperatorMatch(Guid operatorId) => OperatorId == operatorId;
 
-    /// <summary>Accepts the link from the given company.</summary>
-    public void Accept(Guid companyId, DateTimeOffset acceptedAt)
+    /// <summary>
+    /// Accepts the link from the given company, recording who accepted under which licence.
+    /// </summary>
+    /// <remarks>
+    /// The first acceptance moves the link to <c>Accepted</c> — which grants nothing. The second
+    /// moves it to <c>Active</c>. Re-accepting from a side that already accepted is a no-op so a
+    /// retried request cannot corrupt the record.
+    /// </remarks>
+    public void Accept(Guid companyId, string acceptedBy, string licenceFingerprint, DateTimeOffset acceptedAt)
     {
-        if (Status != CompanyLinkStatus.Proposed)
+        if (Status is not (CompanyLinkStatus.Proposed or CompanyLinkStatus.Accepted))
         {
-            throw new InvalidOperationException("Only a proposed link can be accepted.");
+            throw new InvalidOperationException("Only a proposed or partially accepted link can be accepted.");
+        }
+        if (string.IsNullOrWhiteSpace(acceptedBy))
+        {
+            throw new ArgumentException("The accepting principal is required.", nameof(acceptedBy));
+        }
+        if (string.IsNullOrWhiteSpace(licenceFingerprint))
+        {
+            throw new ArgumentException("The licence fingerprint at acceptance is required.", nameof(licenceFingerprint));
         }
 
         if (CompanyAId == companyId)
         {
+            if (AcceptedByA)
+            {
+                return;
+            }
+
             AcceptedByA = true;
+            AcceptedByABy = acceptedBy.Trim();
+            AcceptedByAAt = acceptedAt;
+            AcceptedByAFingerprint = licenceFingerprint.Trim();
         }
         else if (CompanyBId == companyId)
         {
+            if (AcceptedByB)
+            {
+                return;
+            }
+
             AcceptedByB = true;
+            AcceptedByBBy = acceptedBy.Trim();
+            AcceptedByBAt = acceptedAt;
+            AcceptedByBFingerprint = licenceFingerprint.Trim();
         }
         else
         {
@@ -299,9 +353,13 @@ public sealed class CompanyLink
             Status = CompanyLinkStatus.Active;
             AcceptedAt = acceptedAt;
         }
+        else
+        {
+            Status = CompanyLinkStatus.Accepted;
+        }
     }
 
-    /// <summary>Suspends an active link with a reason.</summary>
+    /// <summary>Suspends an active link with a reason. Reversible via <see cref="Resume"/>.</summary>
     public void Suspend(string reason, DateTimeOffset suspendedAt)
     {
         if (Status != CompanyLinkStatus.Active)
@@ -314,24 +372,41 @@ public sealed class CompanyLink
         }
 
         Status = CompanyLinkStatus.Suspended;
-        SuspendedReason = reason;
+        SuspendedReason = reason.Trim();
         SuspendedAt = suspendedAt;
     }
 
-    /// <summary>Revokes a link with a reason of at least 10 characters.</summary>
+    /// <summary>Resumes a suspended link. The dispute mechanism's way back.</summary>
+    public void Resume()
+    {
+        if (Status != CompanyLinkStatus.Suspended)
+        {
+            throw new InvalidOperationException("Only a suspended link can be resumed.");
+        }
+
+        Status = CompanyLinkStatus.Active;
+        SuspendedReason = null;
+        SuspendedAt = null;
+    }
+
+    /// <summary>
+    /// Revokes a link with a reason of at least 10 characters. Final: history stands, and the pair
+    /// cannot be re-proposed — a new arrangement needs a vendor-side decision, not a re-click.
+    /// </summary>
     public void Revoke(string reason, DateTimeOffset revokedAt)
     {
         if (Status == CompanyLinkStatus.Revoked)
         {
             throw new InvalidOperationException("Link is already revoked.");
         }
-        if (string.IsNullOrWhiteSpace(reason) || reason.Length < 10)
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length < 10)
         {
             throw new ArgumentException("Revocation requires a reason of at least 10 characters.", nameof(reason));
         }
 
         Status = CompanyLinkStatus.Revoked;
-        RevokedReason = reason;
+        RevokedReason = reason.Trim();
         RevokedAt = revokedAt;
+        EffectiveTo = revokedAt;
     }
 }

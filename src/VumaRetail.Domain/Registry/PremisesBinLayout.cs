@@ -10,9 +10,10 @@ public sealed class PremisesBinLayout
 {
     private PremisesBinLayout() { }
 
-    private PremisesBinLayout(Guid id, Guid premisesId, string zoneCode, string binCode, string description)
+    private PremisesBinLayout(Guid id, Guid tenantId, Guid premisesId, string zoneCode, string binCode, string description)
     {
         Id = id;
+        TenantId = tenantId;
         PremisesId = premisesId;
         ZoneCode = Require(zoneCode, nameof(zoneCode));
         BinCode = Require(binCode, nameof(binCode));
@@ -21,6 +22,9 @@ public sealed class PremisesBinLayout
 
     /// <summary>The layout record identifier.</summary>
     public Guid Id { get; private set; }
+
+    /// <summary>The tenant that owns this layout.</summary>
+    public Guid TenantId { get; private set; }
 
     /// <summary>The premises this layout belongs to.</summary>
     public Guid PremisesId { get; private set; }
@@ -41,13 +45,17 @@ public sealed class PremisesBinLayout
     public bool IsShared { get; private set; }
 
     /// <summary>Creates a new bin layout entry for a premises.</summary>
-    public static PremisesBinLayout Create(Guid premisesId, string zoneCode, string binCode, string? description = "", bool isShared = false)
+    public static PremisesBinLayout Create(Guid tenantId, Guid premisesId, string zoneCode, string binCode, string? description = "", bool isShared = false)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
         if (premisesId == Guid.Empty)
         {
             throw new ArgumentException("A premises is required.", nameof(premisesId));
         }
-        return new PremisesBinLayout(UuidV7.NewGuid(), premisesId, zoneCode, binCode, description ?? "")
+        return new PremisesBinLayout(UuidV7.NewGuid(), tenantId, premisesId, zoneCode, binCode, description ?? "")
         {
             IsShared = isShared
         };

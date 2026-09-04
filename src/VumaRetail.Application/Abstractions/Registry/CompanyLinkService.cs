@@ -17,8 +17,11 @@ public interface ICompanyLinkService
     /// <summary>Proposes a link between two companies (must be accepted by both).</summary>
     Task<CompanyLink> ProposeAsync(Guid companyA, Guid companyB, CompanyLinkScope scopes, CancellationToken cancellationToken = default);
     
-    /// <summary>Accepts a proposed link.</summary>
-    Task AcceptAsync(Guid linkId, Guid acceptingCompanyId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Accepts a proposed link from one of its companies, recording who accepted under which
+    /// licence. The first acceptance moves the link to <c>Accepted</c>; the second activates it.
+    /// </summary>
+    Task AcceptAsync(Guid linkId, Guid acceptingCompanyId, string acceptedBy, string licenceFingerprint, CancellationToken cancellationToken = default);
     
     /// <summary>Suspends an active link.</summary>
     Task SuspendAsync(Guid linkId, string reason, CancellationToken cancellationToken = default);

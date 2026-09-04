@@ -9,17 +9,21 @@ public sealed class PremisesOccupancy
 {
     private PremisesOccupancy() { }
 
-    private PremisesOccupancy(Guid id, Guid premisesId, Guid companyId, Guid storeId)
+    private PremisesOccupancy(Guid id, Guid tenantId, Guid premisesId, Guid companyId, Guid storeId, DateTimeOffset occupiesFrom)
     {
         Id = id;
+        TenantId = tenantId;
         PremisesId = premisesId;
         CompanyId = companyId;
         StoreId = storeId;
-        OccupiesFrom = DateTimeOffset.UtcNow;
+        OccupiesFrom = occupiesFrom;
     }
 
     /// <summary>The occupancy record identifier.</summary>
     public Guid Id { get; private set; }
+
+    /// <summary>The tenant that owns this occupancy.</summary>
+    public Guid TenantId { get; private set; }
 
     /// <summary>The premises being occupied.</summary>
     public Guid PremisesId { get; private set; }
@@ -37,8 +41,12 @@ public sealed class PremisesOccupancy
     public DateTimeOffset? OccupiesTo { get; private set; }
 
     /// <summary>Creates a new occupancy for a premises.</summary>
-    public static PremisesOccupancy Create(Guid premisesId, Guid companyId, Guid storeId)
+    public static PremisesOccupancy Create(Guid tenantId, Guid premisesId, Guid companyId, Guid storeId, DateTimeOffset occupiesFrom)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
         if (premisesId == Guid.Empty)
         {
             throw new ArgumentException("A premises is required.", nameof(premisesId));
@@ -51,7 +59,7 @@ public sealed class PremisesOccupancy
         {
             throw new ArgumentException("A store is required.", nameof(storeId));
         }
-        return new PremisesOccupancy(UuidV7.NewGuid(), premisesId, companyId, storeId);
+        return new PremisesOccupancy(UuidV7.NewGuid(), tenantId, premisesId, companyId, storeId, occupiesFrom);
     }
 
     /// <summary>Ends occupancy at the given time.</summary>

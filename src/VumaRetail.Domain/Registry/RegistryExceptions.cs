@@ -1,12 +1,14 @@
-using VumaRetail.Domain.Registry;
+using VumaRetail.Domain.Primitives;
 
-#pragma warning disable CS1591
-
-namespace VumaRetail.Domain.Primitives;
+namespace VumaRetail.Domain.Registry;
 
 /// <summary>
-/// Registry-level domain exceptions for the trading group module.
+/// Registry-level domain failures for the trading group module.
 /// </summary>
+/// <remarks>
+/// Lives in <c>Domain.Registry</c>, not <c>Domain.Primitives</c>: it names
+/// <see cref="CompanyLinkScope"/>, and primitives must not depend on the registry.
+/// </remarks>
 public static class RegistryExceptions
 {
     /// <summary>
@@ -49,12 +51,24 @@ public static class RegistryExceptions
 /// <summary>
 /// Raised when two companies do not have an active link with the required scope.
 /// </summary>
-public sealed class CompanyLinkRequiredException : DomainException
+/// <remarks>
+/// Carries the stable problem type <c>https://vuma.dev/problems/company-link-required</c> and the
+/// two companies plus the missing scope as extensions, exactly what Stage 06e's API contract
+/// promises the caller.
+/// </remarks>
+public sealed class CompanyLinkRequiredException : DomainException, IProblemExtensions
 {
+    /// <summary>The stable problem type for a missing company link.</summary>
+    public const string ProblemType = "https://vuma.dev/problems/company-link-required";
+
+    /// <summary>One side of the missing link.</summary>
     public Guid CompanyA { get; }
+    /// <summary>The other side of the missing link.</summary>
     public Guid CompanyB { get; }
+    /// <summary>The scope the refused operation needed.</summary>
     public CompanyLinkScope RequiredScope { get; }
 
+    /// <summary>Creates the refusal naming both companies and the missing scope.</summary>
     public CompanyLinkRequiredException(Guid companyA, Guid companyB, CompanyLinkScope requiredScope)
         : base("COMPANY_LINK_REQUIRED", $"Companies {companyA} and {companyB} do not have an active link with scope {requiredScope}.", DomainProblemKind.Forbidden)
     {
@@ -62,6 +76,17 @@ public sealed class CompanyLinkRequiredException : DomainException
         CompanyB = companyB;
         RequiredScope = requiredScope;
     }
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, object?> ProblemExtensions => new Dictionary<string, object?>
+    {
+        ["companyA"] = CompanyA,
+        ["companyB"] = CompanyB,
+        ["requiredScope"] = RequiredScope.ToString(),
+    };
+
+    /// <inheritdoc />
+    public string? ProblemTypeUrl => ProblemType;
 }
 
 /// <summary>
@@ -70,8 +95,10 @@ public sealed class CompanyLinkRequiredException : DomainException
 /// </summary>
 public sealed class ForbiddenException : DomainException
 {
+    /// <summary>The company absent from the token.</summary>
     public Guid CompanyId { get; }
 
+    /// <summary>Creates the refusal naming the company absent from the token.</summary>
     public ForbiddenException(Guid companyId)
         : base("COMPANY_NOT_IN_TOKEN", $"Company {companyId} is not present in the access token.", DomainProblemKind.Forbidden)
     {

@@ -16,28 +16,49 @@ public sealed class OperatorContext(ILogger<OperatorContext> logger, IPrincipalA
     public Guid? OperatorId { get; private set; }
     public string? OperatorName { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public string? LicenceFingerprint { get; private set; }
     public string Principal => _principalAccessor.Principal;
 
-    public void SetOperator(Guid operatorId, string? operatorName, bool isActive)
+    public void SetOperator(Guid operatorId, string? operatorName, string? licenceFingerprint, bool isActive)
     {
+        if (operatorId == Guid.Empty)
+        {
+            throw new ArgumentException("An operator identifier is required.", nameof(operatorId));
+        }
+
         OperatorId = operatorId;
         OperatorName = operatorName;
+        LicenceFingerprint = licenceFingerprint;
         IsActive = isActive;
     }
 
     public Guid RequireOperatorId()
-        => OperatorId ?? throw new InvalidOperationException("No active operator context.");
+    {
+        if (OperatorId is not { } operatorId || operatorId == Guid.Empty)
+        {
+            throw new InvalidOperationException("No active operator context.");
+        }
+
+        if (!IsActive)
+        {
+            throw new InvalidOperationException("The acting operator is not active.");
+        }
+
+        return operatorId;
+    }
 }
 
 public sealed class PremisesService(
     VumaRegistryDbContext registry,
     IClock clock,
+    ITenantContext tenantContext,
     IPrincipalAccessor? principal = null,
     ICompanyFanOut? fanOut = null,
     IUnitOfWork? unitOfWork = null) : IPremisesService
 {
     private readonly VumaRegistryDbContext _registry = registry;
     private readonly IClock _clock = clock;
+    private readonly ITenantContext _tenantContext = tenantContext;
     private readonly IPrincipalAccessor? _principal = principal;
     private readonly ICompanyFanOut? _fanOut = fanOut;
     private readonly IUnitOfWork? _unitOfWork = unitOfWork;
@@ -52,7 +73,7 @@ public sealed class PremisesService(
 
     public async Task<PremisesOccupancy> AddOccupancyAsync(Guid premisesId, Guid companyId, Guid storeId, CancellationToken cancellationToken = default)
     {
-        var occupancy = PremisesOccupancy.Create(premisesId, companyId, storeId);
+        var occupancy = PremisesOccupancy.Create(_tenantContext.TenantId, premisesId, companyId, storeId, _clock.UtcNow);
         _registry.PremisesOccupancies.Add(occupancy);
         await _registry.CommitAsync(cancellationToken);
         return occupancy;
@@ -88,10 +109,12 @@ public sealed class PremisesService(
 public sealed class RegistryUserService(
     VumaRegistryDbContext registry,
     IClock clock,
+    ITenantContext tenantContext,
     IPrincipalAccessor? principal = null) : IRegistryUserService
 {
     private readonly VumaRegistryDbContext _registry = registry;
     private readonly IClock _clock = clock;
+    private readonly ITenantContext _tenantContext = tenantContext;
     private readonly IPrincipalAccessor? _principal = principal;
 
     public async Task<RegistryUser> CreateAsync(Guid tenantId, string login, string displayName, Guid operatorId, string contactDetails, CancellationToken cancellationToken = default)
@@ -104,7 +127,7 @@ public sealed class RegistryUserService(
 
     public async Task<RegistryUserCompanyAccess> GrantAccessAsync(Guid registryUserId, Guid companyId, string roles, string grantedBy, CancellationToken cancellationToken = default)
     {
-        var access = RegistryUserCompanyAccess.Create(registryUserId, companyId, roles, grantedBy);
+        var access = RegistryUserCompanyAccess.Create(_tenantContext.TenantId, registryUserId, companyId, roles, grantedBy, _clock.UtcNow);
         _registry.RegistryUserCompanyAccesses.Add(access);
         await _registry.CommitAsync(cancellationToken);
         return access;

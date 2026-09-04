@@ -14,12 +14,21 @@ public sealed class AcceptCompanyLinkCommandValidator : AbstractValidator<Accept
 }
 
 public sealed class AcceptCompanyLinkCommandHandler(
-    ICompanyLinkService companyLinkService) : ICommandHandler<AcceptCompanyLinkCommand, Unit>
+    ICompanyLinkService companyLinkService,
+    ICompanyContext companyContext,
+    IPrincipalAccessor principalAccessor,
+    IOperatorContext operatorContext) : ICommandHandler<AcceptCompanyLinkCommand, Unit>
 {
     public async Task<Unit> HandleAsync(AcceptCompanyLinkCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        await companyLinkService.AcceptAsync(command.LinkId, Guid.Empty, cancellationToken);
+
+        // The accepting side is the acting company, never a body parameter: a caller must be
+        // bound to one of the link's own companies before it can accept for it.
+        Guid acceptingCompany = companyContext.RequireCompany();
+        string fingerprint = operatorContext.LicenceFingerprint
+            ?? throw new InvalidOperationException("The acting operator has no licence fingerprint in this request.");
+        await companyLinkService.AcceptAsync(command.LinkId, acceptingCompany, principalAccessor.Principal, fingerprint, cancellationToken);
         return Unit.Value;
     }
 }
@@ -30,8 +39,9 @@ public sealed class SuspendCompanyLinkCommandValidator : AbstractValidator<Suspe
 {
     public SuspendCompanyLinkCommandValidator()
     {
+        // Suspension needs a reason; only revocation needs ten characters (business rule 11).
         RuleFor(x => x.LinkId).NotEmpty();
-        RuleFor(x => x.Reason).NotEmpty().MinimumLength(10);
+        RuleFor(x => x.Reason).NotEmpty().MaximumLength(500);
     }
 }
 

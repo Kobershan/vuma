@@ -1,6 +1,5 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Registry;
-using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -78,19 +77,20 @@ public sealed class CompanyLinkService : ICompanyLinkService
             operatorId: operatorId,
             companyAId: smaller,
             companyBId: larger,
-            scopes);
+            scopes: scopes,
+            effectiveFrom: _clock.UtcNow);
 
         _registry.CompanyLinks.Add(link);
         await _registry.CommitAsync(cancellationToken);
         return link;
     }
 
-    public async Task AcceptAsync(Guid linkId, Guid acceptingCompanyId, CancellationToken cancellationToken = default)
+    public async Task AcceptAsync(Guid linkId, Guid acceptingCompanyId, string acceptedBy, string licenceFingerprint, CancellationToken cancellationToken = default)
     {
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
             ?? throw new InvalidOperationException("Link not found.");
 
-        link.Accept(acceptingCompanyId, _clock.UtcNow);
+        link.Accept(acceptingCompanyId, acceptedBy, licenceFingerprint, _clock.UtcNow);
 
         await _registry.CommitAsync(cancellationToken);
     }
@@ -113,20 +113,5 @@ public sealed class CompanyLinkService : ICompanyLinkService
         link.Revoke(reason, _clock.UtcNow);
 
         await _registry.CommitAsync(cancellationToken);
-    }
-}
-
-public class CompanyLinkRequiredException : InvalidOperationException
-{
-    public Guid CompanyA { get; }
-    public Guid CompanyB { get; }
-    public CompanyLinkScope RequiredScope { get; }
-
-    public CompanyLinkRequiredException(Guid companyA, Guid companyB, CompanyLinkScope requiredScope)
-        : base($"Companies {companyA} and {companyB} do not have an active link with scope {requiredScope}.")
-    {
-        CompanyA = companyA;
-        CompanyB = companyB;
-        RequiredScope = requiredScope;
     }
 }

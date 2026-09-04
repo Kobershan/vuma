@@ -79,6 +79,15 @@ public sealed class Company
     public int ProvisioningAttempts { get; private set; }
     /// <summary>Current provisioning lifecycle state.</summary>
     public CompanyLifecycleState LifecycleState { get; private set; }
+    /// <summary>
+    /// The vendor-issued Operator ID this company was provisioned under (ADR-121).
+    /// </summary>
+    /// <remarks>
+    /// Projected from the signed licence, never set by a tenant command. A company whose
+    /// operator is still <see cref="Guid.Empty"/> predates operator assignment and can be
+    /// linked to nothing until the vendor assigns it.
+    /// </remarks>
+    public Guid OperatorId { get; private set; }
     /// <summary>Whether business operations may select this company.</summary>
     public bool IsActive { get; private set; }
     /// <summary>When the company entered retained read-only state.</summary>
@@ -98,6 +107,30 @@ public sealed class Company
         string locale,
         string documentPrefix)
         => new(UuidV7.NewGuid(), tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+
+    /// <summary>
+    /// Assigns the owning Operator ID. Vendor-side only: called during provisioning from the
+    /// signed licence, never from a tenant command (ADR-121).
+    /// </summary>
+    /// <param name="operatorId">The operator that owns this company.</param>
+    /// <remarks>
+    /// Set-once. Changing ownership of a company is a vendor-side operation with billing
+    /// consequences, not an edit — a second, different assignment is refused.
+    /// </remarks>
+    public void AssignOperator(Guid operatorId)
+    {
+        if (operatorId == Guid.Empty)
+        {
+            throw new ArgumentException("An operator identifier is required.", nameof(operatorId));
+        }
+
+        if (OperatorId != Guid.Empty && OperatorId != operatorId)
+        {
+            throw new InvalidOperationException("A company's Operator ID cannot be changed once assigned.");
+        }
+
+        OperatorId = operatorId;
+    }
 
     /// <summary>Stores only a reference to encrypted connection details.</summary>
     public void SetConnectionSecretRef(string connectionSecretRef)

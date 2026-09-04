@@ -77,6 +77,9 @@ public sealed class VumaRegistryDbContext(
             builder.Property(company => company.ProvisioningStep).HasMaxLength(64).IsRequired();
             builder.Property(company => company.ProvisioningError).HasMaxLength(256);
             builder.Property(company => company.ProvisioningAttempts).IsRequired();
+            builder.Property(company => company.OperatorId).IsRequired();
+            builder.HasIndex(company => new { company.TenantId, company.OperatorId })
+                .HasDatabaseName("ix_companies_tenant_id_operator_id");
             builder.Property(company => company.DeactivatedBy).HasMaxLength(256);
             builder.Property(company => company.DeactivationReason).HasMaxLength(500);
             builder.Property(company => company.LifecycleState).HasConversion<string>().HasMaxLength(32).IsRequired();
@@ -207,6 +210,12 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.EffectiveTo);
             builder.Property(x => x.AcceptedByA);
             builder.Property(x => x.AcceptedByB);
+            builder.Property(x => x.AcceptedByABy).HasMaxLength(128);
+            builder.Property(x => x.AcceptedByBBy).HasMaxLength(128);
+            builder.Property(x => x.AcceptedByAAt);
+            builder.Property(x => x.AcceptedByBAt);
+            builder.Property(x => x.AcceptedByAFingerprint).HasMaxLength(128);
+            builder.Property(x => x.AcceptedByBFingerprint).HasMaxLength(128);
             builder.Property(x => x.AcceptedAt);
             builder.Property(x => x.SuspendedReason).HasMaxLength(500);
             builder.Property(x => x.SuspendedAt);
@@ -250,24 +259,30 @@ public sealed class VumaRegistryDbContext(
             builder.ToTable("premises_occupancies", "registry");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
             builder.Property(x => x.PremisesId).IsRequired();
             builder.Property(x => x.CompanyId).IsRequired();
             builder.Property(x => x.StoreId).IsRequired();
             builder.Property(x => x.OccupiesFrom).IsRequired();
             builder.Property(x => x.OccupiesTo);
             builder.HasIndex(x => new { x.PremisesId, x.CompanyId });
+            builder.HasIndex(x => new { x.TenantId, x.PremisesId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<PremisesBinLayout>(builder =>
         {
             builder.ToTable("premises_bin_layouts", "registry");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
             builder.Property(x => x.PremisesId).IsRequired();
             builder.Property(x => x.ZoneCode).HasMaxLength(32).IsRequired();
             builder.Property(x => x.BinCode).HasMaxLength(32).IsRequired();
             builder.Property(x => x.Description).HasMaxLength(500);
             builder.Property(x => x.IsShared).IsRequired();
             builder.HasIndex(x => new { x.PremisesId, x.ZoneCode, x.BinCode });
+            builder.HasIndex(x => new { x.TenantId, x.PremisesId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<RegistryUser>(builder =>
         {
@@ -289,12 +304,16 @@ public sealed class VumaRegistryDbContext(
             builder.ToTable("user_company_access", "registry");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
             builder.Property(x => x.RegistryUserId).IsRequired();
             builder.Property(x => x.CompanyId).IsRequired();
             builder.Property(x => x.Roles).HasMaxLength(500).IsRequired();
             builder.Property(x => x.GrantedBy).HasMaxLength(128).IsRequired();
             builder.Property(x => x.GrantedAt).IsRequired();
+
             builder.HasIndex(x => new { x.RegistryUserId, x.CompanyId });
+            builder.HasIndex(x => new { x.TenantId, x.RegistryUserId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<RegistryTerminal>(builder =>
         {
