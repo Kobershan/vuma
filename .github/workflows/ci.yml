@@ -67,7 +67,7 @@ jobs:
           --health-retries 10
 
     env:
-      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=vuma;Password=vuma
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -99,6 +99,160 @@ jobs:
         run: >
           dotnet test -c Release
           --logger "trx;LogFileName=results.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory ./artifacts/test-results
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./artifacts/test-results
+          retention-days: 7
+
+  architecture-tests:
+    name: Architecture tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # The CLAUDE.md §7 rules that a project reference cannot express: layering through
+      # transitive dependencies, the PublicApi isolation (rule 14), and the command
+      # side-effect classification read-only enforcement depends on (rule 15).
+      - name: Run architecture tests
+        run: dotnet test tests/VumaRetail.ArchitectureTests -c Release
+
+  migrate-check:
+    name: Migration check
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vuma
+          POSTGRES_PASSWORD: vuma
+name: CI
+
+# docs/TESTING.md §6: build -> test -> migrate-check -> architecture-tests ->
+# vulnerability-scan -> package. A red pipeline blocks a stage from being marked DONE.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      # Zero warnings in Domain and Application is a build failure there, not a report
+      # (CLAUDE.md §7 rule 10 / Directory.Build.props).
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            src/**/bin/Release/
+            tests/**/bin/Release/
+          retention-days: 1
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+
+    # docs/TESTING.md §2 and CONVENTIONS.md §7: handler tests run against real PostgreSQL with real
+    # migrations. A service container rather than Testcontainers-in-CI — same engine, one less
+    # daemon in the loop, and the fixture takes VUMA_TEST_POSTGRES ahead of Docker (ADR-036).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vuma
+          POSTGRES_PASSWORD: vuma
+          POSTGRES_DB: vuma
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vuma"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # FIX 1: Changed Database=postgres to Database=vuma
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Stage 04's backup tests are R4's evidence: they take a real snapshot with pg_dump and
+      # restore it into an empty database. pg_dump refuses to dump from a server newer than itself,
+      # so a client/server major mismatch would surface as a puzzling backup-test failure rather
+      # than as the environment problem it is. Fail here instead, with the versions in the log.
+      - name: PostgreSQL client tools are present and not older than the server
+        run: |
+          set -euo pipefail
+          if ! command -v pg_dump >/dev/null; then
+            echo "::error::pg_dump is not installed. Stage 04's DR drill (R4) cannot run without it."
+            exit 1
+          fi
+          client="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
+          # FIX 2: Changed -d postgres to -d vuma
+          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
+          echo "pg_dump major $client, server major $server"
+          if [ "$client" -lt "$server" ]; then
+            echo "::error::pg_dump $client cannot dump a PostgreSQL $server server."
+            exit 1
+          fi
+
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 9.0.0
+
+      # FIX 4: Explicitly apply migrations before tests run to prevent 500 errors on empty DB
+      - name: Apply Database Migrations for Tests
+        run: >
+          dotnet ef database update
+          --project src/VumaRetail.Infrastructure
+          --context VumaRetailDbContext
+
+      - name: Test
+        run: >
+          dotnet test -c Release
+          --logger "trx;LogFileName=results.trx"
+          --logger "console;verbosity=detailed"
           --collect:"XPlat Code Coverage"
           --results-directory ./artifacts/test-results
 
