@@ -3,11 +3,11 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 06c — Multi-company foundation
-CURRENT TASK: TASK-06C-14 — Stage closure (exit checklist execution)
-CURRENT TASK STATUS: IN_PROGRESS
-NEXT READY TASK: Stage 06d — Group services (credit groups, barcode routing index, saga coordinator, group read models)
-LAST COMPLETED TASK: TASK-06C-13 — Specialist review (architecture-guard, multi-company-guard, sync-and-offline)
+CURRENT STAGE: Stage 06d — Group services (credit groups, barcode routing index, saga coordinator, group read models)
+CURRENT TASK: TASK-06D-001 — Implement saga coordination
+CURRENT TASK STATUS: NOT_STARTED
+NEXT READY TASK: TASK-06D-001 — Implement saga coordination
+LAST COMPLETED TASK: Stage 06c closure + dependency fix (SSH.NET pin, branch rebase)
 BLOCKERS: None. Stage 06c build is green.
 TEST STATUS:
   - `dotnet build -c Release`: 0 errors, 0 warnings in Domain/Application

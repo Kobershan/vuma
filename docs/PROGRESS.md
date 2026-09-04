@@ -7,7 +7,7 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
-**Stage 06c — Stage closure session (2026-09-03):** EXECUTED. Build unblocked by removing broken
+**Stage 06d — Dependency fix and branch rebase (2026-09-04):** Executed. GitHub reported "dependency corrupted" when pushing `stage-06d`. Root cause: two issues — (1) SSH.NET 2024.1.0 transitive dependency via `Testcontainers.PostgreSql`→`Docker.DotNet.Enhanced` has high-severity vulnerability GHSA-q939-rpr3-3284, flagged by GitHub's dependency graph; (2) `stage-06d` branch had diverged from `main` — it retained `SagaCoordinator.cs` and `ISagaCoordinator.cs` that commit `24b49a1` on `main` removed, causing a push conflict. Fix: pinned `SSH.NET` to `2026.0.0` and `BouncyCastle.Cryptography` to `2.7.0` in `Directory.Packages.props`; rebased `stage-06d` onto `main` and force-pushed. Build now passes with 0 errors, 0 NU1903 warnings. `stage-06d` is aligned with `main`.
 `Application.Sagas/Credit/ReadModels/Routing` duplicate stubs and a corrupted `Stage06d_RegistrySchema`
 migration. Added `MultiCompanyGuardTests.cs` (3 tests) enforcing ADR-116: no handler resolves two
 company contexts. `dotnet build -c Release` = 0 errors. Unit tests = 895 passed. Architecture tests =
