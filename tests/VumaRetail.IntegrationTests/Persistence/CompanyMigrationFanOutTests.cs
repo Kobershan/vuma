@@ -27,16 +27,19 @@ public sealed class CompanyMigrationFanOutTests(PostgresFixture fixture)
 
             Company companyA = Company.Create(tenantId, "company-a", "Company A", "Company A", "ZAR", "en-ZA", "A");
             companyA.SetConnectionSecretRef("secret://company-a");
+            companyA.SetLifecycle(CompanyLifecycleState.Seeding); // <-- ADDED: Must transition through Seeding first
             companyA.SetLifecycle(CompanyLifecycleState.Registered);
             companyA.SetMigration(0, "Pending");
 
             Company companyB = Company.Create(tenantId, "company-b", "Company B", "Company B", "ZAR", "en-ZA", "B");
             companyB.SetConnectionSecretRef("secret://company-b");
+            companyB.SetLifecycle(CompanyLifecycleState.Seeding); // <-- ADDED
             companyB.SetLifecycle(CompanyLifecycleState.Registered);
             companyB.SetMigration(0, "Pending");
 
             Company companyC = Company.Create(tenantId, "company-c", "Company C", "Company C", "ZAR", "en-ZA", "C");
             companyC.SetConnectionSecretRef("secret://company-c");
+            companyC.SetLifecycle(CompanyLifecycleState.Seeding); // <-- ADDED
             companyC.SetLifecycle(CompanyLifecycleState.Registered);
             companyC.SetMigration(0, "Pending");
 
@@ -106,11 +109,13 @@ public sealed class CompanyMigrationFanOutTests(PostgresFixture fixture)
 
             Company current = Company.Create(tenantId, "current", "Current Company", "Current Company", "ZAR", "en-ZA", "CUR");
             current.SetConnectionSecretRef("secret://current");
+            current.SetLifecycle(CompanyLifecycleState.Seeding); // <-- ADDED
             current.SetLifecycle(CompanyLifecycleState.Registered);
             current.SetMigration(1, "Current");
 
             Company pending = Company.Create(tenantId, "pending", "Pending Company", "Pending Company", "ZAR", "en-ZA", "PEN");
             pending.SetConnectionSecretRef("secret://pending");
+            pending.SetLifecycle(CompanyLifecycleState.Seeding); // <-- ADDED
             pending.SetLifecycle(CompanyLifecycleState.Registered);
             pending.SetMigration(0, "Pending");
 
