@@ -59,6 +59,7 @@ public sealed class VumaExceptionHandler(
             InvalidOperationException { Message: "COMPANY_NOT_READY" } => Build(StatusCodes.Status422UnprocessableEntity, "Rule violation", "The company is not ready to activate.", "COMPANY_NOT_READY"),
             InvalidOperationException { Message: "COMPANY_SELECTION_REQUIRED" } => Build(StatusCodes.Status400BadRequest, "Bad request", "A valid company selection header is required.", "COMPANY_SELECTION_REQUIRED"),
             InvalidOperationException { Message: "COMPANY_DUPLICATE" } => Build(StatusCodes.Status409Conflict, "Conflict", "A company with those identifying details already exists.", "COMPANY_DUPLICATE"),
+            InvalidOperationException { Message: "LINK_STATUS_UNKNOWN" } => Build(StatusCodes.Status400BadRequest, "Bad request", "Unknown company link status.", "LINK_STATUS_UNKNOWN"),
             BadHttpRequestException malformed => Malformed(malformed),
             _ => Unhandled(exception, httpContext),
         };

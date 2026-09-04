@@ -423,10 +423,7 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                         .IsUnique()
                         .HasDatabaseName("ix_company_links_tenant_id_company_a_id_company_b_id");
 
-                    b.ToTable("company_links", "registry", t =>
-                        {
-                            t.HasCheckConstraint("ck_company_links_operator_match", "operator_id IN (\n                    SELECT operator_id FROM registry.companies WHERE id = company_a_id,\n                    SELECT operator_id FROM registry.companies WHERE id = company_b_id\n                )");
-                        });
+                    b.ToTable("company_links", "registry");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Registry.CreditExposureEntry", b =>

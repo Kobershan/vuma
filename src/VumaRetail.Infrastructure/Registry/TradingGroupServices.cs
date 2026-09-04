@@ -87,11 +87,11 @@ public sealed class PremisesService(
 
         _ = await _registry.Premises
             .FirstOrDefaultAsync(p => p.Id == premisesId && p.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Premises was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("premises", premisesId);
 
         _ = await _registry.Companies
             .FirstOrDefaultAsync(c => c.Id == companyId && c.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Company was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("company", companyId);
 
         // Holding a sister company's stock at a premises requires SharedFloor (TRADING_GROUP
         // §2). The first occupant needs no link; every later one links to each current
@@ -120,7 +120,7 @@ public sealed class PremisesService(
 
         _ = await _registry.Premises
             .FirstOrDefaultAsync(p => p.Id == premisesId && p.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Premises was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("premises", premisesId);
 
         List<Guid> companies = await _registry.PremisesOccupancies
             .Where(o => o.PremisesId == premisesId && o.TenantId == tenantId && o.OccupiesTo == null)
@@ -225,11 +225,11 @@ public sealed class RegistryUserService(
 
         RegistryUser user = await _registry.RegistryUsers
             .FirstOrDefaultAsync(u => u.Id == registryUserId && u.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Registry user was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("registry user", registryUserId);
 
         Company company = await _registry.Companies
             .FirstOrDefaultAsync(c => c.Id == companyId && c.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Company was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("company", companyId);
 
         // Business rule 7: a user may only be granted companies under the same Operator ID.
         if (user.OperatorId != company.OperatorId)
@@ -287,7 +287,7 @@ public sealed class TerminalService(
 
         if (duplicate is not null)
         {
-            throw new InvalidOperationException($"Terminal '{terminalId}' is already registered in this tenant.");
+            throw RegistryConflictException.TerminalAlreadyRegistered(terminalId);
         }
 
         var terminal = RegistryTerminal.Create(tenantId, premisesId, terminalId, deviceCertThumbprint);
@@ -302,7 +302,7 @@ public sealed class TerminalService(
 
         RegistryTerminal terminal = await _registry.Terminals
             .FirstOrDefaultAsync(t => t.Id == terminalId && t.TenantId == _tenantContext.TenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException("Terminal was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("terminal", terminalId);
 
         List<Guid> distinct = companyIds.Where(c => c != Guid.Empty).Distinct().ToList();
         if (distinct.Count == 0)
@@ -315,19 +315,21 @@ public sealed class TerminalService(
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (companies.Count != distinct.Count)
+        Guid missing = distinct.FirstOrDefault(c => companies.All(x => x.Id != c));
+
+        if (missing != Guid.Empty)
         {
-            throw new InvalidOperationException("One or more companies were not found in this tenant.");
+            throw new RegistryNotFoundException("company", missing);
         }
 
         if (companies.Any(c => c.OperatorId == Guid.Empty))
         {
-            throw new InvalidOperationException("Every company on a till must be assigned to an operator.");
+            throw RegistryRuleException.TillCompanyNeedsAnOperator();
         }
 
         if (companies.Select(c => c.OperatorId).Distinct().Count() != 1)
         {
-            throw new InvalidOperationException("A till may only sell for companies under one Operator ID.");
+            throw RegistryRuleException.TillMustStayUnderOneOperator();
         }
 
         terminal.SetCompanies(distinct);

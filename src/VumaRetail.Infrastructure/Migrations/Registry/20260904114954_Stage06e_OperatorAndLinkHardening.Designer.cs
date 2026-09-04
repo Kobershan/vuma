@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VumaRetail.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace VumaRetail.Infrastructure.RegistryMigrations
+namespace VumaRetail.Infrastructure.Migrations.Registry
 {
     [DbContext(typeof(VumaRegistryDbContext))]
-    partial class VumaRegistryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904114954_Stage06e_OperatorAndLinkHardening")]
+    partial class Stage06e_OperatorAndLinkHardening
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -16,6 +16,7 @@ public sealed class ProposeCompanyLinkCommandValidator : AbstractValidator<Propo
         RuleFor(x => x.CompanyAId).NotEmpty();
         RuleFor(x => x.CompanyBId).NotEmpty();
         RuleFor(x => x.Scopes).NotEqual(CompanyLinkScope.None);
+        RuleFor(x => x).Must(c => c.CompanyAId != c.CompanyBId).WithMessage("A company cannot link to itself.");
     }
 }
 

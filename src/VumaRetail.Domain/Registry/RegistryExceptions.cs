@@ -20,26 +20,26 @@ public static class RegistryExceptions
     /// <summary>
     /// Raised when a user is granted access across different Operator IDs.
     /// </summary>
-    public static InvalidOperationException CrossOperatorAccessDenied(Guid userId, Guid operatorA, Guid operatorB)
-        => new($"User {userId} cannot be granted access across operators {operatorA} and {operatorB}.");
+    public static RegistryRuleException CrossOperatorAccessDenied(Guid userId, Guid operatorA, Guid operatorB)
+        => new("REGISTRY_CROSS_OPERATOR_ACCESS", $"User {userId} cannot be granted access across operators {operatorA} and {operatorB}.");
 
     /// <summary>
     /// Raised when a company's licence has lapsed and it drops out of links for writes.
     /// </summary>
-    public static InvalidOperationException LapsedCompanyCannotWrite(Guid companyId)
-        => new($"Company {companyId} has lapsed and cannot participate in write operations.");
+    public static RegistryRuleException LapsedCompanyCannotWrite(Guid companyId)
+        => new("REGISTRY_COMPANY_LAPSED", $"Company {companyId} has lapsed and cannot participate in write operations.");
 
     /// <summary>
     /// Raised when a link is attempted between companies under different operators.
     /// </summary>
-    public static InvalidOperationException DifferentOperatorsCannotLink(Guid operatorA, Guid operatorB)
-        => new($"Companies under operators {operatorA} and {operatorB} cannot be linked.");
+    public static RegistryRuleException DifferentOperatorsCannotLink(Guid operatorA, Guid operatorB)
+        => new("REGISTRY_DIFFERENT_OPERATORS", $"Companies under operators {operatorA} and {operatorB} cannot be linked.");
 
     /// <summary>
     /// Raised when a new entitlement grant would exceed the limit.
     /// </summary>
-    public static InvalidOperationException EntitlementLimitReached(string entitlement, int limit)
-        => new($"Entitlement {entitlement} limit of {limit} reached.");
+    public static RegistryRuleException EntitlementLimitReached(string entitlement, int limit)
+        => new("REGISTRY_ENTITLEMENT_LIMIT", $"Entitlement {entitlement} limit of {limit} reached.");
 
     /// <summary>
     /// Raised when a token does not carry the requested company.
@@ -87,6 +87,46 @@ public sealed class CompanyLinkRequiredException : DomainException, IProblemExte
 
     /// <inheritdoc />
     public string? ProblemTypeUrl => ProblemType;
+}
+
+/// <summary>Something registry-owned was asked for that does not exist, or is not this tenant's.</summary>
+/// <param name="what">What was being looked for, for example <c>company</c>.</param>
+/// <param name="id">The identifier that found nothing.</param>
+public sealed class RegistryNotFoundException(string what, Guid id)
+    : DomainException("REGISTRY_NOT_FOUND", $"No {what} with id {id}.", DomainProblemKind.NotFound);
+
+/// <summary>Something registry-owned must be unique and is not.</summary>
+/// <param name="code">The stable machine-readable code for the specific collision.</param>
+/// <param name="message">What collided, in words.</param>
+public sealed class RegistryConflictException(string code, string message)
+    : DomainException(code, message, DomainProblemKind.Conflict)
+{
+    /// <summary>A second link proposed for a pair that already has one. Revocation is final.</summary>
+    public static RegistryConflictException LinkAlreadyExists()
+        => new("REGISTRY_LINK_EXISTS", "A link already exists between these companies. Revocation is final; a new arrangement needs a vendor-side decision.");
+
+    /// <summary>A terminal id already registered in this tenant.</summary>
+    /// <param name="terminalId">The terminal identifier.</param>
+    public static RegistryConflictException TerminalAlreadyRegistered(string terminalId)
+        => new("REGISTRY_TERMINAL_REGISTERED", $"Terminal '{terminalId}' is already registered in this tenant.");
+}
+
+/// <summary>A registry business rule was broken.</summary>
+/// <param name="code">The stable machine-readable code.</param>
+/// <param name="message">What the rule says.</param>
+public sealed class RegistryRuleException(string code, string message) : DomainException(code, message)
+{
+    /// <summary>Companies proposed for linking before either has an operator.</summary>
+    public static RegistryRuleException CompaniesNeedAnOperator()
+        => new("REGISTRY_COMPANIES_NEED_OPERATOR", "Both companies must be assigned to an operator before they can be linked.");
+
+    /// <summary>A till authorised for companies under more than one Operator ID.</summary>
+    public static RegistryRuleException TillMustStayUnderOneOperator()
+        => new("REGISTRY_TILL_SPANS_OPERATORS", "A till may only sell for companies under one Operator ID.");
+
+    /// <summary>A till authorised for a company that has no operator yet.</summary>
+    public static RegistryRuleException TillCompanyNeedsAnOperator()
+        => new("REGISTRY_TILL_COMPANY_NEEDS_OPERATOR", "Every company on a till must be assigned to an operator.");
 }
 
 /// <summary>

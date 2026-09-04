@@ -100,14 +100,14 @@ public sealed class CompanyLinkService : ICompanyLinkService
         // refused here, not at the first attempted operation.
         Company companyRowA = await _registry.Companies
             .FirstOrDefaultAsync(c => c.Id == companyA && c.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException($"Company {companyA} was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("company", companyA);
         Company companyRowB = await _registry.Companies
             .FirstOrDefaultAsync(c => c.Id == companyB && c.TenantId == tenantId, cancellationToken)
-            .ConfigureAwait(false) ?? throw new InvalidOperationException($"Company {companyB} was not found in this tenant.");
+            .ConfigureAwait(false) ?? throw new RegistryNotFoundException("company", companyB);
 
         if (companyRowA.OperatorId == Guid.Empty || companyRowB.OperatorId == Guid.Empty)
         {
-            throw new InvalidOperationException("Both companies must be assigned to an operator before they can be linked.");
+            throw RegistryRuleException.CompaniesNeedAnOperator();
         }
 
         if (companyRowA.OperatorId != companyRowB.OperatorId)
@@ -129,7 +129,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
         // Revocation is final: the row stands as history and the pair cannot be re-proposed.
         if (existing is not null)
         {
-            throw new InvalidOperationException("A link already exists between these companies.");
+            throw RegistryConflictException.LinkAlreadyExists();
         }
 
         var link = CompanyLink.Create(
@@ -151,7 +151,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
     public async Task AcceptAsync(Guid linkId, Guid acceptingCompanyId, string acceptedBy, string licenceFingerprint, CancellationToken cancellationToken = default)
     {
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
-            ?? throw new InvalidOperationException("Link not found.");
+            ?? throw new RegistryNotFoundException("company link", linkId);
 
         link.Accept(acceptingCompanyId, acceptedBy, licenceFingerprint, _clock.UtcNow);
 
@@ -163,7 +163,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
     public async Task SuspendAsync(Guid linkId, string reason, CancellationToken cancellationToken = default)
     {
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
-            ?? throw new InvalidOperationException("Link not found.");
+            ?? throw new RegistryNotFoundException("company link", linkId);
 
         link.Suspend(reason, _clock.UtcNow);
 
@@ -175,7 +175,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
     public async Task ResumeAsync(Guid linkId, CancellationToken cancellationToken = default)
     {
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
-            ?? throw new InvalidOperationException("Link not found.");
+            ?? throw new RegistryNotFoundException("company link", linkId);
 
         link.Resume();
 
@@ -187,7 +187,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
     public async Task RevokeAsync(Guid linkId, string reason, CancellationToken cancellationToken = default)
     {
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
-            ?? throw new InvalidOperationException("Link not found.");
+            ?? throw new RegistryNotFoundException("company link", linkId);
 
         link.Revoke(reason, _clock.UtcNow);
 
