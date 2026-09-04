@@ -67,7 +67,8 @@ jobs:
           --health-retries 10
 
     env:
-      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=vuma;Password=vuma
+      # FIX 1: Changed Database=postgres to Database=vuma
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -88,17 +89,30 @@ jobs:
             exit 1
           fi
           client="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
-          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d postgres -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
+          # FIX 2: Changed -d postgres to -d vuma
+          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
           echo "pg_dump major $client, server major $server"
           if [ "$client" -lt "$server" ]; then
             echo "::error::pg_dump $client cannot dump a PostgreSQL $server server."
             exit 1
           fi
 
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 9.0.0
+
+      # FIX 4: Explicitly apply migrations before tests run to prevent 500 errors on empty DB
+      - name: Apply Database Migrations for Tests
+        run: >
+          dotnet ef database update
+          --project src/VumaRetail.Infrastructure
+          --context VumaRetailDbContext
+
       - name: Test
         run: >
           dotnet test -c Release
           --logger "trx;LogFileName=results.trx"
+          --logger "console;verbosity=detailed"
           --collect:"XPlat Code Coverage"
           --results-directory ./artifacts/test-results
 
