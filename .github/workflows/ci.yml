@@ -57,7 +57,7 @@ jobs:
         env:
           POSTGRES_USER: vuma
           POSTGRES_PASSWORD: vuma
-          POSTGRES_DB: postgres
+          POSTGRES_DB: vuma # <--- FIX 1: Create the 'vuma' database instead of 'postgres'
         ports:
           - 5432:5432
         options: >-
@@ -67,7 +67,7 @@ jobs:
           --health-retries 10
 
     env:
-      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=vuma;Password=vuma
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma # <--- FIX 2: Point connection string to 'vuma'
 
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +88,8 @@ jobs:
             exit 1
           fi
           client="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
-          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d postgres -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
+          # <--- FIX 3: Query the 'vuma' database instead of 'postgres'
+          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
           echo "pg_dump major $client, server major $server"
           if [ "$client" -lt "$server" ]; then
             echo "::error::pg_dump $client cannot dump a PostgreSQL $server server."
