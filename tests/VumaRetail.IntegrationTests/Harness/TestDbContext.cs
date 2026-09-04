@@ -38,6 +38,27 @@ public static class TestDbContextFactory
             BuildOptions<VumaRetailDbContext>(connectionString, clock, principal, stamper),
             tenant ?? TestTenantContext.Unfiltered());
 
+    /// <summary>Builds a registry context over the given database.</summary>
+    /// <param name="connectionString">The test database.</param>
+    /// <param name="tenant">The tenant the query filter scopes to. Defaults to bypassed.</param>
+    /// <remarks>
+    /// Mirrors the host's registry registration: the <c>registry</c> migrations history table,
+    /// snake-case naming, and no audit interceptor — the registry context ships none, so the
+    /// tests exercise the class that ships, not a near relative of it.
+    /// </remarks>
+    public static VumaRegistryDbContext ForRegistry(
+        string connectionString,
+        ITenantContext? tenant = null)
+    {
+        DbContextOptionsBuilder<VumaRegistryDbContext> options = new();
+
+        options.UseNpgsql(connectionString, npgsql =>
+            npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
+        options.UseSnakeCaseNamingConvention();
+
+        return new(options.Options, tenant ?? TestTenantContext.Unfiltered());
+    }
+
     /// <summary>Builds the options every test context shares.</summary>
     /// <typeparam name="TContext">The context type the options are for.</typeparam>
     /// <param name="connectionString">The test database.</param>

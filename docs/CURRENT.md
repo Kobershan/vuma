@@ -4,8 +4,10 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 06e — Trading group (error correction after a premature push to `main`)
-CURRENT TASK: 06e correction — audit the e7e1c87 implementation, fix every error, re-verify
-CURRENT TASK STATUS: IN_PROGRESS (fixes committed: structural, domain, behavior, auth/API, tests)
+CURRENT TASK: CI sign-in 500s — traced (template/host never migrated the registry context; new
+  sign-in enrichment hit the missing schema on every login) and fixed, plus 23514→422 / 23505→409
+  handler mapping
+CURRENT TASK STATUS: IN_PROGRESS (fixes implemented, unit/arch green; integration rerun needs CI)
 NEXT READY TASK: TASK-06E-003 — Complete Stage 06e verification (needs PostgreSQL + secret store)
 LAST COMPLETED TASK: Stage 06e error correction, code-complete (this session; see PROGRESS.md)
 BLOCKERS: No PostgreSQL endpoint on this Windows machine (no `psql`, no Docker) — integration

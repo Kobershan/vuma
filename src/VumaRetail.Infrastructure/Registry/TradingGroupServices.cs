@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
@@ -353,25 +354,39 @@ public sealed class RegistryTokenCompanyEnricher(IDbContextFactory<VumaRegistryD
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
 
-        await using VumaRegistryDbContext registry = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        string login = userName.Trim().ToLowerInvariant();
-
-        RegistryUser? user = await registry.RegistryUsers
-            .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Login.ToLower() == login, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (user is not { IsEnabled: true })
+        try
         {
+            await using VumaRegistryDbContext registry = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            string login = userName.Trim().ToLowerInvariant();
+
+            RegistryUser? user = await registry.RegistryUsers
+                .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Login.ToLower() == login, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (user is not { IsEnabled: true })
+            {
+                return TokenCompanyEnrichment.Empty;
+            }
+
+            List<CompanyMembership> companies = await registry.RegistryUserCompanyAccesses
+                .Where(a => a.TenantId == tenantId && a.RegistryUserId == user.Id)
+                .Select(a => new CompanyMembership(a.CompanyId, a.Roles))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return new TokenCompanyEnrichment(user.OperatorId, companies);
+        }
+        catch (NpgsqlException)
+        {
+            // Sign-in is an edge service and must survive a degraded registry: an unreachable
+            // server, an unmigrated directory, a missing table. The token then carries no
+            // companies — exactly the pre-registry token — and everything downstream behaves as
+            // it did before the directory existed (ADR-040's philosophy applied to enrichment).
+            // The schema gap itself is closed where it belongs: the test template and the host
+            // migrate the registry context alongside the business one, so a missing directory
+            // here means something is genuinely down, not something the sign-in caused.
             return TokenCompanyEnrichment.Empty;
         }
-
-        List<CompanyMembership> companies = await registry.RegistryUserCompanyAccesses
-            .Where(a => a.TenantId == tenantId && a.RegistryUserId == user.Id)
-            .Select(a => new CompanyMembership(a.CompanyId, a.Roles))
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return new TokenCompanyEnrichment(user.OperatorId, companies);
     }
 }
 

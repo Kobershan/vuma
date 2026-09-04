@@ -2356,3 +2356,25 @@ The cost accepted: cross-node cache invalidation within one second (the stage's 
 cannot pass until a transport exists, and the three-company seed fixture cannot run until Stage 06c's
 provisioning runtime is wired to a secret store — both recorded as deferred in `docs/PROGRESS.md`,
 neither faked.
+
+## ADR-140 — Database-enforced rules answer coded refusals; both databases migrate everywhere; sign-in survives a degraded registry — **PROPOSED**
+**Context.** A CI run failed every API integration test at sign-in with a 500, and the log bundle
+mixed three unrelated causes: a missing database/schema, benign constraint noise from negative
+tests, and genuine 500s. Tracing showed (1) the test template migrated only the business context,
+so every registry read in a test database answered "relation does not exist" — including the new
+sign-in enrichment, which runs on every login; (2) the host's `--migrate` path migrated only the
+business context, so a fresh deployment had the same hole; (3) a PostgreSQL check or unique
+violation reaching the API edge fell through to 500 with no stable code.
+**Decision.** (1) The test template and the host migrate **both** contexts — a test database serves
+the full host, and a deployment is not migrated until both databases are. (2) Check violations
+(SQL state 23514) answer 422 `CHECK_VIOLATION` and unique violations (23505) answer 409
+`UNIQUE_VIOLATION`, each carrying the firing constraint's name as an extension — the constraint is
+the last line of defence behind the domain, and reaching it means a rule with no coded refusal yet,
+which is still a refusal, not a crash. (3) Sign-in enrichment degrades to the pre-registry token
+when the directory is unreachable: sign-in is an edge service in ADR-040's sense, and a degraded
+registry must cost company claims, not logins.
+**Consequences.** The CI failure's three causes are separated for good: setup gaps close by
+construction, negative-test constraint noise stays server-side log noise (the tests assert the
+refusal), and no database-enforced rule can surface as a 500 again. The accepted cost is that a
+down registry silently narrows tokens until it recovers — visible in the server logs, and the
+correct side to fail on: authentication first, enrichment second.

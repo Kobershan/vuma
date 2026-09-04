@@ -227,6 +227,15 @@ public sealed class PostgresFixture : IAsyncLifetime
             await context.Database.MigrateAsync().ConfigureAwait(false);
         }
 
+        // Both contexts, not just the business one. Every test database cloned from this
+        // template serves the full host, and the host reads the registry on ordinary requests
+        // (sign-in enrichment, operator resolution, company links) — a template without the
+        // registry schema turns all of those into "relation does not exist" 500s.
+        await using (VumaRegistryDbContext registry = TestDbContextFactory.ForRegistry(templateConnection))
+        {
+            await registry.Database.MigrateAsync().ConfigureAwait(false);
+        }
+
         NpgsqlConnection.ClearAllPools();
     }
 }

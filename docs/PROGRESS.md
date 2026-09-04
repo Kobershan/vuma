@@ -1205,3 +1205,22 @@ exists anywhere — pre-existing 06c gap); cross-node sub-second invalidation (n
 exists in the product); E-rows for 07c/08c/13b/09b entry points (those stages are not built);
 licence-minted Operator ID (Stage 04b never minted it — the registry projection seam is ready).
 Stage 06e stays NOT_DONE until TASK-06E-003 runs on a machine with PostgreSQL.
+
+**CI sign-in 500s — traced and fixed (2026-09-04):** Every API integration test failed at
+`ApiHarness.SignInAsync` with a 500, and the log bundle mixed three unrelated causes. Tracing
+(`PostgresFixture`, `TestDbContextFactory`, `BackupCli.MigrateAsync`, `ApiHarness`, the test
+classes' collection and per-test harness setup) separated them: (1) the test template migrated
+only the business context, so the registry schema never existed in any test database — and the
+new sign-in enrichment queries the registry on every login, turning every `/token` call into
+"relation does not exist"; the host `--migrate` path had the identical hole for fresh
+deployments. Fixed by migrating both contexts in the template (new `TestDbContextFactory.ForRegistry`)
+and in `BackupCli.MigrateAsync`. (2) The `ux_*`/`ck_*` ERROR lines are benign server-side noise
+from passing negative tests (`FinancePersistenceTests` asserts `ck_journal_lines_exactly_one_side`
+by name; `RegistryPersistenceTests` asserts the outbox idempotency collision) — per-test cloned
+databases plus the single shared `postgres` collection already isolate tests; no isolation change
+made. (3) Genuine gap closed regardless: PostgreSQL check violations (23514) now answer 422
+`CHECK_VIOLATION` and unique violations (23505) 409 `UNIQUE_VIOLATION` with the firing constraint
+as an extension, instead of falling through to 500. Enrichment additionally degrades to the
+pre-registry token when the directory is unreachable, so sign-in never fails for the directory's
+sake (ADR-140). Verified: build 0 errors, unit 938/938, architecture 43/43. Integration rerun
+needs PostgreSQL/Docker, unavailable on this machine — UNVERIFIED here, must go green in CI.
