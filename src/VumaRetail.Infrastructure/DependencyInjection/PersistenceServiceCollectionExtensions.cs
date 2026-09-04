@@ -93,6 +93,10 @@ public static class PersistenceServiceCollectionExtensions
 
         // Stage 06e: Trading group
         services.AddScoped<ICompanyLinkService, CompanyLinkService>();
+        services.AddScoped<IOperatorContext, OperatorContext>();
+        services.AddScoped<IPremisesService, PremisesService>();
+        services.AddScoped<IRegistryUserService, RegistryUserService>();
+        services.AddScoped<IEntitlementCounters, EntitlementCounters>();
 
         return services;
     }

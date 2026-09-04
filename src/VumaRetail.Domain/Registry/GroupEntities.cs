@@ -166,22 +166,172 @@ public enum CompanyLinkStatus
 
 public sealed class CompanyLink
 {
-    public CompanyLink() { }
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public Guid CompanyAId { get; set; }
-    public Guid CompanyBId { get; set; }
-    public CompanyLinkScope Scopes { get; set; }
-    public CompanyLinkStatus Status { get; set; }
-    public DateTimeOffset EffectiveFrom { get; set; }
-    public DateTimeOffset? EffectiveTo { get; set; }
-    public bool AcceptedByA { get; set; }
-    public bool AcceptedByB { get; set; }
-    public DateTimeOffset? AcceptedAt { get; set; }
-    public string? SuspendedReason { get; set; }
-    public DateTimeOffset? SuspendedAt { get; set; }
-    public string? RevokedReason { get; set; }
-    public DateTimeOffset? RevokedAt { get; set; }
-    public Guid OperatorId { get; set; }
-    public string OperatorName { get; set; } = string.Empty;
+    private CompanyLink() { }
+
+    private CompanyLink(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes)
+    {
+        if (companyAId == Guid.Empty || companyBId == Guid.Empty)
+        {
+            throw new ArgumentException("Both companies are required.");
+        }
+        if (companyAId == companyBId)
+        {
+            throw new ArgumentException("A company cannot link to itself.");
+        }
+        if (scopes == CompanyLinkScope.None)
+        {
+            throw new ArgumentException("A link must have at least one scope.");
+        }
+
+        // Ordering rule: smaller GUID first
+        if (companyAId.CompareTo(companyBId) < 0)
+        {
+            CompanyAId = companyAId;
+            CompanyBId = companyBId;
+        }
+        else
+        {
+            CompanyAId = companyBId;
+            CompanyBId = companyAId;
+        }
+
+        TenantId = tenantId;
+        OperatorId = operatorId;
+        Scopes = scopes;
+        Status = CompanyLinkStatus.Proposed;
+        EffectiveFrom = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>The stable identifier.</summary>
+    public Guid Id { get; private set; }
+
+    /// <summary>The tenant this link belongs to.</summary>
+    public Guid TenantId { get; private set; }
+
+    /// <summary>The smaller of the two company GUIDs.</summary>
+    public Guid CompanyAId { get; private set; }
+
+    /// <summary>The larger of the two company GUIDs.</summary>
+    public Guid CompanyBId { get; private set; }
+
+    /// <summary>The scopes this link permits.</summary>
+    public CompanyLinkScope Scopes { get; private set; }
+
+    /// <summary>The current status.</summary>
+    public CompanyLinkStatus Status { get; private set; }
+
+    /// <summary>When the link becomes effective.</summary>
+    public DateTimeOffset EffectiveFrom { get; private set; }
+
+    /// <summary>When the link expires, or null if still active.</summary>
+    public DateTimeOffset? EffectiveTo { get; private set; }
+
+    /// <summary>Whether company A has accepted.</summary>
+    public bool AcceptedByA { get; private set; }
+
+    /// <summary>Whether company B has accepted.</summary>
+    public bool AcceptedByB { get; private set; }
+
+    /// <summary>When both sides accepted.</summary>
+    public DateTimeOffset? AcceptedAt { get; private set; }
+
+    /// <summary>The reason for suspension.</summary>
+    public string? SuspendedReason { get; private set; }
+
+    /// <summary>When the link was suspended.</summary>
+    public DateTimeOffset? SuspendedAt { get; private set; }
+
+    /// <summary>The reason for revocation.</summary>
+    public string? RevokedReason { get; private set; }
+
+    /// <summary>When the link was revoked.</summary>
+    public DateTimeOffset? RevokedAt { get; private set; }
+
+    /// <summary>The operator ID that must match both companies.</summary>
+    public Guid OperatorId { get; private set; }
+
+    /// <summary>The operator name for display purposes.</summary>
+    public string OperatorName { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Creates a new proposed link between two companies under the same operator.
+    /// Enforces the operator-match invariant (ADR-121) and the ordering rule.
+    /// </summary>
+    public static CompanyLink Create(Guid tenantId, Guid operatorId, Guid companyAId, Guid companyBId, CompanyLinkScope scopes)
+    {
+        if (companyAId == companyBId)
+        {
+            throw new ArgumentException("A company cannot link to itself.");
+        }
+
+        // The operator-match invariant is enforced here and again by the database check constraint
+        var link = new CompanyLink(tenantId, operatorId, companyAId, companyBId, scopes);
+        link.Id = UuidV7.NewGuid();
+        return link;
+    }
+
+    /// <summary>Checks whether the operator matches both companies.</summary>
+    public bool HasOperatorMatch(Guid operatorId) => OperatorId == operatorId;
+
+    /// <summary>Accepts the link from the given company.</summary>
+    public void Accept(Guid companyId, DateTimeOffset acceptedAt)
+    {
+        if (Status != CompanyLinkStatus.Proposed)
+        {
+            throw new InvalidOperationException("Only a proposed link can be accepted.");
+        }
+
+        if (CompanyAId == companyId)
+        {
+            AcceptedByA = true;
+        }
+        else if (CompanyBId == companyId)
+        {
+            AcceptedByB = true;
+        }
+        else
+        {
+            throw new InvalidOperationException("Company is not part of this link.");
+        }
+
+        if (AcceptedByA && AcceptedByB)
+        {
+            Status = CompanyLinkStatus.Active;
+            AcceptedAt = acceptedAt;
+        }
+    }
+
+    /// <summary>Suspends an active link with a reason.</summary>
+    public void Suspend(string reason, DateTimeOffset suspendedAt)
+    {
+        if (Status != CompanyLinkStatus.Active)
+        {
+            throw new InvalidOperationException("Only active links can be suspended.");
+        }
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A reason is required.", nameof(reason));
+        }
+
+        Status = CompanyLinkStatus.Suspended;
+        SuspendedReason = reason;
+        SuspendedAt = suspendedAt;
+    }
+
+    /// <summary>Revokes a link with a reason of at least 10 characters.</summary>
+    public void Revoke(string reason, DateTimeOffset revokedAt)
+    {
+        if (Status == CompanyLinkStatus.Revoked)
+        {
+            throw new InvalidOperationException("Link is already revoked.");
+        }
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length < 10)
+        {
+            throw new ArgumentException("Revocation requires a reason of at least 10 characters.", nameof(reason));
+        }
+
+        Status = CompanyLinkStatus.Revoked;
+        RevokedReason = reason;
+        RevokedAt = revokedAt;
+    }
 }

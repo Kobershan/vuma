@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence.Configurations.Registry;
 
 namespace VumaRetail.Infrastructure.Persistence;
 
@@ -28,6 +29,13 @@ public sealed class VumaRegistryDbContext(
 
     // Stage 06e: Trading group
     public DbSet<CompanyLink> CompanyLinks => Set<CompanyLink>();
+    public DbSet<Operator> Operators => Set<Operator>();
+    public DbSet<Premises> Premises => Set<Premises>();
+    public DbSet<PremisesOccupancy> PremisesOccupancies => Set<PremisesOccupancy>();
+    public DbSet<PremisesBinLayout> PremisesBinLayouts => Set<PremisesBinLayout>();
+    public DbSet<RegistryUser> RegistryUsers => Set<RegistryUser>();
+    public DbSet<RegistryUserCompanyAccess> RegistryUserCompanyAccesses => Set<RegistryUserCompanyAccess>();
+    public DbSet<RegistryTerminal> Terminals => Set<RegistryTerminal>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -179,13 +187,15 @@ public sealed class VumaRegistryDbContext(
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
-        // Stage 06e: Trading group
-        modelBuilder.Entity<CompanyLink>(builder =>
-        {
-            builder.ToTable("company_links", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
-            builder.HasIndex(x => new { x.TenantId, x.CompanyAId, x.CompanyBId }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.Status });
-            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
-        });
+        // Stage 06e: Trading group - register configurations
+        modelBuilder.ApplyConfiguration(new CompanyLinkConfiguration());
+        modelBuilder.ApplyConfiguration(new OperatorConfiguration());
+        modelBuilder.ApplyConfiguration(new PremisesConfiguration());
+        modelBuilder.ApplyConfiguration(new PremisesOccupancyConfiguration());
+        modelBuilder.ApplyConfiguration(new PremisesBinLayoutConfiguration());
+        modelBuilder.ApplyConfiguration(new RegistryUserConfiguration());
+        modelBuilder.ApplyConfiguration(new RegistryUserCompanyAccessConfiguration());
+        modelBuilder.ApplyConfiguration(new RegistryTerminalConfiguration());
 
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the

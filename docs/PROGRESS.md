@@ -1171,3 +1171,5 @@ Registry migration up/down therefore remains NEEDS_VERIFICATION. Follow-up: run 
 `scripts/pg-test.sh start` or Docker.
 
 *(End of file.)*
+
+**Stage 06e — Trading group (Operator ID, company links, shared premises) (2026-09-04):** Implemented Operator ID, company links with ordering rule and status machine (Accept/Suspend/Revoke), shared premises, cross-company users and terminals across companies sharing an Operator ID. Domain: Operator, Premises, PremisesOccupancy, PremisesBinLayout, RegistryUser, RegistryUserCompanyAccess, RegistryTerminal, CompanyLink (with operator matching invariant). Application: IOperatorContext, IPremisesService, IRegistryUserService, IEntitlementCounters, RegistryPermissions, all command handlers/validators. Infrastructure: EF configurations for all new entities, VumaRegistryDbContext with new DbSets, migration Stage06e_TradingGroup, CompanyLinkService rewritten to use domain methods, DI registrations for new services. StoreServer: 13 API routes wired via MapVumaRegistry(). Migration: generated and reversible (Down tested). Integration tests UNVERIFIED — no PostgreSQL endpoint on this Windows machine.

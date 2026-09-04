@@ -265,6 +265,7 @@ app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();
 app.MapVumaImports();
+    app.MapVumaRegistry();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

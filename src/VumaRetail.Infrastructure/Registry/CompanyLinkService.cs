@@ -1,3 +1,4 @@
+#pragma warning disable CS1591
 using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Abstractions;
@@ -12,11 +13,15 @@ public sealed class CompanyLinkService : ICompanyLinkService
 {
     private readonly VumaRegistryDbContext _registry;
     private readonly IClock _clock;
+    private readonly ITenantContext _tenantContext;
+    private readonly IOperatorContext _operatorContext;
 
-    public CompanyLinkService(VumaRegistryDbContext registry, IClock clock)
+    public CompanyLinkService(VumaRegistryDbContext registry, IClock clock, ITenantContext tenantContext, IOperatorContext operatorContext)
     {
         _registry = registry;
         _clock = clock;
+        _tenantContext = tenantContext;
+        _operatorContext = operatorContext;
     }
 
     public async Task RequireLink(Guid companyA, Guid companyB, CompanyLinkScope requiredScope, CancellationToken cancellationToken = default)
@@ -67,15 +72,13 @@ public sealed class CompanyLinkService : ICompanyLinkService
         if (existing is not null && existing.Status != CompanyLinkStatus.Revoked)
             throw new InvalidOperationException("A link already exists between these companies.");
 
-        var link = new CompanyLink
-        {
-            Id = UuidV7.NewGuid(),
-            CompanyAId = smaller,
-            CompanyBId = larger,
-            Scopes = scopes,
-            Status = CompanyLinkStatus.Proposed,
-            EffectiveFrom = _clock.UtcNow,
-        };
+        var operatorId = _operatorContext.RequireOperatorId();
+        var link = CompanyLink.Create(
+            tenantId: _tenantContext.TenantId,
+            operatorId: operatorId,
+            companyAId: smaller,
+            companyBId: larger,
+            scopes);
 
         _registry.CompanyLinks.Add(link);
         await _registry.CommitAsync(cancellationToken);
@@ -87,18 +90,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
             ?? throw new InvalidOperationException("Link not found.");
 
-        if (link.Status != CompanyLinkStatus.Proposed)
-            throw new InvalidOperationException("Link is not in Proposed state.");
-
-        if (link.CompanyAId == acceptingCompanyId) link.AcceptedByA = true;
-        else if (link.CompanyBId == acceptingCompanyId) link.AcceptedByB = true;
-        else throw new InvalidOperationException("Company is not part of this link.");
-
-        if (link.AcceptedByA && link.AcceptedByB)
-        {
-            link.Status = CompanyLinkStatus.Active;
-            link.AcceptedAt = _clock.UtcNow;
-        }
+        link.Accept(acceptingCompanyId, _clock.UtcNow);
 
         await _registry.CommitAsync(cancellationToken);
     }
@@ -108,12 +100,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
             ?? throw new InvalidOperationException("Link not found.");
 
-        if (link.Status != CompanyLinkStatus.Active)
-            throw new InvalidOperationException("Only active links can be suspended.");
-
-        link.Status = CompanyLinkStatus.Suspended;
-        link.SuspendedAt = _clock.UtcNow;
-        link.SuspendedReason = reason;
+        link.Suspend(reason, _clock.UtcNow);
 
         await _registry.CommitAsync(cancellationToken);
     }
@@ -123,12 +110,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
         var link = await _registry.CompanyLinks.FindAsync(new object[] { linkId }, cancellationToken)
             ?? throw new InvalidOperationException("Link not found.");
 
-        if (link.Status == CompanyLinkStatus.Revoked)
-            throw new InvalidOperationException("Link is already revoked.");
-
-        link.Status = CompanyLinkStatus.Revoked;
-        link.RevokedAt = _clock.UtcNow;
-        link.RevokedReason = reason;
+        link.Revoke(reason, _clock.UtcNow);
 
         await _registry.CommitAsync(cancellationToken);
     }
