@@ -84,6 +84,7 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Registry/GroupCreditService.cs",
             "src/VumaRetail.Infrastructure/Registry/BarcodeResolver.cs",
             "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
+            "src/VumaRetail.Infrastructure/Registry/TradingGroupServices.cs",
             "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
