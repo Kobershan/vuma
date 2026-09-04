@@ -57,7 +57,7 @@ jobs:
         env:
           POSTGRES_USER: vuma
           POSTGRES_PASSWORD: vuma
-          POSTGRES_DB: postgres
+          POSTGRES_DB: vuma
         ports:
           - 5432:5432
         options: >-
