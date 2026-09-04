@@ -2326,3 +2326,33 @@ stored tax can only be corrected by a new document (a credit note, a reversal) �
 the same trade-off rule 7 already makes for posted financial documents generally. No consumer — a report, an
 analytics query, a reconciliation — may derive tax from `(net, rate)` or `(gross, rate)` on a stored line; it
 reads what was stored.
+
+## ADR-139 — Stage 06e correction: trigger not CHECK, registry.* permissions, outbox link events, optional sign-in enrichment — **PROPOSED**
+**Context.** The first Stage 06e implementation reached `main` with the shape right and the enforcement
+wrong: the operator-match invariant had no `Company.OperatorId` to match against, the "check
+constraint" in an early migration draft named SQL PostgreSQL cannot parse (`IN` over two `SELECT`s —
+verified never created in any database, removed from the migration metadata), permission keys broke
+ADR-013's three-segment rule, acceptance recorded nothing about who or under which licence, terminal
+handlers were stubs, and four architecture tests failed.
+**Decision.** (1) ADR-121's database half is a `BEFORE INSERT OR UPDATE` trigger on
+`registry.company_links`, not a `CHECK` — a check constraint cannot reference another table, and an
+invalid one is worse than none because the next migration diffs it forever. The aggregate and
+`ProposeAsync` refuse first; the trigger refuses a row that reaches the database anyway. (2) The
+stage text's two-segment `grouplink.*` permission names become `registry.grouplink.*` (plus
+`registry.premises.manage`, `registry.user.manage`, `registry.terminal.manage`) — ADR-013 requires
+`module.entity.action` and the module is `registry`. (3) Link mutations publish a durable
+`company-link.changed` registry outbox row and invalidate the local snapshot cache in the same
+transaction; there is no SignalR transport anywhere in this product, so cross-node invalidation
+rides the outbox channel a transport can subscribe to later rather than an invented one now.
+(4) Sign-in enriches the token with registry membership through the optional
+`ITokenCompanyEnricher` seam — optional so pre-registry logins and existing constructions keep
+working unchanged. The signed licence does not carry the Operator ID yet (Stage 04b never minted
+it); until it does, the operator is projected from the registry row the licence fingerprint points
+at, and changing that projection to read the licence is a small, named follow-up, not a rework.
+**Consequences.** The invariant holds at three levels (aggregate, service, trigger) with each level
+documenting why the next one exists. Permission keys parse. Link refusals carry the stable problem
+type `https://vuma.dev/problems/company-link-required` with both companies and the missing scope.
+The cost accepted: cross-node cache invalidation within one second (the stage's acceptance test)
+cannot pass until a transport exists, and the three-company seed fixture cannot run until Stage 06c's
+provisioning runtime is wired to a secret store — both recorded as deferred in `docs/PROGRESS.md`,
+neither faked.

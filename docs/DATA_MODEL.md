@@ -1273,9 +1273,11 @@ command**: `operator_id` (e.g. `OP-4K2X-9QN7`), display name, licence fingerprin
 `company_a_id`, `company_b_id` (stored smaller-GUID-first so a pair has one row), `operator_id`,
 `scopes` (`[Flags]`: `SharedFloor, SharedTill, SharedCredit, SharedReceipting, SharedSourcing,
 SharedPicking, SharedReporting`), `status` (`Proposed | Accepted | Active | Suspended | Revoked`),
-`accepted_by_a`/`_b` + timestamps + licence fingerprint at acceptance, `effective_from`/`_to`,
-`revoked_reason`. **Unique on `(company_a_id, company_b_id)`. Check constraint: `operator_id` equals both
-companies' `operator_id`** (ADR-121, ADR-122).
+`accepted_by_a`/`_b` + who, timestamps + licence fingerprint at acceptance, `effective_from`/`_to`,
+`revoked_reason`. **Unique on `(tenant_id, company_a_id, company_b_id)`. Operator match
+(ADR-121): the aggregate and `ProposeAsync` refuse first, and a `BEFORE INSERT OR UPDATE` trigger
+refuses a row whose `operator_id` differs from either company's — a `CHECK` cannot reference another
+table, so there is deliberately no check constraint (ADR-139).**
 
 ### `registry.premises` / `registry.premises_occupancies` / `registry.premises_bin_layouts` (Stage 06e)
 The physical site, the companies occupying it (one store each, that store's row living in its own

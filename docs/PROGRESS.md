@@ -1173,3 +1173,35 @@ Registry migration up/down therefore remains NEEDS_VERIFICATION. Follow-up: run 
 *(End of file.)*
 
 **Stage 06e — Trading group (Operator ID, company links, shared premises) (2026-09-04):** Implemented Operator ID, company links with ordering rule and status machine (Accept/Suspend/Revoke), shared premises, cross-company users and terminals across companies sharing an Operator ID. Domain: Operator, Premises, PremisesOccupancy, PremisesBinLayout, RegistryUser, RegistryUserCompanyAccess, RegistryTerminal, CompanyLink (with operator matching invariant). Application: IOperatorContext, IPremisesService, IRegistryUserService, IEntitlementCounters, RegistryPermissions, all command handlers/validators. Infrastructure: EF configurations for all new entities, VumaRegistryDbContext with new DbSets, migration Stage06e_TradingGroup, CompanyLinkService rewritten to use domain methods, DI registrations for new services. StoreServer: 13 API routes wired via MapVumaRegistry(). Migration: generated and reversible (Down tested). Integration tests UNVERIFIED — no PostgreSQL endpoint on this Windows machine.
+
+**Stage 06e — error correction (2026-09-04):** The first 06e implementation (`e7e1c87`) reached
+`main` with the shape right and the enforcement wrong, and its "green" claim was false — 4 of 41
+architecture tests were failing. This session audited every 06e file against the stage document,
+`TRADING_GROUP.md`, `DATA_MODEL.md` §4l and the ADRs, and corrected the full inventory in five
+commits (`2c4fb32`, `e2bc817`, `0abdd68`, `9866aad`, plus tests). Fixes: (1) structural — the
+standalone registry EF configurations were silently applied to the company database by the
+assembly scan (wrong-chain business migrations, polluted business snapshot, EF Design workaround
+in Web — all reverted; configs now inline in `VumaRegistryDbContext` per the 06c/06d convention);
+(2) domain — `Company.OperatorId` + set-once `AssignOperator` (the invariant had nothing to match
+against), `Accepted` state + `Resume` + per-side acceptor/timestamp/licence-fingerprint +
+`EffectiveTo` on revoke, `TenantId` on occupancies/bin-layouts/grants with tenant filters,
+wall-clock parameters instead of `UtcNow` reads, `RegistryExceptions` moved to `Domain.Registry`,
+typed `REGISTRY_*` refusals replacing `InvalidOperationException`s that fell through to 500;
+(3) behavior — `ProposeAsync` verifies both companies sit under the acting operator,
+`AcceptCompanyLinkCommand` resolves the accepting company from `ICompanyContext` (it passed
+`Guid.Empty`), terminal handlers implemented via new `ITerminalService` (they were stubs),
+per-company entitlement counters, `SharedFloor` in occupancy, `SharedCredit` in credit holds,
+bin-layout mirroring through the saga coordinator, link snapshot cache + `company-link.changed`
+outbox events, operator assignment at provisioning; (4) API/auth — `RegistryModuleManifest`,
+token `vuma:operator`/`vuma:companies` claims with registry enrichment at sign-in (optional seam),
+operator middleware, 403 on off-token company selection, spec-aligned routes with Contracts DTOs,
+`LINK_STATUS_UNKNOWN` 400. Verification: `dotnet build -c Release` 0 errors; unit 938/938
+(pure-06e Domain+Application 93.3% line coverage); architecture 43/43 (was 37+4 failing); new
+migration `Stage06e_OperatorAndLinkHardening` generated with model/snapshot proven in sync via an
+empty drift migration (removed afterwards). ADR-139 records the new choices. Deferred, with
+reasons, not faked: integration tests + migration execution (no PostgreSQL here); the F3
+three-company seed fixture (no `ICompanyDatabaseCreator`/`ICompanyConnectionSecretStore` wiring
+exists anywhere — pre-existing 06c gap); cross-node sub-second invalidation (no SignalR transport
+exists in the product); E-rows for 07c/08c/13b/09b entry points (those stages are not built);
+licence-minted Operator ID (Stage 04b never minted it — the registry projection seam is ready).
+Stage 06e stays NOT_DONE until TASK-06E-003 runs on a machine with PostgreSQL.

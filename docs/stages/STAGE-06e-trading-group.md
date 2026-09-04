@@ -78,13 +78,17 @@ Operator ID match, an `Active` link and the specific scope for that operation.
 - `registry.operators`, `registry.company_links`, `registry.premises`, `registry.premises_occupancies`,
   `registry.premises_bin_layouts`, `registry.users`, `registry.user_company_access`,
   `registry.terminals`. All on the registry migration chain.
-- **Unique constraint** on `(company_a_id, company_b_id)` with the ordering rule enforced in the
-  aggregate, so one pair can hold at most one link row.
-- **Check constraint**: a link row's `operator_id` must equal both companies' `operator_id`. Belt and
-  braces behind the aggregate rule (ADR-121).
+- **Unique constraint** on `(tenant_id, company_a_id, company_b_id)` with the ordering rule enforced in the
+  aggregate, so one pair can hold at most one link row. Revocation is final: the row stands and the
+  pair cannot be re-proposed.
+- **Operator-match trigger** (ADR-121, ADR-139): a link row's `operator_id` must equal both companies'
+  `operator_id`, enforced by a `BEFORE INSERT OR UPDATE` trigger — a `CHECK` cannot reference another
+  table. Belt and braces behind the aggregate rule.
 - Token issuance extended: the JWT carries `companies` (ids the user may act in) and `roles` per company.
   A request naming a company absent from the token is **403** (ADR-127).
-- `CompanyLinkChangedEvent` invalidates the `ICompanyLinkService` cache across nodes over SignalR.
+- Link mutations write a durable `company-link.changed` registry outbox row and invalidate the
+  `ICompanyLinkService` snapshot cache in the same transaction. A SignalR transport is deferred:
+  no such transport exists anywhere in this product yet (ADR-139).
 
 ### API — `src/VumaRetail.StoreServer/Endpoints/RegistryEndpoints.cs`
 
@@ -92,16 +96,19 @@ Operator ID match, an `Active` link and the specific scope for that operation.
 GET    /api/v1/operator                              the acting Operator ID and its companies
 GET    /api/v1/company-links                         list, filterable by company and status
 POST   /api/v1/company-links                         propose
-POST   /api/v1/company-links/{id}/accept             accept (the other company's authorised user)
+POST   /api/v1/company-links/{id}/accept             accept (the acting company, from its own context)
 POST   /api/v1/company-links/{id}/suspend             suspend, with a reason
-POST   /api/v1/company-links/{id}/revoke              revoke, with a reason
+POST   /api/v1/company-links/{id}/resume              resume a suspended link
+POST   /api/v1/company-links/{id}/revoke              revoke, with a reason of at least ten characters
 GET    /api/v1/premises                              list
 POST   /api/v1/premises                              create
 POST   /api/v1/premises/{id}/occupancies             add an occupying company
 POST   /api/v1/premises/{id}/bin-layout/publish      mirror the layout into occupying companies
 GET    /api/v1/users                                 registry user directory
+POST   /api/v1/users                                 create a registry user
 POST   /api/v1/users/{id}/company-access             grant
 DELETE /api/v1/users/{id}/company-access/{companyId} revoke
+POST   /api/v1/terminals                             register a terminal
 POST   /api/v1/terminals/{id}/companies              set the companies a till may sell for
 ```
 
@@ -110,8 +117,11 @@ and extensions `companyA`, `companyB`, `requiredScope`.
 
 ### Permissions
 
-`grouplink.view`, `grouplink.propose`, `grouplink.accept`, `grouplink.revoke`, `premises.manage`,
-`registryuser.manage`, `terminal.manage`.
+`registry.grouplink.view`, `registry.grouplink.propose`, `registry.grouplink.accept`,
+`registry.grouplink.revoke`, `registry.premises.manage`, `registry.user.manage`,
+`registry.terminal.manage` — three-segment `module.entity.action` per ADR-013 (ADR-139). Suspending
+shares the revoke permission and resuming shares the accept permission; no suspend/resume
+permissions are declared.
 
 ### Entitlement and metering
 
