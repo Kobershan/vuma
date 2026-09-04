@@ -1,6 +1,7 @@
 using VumaRetail.Application.Catalog.Permissions;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Partners.Permissions;
+using VumaRetail.Application.Registry;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Workflow.Permissions;
 
@@ -99,5 +100,6 @@ public sealed class IdentityRulesTests
         new WorkflowPermissions(),
         new CatalogPermissions(),
         new PartnerPermissions(),
+        new RegistryPermissions(),
     ];
 }

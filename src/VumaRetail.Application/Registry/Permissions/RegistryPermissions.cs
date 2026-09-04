@@ -12,19 +12,19 @@ namespace VumaRetail.Application.Registry;
 public sealed class RegistryPermissions : IModulePermissions
 {
     /// <summary>View company links.</summary>
-    public const string GroupLinkView = "grouplink.view";
+    public const string GroupLinkView = "registry.grouplink.view";
     /// <summary>Propose a company link.</summary>
-    public const string GroupLinkPropose = "grouplink.propose";
+    public const string GroupLinkPropose = "registry.grouplink.propose";
     /// <summary>Accept a company link.</summary>
-    public const string GroupLinkAccept = "grouplink.accept";
+    public const string GroupLinkAccept = "registry.grouplink.accept";
     /// <summary>Revoke a company link.</summary>
-    public const string GroupLinkRevoke = "grouplink.revoke";
+    public const string GroupLinkRevoke = "registry.grouplink.revoke";
     /// <summary>Manage premises.</summary>
-    public const string PremisesManage = "premises.manage";
+    public const string PremisesManage = "registry.premises.manage";
     /// <summary>Manage registry users.</summary>
-    public const string RegistryUserManage = "registryuser.manage";
+    public const string RegistryUserManage = "registry.user.manage";
     /// <summary>Manage terminals.</summary>
-    public const string TerminalManage = "terminal.manage";
+    public const string TerminalManage = "registry.terminal.manage";
 
     /// <inheritdoc />
     public string Module => "registry";

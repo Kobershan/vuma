@@ -54,4 +54,39 @@ public sealed class RegistryExceptionsTests
         refusal.Code.Should().Be("REGISTRY_DIFFERENT_OPERATORS");
         refusal.Kind.Should().Be(DomainProblemKind.Rule);
     }
+
+    [Fact]
+    public void Every_registry_factory_names_its_rule()
+    {
+        Guid user = UuidV7.NewGuid();
+        Guid company = UuidV7.NewGuid();
+
+        RegistryExceptions.CompanyLinkRequired(user, company, CompanyLinkScope.SharedTill)
+            .Should().BeOfType<CompanyLinkRequiredException>();
+        RegistryExceptions.CrossOperatorAccessDenied(user, UuidV7.NewGuid(), UuidV7.NewGuid())
+            .Code.Should().Be("REGISTRY_CROSS_OPERATOR_ACCESS");
+        RegistryExceptions.LapsedCompanyCannotWrite(company)
+            .Code.Should().Be("REGISTRY_COMPANY_LAPSED");
+        RegistryExceptions.EntitlementLimitReached("MaxTillsPerCompany", 4)
+            .Code.Should().Be("REGISTRY_ENTITLEMENT_LIMIT");
+        RegistryExceptions.CompanyNotInToken(company)
+            .Should().BeOfType<ForbiddenException>();
+        RegistryConflictException.TerminalAlreadyRegistered("T1")
+            .Code.Should().Be("REGISTRY_TERMINAL_REGISTERED");
+        RegistryRuleException.CompaniesNeedAnOperator()
+            .Code.Should().Be("REGISTRY_COMPANIES_NEED_OPERATOR");
+        RegistryRuleException.TillMustStayUnderOneOperator()
+            .Code.Should().Be("REGISTRY_TILL_SPANS_OPERATORS");
+        RegistryRuleException.TillCompanyNeedsAnOperator()
+            .Code.Should().Be("REGISTRY_TILL_COMPANY_NEEDS_OPERATOR");
+    }
+
+    [Fact]
+    public void Missing_registry_rows_name_what_was_looked_for()
+    {
+        var missing = new RegistryNotFoundException("premises", UuidV7.NewGuid());
+
+        missing.Code.Should().Be("REGISTRY_NOT_FOUND");
+        missing.Message.Should().Contain("premises");
+    }
 }
