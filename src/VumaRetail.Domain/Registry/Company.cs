@@ -97,16 +97,19 @@ public sealed class Company
     /// <summary>The operator-supplied reason for deactivation.</summary>
     public string? DeactivationReason { get; private set; }
 
-    /// <summary>Creates a company in the provisioning state.</summary>
-    public static Company Create(
-        Guid tenantId,
-        string code,
-        string legalName,
-        string tradingName,
-        string baseCurrency,
-        string locale,
-        string documentPrefix)
-        => new(UuidV7.NewGuid(), tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+/// <summary>Creates a company in the provisioning state.</summary>
+     public static Company Create(
+         Guid tenantId,
+         string code,
+         string legalName,
+         string tradingName,
+         string baseCurrency,
+         string locale,
+         string documentPrefix)
+     {
+         if (tenantId == Guid.Empty) { throw new ArgumentException("A tenant is required.", nameof(tenantId)); }
+         return new(UuidV7.NewGuid(), tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+     }
 
     /// <summary>
     /// Assigns the owning Operator ID. Vendor-side only: called during provisioning from the

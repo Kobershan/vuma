@@ -1,4 +1,5 @@
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Registry;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -72,14 +73,6 @@ public sealed class ReconciliationResult
     public decimal TotalCredit { get; init; }
     public int OutstandingIntents { get; init; }
     public IReadOnlyList<CompanyClearingBalance> Balances { get; init; } = [];
-}
-
-/// <summary>Clearing account balance from one company database.</summary>
-public sealed class CompanyClearingBalance
-{
-    public Guid CompanyId { get; init; }
-    public decimal DebitAmount { get; init; }
-    public decimal CreditAmount { get; init; }
 }
 
 /// <summary>

@@ -1,6 +1,9 @@
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Primitives;
 
+#pragma warning disable CS1591
+#pragma warning disable CA1062
+
 namespace VumaRetail.Application.Registry;
 
 /// <summary>Captures a group receipt in the registry. Posts nothing (ADR-104).</summary>

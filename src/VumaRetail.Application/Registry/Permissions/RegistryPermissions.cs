@@ -28,17 +28,17 @@ public sealed class RegistryPermissions : IModulePermissions
 
     // Stage 07c: Cross-company money
     /// <summary>Capture a group receipt.</summary>
-    public const string GroupReceiptCapture = "group.receipt.capture";
+    public const string GroupReceiptCapture = "registry.receipt.capture";
     /// <summary>Allocate a group receipt to a company.</summary>
-    public const string GroupReceiptAllocate = "group.receipt.allocate";
+    public const string GroupReceiptAllocate = "registry.receipt.allocate";
     /// <summary>Reverse a group receipt.</summary>
-    public const string GroupReceiptReverse = "group.receipt.reverse";
+    public const string GroupReceiptReverse = "registry.receipt.reverse";
     /// <summary>Capture a group payment run.</summary>
-    public const string GroupPaymentCapture = "group.payment.capture";
+    public const string GroupPaymentCapture = "registry.payment.capture";
     /// <summary>Allocate a group payment run to a company.</summary>
-    public const string GroupPaymentAllocate = "group.payment.allocate";
+    public const string GroupPaymentAllocate = "registry.payment.allocate";
     /// <summary>View consolidated reports.</summary>
-    public const string GroupReportConsolidated = "group.report.consolidated";
+    public const string GroupReportConsolidated = "registry.report.consolidated";
 
     /// <inheritdoc />
     public string Module => "registry";

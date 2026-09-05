@@ -151,7 +151,7 @@ public sealed class GroupReceipt
 /// </summary>
 public sealed class GroupReceiptAllocation
 {
-    private GroupReceiptAllocation() { }
+    internal GroupReceiptAllocation() { }
 
     public Guid Id { get; set; }
     public Guid GroupReceiptId { get; set; }
@@ -305,7 +305,7 @@ public sealed class GroupPaymentRun
 /// <summary>One allocation slice of a <see cref="GroupPaymentRun"/>, targeting one company's AP.</summary>
 public sealed class GroupPaymentAllocation
 {
-    private GroupPaymentAllocation() { }
+    internal GroupPaymentAllocation() { }
 
     public Guid Id { get; set; }
     public Guid GroupPaymentRunId { get; set; }
@@ -391,6 +391,8 @@ public sealed class InterCompanyClearingIntent
         Guid fromCompanyId, Guid toCompanyId, Money amount, string currency)
     {
         if (amount.Amount <= 0) throw new ArgumentException("Amount must be positive.", nameof(amount));
+        ArgumentException.ThrowIfNullOrWhiteSpace(groupDocumentType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currency);
         var intent = new InterCompanyClearingIntent(tenantId, groupDocumentId, groupDocumentType, fromCompanyId, toCompanyId, amount, currency);
 
         // Leg 1: From company — debits inter-company clearing, credits bank (the receiving side)
@@ -459,7 +461,7 @@ public sealed class InterCompanyClearingIntent
 /// <summary>One leg of an <see cref="InterCompanyClearingIntent"/>, targeting one company's database.</summary>
 public sealed class InterCompanyClearingLeg
 {
-    private InterCompanyClearingLeg() { }
+    internal InterCompanyClearingLeg() { }
 
     public Guid Id { get; set; }
     public Guid IntentId { get; set; }

@@ -34,12 +34,10 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
     public async Task AddAsync(GroupReceipt receipt, CancellationToken cancellationToken = default)
     {
         await _registry.GroupReceipts.AddAsync(receipt, cancellationToken);
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(GroupReceipt receipt, CancellationToken cancellationToken = default)
     {
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<GroupPaymentRun?> GetPaymentByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -50,12 +48,10 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
     public async Task AddAsync(GroupPaymentRun payment, CancellationToken cancellationToken = default)
     {
         await _registry.GroupPaymentRuns.AddAsync(payment, cancellationToken);
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(GroupPaymentRun payment, CancellationToken cancellationToken = default)
     {
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<InterCompanyClearingIntent?> GetClearingIntentByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -66,12 +62,10 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
     public async Task AddAsync(InterCompanyClearingIntent intent, CancellationToken cancellationToken = default)
     {
         await _registry.InterCompanyClearingIntents.AddAsync(intent, cancellationToken);
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(InterCompanyClearingIntent intent, CancellationToken cancellationToken = default)
     {
-        await _registry.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<InterCompanyClearingIntent>> GetOutstandingIntentsAsync(Guid tenantId, CancellationToken cancellationToken = default)

@@ -233,9 +233,9 @@ watermark field.
 
 ### Verification status
 
-- **Build:** UNVERIFIED — .NET 10.0 SDK required, only 9.0 available on this machine. Projects target `net10.0`.
+- **Build:** UNVERIFIED — .NET 9 SDK required, only 9.0 available on this machine. Projects target `net9.0`.
 - **Unit tests:** UNVERIFIED — same SDK limitation prevents `dotnet test`.
 - **Integration tests:** UNVERIFIED — no PostgreSQL on this machine.
 - **Migration Down:** UNVERIFIED — no PostgreSQL on this machine.
 
-**Reason:** This session ran on Linux with .NET SDK 9.0.316 while all `.csproj` files target `net10.0`. The `global.json` requires SDK 10.0.400. All verification is deferred to a machine with the correct SDK.
+**Reason:** This session ran on Linux with .NET SDK 9.0.316 while all `.csproj` files target `net9.0`. The `global.json` requires SDK 9.0.316. All verification is deferred to a machine with the correct SDK.

@@ -4,6 +4,7 @@ using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace VumaRetail.Web;
@@ -40,7 +41,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces<Guid>(StatusCodes.Status201Created)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
-        .RequirePermission("group.receipt.capture");
+        .RequirePermission("registry.receipt.capture");
 
         group.MapPost("/{id:guid}/allocations", async (
             Guid id,
@@ -64,7 +65,7 @@ public static class GroupReceiptEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
         .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
-        .RequirePermission("group.receipt.allocate");
+        .RequirePermission("registry.receipt.allocate");
 
         group.MapPost("/{id:guid}/reverse", async (
             Guid id,
@@ -83,7 +84,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces(StatusCodes.Status204NoContent)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
-        .RequirePermission("group.receipt.reverse");
+        .RequirePermission("registry.receipt.reverse");
 
         group.MapGet("/unallocated", async (
             Guid tenantId,
@@ -107,7 +108,7 @@ public static class GroupReceiptEndpoints
             }));
         })
         .Produces<IReadOnlyList<GroupReceiptResponse>>()
-        .RequirePermission("group.receipt.capture");
+        .RequirePermission("registry.receipt.capture");
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -138,7 +139,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces<GroupReceiptDetailResponse>()
         .Produces(StatusCodes.Status404NotFound)
-        .RequirePermission("group.receipt.capture");
+        .RequirePermission("registry.receipt.capture");
 
         return group;
     }

@@ -137,7 +137,7 @@ public sealed class CompanyDbContextFactory(
     }
 }
 
-public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan? readTimeout = null) : ICompanyFanOut
+public sealed class CompanyFanOut(IDbContextFactory<VumaRegistryDbContext> dbFactory, IClock clock, int maxConcurrency = 4, TimeSpan? readTimeout = null) : ICompanyFanOut
 {
     private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(30);
     private readonly int _maxConcurrency = maxConcurrency > 0
@@ -146,6 +146,60 @@ public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan
     private readonly TimeSpan _readTimeout = readTimeout is null || readTimeout.Value > TimeSpan.Zero
         ? readTimeout ?? DefaultReadTimeout
         : throw new ArgumentOutOfRangeException(nameof(readTimeout), "The read timeout must be positive.");
+    private readonly IDbContextFactory<VumaRegistryDbContext> _dbFactory = dbFactory;
+
+    public async Task<IReadOnlyList<CompanyPeriodFigure>> GetPeriodFiguresAsync(
+        Guid tenantId, DateOnly asOf, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var companies = await db.Companies
+            .Where(c => c.TenantId == tenantId && c.LifecycleState == CompanyLifecycleState.Active)
+            .Select(c => new { c.Id, c.Code })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        if (companies.Count == 0)
+            return Array.Empty<CompanyPeriodFigure>();
+
+        var results = await ReadAsync(companies.Select(c => c.Id).ToList(), async (companyId, ct) =>
+        {
+            await using var companyDb = await _dbFactory.CreateDbContextAsync(ct);
+            var periodFigures = await companyDb.Set<CompanyPeriodFigure>()
+                .Where(f => f.CompanyId == companyId)
+                .AsNoTracking()
+                .ToListAsync(ct);
+            return periodFigures;
+        }, cancellationToken);
+
+        List<CompanyPeriodFigure> allFigures = [];
+        foreach (var result in results)
+        {
+            if (result.Value is not null)
+            {
+                allFigures.AddRange(result.Value);
+            }
+        }
+        return allFigures;
+    }
+
+    public async Task<IReadOnlyList<CompanyClearingBalance>> GetClearingBalancesAsync(
+        Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var companies = await db.Companies
+            .Where(c => c.TenantId == tenantId && c.LifecycleState == CompanyLifecycleState.Active)
+            .Select(c => c.Id)
+            .ToListAsync(cancellationToken);
+
+        List<CompanyClearingBalance> balances = [];
+        foreach (Guid companyId in companies)
+        {
+            await using var companyDb = await _dbFactory.CreateDbContextAsync(cancellationToken);
+            // TODO: Query clearing accounts from company database once schema is finalized
+            balances.Add(new CompanyClearingBalance { CompanyId = companyId, DebitAmount = 0, CreditAmount = 0 });
+        }
+        return balances;
+    }
 
     public async Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default)
     {

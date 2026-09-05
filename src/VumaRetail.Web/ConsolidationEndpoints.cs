@@ -48,7 +48,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedTrialBalanceResponse>()
-        .RequirePermission("group.report.consolidated");
+        .RequirePermission("registry.report.consolidated");
 
         group.MapGet("/income-statement", async (
             Guid tenantId,
@@ -94,7 +94,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedIncomeStatementResponse>()
-        .RequirePermission("group.report.consolidated");
+        .RequirePermission("registry.report.consolidated");
 
         group.MapGet("/balance-sheet", async (
             Guid tenantId,
@@ -145,7 +145,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedBalanceSheetResponse>()
-        .RequirePermission("group.report.consolidated");
+        .RequirePermission("registry.report.consolidated");
 
         group.MapGet("/unapplied-legs", async (
             Guid tenantId,
@@ -156,7 +156,7 @@ public static class ConsolidationEndpoints
             return Results.Ok(legs);
         })
         .Produces<IReadOnlyList<UnappliedLegDto>>()
-        .RequirePermission("group.report.consolidated");
+        .RequirePermission("registry.report.consolidated");
 
         return group;
     }

@@ -1,6 +1,9 @@
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 
+#pragma warning disable CS1591
+#pragma warning disable CA1062
+
 namespace VumaRetail.Application.Abstractions.Registry;
 
 /// <summary>

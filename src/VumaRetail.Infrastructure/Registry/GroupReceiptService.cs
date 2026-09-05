@@ -1,3 +1,4 @@
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Domain.Finance;
@@ -17,19 +18,22 @@ public sealed class GroupReceiptService : IGroupReceiptService
     private readonly ICompanyDbContextFactory _companyDbContextFactory;
     private readonly IFinancialEventPoster _eventPoster;
     private readonly ICompanyLinkGuard _linkGuard;
+    private readonly IClock _clock;
 
     public GroupReceiptService(
         IGroupReceiptRepository repository,
         ISagaCoordinator sagaCoordinator,
         ICompanyDbContextFactory companyDbContextFactory,
         IFinancialEventPoster eventPoster,
-        ICompanyLinkGuard linkGuard)
+        ICompanyLinkGuard linkGuard,
+        IClock clock)
     {
         _repository = repository;
         _sagaCoordinator = sagaCoordinator;
         _companyDbContextFactory = companyDbContextFactory;
         _eventPoster = eventPoster;
         _linkGuard = linkGuard;
+        _clock = clock;
     }
 
     public async Task<Guid> CaptureAsync(
@@ -62,7 +66,7 @@ public sealed class GroupReceiptService : IGroupReceiptService
 
         // Dispatch saga leg to the target company's database (ADR-116)
         SagaIntent intent = SagaIntent.Create(tenantId, "group-receipt-allocation",
-            $"{groupReceiptId}:{allocation.Id}", DateTimeOffset.UtcNow,
+            $"{groupReceiptId}:{allocation.Id}", _clock.UtcNow,
             $"{{\"groupReceiptId\":\"{groupReceiptId}\",\"allocationId\":\"{allocation.Id}\",\"companyId\":\"{companyId}\"}}");
         intent.AddLeg(companyId, allocation.Id);
 

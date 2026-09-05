@@ -1,7 +1,9 @@
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Registry;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Registry;
 using NSubstitute;
 using Xunit;
 
@@ -124,7 +126,7 @@ public class ConsolidationServiceTests
             Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(new List<CompanyPeriodFigure>());
 
-        var service = new ConsolidationService(fanOut, repository);
+        var service = new ConsolidationService(fanOut, repository, Substitute.For<IClock>());
 
         var result = await service.GetTrialBalanceAsync(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today));
 
@@ -158,7 +160,7 @@ public class ConsolidationServiceTests
                 },
             });
 
-        var service = new ConsolidationService(fanOut, repository);
+        var service = new ConsolidationService(fanOut, repository, Substitute.For<IClock>());
 
         var result = await service.GetIncomeStatementAsync(
             Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today.AddDays(-30)),
@@ -199,7 +201,7 @@ public class ConsolidationServiceTests
                 },
             });
 
-        var service = new ConsolidationService(fanOut, repository);
+        var service = new ConsolidationService(fanOut, repository, Substitute.For<IClock>());
 
         var result = await service.GetTrialBalanceAsync(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today));
 

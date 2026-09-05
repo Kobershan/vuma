@@ -1,4 +1,6 @@
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 
 namespace VumaRetail.Infrastructure.Registry;
@@ -12,13 +14,16 @@ public sealed class ConsolidationService : IConsolidationService
 {
     private readonly ICompanyFanOut _companyFanOut;
     private readonly IGroupReceiptRepository _repository;
+    private readonly IClock _clock;
 
     public ConsolidationService(
         ICompanyFanOut companyFanOut,
-        IGroupReceiptRepository repository)
+        IGroupReceiptRepository repository,
+        IClock clock)
     {
         _companyFanOut = companyFanOut;
         _repository = repository;
+        _clock = clock;
     }
 
     public async Task<ConsolidatedTrialBalance> GetTrialBalanceAsync(
@@ -222,7 +227,7 @@ public sealed class ConsolidationService : IConsolidationService
                     Amount = new Money(leg.Amount.Amount, leg.Currency),
                     Direction = leg.Direction,
                     CreatedAt = intent.CreatedAt,
-                    AgeHours = (int)(DateTimeOffset.UtcNow - intent.CreatedAt).TotalHours,
+                    AgeHours = (int)(_clock.UtcNow - intent.CreatedAt).TotalHours,
                     LastError = leg.ErrorMessage,
                 });
             }
@@ -232,34 +237,4 @@ public sealed class ConsolidationService : IConsolidationService
     }
 }
 
-/// <summary>Period figures published by one company database.</summary>
-public sealed class CompanyPeriodFigure
-{
-    public Guid CompanyId { get; init; }
-    public string CompanyName { get; init; } = string.Empty;
-    public DateTimeOffset AsAt { get; init; }
-    public bool IsStale { get; init; }
-    public string? StaleReason { get; init; }
-    public IReadOnlyList<CompanyAccountBalance> Accounts { get; init; } = [];
-}
 
-/// <summary>One account balance from a company's period figures.</summary>
-public sealed class CompanyAccountBalance
-{
-    public string AccountCode { get; init; } = string.Empty;
-    public string AccountName { get; init; } = string.Empty;
-    public string AccountType { get; init; } = string.Empty;
-    public Domain.Primitives.Money Debit { get; init; }
-    public Domain.Primitives.Money Credit { get; init; }
-}
-
-/// <summary>
-/// Fan-out read across company databases for period figures (ADR-119).
-/// Returns per-company results including failures — a fan-out where one company is down
-/// returns that company as an error, not the whole call.
-/// </summary>
-public interface ICompanyFanOut
-{
-    Task<IReadOnlyList<CompanyPeriodFigure>> GetPeriodFiguresAsync(
-        Guid tenantId, DateOnly asOf, CancellationToken cancellationToken = default);
-}

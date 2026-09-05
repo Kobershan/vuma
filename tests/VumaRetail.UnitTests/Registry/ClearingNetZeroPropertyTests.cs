@@ -1,3 +1,4 @@
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using Xunit;
@@ -85,7 +86,7 @@ public class ClearingNetZeroPropertyTests
     }
 
     /// <summary>
-    /// Reversing a settled intent compensates all legs.
+    /// Compensating an unsettled intent marks all outstanding legs.
     /// </summary>
     [Theory]
     [InlineData(100)]
@@ -109,13 +110,7 @@ public class ClearingNetZeroPropertyTests
                 TenantId, Guid.NewGuid(), "group-receipt",
                 fromCompany, toCompany, money, "ZAR");
 
-            // Settle first
-            foreach (InterCompanyClearingLeg leg in intent.Legs)
-            {
-                intent.AcknowledgeLeg(leg.Id);
-            }
-
-            // Now reverse
+            // Compensate before settling (outstanding legs only)
             intent.Compensate();
 
             Assert.Equal(InterCompanyClearingIntentState.Compensated, intent.State);

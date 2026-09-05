@@ -1,8 +1,10 @@
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -15,13 +17,16 @@ public sealed class GroupReceiptLegHandler
 {
     private readonly ICompanyDbContextFactory _companyDbContextFactory;
     private readonly IFinancialEventPoster _eventPoster;
+    private readonly IClock _clock;
 
     public GroupReceiptLegHandler(
         ICompanyDbContextFactory companyDbContextFactory,
-        IFinancialEventPoster eventPoster)
+        IFinancialEventPoster eventPoster,
+        IClock clock)
     {
         _companyDbContextFactory = companyDbContextFactory;
         _eventPoster = eventPoster;
+        _clock = clock;
     }
 
     /// <summary>
@@ -38,8 +43,7 @@ public sealed class GroupReceiptLegHandler
 
         // Resolve the receiving bank account's company to determine which company posts bank side
         PartnerId partnerId = new(
-            allocation.CustomerPartnerId ?? Guid.Empty,
-            allocation.CustomerPartnerId.HasValue ? "customer" : "on-account");
+            allocation.CustomerPartnerId ?? Guid.Empty);
 
         string receiptNumber = $"GR-{groupReceipt.Reference}";
 
@@ -76,7 +80,6 @@ public sealed class GroupReceiptLegHandler
             bankAccountId: groupReceipt.BankAccountId);
 
         companyDb.ArReceipts.Add(receipt);
-        await companyDb.SaveChangesAsync(cancellationToken);
     }
 }
 
@@ -88,13 +91,16 @@ public sealed class GroupReceiptReversalLegHandler
 {
     private readonly ICompanyDbContextFactory _companyDbContextFactory;
     private readonly IFinancialEventPoster _eventPoster;
+    private readonly IClock _clock;
 
     public GroupReceiptReversalLegHandler(
         ICompanyDbContextFactory companyDbContextFactory,
-        IFinancialEventPoster eventPoster)
+        IFinancialEventPoster eventPoster,
+        IClock clock)
     {
         _companyDbContextFactory = companyDbContextFactory;
         _eventPoster = eventPoster;
+        _clock = clock;
     }
 
     public async Task ReverseAllocationLegAsync(
@@ -113,7 +119,7 @@ public sealed class GroupReceiptReversalLegHandler
             EventType: "group.receipt.reversed",
             TenantId: groupReceipt.TenantId,
             StoreId: null,
-            OccurredAt: DateTimeOffset.UtcNow,
+            OccurredAt: _clock.UtcNow,
             SourceReference: $"REV-{groupReceipt.Reference}",
             Amounts: amounts);
 

@@ -201,7 +201,7 @@ midpoints away from zero · ADR-034 mandatory command side-effect classification
 discoverable three ways — a `~/.local/bin/dotnet` symlink (which `~/.profile` already puts on `PATH`),
 a `DOTNET_ROOT` + `PATH` export in `~/.bashrc`, and a git-ignored `.vscode/settings.json` pointing the
 .NET Install Tool at it. The last one matters because C# Dev Kit was otherwise acquiring a
-**runtime-only .NET 10** and reporting "No installed .NET SDK was found on the computer", which leaves
+**runtime-only .NET 9** and reporting "No installed .NET SDK was found on the computer", which leaves
 the IDE with no build host. **A VS Code window reload is needed for it to take effect.**
 
 ### 2026-08-09 — Stage 01 complete: persistence core

@@ -86,6 +86,7 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
             "src/VumaRetail.Infrastructure/Registry/TradingGroupServices.cs",
             "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""
