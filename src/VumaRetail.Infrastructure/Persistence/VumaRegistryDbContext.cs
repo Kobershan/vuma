@@ -41,6 +41,9 @@ public sealed class VumaRegistryDbContext(
     public DbSet<GroupReceipt> GroupReceipts => Set<GroupReceipt>();
     public DbSet<GroupPaymentRun> GroupPaymentRuns => Set<GroupPaymentRun>();
     public DbSet<InterCompanyClearingIntent> InterCompanyClearingIntents => Set<InterCompanyClearingIntent>();
+    public DbSet<GroupReceiptAllocation> GroupReceiptAllocations => Set<GroupReceiptAllocation>();
+    public DbSet<GroupPaymentAllocation> GroupPaymentAllocations => Set<GroupPaymentAllocation>();
+    public DbSet<InterCompanyClearingLeg> InterCompanyClearingLegs => Set<InterCompanyClearingLeg>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -358,6 +361,19 @@ public sealed class VumaRegistryDbContext(
             builder.HasIndex(x => new { x.TenantId, x.CapturedAt });
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
+        modelBuilder.Entity<GroupReceiptAllocation>(builder =>
+        {
+            builder.ToTable("group_receipt_allocations", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.GroupReceiptId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.Property(x => x.LegState).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.Property(x => x.TargetInvoiceIds).HasConversion<string>();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
         modelBuilder.Entity<GroupPaymentRun>(builder =>
         {
             builder.ToTable("group_payment_runs", "registry");
@@ -373,6 +389,19 @@ public sealed class VumaRegistryDbContext(
             builder.HasMoney(x => x.Amount, "amount");
             builder.HasIndex(x => new { x.TenantId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.PaidAt });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupPaymentAllocation>(builder =>
+        {
+            builder.ToTable("group_payment_allocations", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.GroupPaymentRunId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.Property(x => x.LegState).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.Property(x => x.TargetInvoiceIds).HasConversion<string>();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<InterCompanyClearingIntent>(builder =>
@@ -393,6 +422,19 @@ public sealed class VumaRegistryDbContext(
             builder.HasIndex(x => new { x.TenantId, x.GroupDocumentId });
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
+        modelBuilder.Entity<InterCompanyClearingLeg>(builder =>
+        {
+            builder.ToTable("inter_company_clearing_legs", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.IntentId).IsRequired();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.Property(x => x.Direction).HasMaxLength(16).IsRequired();
+            builder.Property(x => x.State).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
 
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the
@@ -407,6 +449,7 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<GroupReceipt>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupPaymentRun>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<InterCompanyClearingIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<InterCompanyClearingLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }
