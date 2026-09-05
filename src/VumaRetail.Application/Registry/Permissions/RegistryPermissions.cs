@@ -26,6 +26,20 @@ public sealed class RegistryPermissions : IModulePermissions
     /// <summary>Manage terminals.</summary>
     public const string TerminalManage = "registry.terminal.manage";
 
+    // Stage 07c: Cross-company money
+    /// <summary>Capture a group receipt.</summary>
+    public const string GroupReceiptCapture = "group.receipt.capture";
+    /// <summary>Allocate a group receipt to a company.</summary>
+    public const string GroupReceiptAllocate = "group.receipt.allocate";
+    /// <summary>Reverse a group receipt.</summary>
+    public const string GroupReceiptReverse = "group.receipt.reverse";
+    /// <summary>Capture a group payment run.</summary>
+    public const string GroupPaymentCapture = "group.payment.capture";
+    /// <summary>Allocate a group payment run to a company.</summary>
+    public const string GroupPaymentAllocate = "group.payment.allocate";
+    /// <summary>View consolidated reports.</summary>
+    public const string GroupReportConsolidated = "group.report.consolidated";
+
     /// <inheritdoc />
     public string Module => "registry";
 
@@ -39,6 +53,12 @@ public sealed class RegistryPermissions : IModulePermissions
         new(PermissionKey.Parse(PremisesManage), "Manage premises."),
         new(PermissionKey.Parse(RegistryUserManage), "Manage registry users.", IsHighRisk: true),
         new(PermissionKey.Parse(TerminalManage), "Manage terminals.", IsHighRisk: true),
+        new(PermissionKey.Parse(GroupReceiptCapture), "Capture a group receipt."),
+        new(PermissionKey.Parse(GroupReceiptAllocate), "Allocate a group receipt to a company."),
+        new(PermissionKey.Parse(GroupReceiptReverse), "Reverse a group receipt.", IsHighRisk: true),
+        new(PermissionKey.Parse(GroupPaymentCapture), "Capture a group payment run."),
+        new(PermissionKey.Parse(GroupPaymentAllocate), "Allocate a group payment run to a company."),
+        new(PermissionKey.Parse(GroupReportConsolidated), "View consolidated reports."),
     ];
 }
 

@@ -1,25 +1,110 @@
 # STAGE 07c — Cross-company money: group receipting, allocation, inter-company clearing, consolidated reporting
 
-**Status:** NOT_STARTED · **Depends on:** 07, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §2, §7, §8, `docs/DECISIONS.md` ADR-104, ADR-105, ADR-106, ADR-116, ADR-016, `CLAUDE.md` §7 rules 7, 12
+**Status:** CODE_COMPLETE · **Depends on:** 07, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §2, §7, §8, `docs/DECISIONS.md` ADR-104, ADR-105, ADR-106, ADR-116, ADR-016, `CLAUDE.md` §7 rules 7, 12
 
 ## Task index
-## Second-pass architecture and task map
-
-The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
-
-**Architecture checklist:** WHAT/WHY come from this stage's Objective; affected layers/components come from its Deliverables; data, API, security, multi-company, synchronization, licensing, and testing rules come from the linked authority documents. Missing answers are **NEEDS ARCHITECTURAL CLARIFICATION**. Existing ADRs in the header apply; a new ADR is required only for a new decision. Nothing outside stated scope may change.
-
-| ID | TYPE | TITLE | DEPENDENCIES | STATUS |
-|---|---|---|---|---|
-| 07c-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
-
-This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-07C-001 | Implement group receipting and allocation | Stages 06c, 06d, 06e, 07 | NOT_STARTED |
-| TASK-07C-002 | Implement inter-company clearing and consolidated reporting | TASK-07C-001 | NOT_STARTED |
-| TASK-07C-003 | Complete Stage 07c verification | TASK-07C-001, TASK-07C-002 | NOT_STARTED |
+| TASK-07C-001 | Implement group receipting and allocation | Stages 06c, 06d, 06e, 07 | CODE_COMPLETE |
+| TASK-07C-002 | Implement inter-company clearing and consolidated reporting | TASK-07C-001 | CODE_COMPLETE |
+| TASK-07C-003 | Complete Stage 07c verification | TASK-07C-001, TASK-07C-002 | IN_PROGRESS |
+
+## 07c-MAP-01 — Architecture decomposition and implementation task map
+
+### WHAT / WHY
+
+**WHAT:** Build the registry container that captures money arriving once for several companies, the saga legs that turn allocations into per-company receipts, the paired clearing intents that keep every company's books balanced on their own, and the consolidated read model that shows the group without ever posting to it.
+
+**WHY:** A customer pays R9 000 once against accounts in three companies. Those companies are separate databases (ADR-099), so nothing here can be one transaction. The money must be captured once in the registry, dispatched to each company as idempotent saga legs, and reconciled so clearing balances net to zero across all databases at every instant.
+
+### Affected layers/components
+
+| Layer | Component | Change |
+|---|---|---|
+| **Domain** (`VumaRetail.Domain`) | `Registry/GroupReceiptEntities.cs` | NEW: `GroupReceipt`, `GroupReceiptAllocation`, `GroupPaymentRun`, `GroupPaymentAllocation`, `InterCompanyClearingIntent` |
+| **Domain** | `Finance/ArReceipt.cs` | EXTEND: add nullable `GroupDocumentId` and `IntentId` |
+| **Domain** | `Finance/ApPayment.cs` | EXTEND: add nullable `GroupDocumentId` and `IntentId` |
+| **Application** (`VumaRetail.Application`) | `Abstractions/Registry/GroupReceiptPorts.cs` | NEW: `IGroupReceiptService`, `IGroupPaymentService`, `IConsolidationService`, `IGroupReceiptRepository` |
+| **Application** | `Registry/GroupReceiptCommands.cs` | NEW: `CaptureGroupReceiptCommand`, `AllocateGroupReceiptCommand`, `ReverseGroupReceiptCommand` |
+| **Application** | `Registry/ConsolidationQueries.cs` | NEW: `GetConsolidatedTrialBalanceQuery`, `GetConsolidatedIncomeStatementQuery` |
+| **Infrastructure** (`VumaRetail.Infrastructure`) | `Registry/GroupReceiptService.cs` | NEW: implementation of `IGroupReceiptService` |
+| **Infrastructure** | `Registry/GroupReceiptRepository.cs` | NEW: registry-side persistence for group entities |
+| **Infrastructure** | `Registry/ConsolidationService.cs` | NEW: fan-out read + assembly of consolidated reports |
+| **Infrastructure** | `Registry/GroupReceiptLegHandler.cs` | NEW: per-company leg handler (runs inside target company DB) |
+| **Infrastructure** | `Persistence/Configurations/` | NEW: EF configurations for all new entities; extend `ArReceipt` and `ApPayment` |
+| **Infrastructure** | `DependencyInjection/` | EXTEND: register new services |
+| **Infrastructure** | `Sync/ReplicationRegistry.cs` | EXTEND: register replicated entities |
+| **Finance** (`VumaRetail.Finance`) | `PostingRuleSeed.cs` | EXTEND: seed `GroupReceiptAllocated`, `InterCompanyClearingRaised`, `InterCompanySettled` rules |
+| **Finance** | `ClearingAccountService.cs` | NEW: auto-create inter-company clearing accounts per company pair |
+| **Finance** | `NetZeroReconciliationJob.cs` | NEW: scheduled job across databases with alarm |
+| **Web** (`VumaRetail.Web`) | `GroupReceiptEndpoints.cs` | NEW: `/api/v1/group-receipts` endpoints |
+| **Web** | `ConsolidationEndpoints.cs` | NEW: `/api/v1/reports/consolidated/*` endpoints |
+| **StoreServer** | `Program.cs` | EXTEND: map new endpoint modules |
+| **Tests** | `UnitTests/Registry/GroupReceipt*` | NEW: domain + application tests |
+| **Tests** | `IntegrationTests/Registry/GroupReceipt*` | NEW: multi-DB integration tests |
+| **Tests** | `ArchitectureTests/MultiCompanyGuardTests.cs` | EXTEND: assert clearing nets to zero |
+
+### Data rules
+
+| Rule | Source | Enforcement |
+|---|---|---|
+| Group receipt lives in registry DB, posts nothing | ADR-104 | Domain: no `IFinancialEvent` from `GroupReceipt` |
+| Σ allocations ≤ captured amount | CLAUDE.md §7 rule 7 | Domain: `GroupReceipt.Allocate()` check constraint |
+| Each allocation is idempotent, keyed by `(group_receipt_id, allocation_id)` | ADR-116 | Application: `ISagaCoordinator.ExecuteAsync` with idempotency key |
+| Inter-company clearing nets to zero | ADR-105 | Infrastructure: `NetZeroReconciliationJob` scheduled cross-DB |
+| Period close refuses over outstanding intent | MULTI_COMPANY.md §7 | Application: `IPeriodCloseGuard` check before close |
+| No module names a GL account | CLAUDE.md §7 rule 12 | Application: `IFinancialEvent` has no account reference |
+| Clearing lines carry intent id | ADR-105 | Domain: `InterCompanyClearingIntent.Legs[].IntentId` |
+| Consolidated is labelled, read-only, not statutory | ADR-106 | Application: watermark on every consolidated response |
+| VAT is company-level, no group VAT return | MULTI_COMPANY.md §8 | Application: consolidated report excludes VAT aggregation |
+
+### API rules
+
+| Endpoint | Method | Permission | Notes |
+|---|---|---|---|
+| `/api/v1/group-receipts` | POST | `group.receipt.capture` | Capture; returns group receipt id |
+| `/api/v1/group-receipts/{id}/allocations` | POST | `group.receipt.allocate` | Allocate; dispatches saga legs |
+| `/api/v1/group-receipts/{id}/reverse` | POST | `group.receipt.reverse` | Reverses intent; dispatches reversing legs |
+| `/api/v1/group-receipts/unallocated` | GET | `group.receipt.capture` | Unallocated ageing report |
+| `/api/v1/group-receipts/{id}` | GET | `group.receipt.capture` | Detail with allocation status |
+| `/api/v1/group-payments` | POST | `group.payment.capture` | Supplier payment run |
+| `/api/v1/group-payments/{id}/allocations` | POST | `group.payment.allocate` | Allocate to supplier invoices |
+| `/api/v1/reports/consolidated/trial-balance` | GET | `group.report.consolidated` | Watermarked, with AsAt per contributor |
+| `/api/v1/reports/consolidated/income-statement` | GET | `group.report.consolidated` | Inter-company eliminated |
+| `/api/v1/reports/consolidated/balance-sheet` | GET | `group.report.consolidated` | Clearing accounts eliminated |
+
+### Security / multi-company rules
+
+| Rule | Source |
+|---|---|
+| CompanyLink must be Active with `SharedReceipting` scope | ADR-122, MULTI_COMPANY.md §11 |
+| Bank account belongs to one company — that company posts bank side | ADR-105 |
+| Each leg runs inside target company's DB only | ADR-099, ADR-116 |
+| No command handler opens transactions against two databases | ADR-116, architecture test |
+| Consolidated is read-only; no write path reaches it | ADR-106 |
+| Stale contributors are named, not silently summed | ADR-119 |
+
+### Synchronization / offline rules
+
+| Rule | Source |
+|---|---|
+| Group receipt entities are registry-only, not replicated to company DBs | ADR-099 |
+| Company-leg receipts replicate normally (StoreToCloud, AppendOnly) | ADR-006 |
+| Saga legs dispatched through registry outbox | ADR-116 |
+| Idempotent retry is always safe; recovery is retry, never re-key | ADR-104 |
+
+### Licensing rules
+
+| Rule | Source |
+|---|---|
+| Module entitlement flag: `group_receipting` | CLAUDE.md §8 |
+| Usage counter: group receipts captured, allocations dispatched | CLAUDE.md §8 |
+| Read-only mode: group receipt read endpoints stay writable | ADR-028 |
+
+### New ADR required
+
+None. All decisions are covered by existing ADRs (099, 104, 105, 106, 116, 016).
 
 ## Objective
 
@@ -119,3 +204,38 @@ watermark field.
 - [ ] `docs/DATA_MODEL.md` §4f and §4l extended; replication registry updated
 - [ ] The net-zero reconciliation job, the unapplied-legs report and their alarms exist and are seeded
 - [ ] Seed: the three-company group with one shared customer, one group receipt allocated across all three
+
+## Implementation evidence
+
+### Files created/modified (2026-09-04)
+
+| File | Status | Description |
+|---|---|---|
+| `src/VumaRetail.Domain/Registry/GroupReceiptEntities.cs` | NEW | `GroupReceipt`, `GroupReceiptAllocation`, `GroupPaymentRun`, `GroupPaymentAllocation`, `InterCompanyClearingIntent`, `InterCompanyClearingLeg` + status enums |
+| `src/VumaRetail.Domain/Finance/ArReceipt.cs` | EXTENDED | Added nullable `GroupDocumentId`, `IntentId` + `RecordFromGroup()` factory |
+| `src/VumaRetail.Domain/Finance/ApPayment.cs` | EXTENDED | Added nullable `GroupDocumentId`, `IntentId` + `RecordFromGroup()` factory |
+| `src/VumaRetail.Application/Abstractions/Registry/GroupReceiptPorts.cs` | NEW | `IGroupReceiptRepository`, `IGroupReceiptService`, `IGroupPaymentService`, `IConsolidationService`, `ICompanyFanOut`, `ICompanyLinkGuard`, DTOs |
+| `src/VumaRetail.Application/Registry/GroupReceiptCommands.cs` | NEW | Commands, queries, and handlers for capture/allocate/reverse/unallocated/detail |
+| `src/VumaRetail.Application/Registry/Permissions/RegistryPermissions.cs` | EXTENDED | 6 new permission constants + descriptors |
+| `src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs` | NEW | Service impl with saga dispatch + link guard |
+| `src/VumaRetail.Infrastructure/Registry/GroupReceiptRepository.cs` | NEW | Registry-side persistence |
+| `src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs` | NEW | Per-company leg handlers (resolve target DB, post through company rules) |
+| `src/VumaRetail.Infrastructure/Registry/ConsolidationService.cs` | NEW | Fan-out read + assembly of consolidated reports + ICCLR elimination |
+| `src/VumaRetail.Infrastructure/Registry/NetZeroReconciliationJob.cs` | NEW | Scheduled cross-DB reconciliation with alarm |
+| `src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs` | EXTENDED | DbSets + EF configurations for all new entities |
+| `src/VumaRetail.Infrastructure/DependencyInjection/PersistenceServiceCollectionExtensions.cs` | EXTENDED | DI registrations |
+| `src/VumaRetail.Web/GroupReceiptEndpoints.cs` | NEW | `/api/v1/group-receipts` endpoints |
+| `src/VumaRetail.Web/ConsolidationEndpoints.cs` | NEW | `/api/v1/reports/consolidated/*` endpoints |
+| `src/VumaRetail.StoreServer/Program.cs` | EXTEND | Endpoint mapping |
+| `tests/VumaRetail.UnitTests/Registry/GroupReceiptTests.cs` | NEW | Domain entity tests |
+| `tests/VumaRetail.UnitTests/Registry/GroupReceiptApplicationTests.cs` | NEW | Application layer tests |
+| `tests/VumaRetail.UnitTests/Registry/ClearingNetZeroPropertyTests.cs` | NEW | Property test + income statement elimination test |
+
+### Verification status
+
+- **Build:** UNVERIFIED — .NET 10.0 SDK required, only 9.0 available on this machine. Projects target `net10.0`.
+- **Unit tests:** UNVERIFIED — same SDK limitation prevents `dotnet test`.
+- **Integration tests:** UNVERIFIED — no PostgreSQL on this machine.
+- **Migration Down:** UNVERIFIED — no PostgreSQL on this machine.
+
+**Reason:** This session ran on Linux with .NET SDK 9.0.316 while all `.csproj` files target `net10.0`. The `global.json` requires SDK 10.0.400. All verification is deferred to a machine with the correct SDK.

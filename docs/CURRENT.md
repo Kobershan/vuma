@@ -3,23 +3,16 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 06e — Trading group (error correction after a premature push to `main`)
-CURRENT TASK: CI sign-in 500s — traced (template/host never migrated the registry context; new
-  sign-in enrichment hit the missing schema on every login) and fixed, plus 23514→422 / 23505→409
-  handler mapping
-CURRENT TASK STATUS: IN_PROGRESS (fixes implemented, unit/arch green; integration rerun needs CI)
-NEXT READY TASK: TASK-06E-003 — Complete Stage 06e verification (needs PostgreSQL + secret store)
-LAST COMPLETED TASK: Stage 06e error correction, code-complete (this session; see PROGRESS.md)
-BLOCKERS: No PostgreSQL endpoint on this Windows machine (no `psql`, no Docker) — integration
-  tests, migration execution and the seed fixture cannot run here. No company connection secret
-  store is wired anywhere — companies cannot actually be provisioned until deployment wires one
-  (pre-existing Stage 06c gap, not introduced here).
+CURRENT STAGE: Stage 07c — Cross-company money (group receipting, allocation, inter-company clearing, consolidated reporting)
+CURRENT TASK: Code-complete implementation — domain entities, application commands/ports, infrastructure services, web endpoints, permissions, unit tests
+CURRENT TASK STATUS: CODE_COMPLETE (all layers implemented; verification deferred — needs .NET 10.0 SDK)
+NEXT READY TASK: Build + integration test + migration verification on a machine with .NET 10.0 SDK + PostgreSQL
+LAST COMPLETED TASK: 07c domain/application/infrastructure/web/test layers (this session; see PROGRESS.md)
+BLOCKERS: .NET 10.0 SDK not available on this machine (only 9.0.316 installed). All `.csproj` target `net10.0`. Build and test verification deferred.
 TEST STATUS:
-  - `dotnet build -c Release`: 0 errors
-  - Unit tests: 938 passed, 0 failed (pure-06e Domain+Application line coverage 93.3%)
-  - Architecture tests: 43 passed, 0 failed (was 37 passed + 4 failed at session start)
-  - Integration tests: UNVERIFIED — no PostgreSQL endpoint available on this Windows machine. Re-run required on a machine with PostgreSQL or Docker.
-  - Migration `Down`: present in code for all migrations; execution against a real database UNVERIFIED due to the same PostgreSQL limitation.
-IMPORTANT DECISIONS: ADR-121 – ADR-124, ADR-127 govern Stage 06e; ADR-139 records the correction
-  (trigger not CHECK, registry.* permission keys, outbox link events, optional sign-in enrichment).
-ENVIRONMENT LIMITATION: This session executed on Windows with no PostgreSQL binaries. Integration-test verification and migration-down execution are recorded as UNVERIFIED, not PASSED, per `AGENTS.md` rule: "UNVERIFIED is not PASS."
+  - `dotnet build -c Release`: UNVERIFIED — .NET 10.0 SDK required
+  - Unit tests: UNVERIFIED — 3 test files written (GroupReceiptTests, GroupReceiptApplicationTests, ClearingNetZeroPropertyTests)
+  - Integration tests: UNVERIFIED — no PostgreSQL
+  - Migration `Down`: UNVERIFIED — no PostgreSQL
+IMPORTANT DECISIONS: Stage 07c uses saga-based clearing (ADR-116), registry-only group receipts (ADR-104), fan-out consolidation with stale contributor naming (ADR-119), and net-zero reconciliation across databases (ADR-105). No new ADRs required.
+ENVIRONMENT LIMITATION: This session executed on Linux with .NET SDK 9.0.316. Projects target `net10.0`. Build, test, and migration verification are recorded as UNVERIFIED, not PASSED, per `AGENTS.md` rule.

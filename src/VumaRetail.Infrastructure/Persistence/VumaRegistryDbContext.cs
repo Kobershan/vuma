@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence.Configurations;
 
 namespace VumaRetail.Infrastructure.Persistence;
 
@@ -35,6 +36,11 @@ public sealed class VumaRegistryDbContext(
     public DbSet<RegistryUser> RegistryUsers => Set<RegistryUser>();
     public DbSet<RegistryUserCompanyAccess> RegistryUserCompanyAccesses => Set<RegistryUserCompanyAccess>();
     public DbSet<RegistryTerminal> Terminals => Set<RegistryTerminal>();
+
+    // Stage 07c: Cross-company money
+    public DbSet<GroupReceipt> GroupReceipts => Set<GroupReceipt>();
+    public DbSet<GroupPaymentRun> GroupPaymentRuns => Set<GroupPaymentRun>();
+    public DbSet<InterCompanyClearingIntent> InterCompanyClearingIntents => Set<InterCompanyClearingIntent>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -334,6 +340,60 @@ public sealed class VumaRegistryDbContext(
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
+        // Stage 07c: Cross-company money
+        modelBuilder.Entity<GroupReceipt>(builder =>
+        {
+            builder.ToTable("group_receipts", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.CapturingCompanyId).IsRequired();
+            builder.Property(x => x.BankAccountId).IsRequired();
+            builder.Property(x => x.TenderType).HasMaxLength(32).IsRequired();
+            builder.Property(x => x.Reference).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.CapturedAt).IsRequired();
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.CapturedAt });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupPaymentRun>(builder =>
+        {
+            builder.ToTable("group_payment_runs", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.CapturingCompanyId).IsRequired();
+            builder.Property(x => x.BankAccountId).IsRequired();
+            builder.Property(x => x.TenderType).HasMaxLength(32).IsRequired();
+            builder.Property(x => x.Reference).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.PaidAt).IsRequired();
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.PaidAt });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<InterCompanyClearingIntent>(builder =>
+        {
+            builder.ToTable("inter_company_clearing_intents", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.GroupDocumentId).IsRequired();
+            builder.Property(x => x.GroupDocumentType).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.FromCompanyId).IsRequired();
+            builder.Property(x => x.ToCompanyId).IsRequired();
+            builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            builder.Property(x => x.State).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.HasMoney(x => x.Amount, "amount");
+            builder.Property(x => x.CreatedAt).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.State });
+            builder.HasIndex(x => new { x.TenantId, x.GroupDocumentId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the
         // company context; an unresolved tenant therefore matches nothing by default.
@@ -344,6 +404,9 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<SagaLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<RegistryOutboxMessage>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<CompanyLifecycleAudit>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GroupReceipt>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GroupPaymentRun>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<InterCompanyClearingIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }
