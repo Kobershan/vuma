@@ -1,3 +1,4 @@
+using Npgsql;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -350,8 +351,16 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
 
         // Re-drive the registry row when a caller retries after a lost response. A company ID is the
         // idempotency key for this application command; never create a second row for the same ID.
-        var persisted = await _db.Companies.SingleOrDefaultAsync(
-            x => x.Id == company.Id && x.TenantId == company.TenantId, cancellationToken);
+        Company? persisted;
+        try
+        {
+            persisted = await _db.Companies.SingleOrDefaultAsync(
+                x => x.Id == company.Id && x.TenantId == company.TenantId, cancellationToken);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            throw new InvalidOperationException("Registry migration has not been applied; cannot provision company.", ex);
+        }
         if (persisted is not null)
             company = persisted;
         else if (await _db.Companies.IgnoreQueryFilters().AnyAsync(x => x.Id == company.Id, cancellationToken))
@@ -401,10 +410,14 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
         }
 
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+        {
+            var connection = await _resolver.ResolveAsync(company.TenantId, company.Id, CompanyAccessMode.Write, cancellationToken);
+            company.SetConnectionSecretRef(connection.SecretReference);
+        }
+        if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
         if (company.LifecycleState != CompanyLifecycleState.Registered)
             throw new InvalidOperationException("Provisioning did not register the company connection.");
-        company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         await _unitOfWork.CommitAsync(cancellationToken);
         _resolver.Invalidate(company.Id);
         return company;
