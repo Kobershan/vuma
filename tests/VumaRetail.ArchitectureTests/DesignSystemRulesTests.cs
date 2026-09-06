@@ -104,8 +104,9 @@ public sealed class DesignSystemRulesTests
     [Fact]
     public void Hand_edited_generated_file_fails_the_build()
     {
-        // Verify that the generated files are not hand-editable by checking they
-        // contain the auto-generated marker. A hand-edited file would not have this marker.
+        // Verify that all generated files carry the auto-generated marker.
+        // A hand-edited file would be detected as a diff by the CI pipeline
+        // (dotnet run regenerates, then git diff --quiet fails on any change).
         var generatedDir = Path.Combine(SolutionSource.RepositoryRoot.FullName, "design", "generated");
         Assert.True(Directory.Exists(generatedDir), "Generated output directory must exist.");
 
@@ -113,8 +114,9 @@ public sealed class DesignSystemRulesTests
         {
             var content = File.ReadAllText(file);
             Assert.True(content.Contains("Auto-generated from design/tokens.json"),
-                $"Generated file {Path.GetFileName(file)} must contain the auto-generated marker. "
-                + "Hand-editing generated files is prohibited — run the token generator instead.");
+                $"Generated file {Path.GetFileName(file)} must carry the auto-generated marker. "
+                + "Hand-editing generated files is prohibited — run the token generator instead. "
+                + "The CI pipeline detects hand-edits via git diff.");
         }
     }
 
