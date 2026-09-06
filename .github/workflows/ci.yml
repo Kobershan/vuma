@@ -29,10 +29,37 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      # Stage 08b: generate WPF ResourceDictionaries, Android Compose themes, and CSS
+      # custom properties from design/tokens.json. Deterministic — regenerating produces
+      # byte-identical output (see DesignSystemRulesTests.Generated_files_are_deterministic).
+      - name: Generate design tokens
+        run: dotnet run --project src/VumaRetail.TokenGenerator
+
       # Zero warnings in Domain and Application is a build failure there, not a report
       # (CLAUDE.md §7 rule 10 / Directory.Build.props).
+      # Desktop projects target net9.0-windows and are excluded from the Linux build;
+      # they are built in the package job on Windows-latest.
+      # VumaRetail.Hardware targets net9.0 (cross-platform protocol layer) and IS built here.
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: |
+          dotnet build src/VumaRetail.Domain -c Release --no-restore
+          dotnet build src/VumaRetail.Application -c Release --no-restore
+          dotnet build src/VumaRetail.Contracts -c Release --no-restore
+          dotnet build src/VumaRetail.Infrastructure -c Release --no-restore
+          dotnet build src/VumaRetail.Sync -c Release --no-restore
+          dotnet build src/VumaRetail.Licensing -c Release --no-restore
+          dotnet build src/VumaRetail.Workflow -c Release --no-restore
+          dotnet build src/VumaRetail.Finance -c Release --no-restore
+          dotnet build src/VumaRetail.Imports -c Release --no-restore
+          dotnet build src/VumaRetail.Hardware -c Release --no-restore
+          dotnet build src/VumaRetail.Web -c Release --no-restore
+          dotnet build src/VumaRetail.PublicApi -c Release --no-restore
+          dotnet build src/VumaRetail.StoreServer -c Release --no-restore
+          dotnet build src/VumaRetail.CloudApi -c Release --no-restore
+          dotnet build src/VumaRetail.TokenGenerator -c Release --no-restore
+          dotnet build tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet build tests/VumaRetail.ArchitectureTests -c Release --no-restore
+          dotnet build tests/VumaRetail.IntegrationTests -c Release --no-restore
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -41,6 +68,7 @@ jobs:
           path: |
             src/**/bin/Release/
             tests/**/bin/Release/
+            design/generated/
           retention-days: 1
 
   test:
@@ -135,12 +163,10 @@ jobs:
           dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Test
-        run: >
-          dotnet test -c Release
-          --logger "trx;LogFileName=results.trx"
-          --logger "console;verbosity=detailed"
-          --collect:"XPlat Code Coverage"
-          --results-directory ./artifacts/test-results
+        run: |
+          dotnet test tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet test tests/VumaRetail.ArchitectureTests -c Release --no-restore
+          dotnet test tests/VumaRetail.IntegrationTests -c Release --no-restore --logger "trx;LogFileName=results.trx" --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" --results-directory ./artifacts/test-results
 
       - name: Upload results
         if: always()
@@ -166,6 +192,43 @@ jobs:
       # side-effect classification read-only enforcement depends on (rule 15).
       - name: Run architecture tests
         run: dotnet test tests/VumaRetail.ArchitectureTests -c Release
+
+  design-system-verification:
+    name: Design System Verification
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Verify token generation is deterministic: regenerate and compare to existing output
+      - name: Verify token generation is deterministic
+        run: |
+          dotnet run --project src/VumaRetail.TokenGenerator
+          # Compare regenerated output to committed output — must be byte-identical
+          if ! git diff --quiet design/generated/ design/tokens.css; then
+            echo "::error::Token regeneration produced different output — generation is not deterministic."
+            exit 1
+          fi
+
+      # Verify contrast ratios meet WCAG AA/AAA requirements
+      - name: Verify contrast ratios
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~ContrastAndTypographyTests" -c Release
+
+      # Verify no literal hex values in XAML/Kotlin/CSS outside generated files
+      - name: Verify no literal hex colours in source
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~DesignSystemRulesTests" -c Release
+
+      # Verify hand-edited generated files fail the build
+      - name: Verify hand-edited generated files fail
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~DesignSystemRulesTests.Hand_edited_generated_file_fails_the_build" -c Release
+
+      # Verify fonts are embedded and no runtime download
+      - name: Verify fonts embedded
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~ContrastAndTypographyTests.Fonts_embedded_no_runtime_download" -c Release
 
   migrate-check:
     name: Migration check
@@ -274,12 +337,25 @@ jobs:
   package:
     name: Package
     runs-on: windows-latest
-    needs: [test, architecture-tests, migrate-check]
+    needs: [test, architecture-tests, design-system-verification, migrate-check]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
-      # Runs on Windows because the desktop shell targets net9.0-windows and the installer is a
-      # WiX v4 bootstrapper wrapping Velopack (ADR-011). Stage 31 fills this in.
-      - name: Not yet applicable
-        run: echo "Packaging is built in Stage 31."
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Build the full solution including the Windows-only Desktop projects
+      - name: Build full solution
+        run: dotnet build VumaRetail.sln -c Release --no-restore
+
+      # Run the token generator to ensure generated files are up to date
+      - name: Regenerate tokens and verify
+        run: |
+          dotnet run --project src/VumaRetail.TokenGenerator
+          # Verify no hand-edits — generated files must match
+          git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
+
+      - name: Package
+        run: echo "Packaging built in Stage 31."
