@@ -134,6 +134,20 @@ public sealed class BackupSnapshot : Entity
         };
     }
 
+    /// <summary>Opens a snapshot explicitly bound to one company database.</summary>
+    public static BackupSnapshot BeginForCompany(
+        Guid tenantId, Guid companyId, Guid? storeId, BackupKind kind, string sourceNode,
+        string objectKey, DateTimeOffset startedAt)
+    {
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A company is required.", nameof(companyId));
+        }
+        BackupSnapshot snapshot = Begin(tenantId, storeId, kind, sourceNode, objectKey, startedAt);
+        snapshot.AssignCompany(companyId);
+        return snapshot;
+    }
+
     /// <summary>Records a successful run.</summary>
     /// <param name="sizeBytes">The encrypted object's size.</param>
     /// <param name="checksum">SHA-256 of the encrypted object, lower-case hex.</param>

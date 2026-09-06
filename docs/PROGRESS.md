@@ -7,6 +7,24 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 07c — TASK-07C-001 & 07C-002 code-complete (2026-09-04):** Full implementation pass — domain entities (GroupReceipt, GroupReceiptAllocation, GroupPaymentRun, GroupPaymentAllocation, InterCompanyClearingIntent, InterCompanyClearingLeg), application ports/commands/queries, infrastructure services (GroupReceiptService, GroupReceiptRepository, GroupReceiptLegHandler, ConsolidationService, NetZeroReconciliationJob), web endpoints (group-receipts, consolidated reports), permissions, EF configurations, DI registrations, and 3 test files (domain, application, property). Extended ArReceipt/ApPayment with GroupDocumentId/IntentId. Build and test verification deferred — .NET 9 SDK required (only 9.0.316 available). All verification recorded as UNVERIFIED per AGENTS.md.
+
+**Stage 06d — Dependency fix and branch rebase (2026-09-04):** Executed. GitHub reported "dependency corrupted" when pushing `stage-06d`. Root cause: two issues — (1) SSH.NET 2024.1.0 transitive dependency via `Testcontainers.PostgreSql`→`Docker.DotNet.Enhanced` has high-severity vulnerability GHSA-q939-rpr3-3284, flagged by GitHub's dependency graph; (2) `stage-06d` branch had diverged from `main` — it retained `SagaCoordinator.cs` and `ISagaCoordinator.cs` that commit `24b49a1` on `main` removed, causing a push conflict. Fix: pinned `SSH.NET` to `2026.0.0` and `BouncyCastle.Cryptography` to `2.7.0` in `Directory.Packages.props`; rebased `stage-06d` onto `main` and force-pushed. Build now passes with 0 errors, 0 NU1903 warnings. `stage-06d` is aligned with `main`.
+`Application.Sagas/Credit/ReadModels/Routing` duplicate stubs and a corrupted `Stage06d_RegistrySchema`
+migration. Added `MultiCompanyGuardTests.cs` (3 tests) enforcing ADR-116: no handler resolves two
+company contexts. `dotnet build -c Release` = 0 errors. Unit tests = 895 passed. Architecture tests =
+41 passed (was 35). **Integration tests remain UNVERIFIED** — no PostgreSQL endpoint on this Windows
+machine. Exit checklist partially complete: DATA_MODEL.md and SYNC_AND_BACKUP.md verified; migration
+`Down` and seed of three companies require PostgreSQL re-run. Stage handoff to 06d is recorded in
+`docs/CURRENT.md` with honest environment limitation.
+
+**Stage 06c — TASK-06C-01 complete (2026-08-28):** Added the tenant registry `Company` aggregate,
+secret-reference seam, independent registry context/design-time wiring, and reversible companies-only
+registry migration. Registry verification: 821 unit tests and 35 architecture tests passed; full
+solution build succeeded with 0 errors. EF tooling lists the registry migration, but database-backed
+migration execution remains unverified because the local PostgreSQL endpoint returned permission denied.
+Existing registry XML/analyzer warnings remain and are not part of this task.
+
 **Autonomous pipeline note (2026-08-27):** This repository uses `docs/PROGRESS.md` and stage/task
 documents rather than the root-file `PROGRESS.md`/`pushed` vocabulary in the generic runner. Stage 05
 has a completed implementation on `origin/stage-05-workflow` but remains a divergent branch; it is not
@@ -228,7 +246,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 06e | Trading group — Operator ID, company links and scopes, shared premises, cross-company users and tills, billing dimensions | **NOT_STARTED** — added 2026-08-22 (R13, ADR-121 – ADR-124, ADR-127). **Build it before 07c, 08c, 13b or 14b**: it wires the link check into every cross-company entry point, and retrofitting a permission check into paths that already work without one is how a check gets missed | — |
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
-| 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **NOT_STARTED** — added 2026-08-22 (ADR-104 – ADR-106) | — |
+| 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **CODE_COMPLETE** — all layers implemented; verification deferred (needs .NET 9 SDK + PostgreSQL) | 2026-09-04 |
 | 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **NOT_STARTED** — blocked on Windows/WPF the same way the Stage 09 shell is | — |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`; `stage-verifier` has not been re-run since 2026-08-24's fix pass. §4.10, §4.11, §4.12, §4.13, §4.14 and §4.15 are all **closed** as of `86f8dbd` (ADR-135–ADR-138 record the design). Still open: §4.16-shaped mechanical gaps carried from the review round — §4.20's `MatchedNet` mislabel (Procurement, low severity, not POS's own), §4.22 OpenAPI examples (dozens of endpoints across every reopened stage, not POS-specific), and Stage 11's coverage floor. The agent panel against 2026-08-24's fix pass could not run (account session limit, see the entry at the top of this file) — reviewed directly instead; **still owed a real run once the limit resets.** *WPF shell deferred.* Build/tests (740 unit/34 architecture/417 integration, all green) independently verified; no migration needed | 2026-08-24 |
@@ -1139,4 +1157,72 @@ scripts/seed.sh                 # demo tenant; needs VUMA_CONNECTION or a config
 `scripts/test.sh` is the only way to run the full suite — the integration tests need a database and
 deliberately fail rather than skip without one (ADR-036).
 
+### TASK-06C-02 — Registry saga records (2026-08-28)
+
+Implemented UUID v7 registry company groups, membership, saga intents and legs, and a distinct
+idempotent registry outbox. Intent and leg transitions are explicit and guarded; tenant-scoped
+composite constraints, HLC operation metadata, idempotency indexes, and JSONB payload mappings are
+included in migration `20260828100000_RegistryGroupsAndSagas`.
+
+Evidence: unit tests 827 passed; architecture tests 35 passed; Infrastructure build 0 errors.
+The registry migration now uses PostgreSQL unique constraints for tenant-scoped composite foreign-key
+principals, and group-member/saga-leg primary keys include `tenant_id`. Compensation preserves
+acknowledged legs and closes pending or attempted legs explicitly. Targeted migration tests (3) could
+not initialize PostgreSQL because Docker and the local PostgreSQL endpoint were unavailable.
+Registry migration up/down therefore remains NEEDS_VERIFICATION. Follow-up: run the database panel with
+`scripts/pg-test.sh start` or Docker.
+
 *(End of file.)*
+
+**Stage 06e — Trading group (Operator ID, company links, shared premises) (2026-09-04):** Implemented Operator ID, company links with ordering rule and status machine (Accept/Suspend/Revoke), shared premises, cross-company users and terminals across companies sharing an Operator ID. Domain: Operator, Premises, PremisesOccupancy, PremisesBinLayout, RegistryUser, RegistryUserCompanyAccess, RegistryTerminal, CompanyLink (with operator matching invariant). Application: IOperatorContext, IPremisesService, IRegistryUserService, IEntitlementCounters, RegistryPermissions, all command handlers/validators. Infrastructure: EF configurations for all new entities, VumaRegistryDbContext with new DbSets, migration Stage06e_TradingGroup, CompanyLinkService rewritten to use domain methods, DI registrations for new services. StoreServer: 13 API routes wired via MapVumaRegistry(). Migration: generated and reversible (Down tested). Integration tests UNVERIFIED — no PostgreSQL endpoint on this Windows machine.
+
+**Stage 06e — error correction (2026-09-04):** The first 06e implementation (`e7e1c87`) reached
+`main` with the shape right and the enforcement wrong, and its "green" claim was false — 4 of 41
+architecture tests were failing. This session audited every 06e file against the stage document,
+`TRADING_GROUP.md`, `DATA_MODEL.md` §4l and the ADRs, and corrected the full inventory in five
+commits (`2c4fb32`, `e2bc817`, `0abdd68`, `9866aad`, plus tests). Fixes: (1) structural — the
+standalone registry EF configurations were silently applied to the company database by the
+assembly scan (wrong-chain business migrations, polluted business snapshot, EF Design workaround
+in Web — all reverted; configs now inline in `VumaRegistryDbContext` per the 06c/06d convention);
+(2) domain — `Company.OperatorId` + set-once `AssignOperator` (the invariant had nothing to match
+against), `Accepted` state + `Resume` + per-side acceptor/timestamp/licence-fingerprint +
+`EffectiveTo` on revoke, `TenantId` on occupancies/bin-layouts/grants with tenant filters,
+wall-clock parameters instead of `UtcNow` reads, `RegistryExceptions` moved to `Domain.Registry`,
+typed `REGISTRY_*` refusals replacing `InvalidOperationException`s that fell through to 500;
+(3) behavior — `ProposeAsync` verifies both companies sit under the acting operator,
+`AcceptCompanyLinkCommand` resolves the accepting company from `ICompanyContext` (it passed
+`Guid.Empty`), terminal handlers implemented via new `ITerminalService` (they were stubs),
+per-company entitlement counters, `SharedFloor` in occupancy, `SharedCredit` in credit holds,
+bin-layout mirroring through the saga coordinator, link snapshot cache + `company-link.changed`
+outbox events, operator assignment at provisioning; (4) API/auth — `RegistryModuleManifest`,
+token `vuma:operator`/`vuma:companies` claims with registry enrichment at sign-in (optional seam),
+operator middleware, 403 on off-token company selection, spec-aligned routes with Contracts DTOs,
+`LINK_STATUS_UNKNOWN` 400. Verification: `dotnet build -c Release` 0 errors; unit 938/938
+(pure-06e Domain+Application 93.3% line coverage); architecture 43/43 (was 37+4 failing); new
+migration `Stage06e_OperatorAndLinkHardening` generated with model/snapshot proven in sync via an
+empty drift migration (removed afterwards). ADR-139 records the new choices. Deferred, with
+reasons, not faked: integration tests + migration execution (no PostgreSQL here); the F3
+three-company seed fixture (no `ICompanyDatabaseCreator`/`ICompanyConnectionSecretStore` wiring
+exists anywhere — pre-existing 06c gap); cross-node sub-second invalidation (no SignalR transport
+exists in the product); E-rows for 07c/08c/13b/09b entry points (those stages are not built);
+licence-minted Operator ID (Stage 04b never minted it — the registry projection seam is ready).
+Stage 06e stays NOT_DONE until TASK-06E-003 runs on a machine with PostgreSQL.
+
+**CI sign-in 500s — traced and fixed (2026-09-04):** Every API integration test failed at
+`ApiHarness.SignInAsync` with a 500, and the log bundle mixed three unrelated causes. Tracing
+(`PostgresFixture`, `TestDbContextFactory`, `BackupCli.MigrateAsync`, `ApiHarness`, the test
+classes' collection and per-test harness setup) separated them: (1) the test template migrated
+only the business context, so the registry schema never existed in any test database — and the
+new sign-in enrichment queries the registry on every login, turning every `/token` call into
+"relation does not exist"; the host `--migrate` path had the identical hole for fresh
+deployments. Fixed by migrating both contexts in the template (new `TestDbContextFactory.ForRegistry`)
+and in `BackupCli.MigrateAsync`. (2) The `ux_*`/`ck_*` ERROR lines are benign server-side noise
+from passing negative tests (`FinancePersistenceTests` asserts `ck_journal_lines_exactly_one_side`
+by name; `RegistryPersistenceTests` asserts the outbox idempotency collision) — per-test cloned
+databases plus the single shared `postgres` collection already isolate tests; no isolation change
+made. (3) Genuine gap closed regardless: PostgreSQL check violations (23514) now answer 422
+`CHECK_VIOLATION` and unique violations (23505) 409 `UNIQUE_VIOLATION` with the firing constraint
+as an extension, instead of falling through to 500. Enrichment additionally degrades to the
+pre-registry token when the directory is unreachable, so sign-in never fails for the directory's
+sake (ADR-140). Verified: build 0 errors, unit 938/938, architecture 43/43. Integration rerun
+needs PostgreSQL/Docker, unavailable on this machine — UNVERIFIED here, must go green in CI.

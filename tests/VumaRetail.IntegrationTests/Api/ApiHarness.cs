@@ -79,7 +79,16 @@ public sealed class ApiHarness : IAsyncDisposable
     /// Stage 04b's guard refuses business writes on an unactivated store, which is correct in
     /// production and would otherwise turn every other stage's API tests into licensing tests.
     /// </param>
-    public static async Task<ApiHarness> CreateAsync(PostgresFixture fixture, bool activate = true)
+    /// <param name="configureServices">
+    /// Extra test-host wiring, applied after everything <c>Program.cs</c> registers. Stage 05's
+    /// integration tests use it to scan a throwaway command assembly declared in the test project
+    /// itself — a real module's command handler calling <c>IApprovalService</c>, exercised through the
+    /// real dispatcher and the real transaction, without inventing a business module to do it.
+    /// </param>
+    public static async Task<ApiHarness> CreateAsync(
+        PostgresFixture fixture,
+        bool activate = true,
+        Action<IServiceCollection>? configureServices = null)
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
@@ -132,6 +141,8 @@ public sealed class ApiHarness : IAsyncDisposable
                 {
                     services.RemoveAll<IClock>();
                     services.AddSingleton<IClock>(clock);
+
+                    configureServices?.Invoke(services);
                 });
             });
 

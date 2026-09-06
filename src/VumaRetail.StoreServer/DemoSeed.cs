@@ -4,6 +4,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Imports.Commands;
 using VumaRetail.Domain.Imports;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Abstractions.Workflow;
 using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
@@ -35,9 +36,11 @@ using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Procurement;
 using VumaRetail.Domain.Warehouse;
+using VumaRetail.Domain.Workflow;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Finance.Commands;
+using VumaRetail.Workflow.Approvals;
 using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
 
@@ -885,6 +888,95 @@ public static class DemoSeed
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+
+        // Stage 05. docs/stages/STAGE-05-workflow.md's exit checklist: the module is demonstrable with
+        // one approval policy and one notification, the same way every stage since 02 has extended
+        // this seed rather than leaving its own module invisible in the demo tenant. Seeded last
+        // because the policy gates `inventory.stock-adjustment`, which only exists once Stage 08's
+        // locations and opening receipt above are in place.
+        await EnsureApprovalPolicyAsync(provider, cancellationToken).ConfigureAwait(false);
+        await EnsureNotificationAsync(provider, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A gate on stock adjustments — Stage 05's whole point is that a module configures against the
+    /// engine rather than building its own, and a policy is data, so nothing in Stage 08 changed to
+    /// acquire one.
+    /// </summary>
+    private static async Task EnsureApprovalPolicyAsync(IServiceProvider provider, CancellationToken cancellationToken)
+    {
+        IApprovalPolicyRepository policies = provider.GetRequiredService<IApprovalPolicyRepository>();
+
+        if (await policies.FindActiveAsync("inventory", "stock-adjustment", "post", cancellationToken)
+                .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<IDispatcher>()
+            .SendAsync(
+                new DefineApprovalPolicyCommand(
+                    "inventory",
+                    "stock-adjustment",
+                    "post",
+                    PlatformPermissions.StoreManage,
+                    1000m,
+                    "ZAR",
+                    MinApprovals: 1,
+                    AllowSelfApproval: false),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One in-app notification for the seeded manager, so the notification inbox is not empty the
+    /// first time anybody looks at the demo tenant.
+    /// </summary>
+    private static async Task EnsureNotificationAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        CancellationToken cancellationToken)
+    {
+        IUserRepository users = provider.GetRequiredService<IUserRepository>();
+        User? manager = await users.FindByUserNameAsync("manager", cancellationToken).ConfigureAwait(false);
+
+        if (manager is null)
+        {
+            return;
+        }
+
+        bool alreadySeeded = await context.Notifications
+            .AnyAsync(
+                notification => notification.RecipientUserId == manager.Id
+                    && notification.Category == "workflow.demo.welcome",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (alreadySeeded)
+        {
+            return;
+        }
+
+        await provider
+            .GetRequiredService<INotificationDispatcher>()
+            .NotifyAsync(
+                new NotificationRequest(
+                    manager.Id,
+                    "workflow.demo.welcome",
+                    "Approvals are configured",
+                    "Stock adjustments of ZAR 1,000 or more now need a manager's approval before they "
+                        + "post. Configure more policies from Approval Policies in the back office.",
+                    NotificationSeverity.Info,
+                    [NotificationChannel.InApp],
+                    "workflow",
+                    "approval-policy",
+                    null,
+                    "/workflow/approval-policies"),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

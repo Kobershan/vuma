@@ -1,8 +1,7 @@
 # Task
 
 ## Status
-
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -95,3 +94,26 @@ External installer orchestration remains later-stage work.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-010.
+- 2026-08-28: Added resumable registry progress/error metadata, tenant company-limit enforcement,
+  idempotent registry re-drive, ordered lifecycle transitions, and registry migration for the new
+  provisioning fields. Unit suite: 839 passed.
+- 2026-08-28: `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
+  could not run because the harness reported no PostgreSQL/Docker service available; 24 unrelated
+  tests passed before 403 infrastructure-dependent failures. Task remains NEEDS_VERIFICATION.
+- 2026-08-28: Added explicit database-create, migrate, seed, and connection-registration adapter
+  ports and ordered infrastructure steps, including secret-reference validation. Unit suite: 841
+  passed; architecture suite: 35 passed. Integration suite attempted again and was blocked by Docker
+  unavailable (`Docker is either not running or misconfigured`); 24 passed before 403 infrastructure
+  failures. Task remains NEEDS_VERIFICATION.
+- 2026-08-28: Verification rerun: `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj --no-restore`
+  passed (841); `dotnet test tests/VumaRetail.ArchitectureTests/VumaRetail.ArchitectureTests.csproj --no-restore`
+  passed (35); `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore`
+  completed with 24 passed and 403 failures because Testcontainers reported `Docker is either not
+  running or misconfigured` from `PostgresFixture`. Task remains NEEDS_VERIFICATION.
+
+- BLOCKED after 3 attempts: automated validation still unavailable after remediation attempt 3/3; exit=0 status=NEEDS_VERIFICATION; see /home/kob/Documents/vuma/docs/automation/logs/20260828T213150Z-TASK-06C-06-attempt-3.log
+- 2026-08-28: Remediated the repository-local migration prerequisite: the company identity retrofit
+  migration lacked EF migration metadata and the registry model snapshot omitted provisioning fields.
+  Added the discovered, idempotent `CompanyIdentityRepair` migration and synchronized the registry
+  snapshot. Unit tests: 841 passed; architecture tests: 35 passed; registry persistence tests: 2
+  passed; full integration suite: 427 passed against the documented local PostgreSQL fallback.

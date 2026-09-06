@@ -57,7 +57,7 @@ jobs:
         env:
           POSTGRES_USER: vuma
           POSTGRES_PASSWORD: vuma
-          POSTGRES_DB: postgres
+          POSTGRES_DB: vuma
         ports:
           - 5432:5432
         options: >-
@@ -67,7 +67,11 @@ jobs:
           --health-retries 10
 
     env:
-      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=vuma;Password=vuma
+      # FIX 1: Changed Database=postgres to Database=vuma
+      VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma
+      # FIX 1.5: Required by DesignTimeDbContextFactory for EF migration commands
+      VUMA_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_migrate_check;Username=vuma;Password=vuma
+      VUMA_REGISTRY_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_registry_migrate_check;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +84,12 @@ jobs:
       # restore it into an empty database. pg_dump refuses to dump from a server newer than itself,
       # so a client/server major mismatch would surface as a puzzling backup-test failure rather
       # than as the environment problem it is. Fail here instead, with the versions in the log.
+      # Create databases needed for stage 07c migrations
+      - name: Create stage 07c databases
+        run: |
+          PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -c "CREATE DATABASE vuma_migrate_check;" 2>/dev/null || true
+          PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -c "CREATE DATABASE vuma_registry_migrate_check;" 2>/dev/null || true
+
       - name: PostgreSQL client tools are present and not older than the server
         run: |
           set -euo pipefail
@@ -88,17 +98,55 @@ jobs:
             exit 1
           fi
           client="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
-          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d postgres -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
+          server="$(PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -t -A -c 'SHOW server_version' | grep -oE '^[0-9]+')"
           echo "pg_dump major $client, server major $server"
           if [ "$client" -lt "$server" ]; then
             echo "::error::pg_dump $client cannot dump a PostgreSQL $server server."
             exit 1
           fi
 
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      # Use the version matching the SDK to avoid compatibility issues
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet-ef --version
+
+      # FIX 3b: Ensure dotnet-ef is on PATH for subsequent steps
+      - name: Set PATH for dotnet tools
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      # FIX 4a: Restore NuGet packages before EF commands
+      - name: Restore
+        run: dotnet restore src/VumaRetail.Infrastructure
+
+      # FIX 4: Explicitly apply migrations before tests run to prevent 500 errors on empty DB
+      - name: Apply Database Migrations for Tests
+        run: |
+          dotnet ef database update
+            --project src/VumaRetail.Infrastructure
+            --context VumaRetailDbContext
+          # Stage 07c: Registry context also needs migrations applied
+          dotnet ef database update
+            --project src/VumaRetail.Infrastructure
+            --context VumaRegistryDbContext
+
+      # Stage 07c: Ensure registry migrations are reversible too
+      - name: Verify registry migrations are reversible
+        run: |
+          dotnet ef database update 0
+            --project src/VumaRetail.Infrastructure
+            --context VumaRegistryDbContext
+          dotnet ef database update
+            --project src/VumaRetail.Infrastructure
+            --context VumaRegistryDbContext
+
       - name: Test
         run: >
           dotnet test -c Release
           --logger "trx;LogFileName=results.trx"
+          --logger "console;verbosity=detailed"
           --collect:"XPlat Code Coverage"
           --results-directory ./artifacts/test-results
 
@@ -157,8 +205,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef --version 9.0.0
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet-ef --version
+
+      # FIX 3b: Ensure dotnet-ef is on PATH for subsequent steps
+      - name: Set PATH for dotnet tools
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      # FIX 4c: Restore NuGet packages before EF commands
+      - name: Restore
+        run: dotnet restore src/VumaRetail.Infrastructure
 
       # docs/TESTING.md §6. A model change without a scaffolded migration builds, tests green, and
       # then fails on a customer's database during an upgrade.
@@ -167,10 +228,22 @@ jobs:
           dotnet ef migrations has-pending-model-changes
           --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
+      # Stage 07c: Also check registry context for pending model changes
+      - name: Registry model and migrations agree
+        run: >
+          dotnet ef migrations has-pending-model-changes
+          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+
       - name: Apply to an empty database
         run: >
           dotnet ef database update
           --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+
+      # Stage 07c: Also apply registry context migrations
+      - name: Apply Registry Migrations
+        run: >
+          dotnet ef database update
+          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       # CLAUDE.md §8 requires Down to be reversible, and a Down that was never run is a Down that
       # does not work. "0" is EF's name for the state before the first migration.
@@ -179,10 +252,22 @@ jobs:
           dotnet ef database update 0
           --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
+      # Stage 07c: Also verify registry migrations are reversible
+      - name: Reverse every registry migration
+        run: >
+          dotnet ef database update 0
+          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+
       - name: Re-apply
         run: >
           dotnet ef database update
           --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+
+      # Stage 07c: Re-apply registry migrations
+      - name: Re-apply Registry Migrations
+        run: >
+          dotnet ef database update
+          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
   vulnerability-scan:
     name: Vulnerability scan

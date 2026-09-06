@@ -93,6 +93,7 @@ public sealed class AuthenticationService
     private readonly ITenantContext _tenant;
     private readonly IClock _clock;
     private readonly CredentialPolicy _policy;
+    private readonly ITokenCompanyEnricher? _companyEnricher;
 
     /// <summary>Creates the service.</summary>
     /// <param name="users">User lookup.</param>
@@ -110,6 +111,11 @@ public sealed class AuthenticationService
     /// </param>
     /// <param name="clock">The only source of time.</param>
     /// <param name="policy">Lockout thresholds. Defaults to <see cref="CredentialPolicy.Default"/>.</param>
+    /// <param name="companyEnricher">
+    /// Registry company membership for the token (ADR-127). Optional so sign-in keeps working
+    /// where no registry is wired; the container supplies the registry implementation and the
+    /// direct constructions in tests keep compiling unchanged.
+    /// </param>
     public AuthenticationService(
         IUserRepository users,
         ITerminalRepository terminals,
@@ -120,7 +126,8 @@ public sealed class AuthenticationService
         IUnitOfWork unitOfWork,
         ITenantContext tenant,
         IClock clock,
-        CredentialPolicy? policy = null)
+        CredentialPolicy? policy = null,
+        ITokenCompanyEnricher? companyEnricher = null)
     {
         _users = users;
         _terminals = terminals;
@@ -132,6 +139,7 @@ public sealed class AuthenticationService
         _tenant = tenant;
         _clock = clock;
         _policy = policy ?? CredentialPolicy.Default;
+        _companyEnricher = companyEnricher;
     }
 
     /// <summary>Signs a user in with their password.</summary>
@@ -374,13 +382,21 @@ public sealed class AuthenticationService
 
         _tokens.Add(token);
 
+        // Registry membership rides the token so the edge can refuse a company the token does
+        // not carry (ADR-127). Absent enrichment the token is exactly what it was before.
+        TokenCompanyEnrichment enrichment = _companyEnricher is null
+            ? TokenCompanyEnrichment.Empty
+            : await _companyEnricher.EnrichAsync(user.TenantId, user.UserName, cancellationToken).ConfigureAwait(false);
+
         AccessToken access = _issuer.Issue(new TokenSubject(
             user.Id,
             user.TenantId,
             user.DisplayName,
             user.SecurityStamp,
             storeId,
-            terminalId));
+            terminalId,
+            enrichment.OperatorId,
+            enrichment.Companies));
 
         if (commit)
         {

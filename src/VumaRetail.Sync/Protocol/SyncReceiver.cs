@@ -63,6 +63,7 @@ public sealed class SyncReceiver(
         ArgumentNullException.ThrowIfNull(batch);
 
         GuardTenant(batch);
+        GuardCompany(batch);
 
         // Re-scope rather than bypass the tenant filter. The cloud serves every store, so it has to
         // move between tenants — but doing it by narrowing to the batch's tenant keeps the global
@@ -123,6 +124,14 @@ public sealed class SyncReceiver(
         {
             throw new SyncTenantMismatchException(batch.TenantId, tenant.TenantId);
         }
+    }
+
+    private static void GuardCompany(SyncBatch batch)
+    {
+        Guid? companyId = batch.CompanyId;
+        if (batch.Operations.Any(operation => operation.CompanyId is { } operationCompany
+            && operationCompany != companyId))
+            throw new SyncCompanyMismatchException();
     }
 
     /// <summary>
@@ -364,3 +373,7 @@ public sealed class SyncTenantMismatchException(Guid batchTenantId, Guid callerT
         "SYNC_TENANT_MISMATCH",
         $"The batch is for tenant {batchTenantId} but the caller is tenant {callerTenantId}. "
         + "A node replicates its own tenant's data and nobody else's.");
+
+/// <summary>Thrown when one sync batch attempts to cross company database boundaries.</summary>
+public sealed class SyncCompanyMismatchException()
+    : DomainException("SYNC_COMPANY_MISMATCH", "A sync batch must contain operations from one company database only.");

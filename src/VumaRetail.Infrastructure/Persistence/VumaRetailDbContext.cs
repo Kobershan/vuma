@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Entities;
 using VumaRetail.Domain.Platform;
 
@@ -27,14 +28,17 @@ namespace VumaRetail.Infrastructure.Persistence;
 public class VumaRetailDbContext : DbContext, IUnitOfWork
 {
     private readonly ITenantContext _tenantContext;
+    private readonly ICompanyContext? _companyContext;
 
     /// <summary>Creates the context.</summary>
     /// <param name="options">EF options, including the Npgsql provider and the interceptors.</param>
     /// <param name="tenantContext">Supplies the tenant the global query filter scopes to.</param>
-    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext)
+    /// <param name="companyContext">Supplies the active company for row stamping and filtering.</param>
+    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null)
         : base(options)
     {
         _tenantContext = tenantContext;
+        _companyContext = companyContext;
     }
 
     /// <summary>Tenants — the isolation root every other row hangs off.</summary>
@@ -103,6 +107,23 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Tenant-granted, time-boxed vendor support access.</summary>
     public DbSet<Domain.Licensing.SupportGrant> SupportGrants => Set<Domain.Licensing.SupportGrant>();
 
+    /// <summary>Configured gates on threshold-sensitive actions (Stage 05, ADR-019).</summary>
+    public DbSet<Domain.Workflow.ApprovalPolicy> ApprovalPolicies => Set<Domain.Workflow.ApprovalPolicy>();
+
+    /// <summary>Pending and decided approval requests — the unified inbox's own rows.</summary>
+    public DbSet<Domain.Workflow.ApprovalRequest> ApprovalRequests => Set<Domain.Workflow.ApprovalRequest>();
+
+    /// <summary>The append-only approval decision history.</summary>
+    public DbSet<Domain.Workflow.ApprovalDecisionEntry> ApprovalDecisionEntries => Set<Domain.Workflow.ApprovalDecisionEntry>();
+
+    /// <summary>One message to one recipient on one channel.</summary>
+    public DbSet<Domain.Workflow.Notification> Notifications => Set<Domain.Workflow.Notification>();
+
+    /// <summary>Document metadata — never the bytes, which live behind <c>IDocumentBlobStore</c>.</summary>
+    public DbSet<Domain.Workflow.Document> Documents => Set<Domain.Workflow.Document>();
+
+    /// <summary>The append-only document version history.</summary>
+    public DbSet<Domain.Workflow.DocumentVersion> DocumentVersions => Set<Domain.Workflow.DocumentVersion>();
     /// <summary>Units an item can be counted, weighed or measured in (Stage 06).</summary>
     public DbSet<Domain.Catalog.UnitOfMeasure> UnitsOfMeasure => Set<Domain.Catalog.UnitOfMeasure>();
 
@@ -347,9 +368,26 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Whether the caller has opened an explicit cross-tenant scope. See <see cref="ITenantContext"/>.</summary>
     internal bool IsTenantFilterBypassed => _tenantContext.IsFilterBypassed;
 
+    /// <summary>The active company, or null for legacy/bootstrap contexts.</summary>
+    internal Guid? CurrentCompanyId => _companyContext?.CompanyId;
+
     /// <inheritdoc />
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <inheritdoc />
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ApplyCompanyIdentity();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
@@ -430,5 +468,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // Guid.Empty means "no tenant resolved yet" — the activation wizard and the login screen —
         // and must not silently return every tenant's rows, so it matches nothing.
         => entity => entity.DeletedAt == null
-            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId);
+            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId)
+            && (CurrentCompanyId == null || entity.CompanyId == CurrentCompanyId);
+
+    private void ApplyCompanyIdentity()
+    {
+        Guid companyId = _companyContext?.CompanyId ?? Guid.Empty;
+
+        foreach (var entry in ChangeTracker.Entries<Entity>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (_companyContext?.CompanyId is { } activeCompany)
+                    entry.Entity.AssignCompany(activeCompany);
+                else if (entry.Entity.CompanyId is null)
+                    entry.Entity.AssignCompany(companyId);
+            }
+            else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active)
+            {
+                throw new InvalidOperationException("A business row cannot be reassigned to another company.");
+            }
+        }
+    }
 }

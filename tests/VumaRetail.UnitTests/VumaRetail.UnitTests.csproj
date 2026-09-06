@@ -11,12 +11,14 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VumaRetail.Domain\VumaRetail.Domain.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
     <!--
       Stage 04. The hybrid logical clock and the conflict resolver are pure protocol over Application
       ports, so they belong at this level: no database, no host, and every case a table.
@@ -24,6 +26,8 @@
     <ProjectReference Include="..\..\src\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <!-- Stage 04b: the enforcement ladder, the fingerprint matcher and the signed documents. -->
     <ProjectReference Include="..\..\src\VumaRetail.Licensing\VumaRetail.Licensing.csproj" />
+    <!-- Stage 05: ApprovalEngine and the domain state machines it drives, tested with no database. -->
+    <ProjectReference Include="..\..\src\VumaRetail.Workflow\VumaRetail.Workflow.csproj" />
     <!--
       Stage 07. The posting rules engine, the tax engine, the variance checker and the ageing
       bucketer are all pure decisions over Application ports — the accounting rules that must hold

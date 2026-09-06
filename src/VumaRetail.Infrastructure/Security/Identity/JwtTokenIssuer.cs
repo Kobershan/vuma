@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using VumaRetail.Application.Abstractions;
@@ -24,6 +25,15 @@ public static class VumaClaims
 
     /// <summary>The user's security stamp, so a credential change retires the token.</summary>
     public const string SecurityStamp = "vuma:stamp";
+
+    /// <summary>The vendor-issued Operator ID, when the login is in the registry directory (ADR-127).</summary>
+    public const string OperatorId = "vuma:operator";
+
+    /// <summary>
+    /// The companies the login may act in, as compact JSON (<c>[{"c":"guid","r":"roles"}]</c>).
+    /// A request naming a company absent from this claim is 403 (ADR-127).
+    /// </summary>
+    public const string Companies = "vuma:companies";
 }
 
 /// <summary>How access and refresh tokens are signed and how long they live.</summary>
@@ -113,6 +123,16 @@ public sealed class JwtTokenIssuer(JwtOptions options, IClock clock) : ITokenIss
             claims.Add(new Claim(VumaClaims.TerminalId, terminalId.ToString()));
         }
 
+        if (subject.OperatorId is { } operatorId && operatorId != Guid.Empty)
+        {
+            claims.Add(new Claim(VumaClaims.OperatorId, operatorId.ToString()));
+        }
+
+        if (subject.Companies is { Count: > 0 } companies)
+        {
+            claims.Add(new Claim(VumaClaims.Companies, SerialiseCompanies(companies)));
+        }
+
         SecurityTokenDescriptor descriptor = new()
         {
             Subject = new ClaimsIdentity(claims),
@@ -125,5 +145,68 @@ public sealed class JwtTokenIssuer(JwtOptions options, IClock clock) : ITokenIss
         };
 
         return new AccessToken(new JsonWebTokenHandler().CreateToken(descriptor), expiresAt);
+    }
+
+    private static string SerialiseCompanies(IReadOnlyList<CompanyMembership> companies)
+        => VumaCompanyClaims.Serialise(companies);
+}
+
+/// <summary>
+/// Reads and writes the <c>vuma:companies</c> claim in one place so the issuer, the request
+/// edge and the company-selection guard cannot drift apart (ADR-127).
+/// </summary>
+public static class VumaCompanyClaims
+{
+    /// <summary>Serialises company memberships to the compact claim form.</summary>
+    public static string Serialise(IReadOnlyList<CompanyMembership> companies)
+    {
+        ArgumentNullException.ThrowIfNull(companies);
+        return JsonSerializer.Serialize(companies.Select(m => new Entry(m.CompanyId, m.Roles)).ToArray());
+    }
+
+    /// <summary>
+    /// Parses the claim back. Returns <c>null</c> when the token carries no companies claim at
+    /// all (a pre-registry login or a system principal) — which is not the same as an empty set.
+    /// </summary>
+    public static IReadOnlyList<CompanyMembership>? Parse(ClaimsPrincipal? user)
+    {
+        string? raw = user?.FindFirst(VumaClaims.Companies)?.Value;
+
+        if (raw is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            Entry[] entries = JsonSerializer.Deserialize<Entry[]>(raw) ?? [];
+            return entries.Select(e => new CompanyMembership(e.C, e.R)).ToArray();
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException("The access token carries an unreadable companies claim.", exception);
+        }
+    }
+
+    private sealed record Entry(Guid C, string R);
+
+    /// <summary>
+    /// Refuses a company absent from the token's company set (ADR-127: 403, not 404, and not a
+    /// filtered empty result). A token carrying no companies claim at all — pre-registry login,
+    /// system principal — is unrestricted: the claim's absence predates the rule.
+    /// </summary>
+    public static void RequireCompany(System.Security.Claims.ClaimsPrincipal? user, Guid companyId)
+    {
+        IReadOnlyList<CompanyMembership>? companies = Parse(user);
+
+        if (companies is null || companies.Count == 0)
+        {
+            return;
+        }
+
+        if (!companies.Any(m => m.CompanyId == companyId))
+        {
+            throw new Domain.Registry.ForbiddenException(companyId);
+        }
     }
 }

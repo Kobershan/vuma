@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using VumaRetail.Application.Abstractions;
 
 namespace VumaRetail.Infrastructure.Persistence;
 
@@ -15,6 +16,16 @@ public sealed class RegistryDesignTimeDbContextFactory : IDesignTimeDbContextFac
         options.UseNpgsql(connectionString, npgsql =>
             npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
         options.UseSnakeCaseNamingConvention();
-        return new VumaRegistryDbContext(options.Options);
+        return new VumaRegistryDbContext(options.Options, new DesignTimeTenantContext());
+    }
+
+    private sealed class DesignTimeTenantContext : ITenantContext
+    {
+        public Guid TenantId => Guid.Empty;
+        public Guid? StoreId => null;
+        public bool IsFilterBypassed => true;
+        public void SetTenant(Guid tenantId, Guid? storeId = null) { }
+        public IDisposable BypassTenantFilter(string reason) => new Scope();
+        private sealed class Scope : IDisposable { public void Dispose() { } }
     }
 }

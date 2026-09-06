@@ -39,6 +39,8 @@ public static class Schemas
     /// <summary>Licences, leases, activations, entitlements, metering. Stage 04b.</summary>
     public const string Licensing = "licensing";
 
+    /// <summary>Approval policies and requests, notifications, document metadata and versions. Stage 05.</summary>
+    public const string Workflow = "workflow";
     /// <summary>Items, item variants, barcodes and units of measure. Stage 06.</summary>
     public const string Catalog = "catalog";
 

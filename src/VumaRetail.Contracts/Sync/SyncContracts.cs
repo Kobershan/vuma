@@ -23,7 +23,11 @@ public sealed record SyncOperationDto(
     string Operation,
     string Stamp,
     string Payload,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt)
+{
+    /// <summary>The owning company database.</summary>
+    public Guid? CompanyId { get; init; }
+}
 
 /// <summary>
 /// A batch of operations from one node, for one tenant.
@@ -43,7 +47,11 @@ public sealed record SyncBatchRequest(
     string SourceKind,
     Guid TenantId,
     Guid? StoreId,
-    IReadOnlyList<SyncOperationDto> Operations);
+    IReadOnlyList<SyncOperationDto> Operations)
+{
+    /// <summary>The company database represented by this batch.</summary>
+    public Guid? CompanyId { get; init; }
+}
 
 /// <summary>What the receiver did with one operation.</summary>
 /// <param name="OperationId">The operation.</param>

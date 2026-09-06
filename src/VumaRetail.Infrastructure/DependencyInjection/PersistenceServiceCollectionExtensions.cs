@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Infrastructure.Persistence;
@@ -7,6 +8,9 @@ using VumaRetail.Infrastructure.Persistence.Interceptors;
 using VumaRetail.Infrastructure.Security;
 using VumaRetail.Infrastructure.Time;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Registry;
 using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -70,18 +74,50 @@ public static class PersistenceServiceCollectionExtensions
             options.UseNpgsql(registryConnectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
             options.UseSnakeCaseNamingConvention();
-        });
-        services.AddPooledDbContextFactory<VumaRegistryDbContext>((_, options) =>
+        }, optionsLifetime: ServiceLifetime.Singleton);
+        services.AddDbContextFactory<VumaRegistryDbContext>((_, options) =>
         { options.UseNpgsql(registryConnectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry")); options.UseSnakeCaseNamingConvention(); });
+        services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRegistryDbContext>());
         services.AddScoped<ICompanyContext, AmbientCompanyContext>();
         services.AddScoped<ICompanyConnectionResolver, CompanyConnectionResolver>();
         services.AddScoped<ICompanyFanOut, CompanyFanOut>();
         services.AddScoped<ICompanyLifecycleService, CompanyLifecycleService>();
+        services.AddScoped<IRegistrySagaRedriver, RegistrySagaRedriver>();
         services.AddScoped<ICompanyProvisioner, CompanyProvisioner>();
         services.AddScoped<ICompanyDbContextFactory, CompanyDbContextFactory>();
         services.AddScoped<ICompanyConnectionSecretStore, UnconfiguredCompanyConnectionSecretStore>();
         services.AddScoped<ICompanyMigrationRunner, CompanyMigrationRunner>();
         services.AddScoped<ICompanyServingGuard, CompanyServingGuard>();
+
+        // Stage 06d: Group services
+        services.AddScoped<ISagaCoordinator, SagaCoordinator>();
+
+        // Stage 07c: Cross-company money
+        services.AddScoped<IGroupReceiptRepository, GroupReceiptRepository>();
+        services.AddScoped<IGroupReceiptService, GroupReceiptService>();
+        services.AddScoped<GroupReceiptLegHandler>();
+        services.AddScoped<GroupReceiptReversalLegHandler>();
+        services.AddScoped<IConsolidationService, ConsolidationService>();
+        services.AddScoped<NetZeroReconciliationJob>();
+        services.AddScoped<IAlarmService, AlarmService>();
+        services.AddScoped<ICompanyLinkGuard, CompanyLinkGuard>();
+        services.AddScoped<IGroupCreditService, GroupCreditService>();
+        services.AddScoped<IBarcodeResolver, BarcodeResolver>();
+        services.AddScoped<IGroupReadStore, GroupReadStore>();
+
+        // Stage 06e: Trading group
+        services.AddScoped<ICompanyLinkService, CompanyLinkService>();
+        services.AddScoped<IOperatorContext, OperatorContext>();
+        services.AddScoped<IPremisesService, PremisesService>();
+        services.AddScoped<IRegistryUserService, RegistryUserService>();
+        services.AddScoped<ITerminalService, TerminalService>();
+        services.AddScoped<IEntitlementCounters, EntitlementCounters>();
+        services.AddScoped<VumaRetail.Application.Identity.ITokenCompanyEnricher, RegistryTokenCompanyEnricher>();
+
+        // The registry module declares its permissions and its licence flag like every
+        // other module, so the catalogue assembles and the licence can gate it (R7).
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, RegistryPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, RegistryModuleManifest>());
 
         return services;
     }

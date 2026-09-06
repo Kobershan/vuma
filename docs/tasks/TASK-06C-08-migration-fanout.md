@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -95,3 +95,22 @@ Full fleet operational tooling is outside this stage.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-012.
+- 2026-08-29: Implemented registry-first, bounded and resumable company migration fan-out. Company
+  databases are migrated directly from their registered secret (without the serving-only resolver),
+  registry state is marked Pending before fan-out, successful versions come from EF migration history,
+  and failures are redacted while retaining the pending migration name for the serving guard.
+- 2026-08-29: Unit registry suite passed (25 tests); architecture suite passed (35 tests). Required
+  PostgreSQL migration integration tests could not run because Docker is unavailable and
+  `VUMA_TEST_POSTGRES` is not configured. Exact command: `dotnet test
+  tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --no-restore --filter
+  'FullyQualifiedName~MigrationTests'`. Result: all 3 tests failed during fixture initialization with
+  `No PostgreSQL available for the integration tests` / Docker endpoint unavailable. Remains
+  NEEDS_VERIFICATION.
+- 2026-08-29: Re-ran the required migration integration command during autonomous verification; the same
+  three tests failed during `PostgresFixture` initialization because Docker is unavailable and
+  `VUMA_TEST_POSTGRES` is unset. Unit tests (841), architecture tests (35), and the serial solution build
+  passed. Remains NEEDS_VERIFICATION.
+- 2026-08-29: Remediated the repository-local verification prerequisite by starting the disposable local
+  PostgreSQL cluster with `scripts/pg-test.sh start` and exporting its connection string. The required
+  migration integration command passed all 3 tests. Registry unit tests passed 25/25, architecture tests
+  passed 35/35, and the serial solution build passed with 0 warnings and 0 errors. Task is COMPLETE.

@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -95,3 +95,7 @@ API header contract belongs to TASK-06C-10.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-008.
+- 2026-08-28: Hardened the existing company context and factory: empty, mismatched and nested
+  bindings fail closed; factory creation requires an authenticated tenant and serving authorization,
+  validates the resolver result, and rejects a second company DbContext in one operation. Added focused
+  context/factory tests. Unit tests (834) and architecture tests (35) pass.

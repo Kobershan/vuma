@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WORKER="$(cd "$HERE/.." && pwd)/local-vuma-worker.py"
+
+if [[ "${1:-}" == "--version" ]]; then
+    echo "vuma-direct-ollama-shim 1.0"
+    exit 0
+fi
+
+if [[ "${1:-}" == "models" ]]; then
+    echo "ollama/qwen2.5-coder:3b"
+    exit 0
+fi
+
+if [[ "${1:-}" != "run" ]]; then
+    echo "usage: opencode run [--auto] --model MODEL --dir REPO PROMPT"
+    exit 2
+fi
+
+shift
+
+if [[ "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Vuma direct Ollama worker compatibility shim
+
+Usage:
+  opencode run --auto --model MODEL --dir REPO PROMPT
+
+Options:
+  --auto
+  --model MODEL
+  --dir REPO
+EOF
+    exit 0
+fi
+
+MODEL="ollama/qwen2.5-coder:3b"
+REPO=""
+PROMPT=""
+
+while (($#)); do
+    case "$1" in
+        --auto)
+            shift
+            ;;
+        --model)
+            MODEL="${2:?missing --model value}"
+            shift 2
+            ;;
+        --dir)
+            REPO="${2:?missing --dir value}"
+            shift 2
+            ;;
+        --*)
+            echo "Unsupported local-worker option: $1" >&2
+            exit 2
+            ;;
+        *)
+            PROMPT="$1"
+            shift
+            ;;
+    esac
+done
+
+[[ -n "$REPO" ]] || {
+    echo "Missing --dir" >&2
+    exit 2
+}
+
+[[ -n "$PROMPT" ]] || {
+    echo "Missing worker prompt" >&2
+    exit 2
+}
+
+# Deliberately do NOT exec: keeping this wrapper process alive means the
+# existing supervisor's opencode-process recovery logic still sees it.
+python3 "$WORKER" \
+    --repo "$REPO" \
+    --model "$MODEL" \
+    --prompt "$PROMPT"

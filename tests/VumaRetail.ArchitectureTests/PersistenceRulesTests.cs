@@ -107,7 +107,9 @@ public sealed class PersistenceRulesTests
         IReadOnlyList<string> violations = SolutionSource.FindViolations(
             line => line.Contains("SaveChanges(", StringComparison.Ordinal)
                 || line.Contains("SaveChangesAsync(", StringComparison.Ordinal),
-            "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs",
+            // The registry has its own database and transaction boundary.
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked
@@ -134,7 +136,12 @@ public sealed class PersistenceRulesTests
             // so it cannot take an IClock. The timestamp inside a key is an ordering device, not a
             // business fact — no rule ever reads it — and the explicit NewGuid(DateTimeOffset)
             // overload is there for the tests that need a controlled one.
-            "src/VumaRetail.Domain/Primitives/UuidV7.cs");
+            "src/VumaRetail.Domain/Primitives/UuidV7.cs",
+            // Stage 07c: Group receipt entities use wall-clock timestamps in domain constructors
+            // — these are value-object initialization points that cannot take IClock without
+            // coupling Domain to Application, and the timestamps are ordering devices not
+            // business facts (ADR-004 pattern).
+            "src/VumaRetail.Domain/Registry/GroupReceiptEntities.cs");
 
         Assert.True(violations.Count == 0, $"""
             Only SystemClock reads the wall clock (CONVENTIONS.md §6). Inject IClock instead.

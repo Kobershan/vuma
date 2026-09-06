@@ -299,7 +299,11 @@ public sealed record SyncOperation(
     SyncOperationKind Operation,
     HlcStamp Stamp,
     string Payload,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt)
+{
+    /// <summary>The company database that owns the operation. Null is reserved for legacy batches.</summary>
+    public Guid? CompanyId { get; init; }
+}
 
 /// <summary>A batch of operations from one node, for one tenant.</summary>
 /// <param name="SourceNode">The sending node.</param>
@@ -312,7 +316,11 @@ public sealed record SyncBatch(
     NodeKind SourceKind,
     Guid TenantId,
     Guid? StoreId,
-    IReadOnlyList<SyncOperation> Operations);
+    IReadOnlyList<SyncOperation> Operations)
+{
+    /// <summary>The one company database represented by this batch. Registry batches use null.</summary>
+    public Guid? CompanyId { get; init; }
+}
 
 /// <summary>What the receiver did with one operation.</summary>
 /// <param name="OperationId">The operation.</param>

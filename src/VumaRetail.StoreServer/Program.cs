@@ -10,6 +10,7 @@ using VumaRetail.Infrastructure.Sync;
 using VumaRetail.Licensing;
 using VumaRetail.Licensing.Hosting;
 using VumaRetail.Licensing.Signing;
+using VumaRetail.Infrastructure.Workflow;
 using VumaRetail.StoreServer;
 using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
@@ -24,9 +25,11 @@ using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
+using VumaRetail.Web.Registry;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Warehouse;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -88,8 +91,12 @@ string licensingState = builder.Configuration["Vuma:Licensing:StateDirectory"]
     ?? Path.Combine(AppContext.BaseDirectory, "licensing-state");
 
 // Order matters: AddVumaWeb registers the authenticated IPrincipalAccessor, and
-// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot.
+// AddVumaPersistence only supplies its system fallback if nothing has claimed the slot. The
+// registry is registered first so the business database remains the default IUnitOfWork for the
+// ordinary command pipeline; lifecycle services resolve the registry context explicitly.
 builder.Services.AddVumaWeb(jwt, host);
+builder.Services.AddVumaRegistryPersistence(
+    builder.Configuration.GetConnectionString("Registry") ?? connectionString);
 builder.Services.AddVumaPersistence(connectionString);
 
 // Stage 06. Master data: items, variants, barcodes, units of measure, and suppliers/customers. Both
@@ -170,6 +177,20 @@ builder.Services.AddVumaLicensing(
     licensingState,
     builder.Configuration["Vuma:Licensing:IntegrityHash"] ?? string.Empty);
 
+// Stage 05. After AddVumaLicensing/AddVumaWeb: ApprovalEngine reads Stage 02's IRoleRepository to
+// check a decider's own permissions, and none of workflow's writes claim the ADR-028 payment
+// exemption — a lapsed tenant should not be approving purchase orders any more than raising them.
+DocumentBlobStoreOptions documentStore = builder.Configuration
+    .GetSection(DocumentBlobStoreOptions.SectionName)
+    .Get<DocumentBlobStoreOptions>() ?? new DocumentBlobStoreOptions();
+
+if (string.IsNullOrWhiteSpace(documentStore.Directory))
+{
+    documentStore.Directory = Path.Combine(AppContext.BaseDirectory, "workflow-documents");
+}
+
+builder.Services.AddVumaWorkflow(documentStore);
+
 if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(licensing.ControlPlaneBaseAddress))
 {
     // No vendor service on a developer's machine and none in CI. The in-process control plane signs
@@ -230,8 +251,10 @@ if (args.Contains("--restore", StringComparer.Ordinal))
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
+app.MapVumaCompanies();
 app.MapVumaSync();
 app.MapVumaLicensing();
+app.MapVumaWorkflow();
 app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
@@ -242,6 +265,9 @@ app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();
 app.MapVumaImports();
+app.MapVumaRegistry();
+app.MapGroupReceiptEndpoints();
+app.MapConsolidationEndpoints();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

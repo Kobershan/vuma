@@ -49,6 +49,11 @@ public interface ITokenHasher
 /// <param name="ExpiresAt">When it stops being accepted.</param>
 public sealed record AccessToken(string Value, DateTimeOffset ExpiresAt);
 
+/// <summary>A company the token holder may act in, and the roles they hold there.</summary>
+/// <param name="CompanyId">The company.</param>
+/// <param name="Roles">Comma-separated role names in that company.</param>
+public sealed record CompanyMembership(Guid CompanyId, string Roles);
+
 /// <summary>Who an access token is being minted for.</summary>
 /// <param name="UserId">The user.</param>
 /// <param name="TenantId">The tenant, which the request edge uses to set <c>ITenantContext</c>.</param>
@@ -56,19 +61,25 @@ public sealed record AccessToken(string Value, DateTimeOffset ExpiresAt);
 /// <param name="SecurityStamp">The stamp, so a credential change retires the token.</param>
 /// <param name="StoreId">The store being acted in, for a store-scoped session.</param>
 /// <param name="TerminalId">The terminal, for a POS session.</param>
+/// <param name="OperatorId">The vendor-issued Operator ID, when the user is in the registry directory (ADR-127).</param>
+/// <param name="Companies">The companies the user may act in, with roles per company (ADR-127).</param>
 public sealed record TokenSubject(
     Guid UserId,
     Guid TenantId,
     string DisplayName,
     string SecurityStamp,
     Guid? StoreId = null,
-    Guid? TerminalId = null);
+    Guid? TerminalId = null,
+    Guid? OperatorId = null,
+    IReadOnlyList<CompanyMembership>? Companies = null);
 
 /// <summary>Mints signed access tokens.</summary>
 /// <remarks>
 /// The token carries identity, not authorisation. Permissions are resolved per request from the
 /// catalogue — a permission list baked into a 15-minute token is a 15-minute window in which a
-/// revoked permission still works (<c>docs/SECURITY.md</c> §1).
+/// revoked permission still works (<c>docs/SECURITY.md</c> §1). Company *membership* is identity,
+/// not authorisation — which companies a login may act in (ADR-127) — so it travels in the token
+/// while the permissions each membership confers stay resolved per request.
 /// </remarks>
 public interface ITokenIssuer
 {
@@ -79,6 +90,26 @@ public interface ITokenIssuer
 
     /// <summary>How long an issued refresh token lasts.</summary>
     TimeSpan RefreshTokenLifetime { get; }
+}
+
+/// <summary>Registry company membership for one login (ADR-127).</summary>
+/// <param name="OperatorId">The operator that owns the login, if it is in the registry directory.</param>
+/// <param name="Companies">The companies the login may act in, with roles per company.</param>
+public sealed record TokenCompanyEnrichment(Guid? OperatorId, IReadOnlyList<CompanyMembership> Companies)
+{
+    /// <summary>No registry membership — pre-registry logins keep working exactly as before.</summary>
+    public static TokenCompanyEnrichment Empty { get; } = new(null, []);
+}
+
+/// <summary>Resolves a login's registry company membership at sign-in time.</summary>
+/// <remarks>
+/// Optional at the sign-in edge: without a registration the token carries no companies and
+/// everything behaves as before the registry directory existed.
+/// </remarks>
+public interface ITokenCompanyEnricher
+{
+    /// <summary>Looks up the login in the registry directory.</summary>
+    Task<TokenCompanyEnrichment> EnrichAsync(Guid tenantId, string userName, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads and writes <see cref="User"/> rows.</summary>

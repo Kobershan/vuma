@@ -137,6 +137,12 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ClockWatermark` | `licensing` | `NodeLocal` | `LastWriterWins` | The highest wall clock *this* installation has seen |
 | `MeteringRecord` | `licensing` | `NodeLocal` | `LastWriterWins` | Delivered to the vendor over the heartbeat channel, not synced to the tenant's own cloud replica |
 | `SupportGrant` | `licensing` | `Bidirectional` | `LastWriterWins` | Consent can be granted or revoked from the store back office or the cloud-facing admin app; both must converge |
+| `ApprovalPolicy` | `workflow` | `CloudToStore` | `CloudWins` | What requires approval, and by whom, is a head-office decision (ADR-019) — the same authority shape as `Role` |
+| `ApprovalRequest` | `workflow` | `Bidirectional` | `ManualReview` | Raised at either tier (a store's own purchase order, a cloud-side bulk action) and decided at either; a genuine divergence — two nodes both deciding the same request differently — is exactly the case a person, not a policy, should settle |
+| `ApprovalDecisionEntry` | `workflow` | `StoreToCloud` | `AppendOnly` | The decision history, like the audit trail — two nodes recording decisions on the same request converge by accumulation |
+| `Notification` | `workflow` | `Bidirectional` | `LastWriterWins` | A read receipt from either tier is the freshest fact about whether somebody has seen it |
+| `Document` | `workflow` | `Bidirectional` | `LastWriterWins` | Metadata only; attached at either tier, and the latest version pointer is what matters after a merge |
+| `DocumentVersion` | `workflow` | `StoreToCloud` | `AppendOnly` | Never overwritten (ADR-019's non-destructive versioning) — the same posture as the stock ledger |
 | `UnitOfMeasure` | `catalog` | `Bidirectional` | `CloudWins` | Configuration a store may add to locally; head office reconciles a collision the same way it does for `Store` |
 | `Item` | `catalog` | `Bidirectional` | `CloudWins` | A store may raise a new line at the till counter as easily as head office can; the cloud is where a multi-store catalogue is kept consistent |
 | `ItemVariant` | `catalog` | `Bidirectional` | `CloudWins` | Follows its item |
@@ -427,6 +433,13 @@ pg_dump -Fc  →  AES-256-GCM  →  vault (S3 / filesystem)  →  SHA-256 record
                                                               │
 restore:  checksum confirmed  →  decrypt  →  pg_restore --clean --if-exists  →  ledger stamped
 ```
+
+In the multi-company topology the ledger and encrypted object key are database-scoped. A company
+snapshot carries its `company_id` and uses a `tenants/<tenant>/companies/<company>/` vault prefix;
+the registry has its own cadence and `registry/` prefix. Sync batches carry the same one-company
+identity and are rejected if operations from sibling databases are mixed. Restoring a company
+therefore never restores its siblings; the registry can safely re-drive that company's outstanding
+saga legs by their `(intent_id, leg_id)` idempotency key (ADR-120).
 
 **Encryption.** AES-256-GCM in 1 MiB framed chunks — GCM is one-shot and will not stream, and a
 snapshot does not fit in memory. The chunk index is authenticated as associated data, so chunks

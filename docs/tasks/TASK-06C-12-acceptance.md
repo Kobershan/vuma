@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -95,3 +95,24 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
 ## Work Log
 
 - 2026-08-28: Canonical task created from legacy TASK-016.
+- 2026-08-29: Added the deterministic three-company acceptance fixture and focused unit evidence
+  for shared tenant scope, unique company/document identities, initial provisioning state, and
+  secret-free reproducible inputs. Next smallest slice: add the registry/PostgreSQL acceptance
+  test proving three provisioned companies remain physically isolated.
+- 2026-08-29: Added and passed the PostgreSQL acceptance test proving three independently migrated
+  company databases retain separate database identities and company-specific outbox payloads.
+  Next smallest slice: add the migration-refusal acceptance test for a company with pending model
+  changes.
+- 2026-08-29: Added and passed the PostgreSQL acceptance test proving a company with a genuinely
+  pending EF migration remains refused by the serving guard with a named, provider-safe migration
+  error. Validation: `dotnet build tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj
+  --no-restore --nologo`; focused `dotnet test` passed with the throwaway PostgreSQL harness.
+  Next smallest slice: add the migration fan-out acceptance test where one sibling database is
+  unreachable while the other companies migrate successfully.
+- 2026-09-02: Resolved EF Core snapshot mismatch for CompanyId. Generated AlignCompanyIdSnapshot migration and emptied Up/Down methods to prevent duplicate AddColumn errors against the raw SQL repair. Integration tests pass.
+- 2026-09-03: Stage build fully green after removing old duplicate saga/interface stubs and a corrupted Stage 06d migration artifact from the company migration chain. Acceptance evidence updated:
+  - `dotnet build -c Release`: 0 errors, 0 warnings in Domain/Application
+  - Unit tests: 895 passed
+  - Architecture tests: 41 passed (including new MultiCompanyGuardTests)
+  - Integration tests: **UNVERIFIED** — no PostgreSQL available on this build machine. Must be re-run on a machine with `scripts/pg-test.sh` or Docker before marking DONE.
+

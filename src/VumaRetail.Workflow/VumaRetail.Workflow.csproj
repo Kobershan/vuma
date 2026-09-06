@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Approvals, notifications and documents (ADR-019). Stage 05.
+
+    Built once, up front, so later modules configure rather than build (docs/ROADMAP.md "05 before
+    every module"). No EF, no HTTP, no filesystem — it sits above Application and below Infrastructure,
+    on the same pattern as VumaRetail.Sync (ADR-048) and VumaRetail.Licensing (ADR-051). See ADR-072.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Workflow</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Validators for the workflow commands, run by the Stage 03 pipeline. -->
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

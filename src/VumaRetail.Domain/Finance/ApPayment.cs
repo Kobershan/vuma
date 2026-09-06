@@ -38,6 +38,18 @@ public sealed class ApPayment : Entity, IImmutableRecord
     /// <summary>The GL journal this payment posted.</summary>
     public Guid JournalId { get; private set; }
 
+    /// <summary>
+    /// The group payment run this AP payment was dispatched from, or null for direct payments.
+    /// Set when this payment is created as a saga leg from a group payment allocation (Stage 07c).
+    /// </summary>
+    public Guid? GroupDocumentId { get; private set; }
+
+    /// <summary>
+    /// The inter-company clearing intent that created this payment, or null for direct payments.
+    /// Clearing lines carry the intent id so an unmatched leg is identifiable by document (ADR-105).
+    /// </summary>
+    public Guid? IntentId { get; private set; }
+
     /// <summary>How the amount was allocated across invoices.</summary>
     public IReadOnlyList<ApPaymentAllocation> Allocations => _allocations;
 
@@ -91,6 +103,29 @@ public sealed class ApPayment : Entity, IImmutableRecord
                 tenantId, payment.Id, apInvoiceId, allocatedAmount));
         }
 
+        return payment;
+    }
+
+    /// <summary>
+    /// Records a payment dispatched from a group payment allocation (Stage 07c).
+    /// Sets <see cref="GroupDocumentId"/> and <see cref="IntentId"/> for traceability.
+    /// </summary>
+    public static ApPayment RecordFromGroup(
+        Guid tenantId,
+        Guid? storeId,
+        PartnerId partnerId,
+        string paymentNumber,
+        DateTimeOffset paidAt,
+        Money amount,
+        Guid journalId,
+        IReadOnlyList<(Guid ApInvoiceId, Money Amount)> allocations,
+        Guid groupDocumentId,
+        Guid? intentId,
+        Guid? bankAccountId = null)
+    {
+        ApPayment payment = Record(tenantId, storeId, partnerId, paymentNumber, paidAt, amount, journalId, allocations, bankAccountId);
+        payment.GroupDocumentId = groupDocumentId;
+        payment.IntentId = intentId;
         return payment;
     }
 }

@@ -35,6 +35,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("checksum");
 
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
@@ -153,6 +157,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_snapshots_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_snapshots_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StartedAt")
                         .HasDatabaseName("ix_snapshots_tenant_started_at");
 
@@ -173,6 +180,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -272,6 +283,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_barcodes_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_barcodes_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_barcodes_tenant_id_store_id");
 
@@ -292,6 +306,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -397,6 +415,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_items_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_items_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_items_tenant_id_store_id");
 
@@ -413,6 +434,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("attributes");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -496,6 +521,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_item_variants_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_item_variants_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "Sku")
                         .IsUnique()
                         .HasDatabaseName("ux_item_variants_tenant_id_sku")
@@ -522,6 +550,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<decimal>("ConversionFactorToBase")
                         .HasColumnType("numeric(18,6)")
@@ -613,6 +645,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_units_of_measure_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_units_of_measure_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_units_of_measure_tenant_id_store_id");
 
@@ -630,6 +665,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<string>("ControlAccountType")
                         .IsRequired()
@@ -738,6 +777,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_accounts_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_accounts_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_accounts_tenant_id_store_id");
 
@@ -758,6 +800,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("closed_by");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -842,6 +888,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_accounting_periods_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_accounting_periods_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_accounting_periods_tenant_id_store_id");
 
@@ -856,6 +905,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -989,6 +1042,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ix_ap_invoices_partner_id_status")
                         .HasFilter("status <> 'Settled'");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ap_invoices_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_ap_invoices_tenant_id_store_id");
 
@@ -1009,6 +1065,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ApInvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("ap_invoice_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1136,6 +1196,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ap_invoice_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ap_invoice_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_ap_invoice_lines_tenant_id_store_id");
 
@@ -1151,6 +1214,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("BankAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1170,6 +1237,14 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("deleted_by");
+
+                    b.Property<Guid?>("GroupDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_document_id");
+
+                    b.Property<Guid?>("IntentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intent_id");
 
                     b.Property<Guid>("JournalId")
                         .HasColumnType("uuid")
@@ -1252,6 +1327,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ap_payments_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ap_payments_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "PaymentNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_ap_payments_tenant_id_payment_number");
@@ -1275,6 +1353,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ApPaymentId")
                         .HasColumnType("uuid")
                         .HasColumnName("ap_payment_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1361,6 +1443,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ap_payment_allocations_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ap_payment_allocations_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_ap_payment_allocations_tenant_id_store_id");
 
@@ -1372,6 +1457,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1505,6 +1594,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ix_ar_invoices_partner_id_status")
                         .HasFilter("status <> 'Settled'");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ar_invoices_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "InvoiceNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_ar_invoices_tenant_id_invoice_number");
@@ -1524,6 +1616,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ArInvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("ar_invoice_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1651,6 +1747,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ar_invoice_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ar_invoice_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_ar_invoice_lines_tenant_id_store_id");
 
@@ -1666,6 +1765,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("BankAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1685,6 +1788,14 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("deleted_by");
+
+                    b.Property<Guid?>("GroupDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_document_id");
+
+                    b.Property<Guid?>("IntentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intent_id");
 
                     b.Property<Guid>("JournalId")
                         .HasColumnType("uuid")
@@ -1767,6 +1878,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ar_receipts_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ar_receipts_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ReceiptNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_ar_receipts_tenant_id_receipt_number");
@@ -1790,6 +1904,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ArReceiptId")
                         .HasColumnType("uuid")
                         .HasColumnName("ar_receipt_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1876,6 +1994,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ar_receipt_allocations_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_ar_receipt_allocations_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_ar_receipt_allocations_tenant_id_store_id");
 
@@ -1893,6 +2014,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("account_number");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1985,6 +2110,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_bank_accounts_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_bank_accounts_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_bank_accounts_tenant_id_store_id");
 
@@ -2000,6 +2128,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("BankAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("bank_account_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2117,6 +2249,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("BankAccountId", "MatchedJournalLineId")
                         .HasDatabaseName("ix_bank_statement_lines_bank_account_id_matched");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_bank_statement_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_bank_statement_lines_tenant_id_store_id");
 
@@ -2128,6 +2263,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2204,6 +2343,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_document_number_counters_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_document_number_counters_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "Series")
                         .IsUnique()
                         .HasDatabaseName("ux_document_number_counters_tenant_id_series");
@@ -2223,6 +2365,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("AccountingPeriodId")
                         .HasColumnType("uuid")
                         .HasColumnName("accounting_period_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2340,6 +2486,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_journals_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_journals_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "JournalNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_journals_tenant_id_journal_number");
@@ -2363,6 +2512,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("ChannelId")
                         .HasColumnType("uuid")
                         .HasColumnName("channel_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<Guid?>("CostCentreId")
                         .HasColumnType("uuid")
@@ -2485,6 +2638,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_journal_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_journal_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_journal_lines_tenant_id_store_id");
 
@@ -2499,6 +2655,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2581,6 +2741,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_posting_rules_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_posting_rules_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "EventType")
                         .HasDatabaseName("ix_posting_rules_tenant_id_event_type")
                         .HasFilter("is_active");
@@ -2606,6 +2769,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("amount_key");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2699,6 +2866,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_posting_rule_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_posting_rule_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_posting_rule_lines_tenant_id_store_id");
 
@@ -2722,6 +2892,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("checked_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<string>("ControlAccountType")
                         .IsRequired()
@@ -2813,6 +2987,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("AccountId", "CheckedAt")
                         .HasDatabaseName("ix_reconciliation_variance_flags_account_id_checked_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_reconciliation_variance_flags_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_reconciliation_variance_flags_tenant_id_store_id");
 
@@ -2830,6 +3007,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2924,6 +3105,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_tax_rules_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_tax_rules_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_tax_rules_tenant_id_store_id");
 
@@ -2938,6 +3122,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3053,6 +3241,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_refresh_tokens_user_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_refresh_tokens_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_refresh_tokens_tenant_id_store_id");
 
@@ -3064,6 +3255,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3151,6 +3346,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_roles_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_roles_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique()
                         .HasDatabaseName("ux_roles_tenant_id_normalized_name")
@@ -3167,6 +3365,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3248,6 +3450,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_role_permissions_role_id_permission")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_role_permissions_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_role_permissions_tenant_id_store_id");
 
@@ -3275,6 +3480,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3390,6 +3599,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_terminals_store_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_terminals_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_terminals_tenant_id_store_id");
 
@@ -3401,6 +3613,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3536,6 +3752,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ix_users_tenant_id_pin")
                         .HasFilter("pin_hash IS NOT NULL AND deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_users_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("ux_users_tenant_id_normalized_user_name")
@@ -3552,6 +3771,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3626,6 +3849,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_user_role_assignments_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_user_role_assignments_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_user_role_assignments_tenant_id_store_id");
 
@@ -3659,6 +3885,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("committed_by");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<string>("ContentHash")
                         .IsRequired()
@@ -3819,6 +4049,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_import_batches_tenant_id_batch_number")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_import_batches_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ContentHash")
                         .HasDatabaseName("ix_import_batches_tenant_id_content_hash_committed")
                         .HasFilter("status = 'Committed' AND deleted_at IS NULL");
@@ -3840,6 +4073,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3931,6 +4168,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_import_column_mappings_batch_id_target_field")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_import_column_mappings_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_import_column_mappings_tenant_id_store_id");
 
@@ -3956,6 +4196,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4054,6 +4298,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_import_mapping_templates_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_import_mapping_templates_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_import_mapping_templates_tenant_id_store_id");
 
@@ -4074,6 +4321,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<string>("BeforeImage")
                         .HasColumnType("text")
                         .HasColumnName("before_image");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<Guid?>("CompensationEntityId")
                         .HasColumnType("uuid")
@@ -4192,6 +4443,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_import_rows_import_batch_id_row_number")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_import_rows_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_import_rows_tenant_id_store_id");
 
@@ -4209,6 +4463,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4324,6 +4582,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_stock_balances_location_id_item_variant_id")
                         .HasFilter("item_variant_id IS NOT NULL AND deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stock_balances_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stock_balances_tenant_id_store_id");
 
@@ -4342,6 +4603,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("BinId")
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4487,6 +4752,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_stock_ledger_entries_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stock_ledger_entries_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stock_ledger_entries_tenant_id_store_id");
 
@@ -4513,6 +4781,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4600,6 +4872,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_stock_locations_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stock_locations_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stock_locations_tenant_id_store_id");
 
@@ -4611,6 +4886,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4739,6 +5018,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_stock_transfers_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stock_transfers_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stock_transfers_tenant_id_store_id");
 
@@ -4755,6 +5037,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4872,6 +5158,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_stocktake_lines_session_id_item_variant_id")
                         .HasFilter("item_variant_id IS NOT NULL AND deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stocktake_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stocktake_lines_tenant_id_store_id");
 
@@ -4886,6 +5175,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4969,6 +5262,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_stocktake_sessions_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stocktake_sessions_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "LocationId")
                         .HasDatabaseName("ix_stocktake_sessions_open_by_location")
                         .HasFilter("status = 'Open' AND deleted_at IS NULL");
@@ -4992,6 +5288,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ActivationReference")
                         .HasColumnType("uuid")
                         .HasColumnName("activation_reference");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5109,6 +5409,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_activations_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_activations_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "NodeId")
                         .IsUnique()
                         .HasDatabaseName("ux_activations_tenant_node")
@@ -5125,6 +5428,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5205,6 +5512,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_clock_watermarks_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_clock_watermarks_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "NodeId")
                         .IsUnique()
                         .HasDatabaseName("ux_clock_watermarks_tenant_node")
@@ -5225,6 +5535,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("CodeReference")
                         .HasColumnType("uuid")
                         .HasColumnName("code_reference");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5313,6 +5627,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_emergency_unlocks_tenant_code");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_emergency_unlocks_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ExpiresAt")
                         .HasDatabaseName("ix_emergency_unlocks_tenant_expires_at");
 
@@ -5341,6 +5658,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<decimal?>("AmountDueValue")
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("amount_due_value");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5478,6 +5799,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_leases_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_leases_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "IssuedAt")
                         .HasDatabaseName("ix_leases_tenant_issued_at");
 
@@ -5496,6 +5820,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("ActivationId")
                         .HasColumnType("uuid")
                         .HasColumnName("activation_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5607,6 +5935,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_licences_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_licences_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "IssuanceCounter")
                         .HasDatabaseName("ix_licences_tenant_issuance_counter");
 
@@ -5625,6 +5956,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<int>("AttemptCount")
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5716,6 +6051,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_metering_records_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_metering_records_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "Period")
                         .HasDatabaseName("ix_metering_records_pending")
                         .HasFilter("state = 'Pending' AND deleted_at IS NULL");
@@ -5736,6 +6074,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5847,6 +6189,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_support_grants_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_support_grants_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "GrantReference")
                         .IsUnique()
                         .HasDatabaseName("ux_support_grants_tenant_reference")
@@ -5866,6 +6211,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5952,6 +6301,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_tamper_flags_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_tamper_flags_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "DetectedAt")
                         .HasDatabaseName("ix_tamper_flags_unreported")
                         .HasFilter("reported_at IS NULL");
@@ -5987,6 +6339,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("channel");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6163,6 +6519,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_orders_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_orders_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "OrderNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_sales_orders_tenant_id_order_number")
@@ -6179,6 +6538,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6344,6 +6707,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_order_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_order_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sales_order_lines_tenant_id_store_id");
 
@@ -6362,6 +6728,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("AuthorisedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("authorised_by_user_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6509,6 +6879,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_order_returns_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_order_returns_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ReturnNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_sales_order_returns_tenant_id_return_number")
@@ -6525,6 +6898,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6714,6 +7091,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_order_return_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_order_return_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sales_order_return_lines_tenant_id_store_id");
 
@@ -6734,6 +7114,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6836,6 +7220,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_partners_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_partners_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_partners_tenant_id_store_id");
 
@@ -6858,6 +7245,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("changes");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -6958,6 +7349,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_audit_entries_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_audit_entries_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "OccurredAt")
                         .HasDatabaseName("ix_audit_entries_tenant_id_occurred_at");
 
@@ -6981,6 +7375,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7073,6 +7471,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_stores_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_stores_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_stores_tenant_id_store_id");
 
@@ -7091,6 +7492,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character(3)")
                         .HasColumnName("base_currency")
                         .IsFixedLength();
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7190,6 +7595,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_tenants_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_tenants_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_tenants_tenant_id_store_id");
 
@@ -7201,6 +7609,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7295,6 +7707,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("SaleId", "PrintedAt")
                         .HasDatabaseName("ix_receipt_prints_sale_id_printed_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_receipt_prints_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_receipt_prints_tenant_id_store_id");
 
@@ -7309,6 +7724,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7505,6 +7924,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "SaleNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_sales_tenant_id_sale_number")
@@ -7535,6 +7957,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7750,6 +8176,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_sale_lines_sale_id_line_number")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sale_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sale_lines_tenant_id_store_id");
 
@@ -7774,6 +8203,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CapturedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("captured_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7872,6 +8305,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sale_tenders_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sale_tenders_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sale_tenders_tenant_id_store_id");
 
@@ -7897,6 +8333,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("ClosedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("closed_by_user_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8015,6 +8455,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_till_sessions_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_till_sessions_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_till_sessions_tenant_id_store_id");
 
@@ -8039,6 +8482,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8173,6 +8620,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "ReceivedAt")
                         .HasDatabaseName("ix_goods_receipts_status_received_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_goods_receipts_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ReceiptNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_goods_receipts_tenant_id_number")
@@ -8196,6 +8646,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8389,6 +8843,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_goods_receipt_lines_receipt_id_order_line_id")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_goods_receipt_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_goods_receipt_lines_tenant_id_store_id");
 
@@ -8436,6 +8893,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closed_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8605,6 +9066,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "ExpectedAt")
                         .HasDatabaseName("ix_purchase_orders_status_expected_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_purchase_orders_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "OrderNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_purchase_orders_tenant_id_number")
@@ -8632,6 +9096,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8843,6 +9311,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_purchase_order_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_purchase_order_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_purchase_order_lines_tenant_id_store_id");
 
@@ -8865,6 +9336,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -8985,6 +9460,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "RequiredBy")
                         .HasDatabaseName("ix_purchase_requisitions_status_required_by");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_purchase_requisitions_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "RequisitionNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_purchase_requisitions_tenant_id_number")
@@ -9004,6 +9482,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9125,6 +9607,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_purchase_requisition_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_purchase_requisition_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_purchase_requisition_lines_tenant_id_store_id");
 
@@ -9157,6 +9642,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("ClosesAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closes_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9256,6 +9745,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "ClosesAt")
                         .HasDatabaseName("ix_rfqs_status_closes_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_rfqs_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "RfqNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_rfqs_tenant_id_number")
@@ -9275,6 +9767,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9387,6 +9883,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_rfq_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_rfq_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_rfq_lines_tenant_id_store_id");
 
@@ -9407,6 +9906,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid?>("AwardedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("awarded_by_user_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9537,6 +10040,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_rfq_responses_rfq_id_partner_id")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_rfq_responses_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_rfq_responses_tenant_id_store_id");
 
@@ -9555,6 +10061,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9696,6 +10206,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_rfq_response_lines_response_id_rfq_line_id")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_rfq_response_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_rfq_response_lines_tenant_id_store_id");
 
@@ -9712,6 +10225,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9930,6 +10447,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "MatchedAt")
                         .HasDatabaseName("ix_supplier_invoice_matches_status_matched_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_supplier_invoice_matches_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_supplier_invoice_matches_tenant_id_store_id");
 
@@ -9952,6 +10472,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10193,6 +10717,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_supplier_invoice_match_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_supplier_invoice_match_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_supplier_invoice_match_lines_tenant_id_store_id");
 
@@ -10213,6 +10740,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10381,6 +10912,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("PeriodStart", "PeriodEnd")
                         .HasDatabaseName("ix_supplier_scorecards_period");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_supplier_scorecards_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_supplier_scorecards_tenant_id_store_id");
 
@@ -10412,6 +10946,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10526,6 +11064,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_price_lists_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_price_lists_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_price_lists_tenant_id_store_id");
 
@@ -10540,6 +11081,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10642,6 +11187,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_price_list_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_price_list_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_price_list_lines_tenant_id_store_id");
 
@@ -10665,6 +11213,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10814,6 +11366,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_price_override_logs_operator_user_id_occurred_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_price_override_logs_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_price_override_logs_tenant_id_store_id");
 
@@ -10838,6 +11393,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -10979,6 +11538,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_promotions_tenant_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_promotions_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_promotions_tenant_id_store_id");
 
@@ -11006,6 +11568,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("category_code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -11090,6 +11656,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_promotion_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_promotion_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_promotion_lines_tenant_id_store_id");
 
@@ -11112,6 +11681,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -11277,6 +11850,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("Status", "CompletedAt")
                         .HasDatabaseName("ix_sales_returns_status_completed_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_returns_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "ReturnNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_sales_returns_tenant_id_return_number")
@@ -11302,6 +11878,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -11513,6 +12093,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_sales_return_lines_return_id_sale_line_id")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sales_return_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sales_return_lines_tenant_id_store_id");
 
@@ -11537,6 +12120,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -11669,6 +12256,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_conflict_entries_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_conflict_entries_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "DetectedAt")
                         .HasDatabaseName("ix_conflict_entries_open")
                         .HasFilter("resolution = 'Unresolved' AND deleted_at IS NULL");
@@ -11684,6 +12274,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -11791,6 +12385,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_inbox_messages_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_inbox_messages_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_inbox_messages_tenant_id_store_id");
 
@@ -11810,6 +12407,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<int>("AttemptCount")
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<string>("ConflictPolicy")
                         .IsRequired()
@@ -11956,6 +12557,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_outbox_messages_source_node_operation_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_outbox_messages_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_outbox_messages_tenant_id_store_id");
 
@@ -11977,6 +12581,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(86)
                         .HasColumnType("character varying(86)")
                         .HasColumnName("acknowledged_stamp");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12059,6 +12667,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sync_cursors_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_sync_cursors_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_sync_cursors_tenant_id_store_id");
 
@@ -12090,6 +12701,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12188,6 +12803,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_bins_location_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_bins_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_bins_tenant_id_store_id");
 
@@ -12203,6 +12821,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("BinId")
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12319,6 +12941,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_bin_stock_bin_id_item_variant_id")
                         .HasFilter("item_variant_id IS NOT NULL AND deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_bin_stock_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_bin_stock_tenant_id_store_id");
 
@@ -12339,6 +12964,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("BinId")
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12453,6 +13082,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("BinId", "CreatedAt")
                         .HasDatabaseName("ix_bin_stock_movements_bin_id_created_at");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_bin_stock_movements_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_bin_stock_movements_tenant_id_store_id");
 
@@ -12469,6 +13101,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12557,6 +13193,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_cycle_counts_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_cycle_counts_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "LocationId")
                         .HasDatabaseName("ix_cycle_counts_open_by_location")
                         .HasFilter("status = 'Open' AND deleted_at IS NULL");
@@ -12576,6 +13215,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("BinId")
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12683,6 +13326,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_cycle_count_lines_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_cycle_count_lines_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_cycle_count_lines_tenant_id_store_id");
 
@@ -12707,6 +13353,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12795,6 +13445,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_pack_tasks_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_pack_tasks_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_pack_tasks_tenant_id_store_id");
 
@@ -12814,6 +13467,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<decimal?>("AllocatedQuantityValue")
                         .HasColumnType("numeric(18,6)")
                         .HasColumnName("allocated_quantity_value");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -12927,6 +13584,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_pick_tasks_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_pick_tasks_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_pick_tasks_tenant_id_store_id");
 
@@ -12941,6 +13601,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -13036,6 +13700,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_pick_waves_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_pick_waves_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_pick_waves_tenant_id_store_id");
 
@@ -13047,6 +13714,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset?>("ConfirmedAt")
                         .HasColumnType("timestamp with time zone")
@@ -13179,6 +13850,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_putaway_tasks_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_putaway_tasks_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "LocationId")
                         .HasDatabaseName("ix_putaway_tasks_pending_by_location")
                         .HasFilter("status = 'Pending' AND deleted_at IS NULL");
@@ -13202,6 +13876,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("carrier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -13286,6 +13964,9 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_shipment_confirmations_tenant_id");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_shipment_confirmations_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_shipment_confirmations_tenant_id_store_id");
 
@@ -13303,6 +13984,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -13394,10 +14079,861 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasDatabaseName("ux_zones_location_id_code")
                         .HasFilter("deleted_at IS NULL");
 
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_zones_tenant_id_company_id");
+
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_zones_tenant_id_store_id");
 
                     b.ToTable("zones", "warehouse");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalDecisionEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApprovalRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approval_request_id");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("comment");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("DecidedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("decided_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("outcome");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_approval_decision_entries");
+
+                    b.HasIndex("ApprovalRequestId")
+                        .HasDatabaseName("ix_approval_decision_entries_request");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_approval_decision_entries_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_approval_decision_entries_tenant_id");
+
+                    b.HasIndex("ApprovalRequestId", "DecidedBy")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_decision_entries_request_decider");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_approval_decision_entries_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_approval_decision_entries_tenant_id_store_id");
+
+                    b.ToTable("approval_decision_entries", "workflow");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("action");
+
+                    b.Property<bool>("AllowSelfApproval")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_self_approval");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("entity_type");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<int>("MinApprovals")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_approvals");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("module");
+
+                    b.Property<string>("RequiredPermission")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("required_permission");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("ThresholdAmountCurrency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("threshold_currency")
+                        .IsFixedLength();
+
+                    b.Property<decimal?>("ThresholdAmountValue")
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("threshold_amount");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_approval_policies");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_approval_policies_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_approval_policies_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_approval_policies_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_approval_policies_tenant_id_store_id");
+
+                    b.HasIndex("TenantId", "Module", "EntityType", "Action")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_policies_tenant_key")
+                        .HasFilter("is_active AND deleted_at IS NULL");
+
+                    b.ToTable("approval_policies", "workflow");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.ApprovalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("action");
+
+                    b.Property<bool>("AllowSelfApproval")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_self_approval");
+
+                    b.Property<string>("AmountCurrency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("amount_currency")
+                        .IsFixedLength();
+
+                    b.Property<decimal?>("AmountValue")
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("amount_amount");
+
+                    b.Property<int>("ApprovalCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("approval_count");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("entity_type");
+
+                    b.Property<int>("MinApprovals")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_approvals");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("module");
+
+                    b.Property<Guid>("PolicyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("policy_id");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("RejectionCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("rejection_count");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("requested_by");
+
+                    b.Property<string>("RequiredPermission")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("required_permission");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<Guid>("SubjectEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_entity_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_approval_requests");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_approval_requests_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_approval_requests_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_approval_requests_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_approval_requests_tenant_id_store_id");
+
+                    b.HasIndex("TenantId", "StoreId", "Status")
+                        .HasDatabaseName("ix_approval_requests_pending")
+                        .HasFilter("status = 'Pending'");
+
+                    b.ToTable("approval_requests", "workflow");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.Document", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<int>("CurrentVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_version_number");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("entity_type");
+
+                    b.Property<bool>("IsGenerated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_generated");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("module");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_documents");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_documents_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_documents_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_documents_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_documents_tenant_id_store_id");
+
+                    b.HasIndex("TenantId", "Module", "EntityType", "EntityId")
+                        .HasDatabaseName("ix_documents_entity");
+
+                    b.ToTable("documents", "workflow");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.DocumentVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_hash");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("GeneratedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("generated_by");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_document_versions");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_document_versions_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_document_versions_tenant_id");
+
+                    b.HasIndex("DocumentId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_document_versions_document_version");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_document_versions_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_document_versions_tenant_id_store_id");
+
+                    b.ToTable("document_versions", "workflow");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Workflow.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("action_url");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("category");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("DeliveryError")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("delivery_error");
+
+                    b.Property<string>("DeliveryStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("delivery_status");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_read");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_entity_id");
+
+                    b.Property<string>("RelatedEntityType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("related_entity_type");
+
+                    b.Property<string>("RelatedModule")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("related_module");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("severity");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("RecipientUserId")
+                        .HasDatabaseName("ix_notifications_recipient_unread")
+                        .HasFilter("channel = 'InApp' AND NOT is_read");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_notifications_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_notifications_tenant_id");
+
+                    b.HasIndex("RecipientUserId", "CreatedAt")
+                        .HasDatabaseName("ix_notifications_recipient");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_notifications_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_notifications_tenant_id_store_id");
+
+                    b.ToTable("notifications", "workflow");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Finance.ApInvoiceLine", b =>

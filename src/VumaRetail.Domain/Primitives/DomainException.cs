@@ -95,4 +95,14 @@ public interface IProblemExtensions
     /// entitled to see: this is serialised into the response body.
     /// </summary>
     IReadOnlyDictionary<string, object?> ProblemExtensions { get; }
+
+    /// <summary>
+    /// The problem <c>type</c> URI, when the failure has a stable documented type beyond the
+    /// kind-derived document. Defaults to <c>null</c>, which keeps the kind-derived document.
+    /// </summary>
+    /// <remarks>
+    /// A default member so existing implementers are unaffected: only a failure whose contract
+    /// names a type (Stage 06e's <c>company-link-required</c>) overrides it.
+    /// </remarks>
+    string? ProblemTypeUrl => null;
 }

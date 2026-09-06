@@ -17,7 +17,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-06D-001 | Implement saga coordination | Stage 06c | NOT_STARTED |
+| TASK-06D-001 | Implement saga coordination | Stage 06c | IN_PROGRESS |
 | TASK-06D-002 | Implement group credit holds | TASK-06D-001 | NOT_STARTED |
 | TASK-06D-003 | Implement barcode routing and group read models | TASK-06D-001 | NOT_STARTED |
 | TASK-06D-004 | Complete Stage 06d verification and seed | TASK-06D-001 through TASK-06D-003 | NOT_STARTED |

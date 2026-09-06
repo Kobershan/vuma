@@ -28,6 +28,12 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
         (await TableNamesAsync(connectionString)).Should().Contain(["tenants", "stores", "audit_entries"]);
+
+        // Stage 05. Every migration in the chain applies to an empty database, not just the first.
+        (await TableNamesAsync(connectionString, "workflow")).Should().Contain([
+            "approval_policies", "approval_requests", "approval_decision_entries",
+            "notifications", "documents", "document_versions",
+        ]);
     }
 
     [Fact]
@@ -63,7 +69,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await migrator.MigrateAsync();
         (await TableNamesAsync(connectionString)).Should().Contain("stores");
 
-        // "0" is EF's name for the empty state, before the first migration.
+        // "0" is EF's name for the empty state, before the first migration — reversing every
+        // migration in the chain, Stage 05's Workflow included.
         await migrator.MigrateAsync("0");
 
         IReadOnlyCollection<string> afterDown = await TableNamesAsync(connectionString);
@@ -71,21 +78,31 @@ public sealed class MigrationTests(PostgresFixture fixture)
         afterDown.Should().NotContain("stores");
         afterDown.Should().NotContain("audit_entries");
 
+        (await TableNamesAsync(connectionString, "workflow")).Should().BeEmpty(
+            "Workflow.Down drops every table it created");
+
         // The migrations history table survives Down on purpose: it is EF's own bookkeeping, not
         // part of the schema the migration created.
         await migrator.MigrateAsync();
         (await TableNamesAsync(connectionString)).Should().Contain(["tenants", "stores", "audit_entries"]);
+        (await TableNamesAsync(connectionString, "workflow")).Should().Contain([
+            "approval_policies", "approval_requests", "approval_decision_entries",
+            "notifications", "documents", "document_versions",
+        ]);
     }
 
-    private static async Task<IReadOnlyCollection<string>> TableNamesAsync(string connectionString)
+    private static async Task<IReadOnlyCollection<string>> TableNamesAsync(
+        string connectionString,
+        string schema = "platform")
     {
         await using NpgsqlConnection connection = new(connectionString);
         await connection.OpenAsync();
 
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = """
-            SELECT table_name FROM information_schema.tables WHERE table_schema = 'platform'
+            SELECT table_name FROM information_schema.tables WHERE table_schema = @schema
             """;
+        command.Parameters.AddWithValue("schema", schema);
 
         List<string> tables = [];
 

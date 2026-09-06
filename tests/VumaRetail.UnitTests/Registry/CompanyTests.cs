@@ -17,15 +17,31 @@ public sealed class CompanyTests
     }
 
     [Fact]
-    public void Active_requires_the_explicit_active_flag()
+    public void Active_requires_registered_secret_and_explicit_active_flag()
     {
         Company company = CreateCompany();
 
+        company.SetLifecycle(CompanyLifecycleState.Seeding);
+        company.SetLifecycle(CompanyLifecycleState.Registered);
+        var act = () => company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+        act.Should().Throw<InvalidOperationException>();
+
+        company.SetConnectionSecretRef("secret://tenant/company");
         company.SetLifecycle(CompanyLifecycleState.Active);
         company.IsActive.Should().BeFalse();
 
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         company.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Lifecycle_rejects_skipping_provisioning_states()
+    {
+        Company company = CreateCompany();
+
+        var act = () => company.SetLifecycle(CompanyLifecycleState.Active);
+
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
@@ -36,6 +52,26 @@ public sealed class CompanyTests
         company.SetConnectionSecretRef("secret://tenant/company");
 
         company.ConnectionSecretRef.Should().Be("secret://tenant/company");
+    }
+
+    [Fact]
+    public void Provisioning_progress_is_resumable_and_failure_is_safe_to_expose()
+    {
+        Company company = CreateCompany();
+
+        company.RecordProvisioningProgress("create-database");
+        company.ProvisioningStep.Should().Be("create-database");
+        company.ProvisioningError.Should().BeNull();
+        company.ProvisioningAttempts.Should().Be(1);
+
+        company.RecordProvisioningFailure("Provisioning step failed.");
+        company.ProvisioningError.Should().Be("Provisioning step failed.");
+        company.IsActive.Should().BeFalse();
+        company.LifecycleState.Should().Be(CompanyLifecycleState.Provisioning);
+
+        company.RecordProvisioningProgress("migrate");
+        company.ProvisioningError.Should().BeNull();
+        company.ProvisioningAttempts.Should().Be(3);
     }
 
     [Fact]

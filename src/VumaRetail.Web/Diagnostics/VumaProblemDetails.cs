@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Contracts;
 using VumaRetail.Domain.Primitives;
@@ -55,6 +57,15 @@ public sealed class VumaExceptionHandler(
         {
             ValidationFailedException validation => Validation(validation),
             DomainException domain => Domain(domain),
+            InvalidOperationException { Message: "COMPANY_NOT_FOUND" } => Build(StatusCodes.Status404NotFound, "Not found", "The company was not found.", "COMPANY_NOT_FOUND"),
+            InvalidOperationException { Message: "COMPANY_NOT_READY" } => Build(StatusCodes.Status422UnprocessableEntity, "Rule violation", "The company is not ready to activate.", "COMPANY_NOT_READY"),
+            InvalidOperationException { Message: "COMPANY_SELECTION_REQUIRED" } => Build(StatusCodes.Status400BadRequest, "Bad request", "A valid company selection header is required.", "COMPANY_SELECTION_REQUIRED"),
+            InvalidOperationException { Message: "COMPANY_DUPLICATE" } => Build(StatusCodes.Status409Conflict, "Conflict", "A company with those identifying details already exists.", "COMPANY_DUPLICATE"),
+            InvalidOperationException { Message: "LINK_STATUS_UNKNOWN" } => Build(StatusCodes.Status400BadRequest, "Bad request", "Unknown company link status.", "LINK_STATUS_UNKNOWN"),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.CheckViolation } postgres } => DbCheckViolation(postgres),
+            PostgresException { SqlState: PostgresErrorCodes.CheckViolation } postgres => DbCheckViolation(postgres),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres } => DbUniqueViolation(postgres),
+            PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres => DbUniqueViolation(postgres),
             BadHttpRequestException malformed => Malformed(malformed),
             _ => Unhandled(exception, httpContext),
         };
@@ -119,6 +130,13 @@ public sealed class VumaExceptionHandler(
         // stays in one place and each module still decides what it has to say (Stage 04b).
         if (exception is IProblemExtensions extended)
         {
+            // A named problem type (Stage 06e's company-link-required) travels on the document's
+            // type, where a client branches on it, not smuggled inside extensions.
+            if (extended.ProblemTypeUrl is not null)
+            {
+                problem.Type = extended.ProblemTypeUrl;
+            }
+
             foreach ((string name, object? value) in extended.ProblemExtensions)
             {
                 problem.Extensions[name] = value;
@@ -186,6 +204,43 @@ public sealed class VumaExceptionHandler(
         Detail = detail,
         Extensions = { ["code"] = code },
     };
+
+    /// <summary>
+    /// A row the database refused on a check constraint (SQL state 23514). The constraint is the
+    /// last line of defence behind the domain and its validators, so reaching it means a rule with
+    /// no coded refusal yet — answered as one (422), never as a 500.
+    /// </summary>
+    private static ProblemDetails DbCheckViolation(PostgresException exception) => WithConstraint(
+        Build(
+            StatusCodes.Status422UnprocessableEntity,
+            "Rule violation",
+            "A business rule enforced by the database refused the change.",
+            "CHECK_VIOLATION"),
+        exception);
+
+    /// <summary>
+    /// A row the database refused on a unique constraint (SQL state 23505): something that must be
+    /// unique already exists. Answered as a conflict (409), never as a 500.
+    /// </summary>
+    private static ProblemDetails DbUniqueViolation(PostgresException exception) => WithConstraint(
+        Build(
+            StatusCodes.Status409Conflict,
+            "Conflict",
+            "Something that must be unique already exists.",
+            "UNIQUE_VIOLATION"),
+        exception);
+
+    private static ProblemDetails WithConstraint(ProblemDetails problem, PostgresException exception)
+    {
+        // The constraint name is a stable identifier, not business data: it tells the caller which
+        // rule fired without echoing the row that fired it.
+        if (exception.ConstraintName is not null)
+        {
+            problem.Extensions["constraint"] = exception.ConstraintName;
+        }
+
+        return problem;
+    }
 }
 
 /// <summary>Registers <c>ProblemDetails</c>, the exception handler and the status-code pages.</summary>

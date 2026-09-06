@@ -183,5 +183,14 @@ public static class BackupCli
             .Database
             .MigrateAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        // Both databases, not just the company's. A deployment migrated without the registry
+        // schema serves every registry read — sign-in enrichment, operator resolution, company
+        // links — as "relation does not exist" 500s.
+        await scope.ServiceProvider
+            .GetRequiredService<VumaRegistryDbContext>()
+            .Database
+            .MigrateAsync(cancellationToken)
+            .ConfigureAwait(false);
     }
 }
