@@ -7,6 +7,44 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 08c — planning gate + TASK-08C-001 implementation complete (2026-09-06):** Step 0 done first:
+`docs/tasks/TASK-08C-001-availability-reservation-ledger.md`, `TASK-08C-002-sourcing-split-fulfilment.md`,
+`TASK-08C-003-stage-verification.md` written to the canonical template (naming decision recorded:
+`group.view` would violate ADR-013's three-segment rule per the ADR-139 precedent, so the group read
+is gated on `registry.availability.view`). TASK-08C-001 then built in full: Domain (`StockReservation`
+append-only chain with Hold/Consume/Release/Expire factories, `AvailableToPromise` VO with
+never-negative construction, `AvailableBalance` projection holding reserved/staging/incoming but never
+on-hand); Application (repositories, `IAvailabilityService` with distinct local/group return types,
+`IReservationService`, reserve/consume/release commands, local/group queries, 3 new permissions);
+Infrastructure (`stock_reservations` with open-chain + `(intent,leg,sequence)` idempotency partial
+uniques, `available_balances`, `registry.group_availability_rows` + cursors, serialisable
+`ReservationService` with FOR UPDATE + reload + re-check + 40001/23505 retry, outbox capture through
+the Sync primitives, relay + rebuild, staging reader over warehouse bins, DI wiring); two migrations,
+both purely additive and reversible; API (`GET /api/v1/availability?groupScope`, reservation
+endpoints with interim explicit company binding); DemoSeed hold (8 of 40 EA, `SO-DEMO-001`).
+Evidence, all on real PostgreSQL (throwaway cluster per ADR-036, `VUMA_TEST_POSTGRES`): unit 995/995
+(18 new), architecture 54/54 (2 exemption rows added with reasons: service-owned serialisable
+transactions), integration 466/466 — incl. 5 ledger tests (partial hold, 3-row release chain,
+consume finality, 2-connection last-5-units race, 72h expiry), 4 projection tests (publish→view,
+stale naming, relay heal, 500-op rebuild equality with fixed seed), 3 HTTP tests (round-trip,
+403-without-registry-permission, OpenAPI presence). Two cross-stage defects found and fixed, both
+blocking all company-bound writes, both with worked examples in the session: (1) the company query
+filter hid tenant-level licence rows under a bound company, so the read-only guard evaluated
+`NotActivated` on a current subscription — licensing entities now take the tenant-only filter shape;
+(2) the singleton `IDbContextFactory<VumaRegistryDbContext>` resolved the scoped `ITenantContext`
+from the root provider, so every factory-created registry context matched nothing — replaced with a
+scoped factory carrying the ambient tenant (both consumers were scoped). Also fixed in passing:
+`ReservationService` now implements `IDisposable` as well as `IAsyncDisposable` (sync-disposed
+scopes threw), `CompanyDbContextFactory` optionally wires the audit interceptor (legs were
+unstamped, R6 gap), one permission-count test updated for the new permission. No new ADR: saga
+shape (116), stale planning (119), local reservations (103) and link checks (122) already cover the
+design; saga-record driving without the shared dispatcher is recorded in TASK-08C-002 for convergence
+with 07C-004. Follow-ups (not this stage): Empty-company legacy rows are invisible under a bound
+company — needs a 06c backfill decision, not an 08c predicate change; bound-scope identity permission
+checks read Empty-company role rows (same class); Stage 14 rework onto this ledger; `Incoming`
+carried as zero (no Stage 12 feed wired); no hosted relay loop (direct publish + on-demand rebuild —
+a timer is a later ops decision).
+
 **Stage 07c — TASK-07C-003 verification executed, verdict FAIL (2026-09-06):** `main` was red on
 arrival — the 08b merge dropped `Release|Any CPU.Build.0` for Finance + CloudApi from
 `VumaRetail.sln`, so Infrastructure compiled without its Finance reference (CS0234/CS0246). Restored
@@ -266,7 +304,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 07 | Finance — GL, AR, AP, banking, tax, posting rules engine | **DONE** (main) | 2026-08-15 |
 | 08 | Inventory core — stock ledger, valuation, adjustments, transfers, stocktakes | **DONE** (main) | 2026-08-15 |
 | 07c | Cross-company money — group receipting and allocation, inter-company clearing, consolidated reporting | **CODE_COMPLETE** — all layers implemented; verification deferred (needs .NET 9 SDK + PostgreSQL) | 2026-09-04 |
-| 08c | Cross-company availability, reservations & split fulfilment | **NOT_STARTED** — added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
+| 08c | Cross-company availability, reservations & split fulfilment | **IN_PROGRESS** — planning gate done (3 task files); TASK-08C-001 ledger complete with tests (see session entry 2026-09-06). Next: TASK-08C-002 sourcing/split. Added 2026-08-22 (ADR-102, ADR-103). Stage 14's allocation should consume this rather than build its own reservation model | — |
 | 08b | Design system & theming | **DONE** — tokens.json, token generator (WPF/Compose/CSS), WPF controls library, architecture tests (contrast, hex scan, fonts), CI pipeline updated. All 54 architecture tests green. WPF Desktop project targets net9.0-windows (builds on Windows CI only). | 2026-09-06 |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`; `stage-verifier` has not been re-run since 2026-08-24's fix pass. §4.10, §4.11, §4.12, §4.13, §4.14 and §4.15 are all **closed** as of `86f8dbd` (ADR-135–ADR-138 record the design). Still open: §4.16-shaped mechanical gaps carried from the review round — §4.20's `MatchedNet` mislabel (Procurement, low severity, not POS's own), §4.22 OpenAPI examples (dozens of endpoints across every reopened stage, not POS-specific), and Stage 11's coverage floor. The agent panel against 2026-08-24's fix pass could not run (account session limit, see the entry at the top of this file) — reviewed directly instead; **still owed a real run once the limit resets.** *WPF shell deferred.* Build/tests (740 unit/34 architecture/417 integration, all green) independently verified; no migration needed | 2026-08-24 |
 | 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |

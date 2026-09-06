@@ -157,6 +157,12 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One counted stock-keeping unit within a session.</summary>
     public DbSet<Domain.Inventory.StocktakeLine> StocktakeLines => Set<Domain.Inventory.StocktakeLine>();
 
+    /// <summary>The append-only reservation hold ledger. Releases are new rows, never edits (Stage 08c, ADR-103).</summary>
+    public DbSet<Domain.Inventory.StockReservation> StockReservations => Set<Domain.Inventory.StockReservation>();
+
+    /// <summary>Reserved / staging / incoming positions, the projection the reservation ledger sums to (Stage 08c).</summary>
+    public DbSet<Domain.Inventory.AvailableBalance> AvailableBalances => Set<Domain.Inventory.AvailableBalance>();
+
     /// <summary>A cashier's shift at one terminal, and the cash-up that closes it (Stage 09).</summary>
     public DbSet<Domain.Pos.TillSession> TillSessions => Set<Domain.Pos.TillSession>();
 
@@ -371,6 +377,25 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The active company, or null for legacy/bootstrap contexts.</summary>
     internal Guid? CurrentCompanyId => _companyContext?.CompanyId;
 
+    /// <summary>
+    /// Entities the company predicate never applies to. Licensing is per tenant by design — one
+    /// licence, one subscription, one enforcement ladder (R9, ADR-028) — so a bound company must
+    /// never hide the activation, licence, lease and metering rows the read-only guard reads.
+    /// Without this, the first company-scoped write in any process answers 403 NotActivated
+    /// against a fully current subscription, because the guard's own lookups come back empty.
+    /// </summary>
+    private static readonly HashSet<Type> CompanyFilterExemptions =
+    [
+        typeof(Domain.Licensing.Activation),
+        typeof(Domain.Licensing.Licence),
+        typeof(Domain.Licensing.Lease),
+        typeof(Domain.Licensing.EmergencyUnlock),
+        typeof(Domain.Licensing.TamperFlag),
+        typeof(Domain.Licensing.ClockWatermark),
+        typeof(Domain.Licensing.MeteringRecord),
+        typeof(Domain.Licensing.SupportGrant),
+    ];
+
     /// <inheritdoc />
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -452,14 +477,28 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
             // Built through reflection because HasQueryFilter needs the filter typed to the entity,
             // and the whole point is that no entity gets to opt out by being configured by hand.
+            // Licensing rows take the tenant-only shape: they are tenant-level by design, and the
+            // company predicate would blind the enforcement guard under a bound company.
+            string builder = CompanyFilterExemptions.Contains(entityType.ClrType)
+                ? nameof(BuildTenantQueryFilter)
+                : nameof(BuildQueryFilter);
+
             MethodInfo filter = typeof(VumaRetailDbContext)
-                .GetMethod(nameof(BuildQueryFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod(builder, BindingFlags.NonPublic | BindingFlags.Instance)!
                 .MakeGenericMethod(entityType.ClrType);
 
             modelBuilder.Entity(entityType.ClrType)
                 .HasQueryFilter((System.Linq.Expressions.LambdaExpression)filter.Invoke(this, null)!);
         }
     }
+
+    private System.Linq.Expressions.Expression<Func<TEntity, bool>> BuildTenantQueryFilter<TEntity>()
+        where TEntity : Entity
+        // Soft delete (§7 rule 8) and tenant isolation, without the company predicate — for the
+        // CompanyFilterExemptions set only. See the exemptions' own remarks for why licensing rows
+        // must stay visible under a bound company.
+        => entity => entity.DeletedAt == null
+            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId);
 
     private System.Linq.Expressions.Expression<Func<TEntity, bool>> BuildQueryFilter<TEntity>()
         where TEntity : Entity

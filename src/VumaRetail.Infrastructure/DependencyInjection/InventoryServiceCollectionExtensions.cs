@@ -5,6 +5,8 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Inventory.Permissions;
+using VumaRetail.Infrastructure.Inventory;
+using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -49,6 +51,18 @@ public static class InventoryServiceCollectionExtensions
         services.AddScoped<IStockBalanceRepository, StockBalanceRepository>();
         services.AddScoped<IStockTransferRepository, StockTransferRepository>();
         services.AddScoped<IStocktakeRepository, StocktakeRepository>();
+
+        // Stage 08c: availability and reservations.
+        services.AddScoped<IStockReservationRepository, StockReservationRepository>();
+        services.AddScoped<IAvailableBalanceRepository, AvailableBalanceRepository>();
+        services.AddScoped<IReservationService, ReservationService>();
+        services.AddScoped<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IStagingQuantityReader>(provider =>
+            new EfStagingQuantityReader(provider.GetRequiredService<VumaRetailDbContext>()));
+        services.AddScoped<IGroupAvailabilityPublisher, RegistryAvailabilityPublisher>();
+        services.AddScoped<IRegistryAvailabilityReader, RegistryAvailabilityReader>();
+        services.AddScoped<GroupAvailabilityRelay>();
+        services.Configure<GroupAvailabilityOptions>(_ => { });
 
         services.AddScoped<IStockKeepingUnitResolver, StockKeepingUnitResolver>();
         services.AddScoped<IStockLedgerPoster, StockLedgerPoster>();

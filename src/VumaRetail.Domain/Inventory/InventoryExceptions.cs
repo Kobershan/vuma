@@ -2,8 +2,7 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Inventory;
 
-/// <summary>Something inventory-owned was asked for that does not exist, or is not this tenant's.</summary>
-/// <param name="what">What was being looked for, for example <c>stock location</c>.</param>
+/// <summary>Something inventory-owned was asked for that does not exist, or is not this tenant's.</summary>/// <param name="what">What was being looked for, for example <c>stock location</c>.</param>
 /// <param name="id">The identifier that found nothing.</param>
 public sealed class InventoryNotFoundException(string what, Guid id)
     : DomainException("INVENTORY_NOT_FOUND", $"No {what} with id {id}.", DomainProblemKind.NotFound);
@@ -100,4 +99,61 @@ public sealed class InventoryRuleException(string code, string message) : Domain
             "INVENTORY_STOCKTAKE_ALREADY_FINALIZED",
             "This stocktake session is already finalized. A correction is a new adjustment, not an edit "
             + "to a finalized count (CLAUDE.md §7 rule 7).");
+
+    /// <summary>A terminal reservation row was asked of a reservation that is no longer held.</summary>
+    /// <param name="reservationId">The logical reservation.</param>
+    /// <param name="state">The state its latest row is actually in.</param>
+    public static InventoryRuleException ReservationNotHeld(Guid reservationId, ReservationState state)
+        => new(
+            "INVENTORY_RESERVATION_NOT_HELD",
+            $"Reservation {reservationId} is {state}, not Held. A terminal row — consume, release or "
+            + "expiry — closes a live hold; a closed chain is never written to again.");
+
+    /// <summary>A hold was asked to lapse at a moment that is not a moment.</summary>
+    public static InventoryRuleException ReservationExpiryInvalid()
+        => new(
+            "INVENTORY_RESERVATION_EXPIRY_INVALID",
+            "A reservation expiry must be a real instant or omitted entirely.");
+
+    /// <summary>A hold was asked for more than is available at its location.</summary>
+    /// <param name="available">What is available to promise.</param>
+    /// <param name="requested">What was asked to be held.</param>
+    public static InventoryRuleException InsufficientAvailable(Quantity available, Quantity requested)
+        => new(
+            "INVENTORY_INSUFFICIENT_AVAILABLE",
+            $"Only {available} is available to promise; {requested} was requested. Available never goes "
+            + "negative: hold what exists and backorder the rest.");
+
+    /// <summary>Available-to-promise figures were combined into a negative available.</summary>
+    /// <param name="onHand">What is physically present.</param>
+    /// <param name="reserved">What live holds speak for.</param>
+    /// <param name="inStaging">What sits in staging bins.</param>
+    public static InventoryRuleException AvailableWouldGoNegative(Quantity onHand, Quantity reserved, Quantity inStaging)
+        => new(
+            "INVENTORY_AVAILABLE_NEGATIVE",
+            $"On hand {onHand} less reserved {reserved} less in staging {inStaging} is negative. "
+            + "Available never goes negative in any company under any interleaving.");
+
+    /// <summary>A terminal reservation row closed more than its chain holds.</summary>
+    /// <param name="reserved">What the projection says is reserved.</param>
+    /// <param name="closing">What the terminal row tried to close.</param>
+    public static InventoryRuleException ReservationCloseExceedsHeld(Quantity reserved, Quantity closing)
+        => new(
+            "INVENTORY_RESERVATION_CLOSE_EXCEEDS_HELD",
+            $"Closing {closing} against {reserved} reserved. A terminal row always carries its hold's "
+            + "own quantity — anything else means the projection has drifted from the ledger.");
+}
+
+/// <summary>An inventory action the caller is not permitted to take.</summary>
+/// <param name="code">The stable machine-readable code.</param>
+/// <param name="message">What the rule says.</param>
+public sealed class InventoryForbiddenException(string code, string message)
+    : DomainException(code, message, DomainProblemKind.Forbidden)
+{
+    /// <summary>A caller without <c>registry.availability.view</c> asked for group availability.</summary>
+    public static InventoryForbiddenException GroupAvailabilityNotPermitted()
+        => new(
+            "INVENTORY_GROUP_AVAILABILITY_NOT_PERMITTED",
+            "Group availability spans companies. Reading it needs the registry.availability.view "
+            + "permission; company-local availability needs only inventory.availability.view.");
 }

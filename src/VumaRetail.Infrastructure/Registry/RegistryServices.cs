@@ -108,7 +108,8 @@ public sealed class CompanyDbContextFactory(
     ICompanyConnectionResolver resolver,
     ICompanyConnectionSecretStore secrets,
     VumaRetail.Application.Abstractions.ITenantContext tenant,
-    ICompanyServingGuard servingGuard) : ICompanyDbContextFactory
+    ICompanyServingGuard servingGuard,
+    Persistence.Interceptors.AuditInterceptor? audit = null) : ICompanyDbContextFactory
 {
     private bool _created;
 
@@ -132,7 +133,17 @@ public sealed class CompanyDbContextFactory(
             throw new InvalidOperationException("The resolved company is outside the acting tenant or context.");
 
         var connectionString = await secrets.ResolveAsync(connection.SecretReference, cancellationToken);
-        var options = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform")).UseSnakeCaseNamingConvention().Options;
+        var builder = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform")).UseSnakeCaseNamingConvention();
+        if (audit is not null)
+        {
+            // Company legs write through contexts this factory creates, never through the ambient
+            // pipeline context — without the interceptor those writes carry no audit stamp and
+            // leave no audit trail (R6). Stage 08c's reservation legs need both; every earlier leg
+            // gets them as a side effect. Optional so pre-existing constructions keep working.
+            builder.AddInterceptors(audit);
+        }
+
+        var options = builder.Options;
         _created = true;
         return new VumaRetailDbContext(options, tenant, context);
     }

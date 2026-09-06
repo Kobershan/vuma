@@ -109,7 +109,14 @@ public sealed class PersistenceRulesTests
                 || line.Contains("SaveChangesAsync(", StringComparison.Ordinal),
             "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs",
             // The registry has its own database and transaction boundary.
-            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
+            // Stage 08c: the reservation service and the availability relay save on contexts they
+            // opened themselves, inside the serialisable (company) and registry transactions the
+            // pipeline cannot express — see the matching exemption in PipelineRulesTests, which
+            // carries the full reason. Neither file is reachable from a command handler's commit
+            // path: handlers delegate to the service and their own pipeline transaction stays empty.
+            "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

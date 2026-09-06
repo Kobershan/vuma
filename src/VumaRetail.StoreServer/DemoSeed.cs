@@ -65,6 +65,14 @@ public static class DemoSeed
     /// <summary>The demo tenant's fixed id, so a re-run finds what the last run made.</summary>
     public static readonly Guid DemoTenantId = Guid.Parse("01900000-0000-7000-8000-0000000000d0");
 
+    /// <summary>
+    /// The demo company's fixed id, so seeded reservation rows carry a company like every real hold
+    /// must (Stage 08c). The single-database demo predates company provisioning, so no company is
+    /// bound in this scope and nothing here goes through the reservation service — the rows are
+    /// seeded directly, consistently (hold plus projection), and visibly.
+    /// </summary>
+    public static readonly Guid DemoCompanyId = Guid.Parse("01900000-0000-7000-8000-0000000000c0");
+
     /// <summary>Seeds the demo tenant.</summary>
     /// <param name="services">The host's service provider.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -889,6 +897,10 @@ public static class DemoSeed
                 .ConfigureAwait(false);
         }
 
+        // Stage 08c: one held order line against the opening receipt, so the demo shows reserved
+        // stock the moment it opens — 40 on hand, 8 held, 32 available at MAIN.
+        await SeedReservationAsync(provider, context, warehouse, itemId, cancellationToken).ConfigureAwait(false);
+
         // Stage 05. docs/stages/STAGE-05-workflow.md's exit checklist: the module is demonstrable with
         // one approval policy and one notification, the same way every stage since 02 has extended
         // this seed rather than leaving its own module invisible in the demo tenant. Seeded last
@@ -896,6 +908,60 @@ public static class DemoSeed
         // locations and opening receipt above are in place.
         await EnsureApprovalPolicyAsync(provider, cancellationToken).ConfigureAwait(false);
         await EnsureNotificationAsync(provider, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Seeds one reservation hold plus its projection row, idempotently (Stage 08c).
+    /// </summary>
+    /// <remarks>
+    /// Written directly rather than through <c>ReserveStockCommand</c>: the command's service opens
+    /// the acting company's database through <c>ICompanyDbContextFactory</c>, which needs a bound
+    /// company the single-database demo does not have. The rows are exactly what the service would
+    /// have written — a <c>Held</c> row and a matching <c>ApplyHold</c> on the position — so the
+    /// demo's availability reads are honest. No outbox row is staged for the hold (capture runs in
+    /// the service, not the seeder); re-running the seed finds the existing chain and stops.
+    /// </remarks>
+    private static async Task SeedReservationAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid locationId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.StockReservations.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        StockLocation? location = await context.StockLocations
+            .FirstOrDefaultAsync(l => l.Id == locationId, cancellationToken)
+            .ConfigureAwait(false);
+        if (location is null)
+        {
+            return;
+        }
+
+        var hold = StockReservation.Hold(
+            location.TenantId,
+            location.StoreId,
+            DemoCompanyId,
+            location.Id,
+            itemId,
+            null,
+            new Quantity(8m, "EA"),
+            ReservationSource.Order,
+            Guid.Parse("01900000-0000-7000-8000-00000000de01"),
+            groupDocumentRef: "SO-DEMO-001",
+            reason: "Demo order line");
+        context.StockReservations.Add(hold);
+
+        var position = AvailableBalance.Open(
+            location.TenantId, location.StoreId, DemoCompanyId,
+            location.Id, itemId, null, "EA");
+        position.ApplyHold(new Quantity(8m, "EA"));
+        context.AvailableBalances.Add(position);
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

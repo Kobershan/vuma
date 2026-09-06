@@ -105,3 +105,52 @@ public interface IStocktakeRepository
     /// <summary>Adds a new line.</summary>
     void AddLine(StocktakeLine line);
 }
+
+/// <summary>Reads and writes the append-only <see cref="StockReservation"/> rows (Stage 08c).</summary>
+/// <remarks>
+/// Repositories return tracked entities and never commit. Reservation writes always go through
+/// <c>IReservationService</c>, which owns the serialisable transaction and the row lock — a
+/// caller adding rows here directly would bypass the availability re-check that is this
+/// stage's whole purpose.
+/// </remarks>
+public interface IStockReservationRepository
+{
+    /// <summary>Finds the live (<c>Held</c>) row of one reservation chain, or <c>null</c> once it is closed.</summary>
+    Task<StockReservation?> FindOpenAsync(Guid reservationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Every row of one reservation chain, oldest first.</summary>
+    Task<IReadOnlyList<StockReservation>> ListChainAsync(Guid reservationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Every live (<c>Held</c>) row for one stock-keeping unit at one location.</summary>
+    Task<IReadOnlyList<StockReservation>> ListOpenAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Live holds whose expiry has passed, oldest expiry first, capped at <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<StockReservation>> ListExpiredAsync(
+        DateTimeOffset now,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Appends a new row. Nothing already added through this method is ever updated or removed.</summary>
+    void Add(StockReservation reservation);
+}
+
+/// <summary>Reads and writes the <see cref="AvailableBalance"/> projection (Stage 08c).</summary>
+public interface IAvailableBalanceRepository
+{
+    /// <summary>Finds the position for one stock-keeping unit at one location, or <c>null</c> if nothing was ever held there.</summary>
+    Task<AvailableBalance?> FindAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Every position held at one location. Not paginated — bounded by the tenant's catalogue.</summary>
+    Task<IReadOnlyList<AvailableBalance>> ListForLocationAsync(Guid locationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a newly opened position row.</summary>
+    void Add(AvailableBalance balance);
+}

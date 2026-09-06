@@ -45,6 +45,11 @@ public sealed class VumaRegistryDbContext(
     public DbSet<GroupPaymentAllocation> GroupPaymentAllocations => Set<GroupPaymentAllocation>();
     public DbSet<InterCompanyClearingLeg> InterCompanyClearingLegs => Set<InterCompanyClearingLeg>();
 
+    // Stage 08c: Group availability projection (ADR-119) — one company's last-published
+    // availability per location and stock-keeping unit, plus the relay's per-company cursor.
+    public DbSet<GroupAvailabilityRow> GroupAvailabilityRows => Set<GroupAvailabilityRow>();
+    public DbSet<GroupAvailabilityCursor> GroupAvailabilityCursors => Set<GroupAvailabilityCursor>();
+
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
 
@@ -436,6 +441,48 @@ public sealed class VumaRegistryDbContext(
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
+        // Stage 08c: Group availability projection. One row per company per location per
+        // stock-keeping unit; upserted idempotently by the relay, rebuilt from scratch by
+        // RebuildAsync — so the natural key is unique and the row carries its own AsAt.
+        modelBuilder.Entity<GroupAvailabilityRow>(builder =>
+        {
+            builder.ToTable("group_availability_rows", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.Property(x => x.CompanyCode).HasMaxLength(32).IsRequired();
+            builder.Property(x => x.LocationId).IsRequired();
+            builder.Property(x => x.ItemId);
+            builder.Property(x => x.ItemVariantId);
+            builder.Property(x => x.OnHand).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.Reserved).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.InStaging).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.Available).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.Property(x => x.AsAt).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.LocationId, x.ItemId })
+                .IsUnique()
+                .HasDatabaseName("ux_group_availability_company_location_item")
+                .HasFilter("item_id IS NOT NULL");
+            builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.LocationId, x.ItemVariantId })
+                .IsUnique()
+                .HasDatabaseName("ux_group_availability_company_location_variant")
+                .HasFilter("item_variant_id IS NOT NULL");
+            builder.HasIndex(x => new { x.TenantId, x.ItemId, x.ItemVariantId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupAvailabilityCursor>(builder =>
+        {
+            builder.ToTable("group_availability_cursors", "registry");
+            builder.HasKey(x => new { x.TenantId, x.CompanyId });
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.Property(x => x.LastOutboxRowId).IsRequired();
+            builder.Property(x => x.UpdatedAt).IsRequired();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the
         // company context; an unresolved tenant therefore matches nothing by default.
@@ -450,6 +497,8 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<GroupPaymentRun>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<InterCompanyClearingIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<InterCompanyClearingLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GroupAvailabilityRow>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GroupAvailabilityCursor>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }

@@ -239,3 +239,115 @@ public sealed record StocktakeSessionIdResponse(Guid Id);
 /// <summary>A newly recorded stocktake line's id.</summary>
 /// <param name="Id">The line.</param>
 public sealed record StocktakeLineIdResponse(Guid Id);
+
+/// <summary>Available-to-promise for one stock-keeping unit, as returned by the API.</summary>
+/// <param name="OnHand">What the ledger says is physically present.</param>
+/// <param name="Reserved">What live holds speak for.</param>
+/// <param name="InStaging">What sits in staging bins — on hand, not available.</param>
+/// <param name="Incoming">Open inbound supply, informational only.</param>
+/// <param name="Available">What can actually be sold: on hand less reserved less staging.</param>
+/// <param name="UnitOfMeasure">The unit every figure shares.</param>
+/// <param name="AsAt">When the figures were read. Always displayed.</param>
+public sealed record AvailableToPromiseResponse(
+    decimal OnHand,
+    decimal Reserved,
+    decimal InStaging,
+    decimal Incoming,
+    decimal Available,
+    string UnitOfMeasure,
+    DateTimeOffset AsAt);
+
+/// <summary>Authoritative availability inside the acting company, as returned by the API.</summary>
+/// <param name="LocationId">The location.</param>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Promise">The available-to-promise figure.</param>
+public sealed record LocalAvailabilityResponse(
+    Guid LocationId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    AvailableToPromiseResponse Promise);
+
+/// <summary>One company's contribution to a group availability view.</summary>
+/// <param name="CompanyId">The contributing company.</param>
+/// <param name="CompanyCode">The contributing company's code.</param>
+/// <param name="Promise">The figure as last published.</param>
+/// <param name="AsAt">When this contributor last published.</param>
+/// <param name="IsStale">Whether the contributor has not published within the freshness threshold.</param>
+public sealed record GroupAvailabilityContributionResponse(
+    Guid CompanyId,
+    string CompanyCode,
+    AvailableToPromiseResponse Promise,
+    DateTimeOffset AsAt,
+    bool IsStale);
+
+/// <summary>Group-wide availability for one stock-keeping unit. Planning only — never the basis for a commit.</summary>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Contributions">One row per publishing company.</param>
+/// <param name="TotalFreshAvailable">Available across fresh contributors only.</param>
+/// <param name="StaleContributorCodes">Companies that have not published recently.</param>
+/// <param name="AsAt">When this view was assembled.</param>
+public sealed record GroupAvailabilityResponse(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    IReadOnlyList<GroupAvailabilityContributionResponse> Contributions,
+    decimal TotalFreshAvailable,
+    IReadOnlyList<string> StaleContributorCodes,
+    DateTimeOffset AsAt);
+
+/// <summary>Holds stock for a document — an order line, an approval, a transfer.</summary>
+/// <param name="LocationId">Where the stock sits.</param>
+/// <param name="ItemId">The item, when it has no variants. Exactly one of this and <paramref name="ItemVariantId"/> must be set.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">How much is wanted. Must be positive.</param>
+/// <param name="UnitOfMeasure">The unit the quantity is counted in.</param>
+/// <param name="Source">Order, ProFormaApproval, Transfer or Shipment.</param>
+/// <param name="SourceDocumentId">The document's id.</param>
+/// <param name="GroupDocumentRef">The cross-company order reference, when one exists.</param>
+/// <param name="ExpiresAt">When the hold lapses, or <c>null</c> for a hold that never expires.</param>
+/// <param name="Reason">Why the hold was taken.</param>
+/// <param name="CompanyId">
+/// The company whose stock is held. Bound into the request scope for the call — the interim
+/// selection mechanism until per-request company middleware lands (Stage 06c follow-up). Omitted
+/// when the caller already selected a company through <c>/api/v1/companies/select</c>.
+/// </param>
+public sealed record ReserveStockRequest(
+    Guid LocationId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string Source,
+    Guid SourceDocumentId,
+    string? GroupDocumentRef = null,
+    DateTimeOffset? ExpiresAt = null,
+    string? Reason = null,
+    Guid? CompanyId = null);
+
+/// <summary>What holding stock actually held.</summary>
+/// <param name="ReservationId">The logical reservation, or <c>null</c> when nothing could be held.</param>
+/// <param name="Held">How much was held.</param>
+/// <param name="Shortfall">How much of the demand could not be covered.</param>
+/// <param name="AvailableAfter">What remains available after this hold.</param>
+/// <param name="UnitOfMeasure">The unit every figure shares.</param>
+/// <param name="AsAt">When the figures were read.</param>
+public sealed record ReserveStockResponse(
+    Guid? ReservationId,
+    decimal Held,
+    decimal Shortfall,
+    decimal AvailableAfter,
+    string UnitOfMeasure,
+    DateTimeOffset AsAt);
+
+/// <summary>Consumes a live hold — the held quantity shipped or issued.</summary>
+/// <param name="ReservationId">The logical reservation.</param>
+/// <param name="ConsumedByReferenceId">What consumed it — a shipment, a sale issue.</param>
+/// <param name="CompanyId">The company holding the stock. Bound into the request scope when supplied; see <see cref="ReserveStockRequest"/>.</param>
+public sealed record ConsumeReservationRequest(Guid ReservationId, Guid ConsumedByReferenceId, Guid? CompanyId = null);
+
+/// <summary>Releases a live hold — available is restored by a new ledger row, never an edit.</summary>
+/// <param name="ReservationId">The logical reservation.</param>
+/// <param name="Reason">Why the hold was released.</param>
+/// <param name="CompanyId">The company holding the stock. Bound into the request scope when supplied; see <see cref="ReserveStockRequest"/>.</param>
+public sealed record ReleaseReservationRequest(Guid ReservationId, string? Reason = null, Guid? CompanyId = null);

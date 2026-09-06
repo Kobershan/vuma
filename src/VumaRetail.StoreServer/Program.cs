@@ -259,6 +259,7 @@ app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
+app.MapVumaAvailability();
 app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaProcurement();

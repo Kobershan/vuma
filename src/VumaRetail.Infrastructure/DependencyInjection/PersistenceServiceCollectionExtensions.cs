@@ -69,14 +69,20 @@ public static class PersistenceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(registryConnectionString);
 
+        services.AddSingleton(new RegistryDatabaseOptions(registryConnectionString));
         services.AddDbContext<VumaRegistryDbContext>((_, options) =>
         {
             options.UseNpgsql(registryConnectionString, npgsql =>
                 npgsql.MigrationsHistoryTable("__ef_migrations_history", "registry"));
             options.UseSnakeCaseNamingConvention();
         }, optionsLifetime: ServiceLifetime.Singleton);
-        services.AddDbContextFactory<VumaRegistryDbContext>((_, options) =>
-        { options.UseNpgsql(registryConnectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "registry")); options.UseSnakeCaseNamingConvention(); });
+        // Scoped, not the framework's singleton factory: VumaRegistryDbContext takes the scoped
+        // ITenantContext for its query filters, and a singleton factory resolves that from the
+        // root provider — every context it creates then sees an empty tenant and matches nothing
+        // (or throws under scope validation). The scoped factory below carries the ambient tenant
+        // into each created context instead. Both IDbContextFactory consumers (the connection
+        // resolver and the fan-out) are scoped, so nothing needs the singleton form.
+        services.AddScoped<IDbContextFactory<VumaRegistryDbContext>, ScopedRegistryDbContextFactory>();
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<VumaRegistryDbContext>());
         services.AddScoped<ICompanyContext, AmbientCompanyContext>();
         services.AddScoped<ICompanyConnectionResolver, CompanyConnectionResolver>();

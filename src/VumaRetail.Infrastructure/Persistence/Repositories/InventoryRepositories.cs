@@ -203,3 +203,105 @@ public sealed class StocktakeRepository(VumaRetailDbContext context) : IStocktak
     /// <inheritdoc />
     public void AddLine(StocktakeLine line) => context.StocktakeLines.Add(line);
 }
+
+/// <summary>EF Core implementation of <see cref="IStockReservationRepository"/> (Stage 08c).</summary>
+/// <param name="context">The database context.</param>
+/// <remarks>
+/// No update path and no remove: the table is append-only (ADR-103) and <c>AuditInterceptor</c>
+/// refuses any modification to an <c>IImmutableRecord</c>. Terminal rows are added, never written
+/// over the hold they close — same shape as <see cref="StockLedgerRepository"/>.
+/// </remarks>
+public sealed class StockReservationRepository(VumaRetailDbContext context) : IStockReservationRepository
+{
+    /// <inheritdoc />
+    public Task<StockReservation?> FindOpenAsync(Guid reservationId, CancellationToken cancellationToken = default)
+        => context.StockReservations.FirstOrDefaultAsync(
+            reservation => reservation.ReservationId == reservationId
+                && reservation.State == ReservationState.Held,
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StockReservation>> ListChainAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default)
+        => await context.StockReservations
+            .Where(reservation => reservation.ReservationId == reservationId)
+            .OrderBy(reservation => reservation.SequenceNumber)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StockReservation>> ListOpenAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default)
+        => await context.StockReservations
+            .Where(reservation => reservation.LocationId == locationId
+                && reservation.ItemId == itemId
+                && reservation.ItemVariantId == itemVariantId
+                && reservation.State == ReservationState.Held)
+            .OrderBy(reservation => reservation.CreatedAt)
+            .ThenBy(reservation => reservation.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StockReservation>> ListExpiredAsync(
+        DateTimeOffset now,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "The batch limit must be positive.");
+        }
+
+        return await context.StockReservations
+            .Where(reservation => reservation.State == ReservationState.Held
+                && reservation.ExpiresAt != null
+                && reservation.ExpiresAt <= now)
+            .OrderBy(reservation => reservation.ExpiresAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public void Add(StockReservation reservation) => context.StockReservations.Add(reservation);
+}
+
+/// <summary>EF Core implementation of <see cref="IAvailableBalanceRepository"/> (Stage 08c).</summary>
+/// <param name="context">The database context.</param>
+public sealed class AvailableBalanceRepository(VumaRetailDbContext context) : IAvailableBalanceRepository
+{
+    /// <inheritdoc />
+    /// <remarks>
+    /// Tracked, not <c>AsNoTracking</c>: every caller of this is <c>ReservationService</c> about
+    /// to mutate the position it gets back inside a locked transaction, and a detached entity
+    /// would silently drop the write — the same reason <c>StockBalanceRepository</c> tracks.
+    /// </remarks>
+    public Task<AvailableBalance?> FindAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default)
+        => context.AvailableBalances.FirstOrDefaultAsync(
+            balance => balance.LocationId == locationId
+                && balance.ItemId == itemId
+                && balance.ItemVariantId == itemVariantId,
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<AvailableBalance>> ListForLocationAsync(
+        Guid locationId,
+        CancellationToken cancellationToken = default)
+        => await context.AvailableBalances
+            .AsNoTracking()
+            .Where(balance => balance.LocationId == locationId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public void Add(AvailableBalance balance) => context.AvailableBalances.Add(balance);
+}

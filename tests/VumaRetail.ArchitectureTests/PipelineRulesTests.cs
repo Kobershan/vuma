@@ -88,7 +88,16 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
-            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
+            // Stage 08c. Neither file is a handler. ReservationService owns the serialisable,
+            // single-company transaction a hold requires (ADR-102): the pipeline transaction is
+            // ReadCommitted on the ambient context, while a hold must lock its position row and
+            // re-check availability on the acting company's own context. GroupAvailabilityRelay
+            // owns the registry-side transaction that publishes and heals the projection — the
+            // registry is a separate database with a separate boundary, like the lifecycle and
+            // migration operations above.
+            "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs");
 
         Assert.True(violations.Count == 0, $"""
             Something outside the pipeline commits the unit of work. The exemptions are
