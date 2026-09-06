@@ -293,15 +293,19 @@ namespace VumaRetail.Infrastructure.Migrations.Registry
                 oldMaxLength: 500,
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<int>(
-                name: "status",
-                schema: "registry",
-                table: "company_links",
-                type: "integer",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(16)",
-                oldMaxLength: 16);
+             migrationBuilder.Sql(
+                 """
+                 ALTER TABLE registry.company_links
+                 ALTER COLUMN status TYPE integer
+                 USING CASE status
+                     WHEN 'Proposed' THEN 0
+                     WHEN 'Accepted' THEN 1
+                     WHEN 'Active' THEN 2
+                     WHEN 'Suspended' THEN 3
+                     WHEN 'Revoked' THEN 4
+                     ELSE 0
+                 END
+                 """);
 
             migrationBuilder.AlterColumn<string>(
                 name: "revoked_reason",
