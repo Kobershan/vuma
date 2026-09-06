@@ -124,23 +124,15 @@ jobs:
       # FIX 4: Explicitly apply migrations before tests run to prevent 500 errors on empty DB
       - name: Apply Database Migrations for Tests
         run: |
-          dotnet ef database update
-            --project src/VumaRetail.Infrastructure
-            --context VumaRetailDbContext
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
           # Stage 07c: Registry context also needs migrations applied
-          dotnet ef database update
-            --project src/VumaRetail.Infrastructure
-            --context VumaRegistryDbContext
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       # Stage 07c: Ensure registry migrations are reversible too
       - name: Verify registry migrations are reversible
         run: |
-          dotnet ef database update 0
-            --project src/VumaRetail.Infrastructure
-            --context VumaRegistryDbContext
-          dotnet ef database update
-            --project src/VumaRetail.Infrastructure
-            --context VumaRegistryDbContext
+          dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Test
         run: >
@@ -235,39 +227,27 @@ jobs:
           --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Apply to an empty database
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       # Stage 07c: Also apply registry context migrations
       - name: Apply Registry Migrations
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       # CLAUDE.md §8 requires Down to be reversible, and a Down that was never run is a Down that
       # does not work. "0" is EF's name for the state before the first migration.
       - name: Reverse every migration
-        run: >
-          dotnet ef database update 0
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+        run: dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       # Stage 07c: Also verify registry migrations are reversible
       - name: Reverse every registry migration
-        run: >
-          dotnet ef database update 0
-          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+        run: dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Re-apply
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
       # Stage 07c: Re-apply registry migrations
       - name: Re-apply Registry Migrations
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
   vulnerability-scan:
     name: Vulnerability scan
