@@ -1,11 +1,11 @@
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Application.Registry;
-using VumaRetail.Domain.Primitives;
-using VumaRetail.Domain.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Registry;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 
 namespace VumaRetail.Web;
 
@@ -22,7 +22,7 @@ public static class GroupReceiptEndpoints
 
         group.MapPost("/", async (
             CaptureGroupReceiptRequest request,
-            CaptureGroupReceiptCommandHandler handler,
+            [FromServices] CaptureGroupReceiptCommandHandler handler,
             CancellationToken ct) =>
         {
             var command = new CaptureGroupReceiptCommand
@@ -46,7 +46,7 @@ public static class GroupReceiptEndpoints
         group.MapPost("/{id:guid}/allocations", async (
             Guid id,
             AllocateGroupReceiptRequest request,
-            AllocateGroupReceiptCommandHandler handler,
+            [FromServices] AllocateGroupReceiptCommandHandler handler,
             CancellationToken ct) =>
         {
             var command = new AllocateGroupReceiptCommand
@@ -70,7 +70,7 @@ public static class GroupReceiptEndpoints
         group.MapPost("/{id:guid}/reverse", async (
             Guid id,
             ReverseGroupReceiptRequest request,
-            ReverseGroupReceiptCommandHandler handler,
+            [FromServices] ReverseGroupReceiptCommandHandler handler,
             CancellationToken ct) =>
         {
             var command = new ReverseGroupReceiptCommand
@@ -88,7 +88,7 @@ public static class GroupReceiptEndpoints
 
         group.MapGet("/unallocated", async (
             Guid tenantId,
-            GetUnallocatedGroupReceiptsQueryHandler handler,
+            [FromServices] GetUnallocatedGroupReceiptsQueryHandler handler,
             CancellationToken ct) =>
         {
             var query = new GetUnallocatedGroupReceiptsQuery { TenantId = tenantId };

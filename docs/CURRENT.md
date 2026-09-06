@@ -34,8 +34,9 @@ ENVIRONMENT LIMITATION: Integration tests require Docker (Testcontainers). CI wo
 ### Source code fixes
 1. **20260901180916_CheckDiff**: Removed redundant migration that tried to `CREATE TABLE` for workflow entities already created by `20260815164702_Workflow` + `company_id` columns added by `CompanyIdentity`/`CompanyIdentityRepair` migrations (caused `42P07: relation already exists`)
 2. **Registry/20260904085545_Stage06e_TradingGroup**: Replaced `migrationBuilder.AlterColumn<int>` in `Down` method with `migrationBuilder.Sql` using `USING CASE` expression — PostgreSQL cannot auto-cast `character varying(16)` string values like `'Active'` to `integer` (caused `42804: column "status" cannot be cast automatically to type integer`)
+3. **Web/GroupReceiptEndpoints.cs**: `CaptureGroupReceiptCommandHandler`, `AllocateGroupReceiptCommandHandler`, `ReverseGroupReceiptCommandHandler`, and `GetUnallocatedGroupReceiptsQueryHandler` were passed as route delegate parameters without being registered in DI. ASP.NET Core could not bind them, causing `InvalidOperationException: Failure to infer one or more parameters` during endpoint route table construction — cascaded into 66 integration test failures. Fixed by registering handler types in `PersistenceServiceCollectionExtensions.cs` and adding `[FromServices]` attributes to the handler parameters in `GroupReceiptEndpoints.cs`.
 
-### Source code fixes
+### Legacy fixes (from earlier sessions)
 1. **VumaRetailDbContextModelSnapshot**: Regenerated to include `GroupDocumentId` and `IntentId` on `ArReceipt` and `ApPayment` (was causing pending model changes warning)
 2. **IAlarmService**: Created `AlarmService` implementation and registered in DI (was just an interface with no implementation)
 3. **ICompanyLinkGuard**: Moved interface from `GroupReceiptService.cs` to `GroupReceiptPorts.cs` (application abstractions), created `CompanyLinkGuard` implementation, registered in DI
