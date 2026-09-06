@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:controls="clr-namespace:VumaRetail.Desktop.Controls">
+  <!-- Auto-generated from design/tokens.json — DO NOT EDIT. -->
+  <Style TargetType="controls:VumaButton" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="MinWidth" Value="{StaticResource touch-posPrimary}" />
+    <Setter Property="MinHeight" Value="{StaticResource touch-posPrimary}" />
+    <Setter Property="FontFamily" Value="{StaticResource font-body-family}" />
+    <Setter Property="FontSize" Value="{StaticResource font-body-size}" />
+    <Setter Property="FontWeight" Value="{StaticResource font-body-weight}" />
+  </Style>
+  <Style TargetType="controls:VumaInput" BasedOn="{StaticResource {x:Type TextBox}}">
+    <Setter Property="MinHeight" Value="{StaticResource touch-posSecondary}" />
+    <Setter Property="FontFamily" Value="{StaticResource font-body-family}" />
+    <Setter Property="FontSize" Value="{StaticResource font-body-size}" />
+  </Style>
+  <Style TargetType="controls:VumaCard" BasedOn="{StaticResource {x:Type Border}}">
+    <Setter Property="CornerRadius" Value="{StaticResource radius-lg}" />
+  </Style>
+</ResourceDictionary>

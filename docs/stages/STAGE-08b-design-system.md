@@ -7,7 +7,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 08b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 08b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | **COMPLETE** |
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
@@ -17,8 +17,8 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | NOT_STARTED |
-| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | NOT_STARTED |
+| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | **COMPLETE** |
+| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | **COMPLETE** |
 
 ## Objective
 Build the design system once, before the first pixel of POS is drawn, so that four surfaces — Windows
