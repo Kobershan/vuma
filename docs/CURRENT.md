@@ -29,6 +29,11 @@ ENVIRONMENT LIMITATION: Integration tests require Docker (Testcontainers). CI wo
 5. Fixed `dotnet-ef` version from 9.0.0 to 10.0.11 (matching installed version)
 6. Added PATH setup for dotnet tools after installation
 7. Added registry migration reversibility verification steps
+8. Fixed `dotnet ef database update` command formatting in YAML — `dotnet ef database update` and its `--project`/`--context` flags were on separate YAML lines, so bash executed them as separate shell commands instead of passing flags as arguments (caused "No project was found")
+
+### Source code fixes
+1. **20260901180916_CheckDiff**: Removed redundant migration that tried to `CREATE TABLE` for workflow entities already created by `20260815164702_Workflow` + `company_id` columns added by `CompanyIdentity`/`CompanyIdentityRepair` migrations (caused `42P07: relation already exists`)
+2. **Registry/20260904085545_Stage06e_TradingGroup**: Replaced `migrationBuilder.AlterColumn<int>` in `Down` method with `migrationBuilder.Sql` using `USING CASE` expression — PostgreSQL cannot auto-cast `character varying(16)` string values like `'Active'` to `integer` (caused `42804: column "status" cannot be cast automatically to type integer`)
 
 ### Source code fixes
 1. **VumaRetailDbContextModelSnapshot**: Regenerated to include `GroupDocumentId` and `IntentId` on `ArReceipt` and `ApPayment` (was causing pending model changes warning)
