@@ -351,6 +351,7 @@ jobs:
 
       # Regenerate first so the build below compiles verified-fresh files, not stale ones.
       - name: Regenerate tokens and verify
+        shell: bash
         run: |
           dotnet run --project src/VumaRetail.TokenGenerator
           # Verify no hand-edits — generated files must match
