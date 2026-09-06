@@ -15,6 +15,7 @@ namespace VumaRetail.IntegrationTests.Stage06c;
 [Trait("Category", "Integration")]
 [Trait("Stage", "06C")]
 [Trait("Requirement", "06C-06")]
+[Collection(PostgresCollection.Name)]
 public sealed class _06C06_ProvisioningTests : IAsyncDisposable
 {
     private readonly PostgresFixture _fixture;
