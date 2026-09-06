@@ -7,6 +7,25 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 07c — TASK-07C-003 verification executed, verdict FAIL (2026-09-06):** `main` was red on
+arrival — the 08b merge dropped `Release|Any CPU.Build.0` for Finance + CloudApi from
+`VumaRetail.sln`, so Infrastructure compiled without its Finance reference (CS0234/CS0246). Restored
+both lines; `dotnet build VumaRetail.sln -c Release` = 0 errors, 977 unit + 54 architecture green,
+no pending model changes on either context. Verification then proved 7 structural gaps (worked
+examples in the task file): saga `DispatchLegAsync` is a no-op so legs never reach company DBs;
+both leg handlers are uncalled dead code and the apply path never saves; `ReverseAsync` dispatches
+no reversing legs; nothing creates clearing intents; no period-close guard exists; `DemoSeed` has no
+3-company group and no group-event posting rules; `IGroupPaymentService` has no implementation and
+no group-payments endpoints exist. DB-backed criteria recorded UNVERIFIED (no Docker), not PASS.
+Fixed in passing: endpoints now reference `RegistryPermissions` constants (9 hardcoded strings
+replaced, same values); `DATA_MODEL.md` §4f extended with `group_document_id`/`intent_id`;
+001/002 task files corrected NOT_STARTED→COMPLETE (code was on main, files stale). Rework scoped as
+TASK-07C-004 (NOT_STARTED, needs Docker box). Minor follow-ups: new sln projects
+(TokenGenerator/Desktop/Gallery) have no ProjectConfigurationPlatforms entries — solution builds
+silently skip them (harmless on Linux, but the Windows package job won't build Desktop either);
+group entities carry no `[Replicated]` while DATA_MODEL classifies them StoreToCloud — attribute
+them or correct the row. Stage 07c is NOT DONE.
+
 **Stage 07c — TASK-07C-001 & 07C-002 code-complete (2026-09-04):** Full implementation pass — domain entities (GroupReceipt, GroupReceiptAllocation, GroupPaymentRun, GroupPaymentAllocation, InterCompanyClearingIntent, InterCompanyClearingLeg), application ports/commands/queries, infrastructure services (GroupReceiptService, GroupReceiptRepository, GroupReceiptLegHandler, ConsolidationService, NetZeroReconciliationJob), web endpoints (group-receipts, consolidated reports), permissions, EF configurations, DI registrations, and 3 test files (domain, application, property). Extended ArReceipt/ApPayment with GroupDocumentId/IntentId. Build and test verification deferred — .NET 9 SDK required (only 9.0.316 available). All verification recorded as UNVERIFIED per AGENTS.md.
 
 **Stage 06d — Dependency fix and branch rebase (2026-09-04):** Executed. GitHub reported "dependency corrupted" when pushing `stage-06d`. Root cause: two issues — (1) SSH.NET 2024.1.0 transitive dependency via `Testcontainers.PostgreSql`→`Docker.DotNet.Enhanced` has high-severity vulnerability GHSA-q939-rpr3-3284, flagged by GitHub's dependency graph; (2) `stage-06d` branch had diverged from `main` — it retained `SagaCoordinator.cs` and `ISagaCoordinator.cs` that commit `24b49a1` on `main` removed, causing a push conflict. Fix: pinned `SSH.NET` to `2026.0.0` and `BouncyCastle.Cryptography` to `2.7.0` in `Directory.Packages.props`; rebased `stage-06d` onto `main` and force-pushed. Build now passes with 0 errors, 0 NU1903 warnings. `stage-06d` is aligned with `main`.

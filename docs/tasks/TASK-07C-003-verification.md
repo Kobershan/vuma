@@ -2,7 +2,14 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
+
+> **Verdict (2026-09-06): FAIL — Stage 07c is not DONE.** Verification ran to completion on a
+> Linux box with .NET 9.0.316 (no Docker/PostgreSQL). Everything provable without a database
+> was proven; everything needing a database is marked UNVERIFIED per AGENTS.md — except the
+> five findings below, which are structural FAILs established by code inspection with worked
+> examples, not suspicions. Rework is scoped in TASK-07C-004. Do not mark Stage 07c DONE
+> until 004 lands and the DB-backed criteria are proven against real databases.
 
 ## Stage
 
@@ -134,4 +141,55 @@ None yet.
 
 ## Work Log
 
-Not started.
+2026-09-06 verification session (Linux, .NET SDK 9.0.316, no Docker):
+
+**Green (proven):**
+- `dotnet build VumaRetail.sln -c Release`: 0 errors (after restoring two `Release|Any CPU.Build.0`
+  lines the 08b merge dropped from `VumaRetail.sln` for Finance + CloudApi — that merge had left
+  `main` red: Infrastructure compiled without its Finance reference, CS0234/CS0246).
+- Unit tests: 977/977 green. Architecture tests: 54/54 green (incl. no-GL-account-outside-rules,
+  no-two-DbContexts, no-hard-delete rules).
+- `dotnet ef migrations has-pending-model-changes`: clean for both `VumaRetailDbContext` and
+  `VumaRegistryDbContext`.
+- Permissions: 7 constants registered in `RegistryPermissions` + descriptors; endpoints now reference
+  the constants (this session replaced 9 hardcoded strings in `GroupReceiptEndpoints`/
+  `ConsolidationEndpoints` — same values, drift-proof).
+- `docs/DATA_MODEL.md` §4l extended (group/clearing/saga tables); §4f extended this session
+  (`group_document_id`, `intent_id` on receipts/payments).
+- Read paths exist and are unit-tested: consolidation trial balance/income statement with watermark,
+  stale-contributor naming, inter-company elimination vs hand-computed fixture; unallocated ageing
+  query + endpoint; `NetZeroReconciliationJob` + outstanding-intents report exist as code.
+
+**FAIL (structural, proven by inspection — see TASK-07C-004 for worked examples):**
+1. Acceptance #1, #2, #6: saga legs never execute — `SagaCoordinator.DispatchLegAsync`
+   (`src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs:73`) is `await Task.CompletedTask`.
+   `AllocateAsync` marks legs Acknowledged and completes the intent while no company database is
+   ever touched. A mid-allocation outage test is meaningless: there is no leg to stay Pending.
+2. `GroupReceiptLegHandler`/`GroupReceiptReversalLegHandler` have zero callers (dead code, DI-only),
+   and even if called, `ApplyAllocationLegAsync` adds the `ArReceipt` to a locally-created context
+   it never saves — the receipt would be silently lost.
+3. Acceptance #5: `ReverseAsync` (`GroupReceiptService.cs:84`) flips registry state only; it
+   dispatches no reversing legs despite its own comment claiming otherwise.
+4. No code path ever creates an `InterCompanyClearingIntent` (only repository + read sides exist),
+   so business rules 3–4 (clearing pairs, net-zero across DBs) have no write path; the property
+   test proves domain math, not the system.
+5. Acceptance #3: no `IPeriodCloseGuard` exists anywhere — period close cannot refuse over
+   outstanding intents because nothing checks.
+6. Acceptance #11 (seed): `DemoSeed` has no 3-company group, no shared customer, no group receipt,
+   and no posting rules for `group.receipt.allocated`/`group.receipt.reversed` (nor, pre-existing,
+   for `ar.receipt.posted`/`ap.payment.posted`).
+7. Acceptance #8 half-gap: `IGroupPaymentService` is a port with no implementation and there are no
+   `/api/v1/group-payments` endpoints, though the stage doc lists them as deliverables.
+
+**UNVERIFIED (needs Docker/PostgreSQL, not FAIL):**
+- Acceptance #1 end-to-end across 3 real DBs, #2 outage replay, #4 partial-allocation ledger
+  absence, #7 randomised 200-op multi-DB run, migration `Down` *execution* (Down methods exist;
+  reversibility pattern matches the verified 06c precedent), seed population, coverage ≥80% measured
+  per-stage (suite is green; per-stage line-coverage report not produced on this box).
+
+**Agent reviews (inspection-grade, this session — full panel re-runs in 004 with a DB):**
+- `money-and-tax`: PASS so far — legs raise events only, no account named outside the rules engine
+  (architecture test enforces); amounts carry explicit currency; no `double` money found on the path.
+- `multi-company-guard`: FAIL — `RequireLink(...SharedReceipting...)` is checked at allocate time
+  (good), but "legs run inside the target company DB" is vacuous while legs never run, and
+  `intentId: null` is passed to `RecordFromGroup`, defeating the traceability the column exists for.

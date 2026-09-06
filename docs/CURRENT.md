@@ -4,18 +4,19 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 07c — Cross-company money (group receipting, allocation, inter-company clearing, consolidated reporting)
-CURRENT TASK: CI verification fixes — build, test, migration, architecture all verified
-CURRENT TASK STATUS: VERIFIED (build, unit tests, architecture tests, migration checks all green)
-NEXT READY TASK: Run full integration tests on a machine with Docker + PostgreSQL; stage 04b integration tests still pending
-LAST COMPLETED TASK: Fixed all CI workflow and source code errors relating to stage 07c
-BLOCKERS: Docker not available on this machine; integration tests require Docker service container
+CURRENT TASK: TASK-07C-004 leg-dispatch rework (new) — make saga legs execute, create clearing intents, dispatch reversing legs, guard period close, prove against real DBs
+CURRENT TASK STATUS: NOT_STARTED — needs a machine with Docker + PostgreSQL for DB-backed proof
+NEXT READY TASK: TASK-07C-004 (spec complete in docs/tasks/TASK-07C-004-leg-dispatch-rework.md)
+LAST COMPLETED TASK: TASK-07C-003 verification — verdict FAIL (structural, 7 findings); plus red-main fix (VumaRetail.sln Build.0 restore), endpoint permission constants, DATA_MODEL §4f
+BLOCKERS: Docker not available on this machine; integration tests + Down execution require Docker service container
 TEST STATUS:
-  - `dotnet build -c Release`: PASSED — 0 errors, 0 warnings
+  - `dotnet build VumaRetail.sln -c Release`: PASSED — 0 errors (after restoring 2 dropped Build.0 lines)
   - Unit tests: PASSED — 977 tests all green
-  - Architecture tests: PASSED — 43 tests all green
+  - Architecture tests: PASSED — 54 tests all green
   - `dotnet ef migrations has-pending-model-changes`: PASSED — both VumaRetailDbContext and VumaRegistryDbContext have no pending changes
-  - Migration `Down`: VERIFIED — reversible via `dotnet ef database update 0` then re-apply
-  - Integration tests: SKIPPED (no Docker) — will pass in CI with `services.postgres` container
+  - Migration `Down`: UNVERIFIED — methods exist, execution needs PostgreSQL
+  - Integration tests: NOT RUN — no Registry/07c integration tests exist (finding #7); existing suites need Docker
+  - Stage 07c acceptance #1,2,3,5,6: FAIL (structural — legs never execute); #4,#8 read-side PASS; DB halves UNVERIFIED
 IMPORTANT DECISIONS: Stage 07c uses saga-based clearing (ADR-116), registry-only group receipts (ADR-104), fan-out consolidation with stale contributor naming (ADR-119), and net-zero reconciliation across databases (ADR-105). No new ADRs required.
 ENVIRONMENT LIMITATION: Integration tests require Docker (Testcontainers). CI workflow uses `services.postgres` container.
 

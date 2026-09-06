@@ -2,7 +2,13 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
+
+> Status corrected 2026-09-06 during TASK-07C-003 verification: the file still said
+> NOT_STARTED but the code exists on `main` (see stage doc §Implementation evidence).
+> Caveat: the allocate path records the saga intent but no leg ever executes —
+> `SagaCoordinator.DispatchLegAsync` is a no-op and `GroupReceiptLegHandler` has no
+> callers. End-to-end money movement is rework tracked in TASK-07C-004.
 
 ## Stage
 
@@ -151,4 +157,6 @@ None yet.
 
 ## Work Log
 
-Not started.
+2026-09-06 (TASK-07C-003 verification): confirmed present — `GroupReceipt`/`GroupReceiptAllocation`
+domain + `Capture/Allocate/Reverse` handlers + `GroupReceiptService` + `/api/v1/group-receipts`
+endpoints + registry migration. Handler-level unit tests green (977 unit, 54 architecture).

@@ -499,11 +499,18 @@ allocations carry `ar_receipt_id`, `ar_invoice_id` and `amount_*`. Over-allocati
 domain (`OverAllocationException`) — allowing it is precisely how a control account silently stops
 matching its sub-ledger.
 
+Stage 07c adds two nullable columns to `ar_receipts`: `group_document_id` (the registry
+`group_receipts` row this receipt's money arrived in) and `intent_id` (the inter-company clearing
+intent that paired it). A receipt captured directly in one company is a normal receipt with both
+null; a receipt created by a group-allocation saga leg carries both, so an unmatched leg is
+identifiable by document rather than by guesswork.
+
 ### `finance.ap_invoices` / `_lines`, `finance.ap_payments` / `_allocations`
 
 The mirror of AR, column for column, with `supplier_invoice_number` in place of a tenant-issued
 number — the supplier issues it, so it is not drawn from `document_number_counters`. Event types
-`ap.invoice.posted` / `ap.payment.posted`.
+`ap.invoice.posted` / `ap.payment.posted`. Stage 07c adds the same nullable `group_document_id`
+and `intent_id` to `ap_payments` for the outbound (group payment run) direction.
 
 ### `finance.bank_accounts` / `finance.bank_statement_lines`
 

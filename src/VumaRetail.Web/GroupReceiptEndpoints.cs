@@ -41,7 +41,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces<Guid>(StatusCodes.Status201Created)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
-        .RequirePermission("registry.receipt.capture");
+        .RequirePermission(RegistryPermissions.GroupReceiptCapture);
 
         group.MapPost("/{id:guid}/allocations", async (
             Guid id,
@@ -65,7 +65,7 @@ public static class GroupReceiptEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
         .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
-        .RequirePermission("registry.receipt.allocate");
+        .RequirePermission(RegistryPermissions.GroupReceiptAllocate);
 
         group.MapPost("/{id:guid}/reverse", async (
             Guid id,
@@ -84,7 +84,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces(StatusCodes.Status204NoContent)
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
-        .RequirePermission("registry.receipt.reverse");
+        .RequirePermission(RegistryPermissions.GroupReceiptReverse);
 
         group.MapGet("/unallocated", async (
             Guid tenantId,
@@ -108,7 +108,7 @@ public static class GroupReceiptEndpoints
             }));
         })
         .Produces<IReadOnlyList<GroupReceiptResponse>>()
-        .RequirePermission("registry.receipt.capture");
+        .RequirePermission(RegistryPermissions.GroupReceiptCapture);
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -139,7 +139,7 @@ public static class GroupReceiptEndpoints
         })
         .Produces<GroupReceiptDetailResponse>()
         .Produces(StatusCodes.Status404NotFound)
-        .RequirePermission("registry.receipt.capture");
+        .RequirePermission(RegistryPermissions.GroupReceiptCapture);
 
         return group;
     }

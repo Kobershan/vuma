@@ -1,4 +1,5 @@
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -48,7 +49,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedTrialBalanceResponse>()
-        .RequirePermission("registry.report.consolidated");
+        .RequirePermission(RegistryPermissions.GroupReportConsolidated);
 
         group.MapGet("/income-statement", async (
             Guid tenantId,
@@ -94,7 +95,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedIncomeStatementResponse>()
-        .RequirePermission("registry.report.consolidated");
+        .RequirePermission(RegistryPermissions.GroupReportConsolidated);
 
         group.MapGet("/balance-sheet", async (
             Guid tenantId,
@@ -145,7 +146,7 @@ public static class ConsolidationEndpoints
             });
         })
         .Produces<ConsolidatedBalanceSheetResponse>()
-        .RequirePermission("registry.report.consolidated");
+        .RequirePermission(RegistryPermissions.GroupReportConsolidated);
 
         group.MapGet("/unapplied-legs", async (
             Guid tenantId,
@@ -156,7 +157,7 @@ public static class ConsolidationEndpoints
             return Results.Ok(legs);
         })
         .Produces<IReadOnlyList<UnappliedLegDto>>()
-        .RequirePermission("registry.report.consolidated");
+        .RequirePermission(RegistryPermissions.GroupReportConsolidated);
 
         return group;
     }

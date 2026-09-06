@@ -2,7 +2,14 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
+
+> Status corrected 2026-09-06 during TASK-07C-003 verification: the file still said
+> NOT_STARTED but the code exists on `main` (clearing intent domain, reconciliation job,
+> consolidation service + endpoints). Caveat: nothing ever *creates* a clearing intent in
+> the allocate path, `IGroupPaymentService` has no implementation, there are no
+> `/api/v1/group-payments` endpoints, and no `IPeriodCloseGuard` exists. Tracked in
+> TASK-07C-004.
 
 ## Stage
 
@@ -152,4 +159,7 @@ None yet.
 
 ## Work Log
 
-Not started.
+2026-09-06 (TASK-07C-003 verification): confirmed present — `InterCompanyClearingIntent` domain,
+`NetZeroReconciliationJob`, `ConsolidationService`, `/api/v1/reports/consolidated/*` endpoints,
+registry migration, `ClearingNetZeroPropertyTests` + elimination test green. Write-path gaps
+recorded in TASK-07C-003 verdict and TASK-07C-004.
