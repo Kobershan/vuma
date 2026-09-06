@@ -346,16 +346,19 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Build the full solution including the Windows-only Desktop projects
-      - name: Build full solution
-        run: dotnet build VumaRetail.sln -c Release --no-restore
+      - name: Restore
+        run: dotnet restore VumaRetail.sln
 
-      # Run the token generator to ensure generated files are up to date
+      # Regenerate first so the build below compiles verified-fresh files, not stale ones.
       - name: Regenerate tokens and verify
         run: |
           dotnet run --project src/VumaRetail.TokenGenerator
           # Verify no hand-edits — generated files must match
           git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
+
+      # Build the full solution including the Windows-only Desktop projects
+      - name: Build full solution
+        run: dotnet build VumaRetail.sln -c Release --no-restore
 
       - name: Package
         run: echo "Packaging built in Stage 31."
