@@ -1,27 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <!--
-    Stage 08b: Component gallery app — shows every component in every
-    state, theme, and density. Used by developers to verify their work
-    and to demo the design system.
-  -->
-
+<Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
-    <RootNamespace>VumaRetail.Desktop.Gallery</RootNamespace>
     <TargetFramework>net9.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>VumaRetail.Desktop.Gallery</RootNamespace>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\VumaRetail.Desktop\VumaRetail.Desktop.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="CommunityToolkit.Mvvm" />
-  </ItemGroup>
-
 </Project>

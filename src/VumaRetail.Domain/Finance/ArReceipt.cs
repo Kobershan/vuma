@@ -44,6 +44,18 @@ public sealed class ArReceipt : Entity, IImmutableRecord
     /// <summary>The GL journal this receipt posted.</summary>
     public Guid JournalId { get; private set; }
 
+    /// <summary>
+    /// The group receipt this AR receipt was dispatched from, or null for direct receipts.
+    /// Set when this receipt is created as a saga leg from a group receipt allocation (Stage 07c).
+    /// </summary>
+    public Guid? GroupDocumentId { get; private set; }
+
+    /// <summary>
+    /// The inter-company clearing intent that created this receipt, or null for direct receipts.
+    /// Clearing lines carry the intent id so an unmatched leg is identifiable by document (ADR-105).
+    /// </summary>
+    public Guid? IntentId { get; private set; }
+
     /// <summary>How the amount was allocated across invoices.</summary>
     public IReadOnlyList<ArReceiptAllocation> Allocations => _allocations;
 
@@ -101,6 +113,29 @@ public sealed class ArReceipt : Entity, IImmutableRecord
                 tenantId, receipt.Id, arInvoiceId, allocatedAmount));
         }
 
+        return receipt;
+    }
+
+    /// <summary>
+    /// Records a receipt dispatched from a group receipt allocation (Stage 07c).
+    /// Sets <see cref="GroupDocumentId"/> and <see cref="IntentId"/> for traceability.
+    /// </summary>
+    public static ArReceipt RecordFromGroup(
+        Guid tenantId,
+        Guid? storeId,
+        PartnerId partnerId,
+        string receiptNumber,
+        DateTimeOffset receivedAt,
+        Money amount,
+        Guid journalId,
+        IReadOnlyList<(Guid ArInvoiceId, Money Amount)> allocations,
+        Guid groupDocumentId,
+        Guid? intentId,
+        Guid? bankAccountId = null)
+    {
+        ArReceipt receipt = Record(tenantId, storeId, partnerId, receiptNumber, receivedAt, amount, journalId, allocations, bankAccountId);
+        receipt.GroupDocumentId = groupDocumentId;
+        receipt.IntentId = intentId;
         return receipt;
     }
 }

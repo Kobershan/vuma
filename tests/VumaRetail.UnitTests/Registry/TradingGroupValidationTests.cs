@@ -93,7 +93,7 @@ public sealed class TradingGroupValidationTests
         var manifest = new RegistryModuleManifest();
 
         permissions.Module.Should().Be("registry");
-        permissions.Permissions.Should().HaveCount(7);
+        permissions.Permissions.Should().HaveCount(13);
         manifest.Module.Should().Be("registry");
         manifest.LicenceFlag.Should().Be("registry");
         manifest.IsCore.Should().BeTrue();

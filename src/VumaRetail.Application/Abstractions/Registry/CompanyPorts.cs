@@ -55,6 +55,20 @@ public interface ICompanyFanOut
     /// failure result.
     /// </remarks>
     Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets period figures for all companies in a tenant (ADR-119).
+    /// Returns per-company results including failures — a fan-out where one company is down
+    /// returns that company as an error, not the whole call.
+    /// </summary>
+    Task<IReadOnlyList<CompanyPeriodFigure>> GetPeriodFiguresAsync(
+        Guid tenantId, DateOnly asOf, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets clearing account balances for all companies in a tenant for net-zero reconciliation.
+    /// </summary>
+    Task<IReadOnlyList<CompanyClearingBalance>> GetClearingBalancesAsync(
+        Guid tenantId, CancellationToken cancellationToken = default);
 }
 
 public interface ICompanyProvisioner
@@ -87,6 +101,35 @@ public interface ICompanyDatabaseMigrator
 public interface ICompanyDataSeeder
 {
     Task SeedAsync(Company company, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Period figures published by one company database.</summary>
+public sealed class CompanyPeriodFigure
+{
+    public Guid CompanyId { get; init; }
+    public string CompanyName { get; init; } = string.Empty;
+    public DateTimeOffset AsAt { get; init; }
+    public bool IsStale { get; init; }
+    public string? StaleReason { get; init; }
+    public IReadOnlyList<CompanyAccountBalance> Accounts { get; init; } = [];
+}
+
+/// <summary>One account balance from a company's period figures.</summary>
+public sealed class CompanyAccountBalance
+{
+    public string AccountCode { get; init; } = string.Empty;
+    public string AccountName { get; init; } = string.Empty;
+    public string AccountType { get; init; } = string.Empty;
+    public Domain.Primitives.Money Debit { get; init; }
+    public Domain.Primitives.Money Credit { get; init; }
+}
+
+/// <summary>Clearing account balance from one company database.</summary>
+public sealed class CompanyClearingBalance
+{
+    public Guid CompanyId { get; init; }
+    public decimal DebitAmount { get; init; }
+    public decimal CreditAmount { get; init; }
 }
 
 /// <summary>Stores company connection details and returns only its encrypted secret reference.</summary>

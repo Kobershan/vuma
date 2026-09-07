@@ -97,7 +97,8 @@ public sealed class MultiCompanyGuardTests
             "src/VumaRetail.Infrastructure/Registry/GroupCreditService.cs",
             "src/VumaRetail.Infrastructure/Registry/BarcodeResolver.cs",
             "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
-            "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs");
+            "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs");
 
         // Group violations by file; any file with two or more .CreateAsync calls is suspicious.
         var filesWithMultipleCalls = violations

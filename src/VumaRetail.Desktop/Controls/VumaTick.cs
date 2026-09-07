@@ -1,41 +1,24 @@
+using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shapes;
 
 namespace VumaRetail.Desktop.Controls;
 
 /// <summary>
-/// The Vuma tick — a 220ms confirmation stroke rendered on any successful commit.
-/// Implemented once as a reusable control. Wired to successful commits only.
-/// Appears nowhere else in the product.
-///
-/// Motion: 220ms with cubic-bezier(.65,0,.35,1).
-/// When prefers-reduced-motion is set, becomes an instant state change.
+/// The Vuma tick — a 220ms confirmation stroke, implemented once as a reusable control.
+/// Wired only to successful commits. Used nowhere else.
+/// When <c>prefers-reduced-motion</c> or the Windows equivalent is active,
+/// the tick renders as an instant state change, not a slower animation.
 /// </summary>
-public class VumaTick : Control
+public sealed class VumaTick : Control
 {
-    static VumaTick()
-    {
-        DefaultStyleKeyProperty.OverrideMetadata(typeof(VumaTick), new FrameworkPropertyMetadata(typeof(VumaTick)));
-    }
-
     public static readonly DependencyProperty IsConfirmedProperty =
         DependencyProperty.Register(nameof(IsConfirmed), typeof(bool), typeof(VumaTick),
-            new PropertyMetadata(false, OnIsConfirmedChanged));
-
-    public static readonly DependencyProperty StrokeColorProperty =
-        DependencyProperty.Register(nameof(StrokeColor), typeof(Brush), typeof(VumaTick),
-            new PropertyMetadata(null));
-
-    public static readonly DependencyProperty StrokeThicknessProperty =
-        DependencyProperty.Register(nameof(StrokeThickness), typeof(double), typeof(VumaTick),
-            new PropertyMetadata(2.0));
-
-    public static readonly DependencyProperty SizeProperty =
-        DependencyProperty.Register(nameof(Size), typeof(double), typeof(VumaTick),
-            new PropertyMetadata(24.0));
+            new PropertyMetadata(false, OnConfirmedChanged));
 
     public bool IsConfirmed
     {
@@ -43,75 +26,58 @@ public class VumaTick : Control
         set => SetValue(IsConfirmedProperty, value);
     }
 
-    public Brush StrokeColor
-    {
-        get => (Brush)GetValue(StrokeColorProperty);
-        set => SetValue(StrokeColorProperty, value);
-    }
-
-    public double StrokeThickness
-    {
-        get => (double)GetValue(StrokeThicknessProperty);
-        set => SetValue(StrokeThicknessProperty, value);
-    }
-
-    public double Size
-    {
-        get => (double)GetValue(SizeProperty);
-        set => SetValue(SizeProperty, value);
-    }
-
-    private static void OnIsConfirmedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnConfirmedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not VumaTick tick) return;
-        if ((bool)e.NewValue)
-        {
-            tick.AnimateTick();
-        }
+        tick.OnConfirmedChanged((bool)e.NewValue!);
     }
 
-    private void AnimateTick()
+    public static readonly DependencyProperty TickDurationProperty =
+        DependencyProperty.Register(nameof(TickDuration), typeof(TimeSpan), typeof(VumaTick),
+            new PropertyMetadata(TimeSpan.FromMilliseconds(220)));
+
+    public TimeSpan TickDuration
     {
-        var reducedMotion = SystemParameters.HighContrast ||
-                           (bool?)Application.Current?.Resources["MotionReduced"] == true;
-
-        var duration = reducedMotion ? TimeSpan.FromMilliseconds(0)
-            : TimeSpan.FromMilliseconds(GetMotionDuration());
-
-        var stroke = new Line
-        {
-            X1 = 0, Y1 = Size / 2,
-            X2 = Size * 0.4, Y2 = Size * 0.85,
-            X3 = Size * 0.7, Y3 = Size * 0.25,
-            Stroke = StrokeColor ?? GetAccentBrush(),
-            StrokeThickness = StrokeThickness,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            Opacity = 0,
-        };
-
-        if (reducedMotion)
-        {
-            stroke.Opacity = 1;
-        }
-        else
-        {
-            var anim = new DoubleAnimation(0, 1, duration);
-            anim.EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut };
-            stroke.BeginAnimation(OpacityProperty, anim);
-        }
-
-        // Replace content with the tick stroke
-        if (Content is Panel panel)
-        {
-            panel.Children.Clear();
-            panel.Children.Add(stroke);
-        }
+        get => (TimeSpan)GetValue(TickDurationProperty);
+        set => SetValue(TickDurationProperty, value);
     }
 
-    private static double GetMotionDuration()
+    private Storyboard? _storyboard;
+
+    public VumaTick()
     {
-        // Returns 220ms for vuma-tick motion, or 100ms if reduced motion
-        return 220;
+        Focusable = false;
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        var reducedMotion = SystemParameters.HighContrast || IsReducedMotionRequested();
+        TickDuration = reducedMotion ? TimeSpan.Zero : TimeSpan.FromMilliseconds(220);
+    }
+
+    private static bool IsReducedMotionRequested()
+    {
+        return SystemParameters.HighContrast ||
+               AutomationProperties.GetAccessibilityView(new DependencyObject()) != AutomationAccessibilityView.None;
+    }
+
+    private void OnConfirmedChanged(bool confirmed)
+    {
+        if (confirmed)
+        {
+            if (_storyboard != null) _storyboard.Stop();
+            _storyboard = new Storyboard();
+            var animation = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = new Duration(TickDuration),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTargetProperty(animation, new PropertyPath("Opacity"));
+            _storyboard.Children.Add(animation);
+            _storyboard.Begin();
+        }
     }
 }

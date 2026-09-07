@@ -1,0 +1,31 @@
+/* Auto-generated from design/tokens.json — DO NOT EDIT. Run the token generator instead. */
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Color x:Key="VumaSurfaceBase">#000000</Color>
+  <SolidColorBrush x:Key="VumaSurfaceBaseBrush" Color="{StaticResource VumaSurfaceBase}" />
+  <Color x:Key="VumaSurfaceRaised">#141416</Color>
+  <SolidColorBrush x:Key="VumaSurfaceRaisedBrush" Color="{StaticResource VumaSurfaceRaised}" />
+  <Color x:Key="VumaSurfaceSunken">#0A0A0B</Color>
+  <SolidColorBrush x:Key="VumaSurfaceSunkenBrush" Color="{StaticResource VumaSurfaceSunken}" />
+
+  <Color x:Key="VumaTextPrimary">#F5F5F7</Color>
+  <SolidColorBrush x:Key="VumaTextPrimaryBrush" Color="{StaticResource VumaTextPrimary}" />
+  <Color x:Key="VumaTextSecondary">#A0A0A8</Color>
+  <SolidColorBrush x:Key="VumaTextSecondaryBrush" Color="{StaticResource VumaTextSecondary}" />
+  <Color x:Key="VumaTextTertiary">#A8A8B0</Color>
+  <SolidColorBrush x:Key="VumaTextTertiaryBrush" Color="{StaticResource VumaTextTertiary}" />
+
+  <Color x:Key="VumaAccent">#16A97D</Color>
+  <SolidColorBrush x:Key="VumaAccentBrush" Color="{StaticResource VumaAccent}" />
+  <Color x:Key="VumaAccentQuiet">#0E2A22</Color>
+  <SolidColorBrush x:Key="VumaAccentQuietBrush" Color="{StaticResource VumaAccentQuiet}" />
+  <Color x:Key="VumaPositive">#16A97D</Color>
+  <SolidColorBrush x:Key="VumaPositiveBrush" Color="{StaticResource VumaPositive}" />
+  <Color x:Key="VumaWarning">#E5940A</Color>
+  <SolidColorBrush x:Key="VumaWarningBrush" Color="{StaticResource VumaWarning}" />
+  <Color x:Key="VumaCritical">#FF5A4E</Color>
+  <SolidColorBrush x:Key="VumaCriticalBrush" Color="{StaticResource VumaCritical}" />
+  <Color x:Key="VumaInfo">#4C94F0</Color>
+  <SolidColorBrush x:Key="VumaInfoBrush" Color="{StaticResource VumaInfo}" />
+
+</ResourceDictionary>

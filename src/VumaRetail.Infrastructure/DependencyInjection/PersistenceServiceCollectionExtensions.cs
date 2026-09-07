@@ -91,6 +91,20 @@ public static class PersistenceServiceCollectionExtensions
 
         // Stage 06d: Group services
         services.AddScoped<ISagaCoordinator, SagaCoordinator>();
+
+         // Stage 07c: Cross-company money
+         services.AddScoped<IGroupReceiptRepository, GroupReceiptRepository>();
+         services.AddScoped<IGroupReceiptService, GroupReceiptService>();
+         services.AddScoped<GroupReceiptLegHandler>();
+         services.AddScoped<GroupReceiptReversalLegHandler>();
+         services.AddScoped<CaptureGroupReceiptCommandHandler>();
+         services.AddScoped<AllocateGroupReceiptCommandHandler>();
+         services.AddScoped<ReverseGroupReceiptCommandHandler>();
+         services.AddScoped<GetUnallocatedGroupReceiptsQueryHandler>();
+         services.AddScoped<IConsolidationService, ConsolidationService>();
+        services.AddScoped<NetZeroReconciliationJob>();
+        services.AddScoped<IAlarmService, AlarmService>();
+        services.AddScoped<ICompanyLinkGuard, CompanyLinkGuard>();
         services.AddScoped<IGroupCreditService, GroupCreditService>();
         services.AddScoped<IBarcodeResolver, BarcodeResolver>();
         services.AddScoped<IGroupReadStore, GroupReadStore>();

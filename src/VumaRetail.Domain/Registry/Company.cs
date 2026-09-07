@@ -97,16 +97,43 @@ public sealed class Company
     /// <summary>The operator-supplied reason for deactivation.</summary>
     public string? DeactivationReason { get; private set; }
 
-    /// <summary>Creates a company in the provisioning state.</summary>
-    public static Company Create(
-        Guid tenantId,
-        string code,
-        string legalName,
-        string tradingName,
-        string baseCurrency,
-        string locale,
-        string documentPrefix)
-        => new(UuidV7.NewGuid(), tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+/// <summary>Creates a company in the provisioning state.</summary>
+     public static Company Create(
+         Guid tenantId,
+         string code,
+         string legalName,
+         string tradingName,
+         string baseCurrency,
+         string locale,
+         string documentPrefix)
+     {
+         if (tenantId == Guid.Empty) { throw new ArgumentException("A tenant is required.", nameof(tenantId)); }
+         return new(UuidV7.NewGuid(), tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+     }
+
+    /// <summary>
+    /// Assigns the owning Operator ID. Vendor-side only: called during provisioning from the
+    /// signed licence, never from a tenant command (ADR-121).
+    /// </summary>
+    /// <param name="operatorId">The operator that owns this company.</param>
+    /// <remarks>
+    /// Set-once. Changing ownership of a company is a vendor-side operation with billing
+    /// consequences, not an edit — a second, different assignment is refused.
+    /// </remarks>
+    public void AssignOperator(Guid operatorId)
+    {
+        if (operatorId == Guid.Empty)
+        {
+            throw new ArgumentException("An operator identifier is required.", nameof(operatorId));
+        }
+
+        if (OperatorId != Guid.Empty && OperatorId != operatorId)
+        {
+            throw new InvalidOperationException("A company's Operator ID cannot be changed once assigned.");
+        }
+
+        OperatorId = operatorId;
+    }
 
     /// <summary>
     /// Assigns the owning Operator ID. Vendor-side only: called during provisioning from the

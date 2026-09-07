@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WPFControlGallery xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:controls="clr-namespace:VumaRetail.Desktop.Controls"
+                   x:Class="VumaRetail.Desktop.Gallery.MainWindow">
+  <Grid>
+    <TabControl>
+      <TabItem Header="Button">
+        <StackPanel>
+          <controls:VumaButton Variant="Primary">Take Payment</controls:VumaButton>
+          <controls:VumaButton Variant="Secondary">Cancel</controls:VumaButton>
+          <controls:VumaButton Variant="Quiet">Edit</controls:VumaButton>
+          <controls:VumaButton Variant="Destructive">Void</controls:VumaButton>
+        </StackPanel>
+      </TabItem>
+      <TabItem Header="Stat Tile">
+        <controls:StatTile Value="$12,480.00" Label="Today's Revenue" Comparison="+12% vs yesterday" />
+      </TabItem>
+      <TabItem Header="Till Line List">
+        <controls:TillLineList RunningTotal="$12,480.00" />
+      </TabItem>
+      <TabItem Header="Input">
+        <controls:VumaInput Placeholder="Search..." />
+      </TabItem>
+      <TabItem Header="Vuma Tick">
+        <controls:VumaTick IsConfirmed="True" />
+      </TabItem>
+    </TabControl>
+  </Grid>
+</WPFControlGallery>

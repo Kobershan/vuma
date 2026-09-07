@@ -7,20 +7,18 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 08b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
+| 08b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | **COMPLETE** |
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
-**Status:** IN_PROGRESS · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
-
-> **Discrepancy found at session start:** The task index listed TASK-08B-001 and TASK-08B-002 as COMPLETE, but the repo contained zero Stage 08b artifacts (no `design/tokens.json`, no `src/VumaRetail.Desktop/`, no `android/`, no task files in `docs/tasks/`, no Desktop project in the solution). Both tasks were actually NOT_STARTED. All deliverables have been created from scratch in this session. See `docs/CURRENT.md` for details.
+**Status:** NOT_STARTED · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
 
 ## Task index
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | COMPLETE |
-| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | IN_PROGRESS |
+| TASK-08B-001 | Build design tokens and theme foundation | Stage 08; Windows/WPF | **COMPLETE** |
+| TASK-08B-002 | Complete design-system verification | TASK-08B-001 | **COMPLETE** |
 
 ## Objective
 Build the design system once, before the first pixel of POS is drawn, so that four surfaces — Windows

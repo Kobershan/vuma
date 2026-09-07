@@ -29,18 +29,37 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      # Stage 08b: generate WPF ResourceDictionaries, Android Compose themes, and CSS
+      # custom properties from design/tokens.json. Deterministic — regenerating produces
+      # byte-identical output (see DesignSystemRulesTests.Generated_files_are_deterministic).
+      - name: Generate design tokens
+        run: dotnet run --project src/VumaRetail.TokenGenerator
+
       # Zero warnings in Domain and Application is a build failure there, not a report
       # (CLAUDE.md §7 rule 10 / Directory.Build.props).
+      # Desktop projects target net9.0-windows and are excluded from the Linux build;
+      # they are built in the package job on Windows-latest.
+      # VumaRetail.Hardware targets net9.0 (cross-platform protocol layer) and IS built here.
       - name: Build
-        run: dotnet build -c Release --no-restore
-
-      - name: Generate design tokens
-        run: pwsh scripts/generate-tokens.ps1 -VerifyOnly
-        # Verify that generated files match tokens.json. If a hand-edited generated file
-        # exists, the generator output will differ and this step fails the build.
-        continue-on-error: true
-        # TODO: Remove continue-on-error once pwsh is available in CI and the generator
-        # can produce byte-identical output deterministically.
+        run: |
+          dotnet build src/VumaRetail.Domain -c Release --no-restore
+          dotnet build src/VumaRetail.Application -c Release --no-restore
+          dotnet build src/VumaRetail.Contracts -c Release --no-restore
+          dotnet build src/VumaRetail.Infrastructure -c Release --no-restore
+          dotnet build src/VumaRetail.Sync -c Release --no-restore
+          dotnet build src/VumaRetail.Licensing -c Release --no-restore
+          dotnet build src/VumaRetail.Workflow -c Release --no-restore
+          dotnet build src/VumaRetail.Finance -c Release --no-restore
+          dotnet build src/VumaRetail.Imports -c Release --no-restore
+          dotnet build src/VumaRetail.Hardware -c Release --no-restore
+          dotnet build src/VumaRetail.Web -c Release --no-restore
+          dotnet build src/VumaRetail.PublicApi -c Release --no-restore
+          dotnet build src/VumaRetail.StoreServer -c Release --no-restore
+          dotnet build src/VumaRetail.CloudApi -c Release --no-restore
+          dotnet build src/VumaRetail.TokenGenerator -c Release --no-restore
+          dotnet build tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet build tests/VumaRetail.ArchitectureTests -c Release --no-restore
+          dotnet build tests/VumaRetail.IntegrationTests -c Release --no-restore
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -49,6 +68,7 @@ jobs:
           path: |
             src/**/bin/Release/
             tests/**/bin/Release/
+            design/generated/
           retention-days: 1
 
   test:
@@ -75,7 +95,11 @@ jobs:
           --health-retries 10
 
     env:
+      # FIX 1: Changed Database=postgres to Database=vuma
       VUMA_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=vuma;Username=vuma;Password=vuma
+      # FIX 1.5: Required by DesignTimeDbContextFactory for EF migration commands
+      VUMA_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_migrate_check;Username=vuma;Password=vuma
+      VUMA_REGISTRY_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_registry_migrate_check;Username=vuma;Password=vuma
 
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +112,12 @@ jobs:
       # restore it into an empty database. pg_dump refuses to dump from a server newer than itself,
       # so a client/server major mismatch would surface as a puzzling backup-test failure rather
       # than as the environment problem it is. Fail here instead, with the versions in the log.
+      # Create databases needed for stage 07c migrations
+      - name: Create stage 07c databases
+        run: |
+          PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -c "CREATE DATABASE vuma_migrate_check;" 2>/dev/null || true
+          PGPASSWORD=vuma psql -h 127.0.0.1 -U vuma -d vuma -c "CREATE DATABASE vuma_registry_migrate_check;" 2>/dev/null || true
+
       - name: PostgreSQL client tools are present and not older than the server
         run: |
           set -euo pipefail
@@ -103,23 +133,40 @@ jobs:
             exit 1
           fi
 
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef --version 9.0.0
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet-ef --version
+
+      # FIX 3b: Ensure dotnet-ef is on PATH for subsequent steps
+      - name: Set PATH for dotnet tools
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      # FIX 4a: Restore NuGet packages before EF commands
+      - name: Restore
+        run: dotnet restore src/VumaRetail.Infrastructure
 
       # FIX 4: Explicitly apply migrations before tests run to prevent 500 errors on empty DB
       - name: Apply Database Migrations for Tests
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure
-          --context VumaRetailDbContext
+        run: |
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+          # Stage 07c: Registry context also needs migrations applied
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+
+      # Stage 07c: Ensure registry migrations are reversible too
+      - name: Verify registry migrations are reversible
+        run: |
+          dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+          dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Test
-        run: >
-          dotnet test -c Release
-          --logger "trx;LogFileName=results.trx"
-          --logger "console;verbosity=detailed"
-          --collect:"XPlat Code Coverage"
-          --results-directory ./artifacts/test-results
+        run: |
+          dotnet test tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet test tests/VumaRetail.ArchitectureTests -c Release --no-restore
+          dotnet test tests/VumaRetail.IntegrationTests -c Release --no-restore --logger "trx;LogFileName=results.trx" --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" --results-directory ./artifacts/test-results
 
       - name: Upload results
         if: always()
@@ -143,9 +190,45 @@ jobs:
       # The CLAUDE.md §7 rules that a project reference cannot express: layering through
       # transitive dependencies, the PublicApi isolation (rule 14), and the command
       # side-effect classification read-only enforcement depends on (rule 15).
-      # Also enforces design-system rules: no literal hex values in source.
       - name: Run architecture tests
         run: dotnet test tests/VumaRetail.ArchitectureTests -c Release
+
+  design-system-verification:
+    name: Design System Verification
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Verify token generation is deterministic: regenerate and compare to existing output
+      - name: Verify token generation is deterministic
+        run: |
+          dotnet run --project src/VumaRetail.TokenGenerator
+          # Compare regenerated output to committed output — must be byte-identical
+          if ! git diff --quiet design/generated/ design/tokens.css; then
+            echo "::error::Token regeneration produced different output — generation is not deterministic."
+            exit 1
+          fi
+
+      # Verify contrast ratios meet WCAG AA/AAA requirements
+      - name: Verify contrast ratios
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~ContrastAndTypographyTests" -c Release
+
+      # Verify no literal hex values in XAML/Kotlin/CSS outside generated files
+      - name: Verify no literal hex colours in source
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~DesignSystemRulesTests" -c Release
+
+      # Verify hand-edited generated files fail the build
+      - name: Verify hand-edited generated files fail
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~DesignSystemRulesTests.Hand_edited_generated_file_fails_the_build" -c Release
+
+      # Verify fonts are embedded and no runtime download
+      - name: Verify fonts embedded
+        run: dotnet test tests/VumaRetail.ArchitectureTests --filter "FullyQualifiedName~ContrastAndTypographyTests.Fonts_embedded_no_runtime_download" -c Release
 
   migrate-check:
     name: Migration check
@@ -177,8 +260,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # FIX 3: Ensure dotnet-ef is installed for the migration step
+      # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef --version 9.0.0
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          dotnet-ef --version
+
+      # FIX 3b: Ensure dotnet-ef is on PATH for subsequent steps
+      - name: Set PATH for dotnet tools
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      # FIX 4c: Restore NuGet packages before EF commands
+      - name: Restore
+        run: dotnet restore src/VumaRetail.Infrastructure
 
       # docs/TESTING.md §6. A model change without a scaffolded migration builds, tests green, and
       # then fails on a customer's database during an upgrade.
@@ -187,83 +283,34 @@ jobs:
           dotnet ef migrations has-pending-model-changes
           --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
-      - name: Apply to an empty database
+      # Stage 07c: Also check registry context for pending model changes
+      - name: Registry model and migrations agree
         run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+          dotnet ef migrations has-pending-model-changes
+          --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
+
+      - name: Apply to an empty database
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+
+      # Stage 07c: Also apply registry context migrations
+      - name: Apply Registry Migrations
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       # CLAUDE.md §8 requires Down to be reversible, and a Down that was never run is a Down that
       # does not work. "0" is EF's name for the state before the first migration.
       - name: Reverse every migration
-        run: >
-          dotnet ef database update 0
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+        run: dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+
+      # Stage 07c: Also verify registry migrations are reversible
+      - name: Reverse every registry migration
+        run: dotnet ef database update 0 --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
       - name: Re-apply
-        run: >
-          dotnet ef database update
-          --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRetailDbContext
 
-  design-system-check:
-    name: Design system verification
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-
-      # Verify design tokens exist and contain all required sections.
-      - name: Tokens.json integrity
-        run: |
-          test -f design/tokens.json || (echo "FAIL: design/tokens.json missing" && exit 1)
-          python3 -c "
-          import json
-          t = json.load(open('design/tokens.json'))
-          assert 'colour' in t, 'missing colour'
-          assert 'type' in t, 'missing type'
-          assert 'spacing' in t, 'missing spacing'
-          assert 'radius' in t, 'missing radius'
-          assert 'elevation' in t, 'missing elevation'
-          assert 'motion' in t, 'missing motion'
-          assert 'touchTargets' in t, 'missing touchTargets'
-          assert 'light' in t['colour'], 'missing light theme'
-          assert 'dark' in t['colour'], 'missing dark theme'
-          print('tokens.json: OK')
-          "
-
-      # Verify generated theme files exist and match tokens.json.
-      - name: Generated files integrity
-        run: |
-          test -f src/VumaRetail.Desktop/Themes/LightTheme.xaml || (echo "FAIL: LightTheme.xaml missing" && exit 1)
-          test -f src/VumaRetail.Desktop/Themes/DarkTheme.xaml || (echo "FAIL: DarkTheme.xaml missing" && exit 1)
-          test -f android/core-ui/theme/VumaColorTokens.kt || (echo "FAIL: VumaColorTokens.kt missing" && exit 1)
-          test -f design/tokens.css || (echo "FAIL: tokens.css missing" && exit 1)
-          echo "All generated theme files present"
-
-      # Verify no literal hex values in source files (excluding generated theme files).
-      - name: No literal hex values in source
-        run: |
-          violations=0
-          for file in $(find src/VumaRetail.Desktop -name '*.xaml' | grep -v 'LightTheme\|DarkTheme'); do
-            if grep -qP '#[0-9a-fA-F]{6}\b' "$file"; then
-              echo "FAIL: literal hex in $file"
-              violations=$((violations+1))
-            fi
-          done
-          for file in $(find src/VumaRetail.Desktop -name '*.cs' | grep -v AssemblyMarker); do
-            if grep -qP '#[0-9a-fA-F]{6}\b' "$file"; then
-              echo "FAIL: literal hex in $file"
-              violations=$((violations+1))
-            fi
-          done
-          if [ $violations -gt 0 ]; then
-            echo "FAIL: $violations file(s) contain literal hex values"
-            exit 1
-          fi
-          echo "No literal hex values in source files"
+      # Stage 07c: Re-apply registry migrations
+      - name: Re-apply Registry Migrations
+        run: dotnet ef database update --project src/VumaRetail.Infrastructure --context VumaRegistryDbContext
 
   vulnerability-scan:
     name: Vulnerability scan
@@ -290,12 +337,25 @@ jobs:
   package:
     name: Package
     runs-on: windows-latest
-    needs: [test, architecture-tests, migrate-check, design-system-check]
+    needs: [test, architecture-tests, design-system-verification, migrate-check]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
-      # Runs on Windows because the desktop shell targets net9.0-windows and the installer is a
-      # WiX v4 bootstrapper wrapping Velopack (ADR-011). Stage 31 fills this in.
-      - name: Not yet applicable
-        run: echo "Packaging is built in Stage 31."
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Build the full solution including the Windows-only Desktop projects
+      - name: Build full solution
+        run: dotnet build VumaRetail.sln -c Release --no-restore
+
+      # Run the token generator to ensure generated files are up to date
+      - name: Regenerate tokens and verify
+        run: |
+          dotnet run --project src/VumaRetail.TokenGenerator
+          # Verify no hand-edits — generated files must match
+          git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
+
+      - name: Package
+        run: echo "Packaging built in Stage 31."

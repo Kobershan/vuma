@@ -77,6 +77,13 @@ Thumbs.db
 
 # ---- Claude Code local overrides ----
 .claude/settings.local.json
+<<<<<<< HEAD
+=======
+# Agent worktrees are operator-local checkouts, never repo content (CLAUDE.md §1:
+# sessions never write to .claude/**). Ignored so a broad `git add` can never
+# commit their nested repos as gitlinks again.
+.claude/worktrees/
+>>>>>>> 91b0bb286896b0ead67364ac30fd09dc940be79d
 
 __pycache__/
 *.py[cod]

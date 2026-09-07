@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.UnitTests.Registry;
@@ -7,6 +9,22 @@ namespace VumaRetail.UnitTests.Registry;
 public sealed class CompanyFanOutTests
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 28, 12, 0, 0, TimeSpan.Zero);
+    private static readonly MockDbContextFactory Factory = new();
+
+    private sealed class MockDbContextFactory : IDbContextFactory<VumaRetail.Infrastructure.Persistence.VumaRegistryDbContext>
+    {
+        public VumaRetail.Infrastructure.Persistence.VumaRegistryDbContext CreateDbContext()
+            => throw new NotImplementedException();
+
+        public VumaRetail.Infrastructure.Persistence.VumaRegistryDbContext CreateDbContext(string? connectionString = null)
+            => throw new NotImplementedException();
+
+        public async ValueTask<VumaRetail.Infrastructure.Persistence.VumaRegistryDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public VumaRetail.Infrastructure.Persistence.VumaRegistryDbContext Create()
+            => throw new NotImplementedException();
+    }
 
     [Fact]
     public async Task Returns_successes_and_a_named_failure_in_input_order_with_bounded_concurrency()
@@ -16,7 +34,7 @@ public sealed class CompanyFanOutTests
         Guid third = Guid.NewGuid();
         int active = 0;
         int maximum = 0;
-        var fanOut = new CompanyFanOut(new FixedClock(Now), maxConcurrency: 2);
+        var fanOut = new CompanyFanOut(Factory, new FixedClock(Now), maxConcurrency: 2);
 
         IReadOnlyList<FanOutResult<string>> results = await fanOut.ReadAsync(
             [first, stopped, third],
@@ -54,7 +72,7 @@ public sealed class CompanyFanOutTests
     {
         Guid slow = Guid.NewGuid();
         Guid fast = Guid.NewGuid();
-        var fanOut = new CompanyFanOut(new FixedClock(Now), maxConcurrency: 2, readTimeout: TimeSpan.FromMilliseconds(20));
+        var fanOut = new CompanyFanOut(Factory, new FixedClock(Now), maxConcurrency: 2, readTimeout: TimeSpan.FromMilliseconds(20));
 
         IReadOnlyList<FanOutResult<string>> results = await fanOut.ReadAsync(
             [slow, fast],
@@ -76,7 +94,7 @@ public sealed class CompanyFanOutTests
     public async Task Caller_cancellation_aborts_the_whole_fan_out()
     {
         using var cancellation = new CancellationTokenSource();
-        var fanOut = new CompanyFanOut(new FixedClock(Now));
+        var fanOut = new CompanyFanOut(Factory, new FixedClock(Now));
         Task read = fanOut.ReadAsync<object?>(
             [Guid.NewGuid(), Guid.NewGuid()],
             async (_, token) =>
@@ -96,7 +114,7 @@ public sealed class CompanyFanOutTests
     {
         Guid companyId = Guid.NewGuid();
         int calls = 0;
-        var fanOut = new CompanyFanOut(new FixedClock(Now));
+        var fanOut = new CompanyFanOut(Factory, new FixedClock(Now));
 
         IReadOnlyList<FanOutResult<int>> results = await fanOut.ReadAsync(
             [Guid.Empty, companyId, companyId],

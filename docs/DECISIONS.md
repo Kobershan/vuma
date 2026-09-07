@@ -2378,11 +2378,3 @@ construction, negative-test constraint noise stays server-side log noise (the te
 refusal), and no database-enforced rule can surface as a 500 again. The accepted cost is that a
 down registry silently narrows tokens until it recovers — visible in the server logs, and the
 correct side to fail on: authentication first, enrichment second.
-
-## ADR-141 — Design System Token Architecture and Generation Strategy — **LOCKED**
-
-**Context.** Stage 08b must build a design system that serves four surfaces — Windows desktop, Android, supplier portal, customer storefront — from a single source of truth. Hand-maintained parallel palettes drift within a month. The system needs deterministic generation, contrast verification, and an architecture-enforced boundary between tokens and source code.
-
-**Decision.** All colour, type, spacing, radius, elevation, motion, and touch-target values live in `design/tokens.json`. A generator (`scripts/generate-tokens.ps1`) produces three output formats: WPF `ResourceDictionary` XAML, Android Compose `.kt`, and CSS custom properties. The generator is the only path to theme output; hand-edited generated files fail the build. An architecture test (`ThemeDesignRulesTests`) scans source files for literal hex values and fails the build. The Vuma tick control uses `cubic-bezier(.65,0,.35,1)` over 220ms and becomes an instant state change when `prefers-reduced-motion` is set. Theme switching follows OS default with per-user and per-terminal override.
-
-**Consequences.** A palette tweak in `tokens.json` regenerates all three surfaces deterministically. The architecture test prevents drift — no XAML, Kotlin, or C# source file can contain a hard-coded colour. The Vuma tick is a single reusable control wired to successful commits only, appearing nowhere else. Contrast verification runs in CI against the token set: AA minimum everywhere, AAA for money, quantities, and critical states. Fonts (Inter, Inter Display, JetBrains Mono) are embedded in the installer — no runtime download.

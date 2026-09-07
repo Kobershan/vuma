@@ -1238,6 +1238,14 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("deleted_by");
 
+                    b.Property<Guid?>("GroupDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_document_id");
+
+                    b.Property<Guid?>("IntentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intent_id");
+
                     b.Property<Guid>("JournalId")
                         .HasColumnType("uuid")
                         .HasColumnName("journal_id");
@@ -1780,6 +1788,14 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("deleted_by");
+
+                    b.Property<Guid?>("GroupDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_document_id");
+
+                    b.Property<Guid?>("IntentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intent_id");
 
                     b.Property<Guid>("JournalId")
                         .HasColumnType("uuid")

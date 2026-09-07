@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using VumaRetail.Application.Abstractions;
@@ -345,9 +346,9 @@ public sealed class TerminalService(
 /// Matches the identity login against the registry directory by sign-in name. A login with no
 /// registry row keeps the pre-registry token exactly — enrichment adds claims, never removes them.
 /// </remarks>
-public sealed class RegistryTokenCompanyEnricher(IDbContextFactory<VumaRegistryDbContext> factory) : ITokenCompanyEnricher
+public sealed class RegistryTokenCompanyEnricher(IServiceScopeFactory serviceScopeFactory) : ITokenCompanyEnricher
 {
-    private readonly IDbContextFactory<VumaRegistryDbContext> _factory = factory;
+    private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
 
     /// <inheritdoc />
     public async Task<TokenCompanyEnrichment> EnrichAsync(Guid tenantId, string userName, CancellationToken cancellationToken = default)
@@ -356,7 +357,10 @@ public sealed class RegistryTokenCompanyEnricher(IDbContextFactory<VumaRegistryD
 
         try
         {
-            await using VumaRegistryDbContext registry = await _factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            // Create a scope that can safely resolve Scoped services like ITenantContext
+            using var scope = _serviceScopeFactory.CreateScope();
+            await using var registry = scope.ServiceProvider.GetRequiredService<VumaRegistryDbContext>();
+
             string login = userName.Trim().ToLowerInvariant();
 
             RegistryUser? user = await registry.RegistryUsers

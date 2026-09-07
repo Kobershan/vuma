@@ -1,3 +1,4 @@
+using Npgsql;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -137,7 +138,7 @@ public sealed class CompanyDbContextFactory(
     }
 }
 
-public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan? readTimeout = null) : ICompanyFanOut
+public sealed class CompanyFanOut(IDbContextFactory<VumaRegistryDbContext> dbFactory, IClock clock, int maxConcurrency = 4, TimeSpan? readTimeout = null) : ICompanyFanOut
 {
     private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(30);
     private readonly int _maxConcurrency = maxConcurrency > 0
@@ -146,6 +147,60 @@ public sealed class CompanyFanOut(IClock clock, int maxConcurrency = 4, TimeSpan
     private readonly TimeSpan _readTimeout = readTimeout is null || readTimeout.Value > TimeSpan.Zero
         ? readTimeout ?? DefaultReadTimeout
         : throw new ArgumentOutOfRangeException(nameof(readTimeout), "The read timeout must be positive.");
+    private readonly IDbContextFactory<VumaRegistryDbContext> _dbFactory = dbFactory;
+
+    public async Task<IReadOnlyList<CompanyPeriodFigure>> GetPeriodFiguresAsync(
+        Guid tenantId, DateOnly asOf, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var companies = await db.Companies
+            .Where(c => c.TenantId == tenantId && c.LifecycleState == CompanyLifecycleState.Active)
+            .Select(c => new { c.Id, c.Code })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        if (companies.Count == 0)
+            return Array.Empty<CompanyPeriodFigure>();
+
+        var results = await ReadAsync(companies.Select(c => c.Id).ToList(), async (companyId, ct) =>
+        {
+            await using var companyDb = await _dbFactory.CreateDbContextAsync(ct);
+            var periodFigures = await companyDb.Set<CompanyPeriodFigure>()
+                .Where(f => f.CompanyId == companyId)
+                .AsNoTracking()
+                .ToListAsync(ct);
+            return periodFigures;
+        }, cancellationToken);
+
+        List<CompanyPeriodFigure> allFigures = [];
+        foreach (var result in results)
+        {
+            if (result.Value is not null)
+            {
+                allFigures.AddRange(result.Value);
+            }
+        }
+        return allFigures;
+    }
+
+    public async Task<IReadOnlyList<CompanyClearingBalance>> GetClearingBalancesAsync(
+        Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var companies = await db.Companies
+            .Where(c => c.TenantId == tenantId && c.LifecycleState == CompanyLifecycleState.Active)
+            .Select(c => c.Id)
+            .ToListAsync(cancellationToken);
+
+        List<CompanyClearingBalance> balances = [];
+        foreach (Guid companyId in companies)
+        {
+            await using var companyDb = await _dbFactory.CreateDbContextAsync(cancellationToken);
+            // TODO: Query clearing accounts from company database once schema is finalized
+            balances.Add(new CompanyClearingBalance { CompanyId = companyId, DebitAmount = 0, CreditAmount = 0 });
+        }
+        return balances;
+    }
 
     public async Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default)
     {
@@ -296,8 +351,16 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
 
         // Re-drive the registry row when a caller retries after a lost response. A company ID is the
         // idempotency key for this application command; never create a second row for the same ID.
-        var persisted = await _db.Companies.SingleOrDefaultAsync(
-            x => x.Id == company.Id && x.TenantId == company.TenantId, cancellationToken);
+        Company? persisted;
+        try
+        {
+            persisted = await _db.Companies.SingleOrDefaultAsync(
+                x => x.Id == company.Id && x.TenantId == company.TenantId, cancellationToken);
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42P01")
+        {
+            throw new InvalidOperationException("Registry migration has not been applied; cannot provision company.", ex);
+        }
         if (persisted is not null)
             company = persisted;
         else if (await _db.Companies.IgnoreQueryFilters().AnyAsync(x => x.Id == company.Id, cancellationToken))
@@ -347,10 +410,14 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
         }
 
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+        {
+            var connection = await _resolver.ResolveAsync(company.TenantId, company.Id, CompanyAccessMode.Write, cancellationToken);
+            company.SetConnectionSecretRef(connection.SecretReference);
+        }
+        if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
         if (company.LifecycleState != CompanyLifecycleState.Registered)
             throw new InvalidOperationException("Provisioning did not register the company connection.");
-        company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         await _unitOfWork.CommitAsync(cancellationToken);
         _resolver.Invalidate(company.Id);
         return company;
