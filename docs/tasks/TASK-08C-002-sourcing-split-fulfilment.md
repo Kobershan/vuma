@@ -2,7 +2,7 @@
 
 ## Status
 
-READY
+COMPLETE
 
 ## Stage
 
@@ -250,4 +250,4 @@ Stage doc, `docs/MULTI_COMPANY.md` §4–§5, ADR-102/103/108/116/119/122, `docs
 
 ## Work Log
 
-Not started.
+2026-09-07: Implementation complete. Domain (`SourcingPlan`, `SourcingAllocation`, `SourcingDemandLine`), Application (`AvailabilityThenProximity` strategy, `PlanSourcingQuery`, `CommitSourcingPlanCommand` → `SourcingCommitService`, `ISplitDocumentBuilder`, `IReservationExpiryPolicy`, `ReservationExpiryService`, `ReservationExpiryHostedService`, `SourcingPlannerService`), Infrastructure (all production implementations, DI wiring, `GroupDocumentRef` + `reservation_expiry_policies` migrations — both reversible), API (`POST /api/v1/sourcing/plan`, `POST /api/v1/sourcing/commit`, `GET /api/v1/sourcing/intents/{id}`), seed (two-company sourced order). Unit tests (strategy, split reconciliation, commit service, expiry), integration tests (commit flow, stale projection, two-company commit failure, expiry), architecture (`TradingGroupGuardTests` row added). Build green, 1010 unit + 54 architecture all green, 23 inventory integration tests green on real PostgreSQL. `SalesOrder.GroupDocumentRef` nullable + index migration applied. Commit pushed to main as `d88f112`.

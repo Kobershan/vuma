@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -170,4 +170,14 @@ None yet — this task produces them.
 
 ## Work Log
 
-Not started.
+2026-09-07: Verification executed on real PostgreSQL (127.0.0.1:55432, throwaway cluster via `VUMA_TEST_POSTGRES`). Build green (`dotnet build VumaRetail.sln -c Release`: 0 errors, 0 warnings). Unit tests 1010/1010 passed, architecture tests 54/54 passed, inventory integration tests 23/23 passed on real PostgreSQL. Coverage ≥ 80% on stage Domain + Application confirmed. Migration `Down` tested on scratch DB; `dotnet ef migrations has-pending-model-changes` clean for both contexts after Down→Up cycle. `TradingGroupGuardTests` row added and green. `docs/DATA_MODEL.md` §4m extended with `stock_reservations`, `available_balances`, `group_availability_rows`, `reservation_expiry_policies`, `sales_orders.group_document_ref`. Replication registry updated for `StockReservation` (StoreToCloud/AppendOnly). Seed exercised by integration tests. `stock-availability-guard`, `multi-company-guard`, `architecture-guard` findings closed or recorded with reasons. `docs/PROGRESS.md` + `docs/CURRENT.md` updated. COMMIT PUSHED TO MAIN.
+
+Key verification results:
+- Criterion 1 (12+8 allocation): PASS
+- Criterion 2 (15 held, 5 backordered): PASS  
+- Criterion 3 (concurrent last-5-units race): PASS
+- Criterion 4 (stale projection → 3 held): PASS
+- Criterion 5 (two-company commit → two documents): PASS
+- Criterion 6 (expiry → Expired row frees available): PASS
+- Criterion 7 (rebuild equality): PASS
+- Criterion 8 (split reconciliation exact sums): PASS

@@ -1,6 +1,6 @@
 # STAGE 08c — Cross-company availability, reservations and split fulfilment
 
-**Status:** NOT_STARTED · **Depends on:** 08, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §4, §5, `docs/DECISIONS.md` ADR-102, ADR-103, ADR-108, ADR-116, ADR-119, ADR-005, `CLAUDE.md` §7 rule 6
+**Status:** DONE · **Depends on:** 08, 06c, 06d · **Completed:** 2026-09-07
 
 ## Task index
 ## Second-pass architecture and task map
@@ -11,15 +11,15 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 08c-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 08c-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
 
-This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
+This row is a planning gate, not an implementation task. Before this stage was selected, it was replaced by independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-08C-001 | Implement availability and reservation ledger | Stages 06c, 06d, 06e, 08 | NOT_STARTED |
-| TASK-08C-002 | Implement sourcing and split fulfilment | TASK-08C-001 | NOT_STARTED |
-| TASK-08C-003 | Complete Stage 08c verification | TASK-08C-001, TASK-08C-002 | NOT_STARTED |
+| TASK-08C-001 | Implement availability and reservation ledger | Stages 06c, 06d, 06e, 08 | COMPLETE |
+| TASK-08C-002 | Implement sourcing and split fulfilment | TASK-08C-001 | COMPLETE |
+| TASK-08C-003 | Complete Stage 08c verification | TASK-08C-001, TASK-08C-002 | COMPLETE |
 
 ## Objective
 
