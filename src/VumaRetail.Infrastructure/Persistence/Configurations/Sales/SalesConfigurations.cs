@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Domain.Sales.Analytics;
+using VumaRetail.Domain.Sales.Invoices;
+using VumaRetail.Domain.Sales.Quotes;
 
 namespace VumaRetail.Infrastructure.Persistence.Configurations.Sales;
 
@@ -466,5 +470,182 @@ internal sealed class PriceOverrideLogConfiguration : EntityConfiguration<PriceO
                 "ck_price_override_logs_prices_not_negative",
                 "resolved_unit_price_amount >= 0 AND actual_unit_price_amount >= 0");
         });
+    }
+}
+
+/// <summary><c>sales.quotes</c> — a non-binding price promise with a lifecycle.</summary>
+internal sealed class QuoteConfiguration : EntityConfiguration<Quote>
+{
+    protected override string Schema => Schemas.Sales;
+    protected override string TableName => "quotes";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<Quote> builder)
+    {
+        builder.Property(q => q.QuoteNumber).IsRequired().HasMaxLength(32);
+        builder.Property(q => q.CustomerId).IsRequired();
+        builder.Property(q => q.Currency).IsRequired().HasMaxLength(3).IsFixedLength();
+        builder.Property(q => q.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(q => q.ValidUntil).IsRequired();
+        builder.Property(q => q.GroupId);
+        builder.HasMoney(q => q.Net, "net");
+        builder.HasMoney(q => q.Tax, "tax");
+        builder.HasMoney(q => q.Gross, "gross");
+
+        builder.HasMany(q => q.Lines)
+            .WithOne()
+            .HasForeignKey(line => line.QuoteId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(q => q.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(q => new { q.TenantId, q.QuoteNumber })
+            .IsUnique()
+            .HasDatabaseName("ux_quotes_tenant_id_number")
+            .HasFilter("deleted_at IS NULL");
+    }
+}
+
+/// <summary><c>sales.quote_lines</c> — one line on a quote, with a price and pack snapshot.</summary>
+internal sealed class QuoteLineConfiguration : EntityConfiguration<QuoteLine>
+{
+    protected override string Schema => Schemas.Sales;
+    protected override string TableName => "quote_lines";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<QuoteLine> builder)
+    {
+        builder.Property(line => line.QuoteId).IsRequired();
+        builder.Property(line => line.ItemId);
+        builder.Property(line => line.ItemVariantId);
+
+        builder.Property(line => line.QuantityValue)
+            .HasColumnName("quantity_value")
+            .HasColumnType(ValueObjectMapping.QuantityColumnType)
+            .IsRequired();
+        builder.Property(line => line.QuantityUom)
+            .HasColumnName("quantity_uom")
+            .HasMaxLength(16)
+            .IsRequired();
+        builder.HasMoney(line => line.UnitPrice, "unit_price");
+        builder.HasMoney(line => line.DiscountAmount, "discount_amount");
+        builder.HasMoney(line => line.TaxAmount, "tax_amount");
+        builder.HasMoney(line => line.Net, "net");
+
+        builder.Property(line => line.PackSizeDescription).IsRequired().HasMaxLength(128);
+        builder.Property(line => line.Currency).IsRequired().HasMaxLength(3).IsFixedLength();
+        builder.Property(line => line.PriceListId);
+        builder.Property(line => line.PromotionsSummary).HasMaxLength(500);
+
+        builder.HasIndex(line => line.QuoteId)
+            .HasDatabaseName("ix_quote_lines_quote_id");
+
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint("ck_quote_lines_quantity_positive", "quantity_value > 0");
+            table.HasCheckConstraint("ck_quote_lines_price_not_negative", "unit_price_amount >= 0");
+        });
+    }
+}
+
+/// <summary><c>sales.invoices</c> — a legally binding document, immutable once posted.</summary>
+internal sealed class InvoiceConfiguration : EntityConfiguration<Invoice>
+{
+    protected override string Schema => Schemas.Sales;
+    protected override string TableName => "invoices";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<Invoice> builder)
+    {
+        builder.Property(invoice => invoice.InvoiceNumber).IsRequired().HasMaxLength(32);
+        builder.Property(invoice => invoice.SourceDocumentRef).IsRequired();
+        builder.Property(invoice => invoice.SourceDocumentType).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(invoice => invoice.CustomerId).IsRequired();
+        builder.Property(invoice => invoice.Currency).IsRequired().HasMaxLength(3).IsFixedLength();
+        builder.Property(invoice => invoice.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(invoice => invoice.PostedAt);
+        builder.Property(invoice => invoice.GroupDocumentRef);
+        builder.HasMoney(invoice => invoice.Net, "net");
+        builder.HasMoney(invoice => invoice.Tax, "tax");
+        builder.HasMoney(invoice => invoice.Gross, "gross");
+
+        builder.HasMany(invoice => invoice.Lines)
+            .WithOne()
+            .HasForeignKey(line => line.InvoiceId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(invoice => invoice.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(invoice => new { invoice.TenantId, invoice.InvoiceNumber })
+            .IsUnique()
+            .HasDatabaseName("ux_invoices_tenant_id_number")
+            .HasFilter("deleted_at IS NULL");
+
+        builder.HasIndex(invoice => new { invoice.TenantId, invoice.CompanyId, invoice.Status })
+            .HasDatabaseName("ix_invoices_tenant_id_company_id_status");
+    }
+}
+
+/// <summary><c>sales.invoice_lines</c> — one line on an invoice, with a pack size snapshot.</summary>
+internal sealed class InvoiceLineConfiguration : EntityConfiguration<InvoiceLine>
+{
+    protected override string Schema => Schemas.Sales;
+    protected override string TableName => "invoice_lines";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<InvoiceLine> builder)
+    {
+        builder.Property(line => line.InvoiceId).IsRequired();
+        builder.Property(line => line.ItemId);
+        builder.Property(line => line.ItemVariantId);
+
+        builder.Property(line => line.QuantityValue)
+            .HasColumnName("quantity_value")
+            .HasColumnType(ValueObjectMapping.QuantityColumnType)
+            .IsRequired();
+        builder.Property(line => line.QuantityUom)
+            .HasColumnName("quantity_uom")
+            .HasMaxLength(16)
+            .IsRequired();
+        builder.HasMoney(line => line.UnitPrice, "unit_price");
+        builder.HasMoney(line => line.DiscountAmount, "discount_amount");
+        builder.HasMoney(line => line.TaxAmount, "tax_amount");
+        builder.HasMoney(line => line.Net, "net");
+
+        builder.Property(line => line.PackSizeDescription).IsRequired().HasMaxLength(128);
+        builder.Property(line => line.Currency).IsRequired().HasMaxLength(3).IsFixedLength();
+        builder.Property(line => line.PriceListId);
+
+        builder.HasIndex(line => line.InvoiceId)
+            .HasDatabaseName("ix_invoice_lines_invoice_id");
+
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint("ck_invoice_lines_quantity_positive", "quantity_value > 0");
+            table.HasCheckConstraint("ck_invoice_lines_price_not_negative", "unit_price_amount >= 0");
+            table.HasCheckConstraint("ck_invoice_lines_pack_size_required", "pack_size_description <> ''");
+        });
+    }
+}
+
+/// <summary><c>sales.analytics</c> — company-scoped sales read model.</summary>
+internal sealed class SalesAnalyticsConfiguration : EntityConfiguration<SalesAnalytics>
+{
+    protected override string Schema => Schemas.Sales;
+    protected override string TableName => "analytics";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<SalesAnalytics> builder)
+    {
+        builder.Property(a => a.Period).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(a => a.PeriodStart).IsRequired();
+        builder.Property(a => a.PeriodEnd).IsRequired();
+        builder.Property(a => a.CategoryCode).HasMaxLength(64);
+        builder.Property(a => a.Channel).IsRequired().HasMaxLength(64);
+        builder.Property(a => a.Currency).IsRequired().HasMaxLength(3).IsFixedLength();
+        builder.HasMoney(a => a.Revenue, "revenue");
+        builder.HasMoney(a => a.CostOfSale, "cost_of_sale");
+        builder.HasMoney(a => a.Margin, "margin");
+        builder.HasMoney(a => a.TaxLiability, "tax_liability");
+        builder.Property(a => a.OrderCount);
+        builder.Property(a => a.LineCount);
+        builder.Property(a => a.AsAt).IsRequired();
+        builder.Property(a => a.IsStale).IsRequired();
+
+        builder.HasIndex(a => new { a.TenantId, a.CompanyId, a.Period, a.PeriodStart, a.PeriodEnd, a.CategoryCode, a.Channel })
+            .HasDatabaseName("ix_analytics_tenant_company_period_category_channel");
     }
 }

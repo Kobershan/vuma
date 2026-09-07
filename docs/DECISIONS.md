@@ -2378,3 +2378,37 @@ construction, negative-test constraint noise stays server-side log noise (the te
 refusal), and no database-enforced rule can surface as a 500 again. The accepted cost is that a
 down registry silently narrows tokens until it recovers — visible in the server logs, and the
 correct side to fail on: authentication first, enrichment second.
+
+## ADR-141 — Lifecycle documents use status-guard immutability, not `IImmutableRecord` — **PROPOSED**
+**Context.** Quotes walk Draft → Issued → Accepted → Converted and invoices walk Draft → Posted or
+Cancelled. Marking either `IImmutableRecord` made the persistence guard refuse every legal
+transition — the guard cannot tell Draft → Issued from vandalism, and the first integration run
+proved it by failing four tests with "cannot be modified once written" on ordinary lifecycle
+writes.
+**Decision.** Lifecycle aggregates follow the `Sale`/`SalesReturn` precedent: mutable while worked,
+frozen by status afterwards, with the aggregate's own guards (`EnsureDraft`, one-way `Post`,
+terminal states) as the immutability contract. `IImmutableRecord` stays for genuinely write-once
+rows (tenders, prints, ledger entries, override logs). Immutability of a posted invoice is asserted
+behaviourally — post-twice, mutate-after-post and cancel-after-post all throw — rather than
+structurally.
+**Consequences.** Status guards must be complete, because nothing else stops a bad transition; the
+quote/invoice unit suites assert every illegal edge for exactly this reason. A future author who
+adds a draft-bearing document and reaches for `IImmutableRecord` will hit the same four-test
+failure, which is the cheapest possible reminder.
+
+## ADR-142 — Invoice issue is a registry saga mirroring the sourcing commit, with terminal posted legs — **PROPOSED**
+**Context.** One order sourced across companies needs one posted invoice per company (ADR-102), each
+inside its own database (ADR-116). The sourcing commit already solved the identical shape for
+reservations; invoices needed the same machinery with one different truth: a posted invoice cannot
+be compensated by release.
+**Decision.** `IInvoiceIssuingService` writes a `sales.invoice-issue` intent with one leg per
+supplying company, checks `SharedSourcing` links from the ordering company first (ADR-122), then
+posts each segment in its own company scope in its own serialisable transaction — numbering,
+invoice, lines, outbox capture and `sales.invoice.posted` event together. Posted legs are
+terminal: a leg that fails after siblings posted leaves the intent in flight for the in-flight
+report, and unwinding is a Stage 10 credit note per invoice — a new document, never an edit.
+Replay under the same idempotency key re-reads each leg company's invoices rather than rewriting.
+**Consequences.** The failure mode is honest but manual: a crash between legs needs an operator with
+the in-flight report and, if the order is retried, credit notes for the posted segments. Automatic
+leg-level retry needs a leg→document reference on `SagaLeg`, which is 06d-owned schema — recorded
+as the follow-up, not built here.

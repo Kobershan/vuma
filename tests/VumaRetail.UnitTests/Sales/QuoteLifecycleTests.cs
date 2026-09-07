@@ -4,71 +4,58 @@ using VumaRetail.Domain.Sales.Quotes;
 namespace VumaRetail.UnitTests.Sales;
 
 /// <summary>
-/// The quote's lifecycle and snapshot invariants: a promise of price with an expiry, never a
-/// promise of stock. Totals are recomputed from the lines' stored amounts, never re-resolved.
+/// The quote's promises: a price frozen at creation, a lifecycle with no shortcuts, and a
+/// conversion that can happen exactly once.
 /// </summary>
 public sealed class QuoteLifecycleTests
 {
     private static readonly Guid TenantId = UuidV7.NewGuid();
     private static readonly Guid StoreId = UuidV7.NewGuid();
-    private static readonly Guid CustomerId = UuidV7.NewGuid();
     private static readonly Guid CompanyId = UuidV7.NewGuid();
+    private static readonly Guid CustomerId = UuidV7.NewGuid();
     private static readonly Guid ItemId = UuidV7.NewGuid();
-    private static readonly DateTimeOffset Now = new(2026, 8, 16, 9, 30, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = new(2026, 9, 7, 9, 30, 0, TimeSpan.Zero);
 
     [Fact]
-    public void A_new_quote_is_a_draft_with_zeroed_totals_and_the_company_stamped()
+    public void A_new_quote_is_a_draft_with_zeroed_totals()
     {
-        Quote quote = Draft();
+        Quote quote = DraftQuote();
 
         quote.Status.Should().Be(QuoteStatus.Draft);
-        quote.Net.Should().Be(new Money(0m, "ZAR"));
-        quote.Tax.Should().Be(new Money(0m, "ZAR"));
-        quote.Gross.Should().Be(new Money(0m, "ZAR"));
-        quote.CompanyId.Should().Be(CompanyId);
+        quote.Net.Amount.Should().Be(0m);
+        quote.Tax.Amount.Should().Be(0m);
+        quote.Gross.Amount.Should().Be(0m);
         quote.Lines.Should().BeEmpty();
     }
 
     [Fact]
-    public void Adding_lines_recomputes_totals_from_the_stored_amounts()
+    public void A_quote_needs_a_tenant_a_customer_and_a_number()
     {
-        // Line 1: 2 x R100 less R10 discount, R28.50 stored tax. Line 2: 1 x R50, R7.50 stored tax.
-        // Net R240, tax R36, gross R276 — all from the snapshots, nothing re-resolved.
-        Quote quote = Draft();
-        quote.AddLine(Line(unitPrice: 100m, quantity: 2m, discount: 10m, tax: 28.50m));
-        quote.AddLine(Line(unitPrice: 50m, quantity: 1m, discount: 0m, tax: 7.50m));
+        Action noTenant = () => Quote.Create(
+            Guid.Empty, StoreId, "QTE-1", CustomerId, "ZAR", Now.AddDays(7));
+        noTenant.Should().Throw<ArgumentException>();
 
+        Action noCustomer = () => Quote.Create(
+            TenantId, StoreId, "QTE-1", Guid.Empty, "ZAR", Now.AddDays(7));
+        noCustomer.Should().Throw<ArgumentException>();
+
+        Action noNumber = () => Quote.Create(
+            TenantId, StoreId, "  ", CustomerId, "ZAR", Now.AddDays(7));
+        noNumber.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void A_quote_walks_draft_issued_accepted_converted_with_totals_from_its_stored_lines()
+    {
+        Quote quote = DraftQuote();
+
+        quote.AddLine(Line(quote, quantity: 2m, unitPrice: 100m, discount: 10m, tax: 28.50m));
+        quote.AddLine(Line(quote, quantity: 1m, unitPrice: 50m, discount: 0m, tax: 7.50m));
+
+        // (2 × 100 − 10) + (1 × 50) = 240 net; 28.50 + 7.50 = 36 tax; 276 gross.
         quote.Net.Amount.Should().Be(240m);
         quote.Tax.Amount.Should().Be(36m);
         quote.Gross.Amount.Should().Be(276m);
-    }
-
-    [Fact]
-    public void A_quote_with_no_lines_cannot_be_issued()
-    {
-        Quote quote = Draft();
-
-        Action issuing = () => quote.Issue(Now);
-
-        issuing.Should().Throw<QuotesRuleException>();
-        quote.Status.Should().Be(QuoteStatus.Draft);
-    }
-
-    [Fact]
-    public void An_expired_quote_cannot_be_issued_or_accepted()
-    {
-        Quote quote = Draft(validUntil: Now.AddDays(-1));
-        quote.AddLine(Line());
-
-        Action issuing = () => quote.Issue(Now);
-        issuing.Should().Throw<QuotesRuleException>().WithMessage("*validity period*");
-    }
-
-    [Fact]
-    public void Issue_then_accept_then_convert_is_the_only_path_to_a_trade()
-    {
-        Quote quote = Draft();
-        quote.AddLine(Line());
 
         quote.Issue(Now);
         quote.Status.Should().Be(QuoteStatus.Issued);
@@ -81,109 +68,156 @@ public sealed class QuoteLifecycleTests
     }
 
     [Fact]
-    public void Accepting_twice_or_converting_without_acceptance_is_refused()
+    public void Issuing_an_empty_quote_is_refused()
     {
-        Quote quote = Draft();
-        quote.AddLine(Line());
+        Quote quote = DraftQuote();
+
+        Action issue = () => quote.Issue(Now);
+
+        issue.Should().Throw<QuotesRuleException>().WithMessage("*at least one line*");
+    }
+
+    [Fact]
+    public void Issuing_after_the_validity_window_is_refused()
+    {
+        Quote quote = DraftQuote(validUntil: Now.AddDays(-1));
+        quote.AddLine(Line(quote, 1m, 100m, 0m, 15m));
+
+        Action issue = () => quote.Issue(Now);
+
+        issue.Should().Throw<QuotesRuleException>().WithMessage("*validity*");
+    }
+
+    [Fact]
+    public void Accepting_a_draft_is_refused()
+    {
+        Quote quote = DraftQuote();
+        quote.AddLine(Line(quote, 1m, 100m, 0m, 15m));
+
+        Action accept = () => quote.Accept(Now);
+
+        accept.Should().Throw<QuotesRuleException>().WithMessage("*Draft to Accepted*");
+    }
+
+    [Fact]
+    public void Accepting_after_expiry_is_refused()
+    {
+        Quote quote = DraftQuote();
+        quote.AddLine(Line(quote, 1m, 100m, 0m, 15m));
         quote.Issue(Now);
 
-        Action convertingEarly = () => quote.MarkConverted();
-        convertingEarly.Should().Throw<QuotesRuleException>();
+        Action accept = () => quote.Accept(quote.ValidUntil.AddSeconds(1));
+
+        accept.Should().Throw<QuotesRuleException>().WithMessage("*validity*");
+    }
+
+    [Fact]
+    public void A_second_acceptance_is_refused()
+    {
+        Quote quote = IssuedQuote();
 
         quote.Accept(Now);
 
-        Action acceptingAgain = () => quote.Accept(Now);
-        acceptingAgain.Should().Throw<QuotesRuleException>();
+        Action again = () => quote.Accept(Now);
 
-        quote.MarkConverted();
-
-        Action convertingAgain = () => quote.MarkConverted();
-        convertingAgain.Should().Throw<QuotesRuleException>();
+        again.Should().Throw<QuotesRuleException>();
     }
 
     [Fact]
-    public void Reject_and_expire_are_terminal_and_reject_needs_an_issued_quote()
+    public void Rejecting_a_draft_is_refused_but_rejecting_an_issued_quote_works()
     {
-        Quote draft = Draft();
-        draft.AddLine(Line());
+        Quote draft = DraftQuote();
+        draft.AddLine(Line(draft, 1m, 100m, 0m, 15m));
 
-        Action rejectingDraft = () => draft.Reject();
-        rejectingDraft.Should().Throw<QuotesRuleException>();
+        Action rejectDraft = () => draft.Reject();
+        rejectDraft.Should().Throw<QuotesRuleException>();
 
-        draft.Issue(Now);
-        draft.Reject();
-        draft.Status.Should().Be(QuoteStatus.Rejected);
-
-        Action expiringRejected = () => draft.Expire();
-        expiringRejected.Should().Throw<QuotesRuleException>();
+        Quote issued = IssuedQuote();
+        issued.Reject();
+        issued.Status.Should().Be(QuoteStatus.Rejected);
     }
 
     [Fact]
-    public void Lines_cannot_be_added_once_the_quote_has_left_draft()
+    public void Expiring_a_terminal_quote_is_refused()
     {
-        Quote quote = Draft();
-        quote.AddLine(Line());
-        quote.Issue(Now);
+        Quote quote = IssuedQuote();
+        quote.Accept(Now);
 
-        Action adding = () => quote.AddLine(Line());
+        Action expire = () => quote.Expire();
 
-        adding.Should().Throw<QuotesRuleException>();
+        expire.Should().Throw<QuotesRuleException>();
+        quote.Status.Should().Be(QuoteStatus.Accepted);
     }
 
     [Fact]
-    public void A_line_names_exactly_one_of_an_item_or_a_variant_and_a_positive_quantity()
+    public void Only_an_accepted_quote_converts_so_one_acceptance_can_never_become_two_orders()
     {
+        Quote issued = IssuedQuote();
+
+        Action convertEarly = () => issued.MarkConverted();
+        convertEarly.Should().Throw<QuotesRuleException>();
+
+        issued.Accept(Now);
+        issued.MarkConverted();
+
+        Action convertAgain = () => issued.MarkConverted();
+        convertAgain.Should().Throw<QuotesRuleException>();
+    }
+
+    [Fact]
+    public void Adding_a_line_after_issue_is_refused()
+    {
+        Quote quote = IssuedQuote();
+
+        Action add = () => quote.AddLine(Line(quote, 1m, 10m, 0m, 1.50m));
+
+        add.Should().Throw<QuotesRuleException>().WithMessage("*draft*");
+    }
+
+    [Fact]
+    public void A_quote_line_needs_exactly_one_sku_and_a_positive_quantity()
+    {
+        Quote quote = DraftQuote();
+
         Action neither = () => QuoteLine.Create(
-            TenantId, StoreId, UuidV7.NewGuid(), null, null,
-            1m, "EA", new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(1.50m, "ZAR"),
+            TenantId, StoreId, quote.Id, null, null, 1m, "EA",
+            new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(1.50m, "ZAR"),
             "Each", "ZAR", null, string.Empty);
-        neither.Should().Throw<QuotesRuleException>();
+        neither.Should().Throw<QuotesRuleException>().WithMessage("*exactly one*");
 
         Action both = () => QuoteLine.Create(
-            TenantId, StoreId, UuidV7.NewGuid(), ItemId, UuidV7.NewGuid(),
-            1m, "EA", new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(1.50m, "ZAR"),
+            TenantId, StoreId, quote.Id, ItemId, Guid.NewGuid(), 1m, "EA",
+            new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(1.50m, "ZAR"),
             "Each", "ZAR", null, string.Empty);
         both.Should().Throw<QuotesRuleException>();
 
         Action zero = () => QuoteLine.Create(
-            TenantId, StoreId, UuidV7.NewGuid(), ItemId, null,
-            0m, "EA", new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(1.50m, "ZAR"),
+            TenantId, StoreId, quote.Id, ItemId, null, 0m, "EA",
+            new Money(10m, "ZAR"), new Money(0m, "ZAR"), new Money(0m, "ZAR"),
             "Each", "ZAR", null, string.Empty);
-        zero.Should().Throw<QuotesRuleException>();
+        zero.Should().Throw<QuotesRuleException>().WithMessage("*greater than zero*");
     }
 
-    [Fact]
-    public void A_quote_needs_a_tenant_a_customer_and_a_number()
+    private static Quote DraftQuote(DateTimeOffset? validUntil = null)
     {
-        Action noTenant = () => Quote.Create(
-            Guid.Empty, StoreId, "QTE-1", CustomerId, "ZAR", Now.AddDays(30));
-        noTenant.Should().Throw<ArgumentException>();
-
-        Action noCustomer = () => Quote.Create(
-            TenantId, StoreId, "QTE-1", Guid.Empty, "ZAR", Now.AddDays(30));
-        noCustomer.Should().Throw<ArgumentException>();
-
-        Action noNumber = () => Quote.Create(
-            TenantId, StoreId, "  ", CustomerId, "ZAR", Now.AddDays(30));
-        noNumber.Should().Throw<ArgumentException>();
-    }
-
-    private static Quote Draft(DateTimeOffset? validUntil = null)
-    {
-        return Quote.Create(
+        Quote quote = Quote.Create(
             TenantId, StoreId, $"QTE-{UuidV7.NewGuid():N}", CustomerId, "ZAR",
-            validUntil ?? Now.AddDays(30), null, CompanyId);
+            validUntil ?? Now.AddDays(7), groupId: null, CompanyId);
+        quote.CompanyId.Should().Be(CompanyId);
+        return quote;
     }
 
-    private static QuoteLine Line(
-        decimal unitPrice = 100m,
-        decimal quantity = 1m,
-        decimal discount = 0m,
-        decimal tax = 15m)
+    private static Quote IssuedQuote()
     {
-        return QuoteLine.Create(
-            TenantId, StoreId, UuidV7.NewGuid(), ItemId, null,
-            quantity, "EA", new Money(unitPrice, "ZAR"), new Money(discount, "ZAR"),
-            new Money(tax, "ZAR"), "Each", "ZAR", null, string.Empty);
+        Quote quote = DraftQuote();
+        quote.AddLine(Line(quote, 1m, 100m, 0m, 15m));
+        quote.Issue(Now);
+        return quote;
     }
+
+    private static QuoteLine Line(Quote quote, decimal quantity, decimal unitPrice, decimal discount, decimal tax)
+        => QuoteLine.Create(
+            TenantId, StoreId, quote.Id, ItemId, null, quantity, "EA",
+            new Money(unitPrice, "ZAR"), new Money(discount, "ZAR"), new Money(tax, "ZAR"),
+            "Each", "ZAR", null, string.Empty);
 }

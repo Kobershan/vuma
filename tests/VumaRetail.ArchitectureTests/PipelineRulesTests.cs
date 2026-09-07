@@ -106,6 +106,12 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs",
             "src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs",
             "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // Stage 10c. Same standing as the sourcing saga: InvoiceIssuingService owns the
+            // registry-side transaction for the invoice-issue saga (one intent, one SaveChanges)
+            // and each company leg posts inside its own scope and commits that scope's own
+            // serialisable transaction (ADR-102) — the pipeline's transaction stays empty because
+            // GenerateInvoicesFromOrderCommandHandler only calls IInvoiceIssuingService.
+            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs",
             // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
             // owns its own saga transaction; the handler's pipeline transaction stays empty.
             "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");

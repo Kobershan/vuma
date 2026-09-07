@@ -26,6 +26,7 @@ public sealed class TradingGroupGuardTests
         ("src/VumaRetail.Infrastructure/Registry/GroupCreditService.cs", "TryHoldAsync", "SharedCredit"),
         ("src/VumaRetail.Infrastructure/Registry/TradingGroupServices.cs", "AddOccupancyAsync", "SharedFloor"),
         ("src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs", "CommitAsync", "SharedSourcing"),
+        ("src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs", "IssueAsync", "SharedSourcing"),
     ];
 
     [Fact]

@@ -439,6 +439,44 @@ public sealed class ApiContractTests(PostgresFixture fixture)
         unversioned.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task Every_sales_documents_operation_reaches_the_openapi_document()
+    {
+        // R3 and CLAUDE.md §8: Stage 10c ships no screen either, so this document is the whole of
+        // what a later till, back-office or B2B client renders — an endpoint missing from it is a
+        // document operation that does not exist.
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/sales/quotes",
+            "/api/v1/sales/quotes/{quoteId}",
+            "/api/v1/sales/quotes/{quoteId}/lines",
+            "/api/v1/sales/quotes/{quoteId}/issue",
+            "/api/v1/sales/quotes/{quoteId}/accept",
+            "/api/v1/sales/quotes/{quoteId}/reject",
+            "/api/v1/sales/quotes/{quoteId}/expire",
+            "/api/v1/sales/quotes/{quoteId}/convert-order",
+            "/api/v1/sales/quotes/{quoteId}/convert-sale",
+            "/api/v1/sales/invoices",
+            "/api/v1/sales/invoices/{invoiceId}",
+            "/api/v1/sales/invoices/{invoiceId}/finalize",
+            "/api/v1/sales/invoices/{invoiceId}/cancel",
+            "/api/v1/orders/{orderId}/generate-invoices",
+            "/api/v1/sales/analytics",
+            "/api/v1/sales/analytics/group",
+            "/api/v1/sales/analytics/rebuild",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
     private static async Task<JsonElement> ProblemAsync(ApiHarness harness, SignInRequest request)
     {
         HttpResponseMessage response = await harness.Client.PostAsJsonAsync("/api/v1/auth/token", request);

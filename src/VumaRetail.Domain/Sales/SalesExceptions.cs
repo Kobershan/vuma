@@ -113,3 +113,17 @@ public sealed class SalesRuleException(string code, string message) : DomainExce
             "That sale line is already on this return. Change its quantity rather than adding it twice "
             + "— two rows for one line is how an over-return slips past a per-line check.");
 }
+
+/// <summary>A sales action the caller is not permitted to take.</summary>
+/// <param name="code">The stable machine-readable code.</param>
+/// <param name="message">What the rule says.</param>
+public sealed class SalesForbiddenException(string code, string message)
+    : DomainException(code, message, DomainProblemKind.Forbidden)
+{
+    /// <summary>A caller without <c>registry.analytics.view</c> asked for group analytics.</summary>
+    public static SalesForbiddenException GroupAnalyticsNotPermitted()
+        => new(
+            "SALES_GROUP_ANALYTICS_NOT_PERMITTED",
+            "Group analytics span companies. Reading them needs the registry.analytics.view "
+            + "permission; company-local analytics need only sales.analytics.view.");
+}

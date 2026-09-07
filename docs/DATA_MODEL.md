@@ -835,6 +835,66 @@ stored copy is one more thing that can disagree with them.
 which may be before the line exists or before the sale completes at all. An override on a sale later
 voided is still an override that happened.
 
+### `sales.quotes` (Stage 10c)
+
+`quote_number` (ADR-065, series `QTE`, per company), `customer_id`, `currency`, `status`
+(Draft/Issued/Accepted/Rejected/Expired/Converted), `valid_until`, `group_id`, `net_*`, `tax_*`,
+`gross_*`.
+
+A non-binding price promise: a priced basket with an expiry (ADR-074). It promises price, never
+stock — a quote reserves nothing unless it explicitly invokes Stage 08c's reservation ledger.
+`ux_quotes_tenant_id_number` is unique per tenant. Deliberately not `IImmutableRecord`: like a
+sale, a quote is mutable while worked and frozen by its status afterwards — the persistence
+guard cannot tell a legal Draft → Issued transition from vandalism, so the aggregate's own
+status guards are the immutability contract.
+
+### `sales.quote_lines` (Stage 10c)
+
+`quote_id`, `item_id` **or** `item_variant_id` (exactly one), `quantity_*`, `unit_price_*`,
+`discount_amount_*`, `tax_amount_*`, `net_*`, `pack_size_description`, `currency`, `price_list_id`,
+`promotions_summary`.
+
+The price resolution frozen at creation: unit price, discount, tax and pack size are snapshots,
+never re-resolved (ADR-074, ADR-075, ADR-112). `ck_quote_lines_quantity_positive` and
+`ck_quote_lines_price_not_negative` hold at the database, the same belt-and-braces the return
+lines wear.
+
+### `sales.invoices` (Stage 10c)
+
+`invoice_number` (ADR-065, series `INV`, per company), `company_id`, `source_document_ref`,
+`source_document_type` (Order/Sale/Quote), `customer_id`, `status` (Draft/Posted/Cancelled),
+`net_*`, `tax_*`, `gross_*`, `posted_at`, `group_document_ref`.
+
+The legally binding document, immutable once posted (ADR-012): corrections go through Stage 10
+credit notes, never through mutation. One order, N invoices (ADR-102) — when Stage 08c sources an
+order across companies, each supplying company writes its own invoice entirely inside its own
+database, sharing only `group_document_ref`. `ux_invoices_tenant_id_number` is unique per tenant;
+`ix_invoices_tenant_id_company_id_status` is the company-scoped read path that keeps one
+company's invoices invisible to another. Like quotes, deliberately not `IImmutableRecord`:
+Draft → Posted is a legal transition the guard cannot distinguish, so `EnsureDraft` carries it.
+
+### `sales.invoice_lines` (Stage 10c)
+
+`invoice_id`, `item_id` **or** `item_variant_id`, `quantity_*`, `unit_price_*`,
+`discount_amount_*`, `tax_amount_*`, `net_*`, `pack_size_description`, `currency`, `price_list_id`.
+
+What was sold, at what snapshotted price and tax, in what packaging. `pack_size_description` is
+`NOT NULL` with `ck_invoice_lines_pack_size_required`: an invoice without pack sizes is not a
+legal wholesale document (ADR-112), and the database says so rather than trusting every writer.
+A reprint a year later shows what was actually sold, because nothing here is ever re-derived.
+
+### `sales.analytics` (Stage 10c)
+
+`company_id`, `period` (Daily/Weekly/Monthly/YearToDate), `period_start`, `period_end`,
+`category_code`, `channel`, `revenue_*`, `cost_of_sale_*`, `margin_*`, `tax_liability_*`,
+`order_count`, `line_count`, `as_at`, `is_stale`.
+
+The stored grain is daily per company per channel; coarser periods roll those facts up at read
+time, so one rebuild feeds every period without four copies of the truth drifting apart. A read
+model (`NodeLocal`), rebuilt from posted invoices — planning information, never a commit input
+(ADR-119). Every group figure crossing an API carries `as_at`, and a stale contributor is
+disclosed, never silently summed.
+
 ---
 
 ## 4i. Tables in `imports`

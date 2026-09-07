@@ -4,6 +4,35 @@
 > This file preserves session evidence, deferred work, and known defects; do not use it as the active
 > task handoff.
 
+**Stage 10c — COMPLETE, on `main` (2026-09-07):** Quotes, invoices and sales analytics built end to
+end (TASK-10C-001 documents, TASK-10C-002 analytics + verification). Domain (`Quote` Draft→Issued→
+Accepted→Converted/Rejected/Expired, `Invoice` Draft→Posted/Cancelled, `InvoiceLine`/`QuoteLine`
+with pack size snapshots, `SalesAnalytics` daily-grain read model); Application (13 commands incl.
+`GenerateInvoicesFromOrderCommand` delegating to `IInvoiceIssuingService`, 6 read queries,
+`IPackSizeResolver`, `sales.invoice.posted` financial event); Infrastructure (`InvoiceIssuingService`
+registry saga mirroring the sourcing commit — `SharedSourcing` link checks, one serialisable leg
+transaction per company, per-company `INV` numbering, outbox capture, idempotent replay;
+`PackSizeResolver` from the UoM catalogue; real analytics rebuild with in-memory rollups);
+API (17 routes incl. `POST /orders/{id}/generate-invoices`, group analytics gated on
+`registry.analytics.view`); migration `20260907200155_Stage10c_QuotesInvoicesAnalytics`
+(Up/Down round-tripped on scratch PG). Evidence, all on real PostgreSQL (throwaway cluster :55432,
+`VUMA_TEST_POSTGRES`): 1058 unit + 54 architecture + 476 integration green — including a
+parallel session's lifecycle/analytics unit tests committed mid-session (kept; union-merged where
+they overlapped) and 10 new integration tests: the 60/40 two-company split
+reconciling 10000/1500/11500 with `6 x Case of 10`/`40 x Each`, reprice-stable quote snapshots,
+company scoping refusals, stale-tolerant group analytics, link refusal before any write, OpenAPI
+presence). Union line coverage 92.1% on the stage's Domain + Application. Seed proven on scratch
+(`QTE-000001` converted, `INV-000001` posted with `1 x Box of 12` under `SO-DEMO-0001`, analytics
+row, invoice journal). New ADRs: ADR-141 (status-guard immutability for lifecycle documents —
+`IImmutableRecord` cannot tell Draft → Issued from vandalism, proved by 4 failing tests),
+ADR-142 (invoice-issue saga with terminal posted legs). `TradingGroupGuardTests`,
+`PipelineRulesTests` and `PersistenceRulesTests` rows added for the new entry point.
+Follow-ups (not this stage): leg-level auto-retry needs a leg→document reference on `SagaLeg`
+(06d-owned schema); `CostOfSale` on analytics is zero until Stage 08 valuation joins in; the 10k-row
+liability reconciliation at scale belongs to Stage 31 load testing (cent-exactness proven at event
+level here); per-barcode pack definitions are a catalogue (Stage 06) extension — the snapshot
+column and port already carry whatever it resolves.
+
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
@@ -313,7 +342,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **REOPENED** — merged to `main`; `stage-verifier` has not been re-run since 2026-08-24's fix pass. §4.10, §4.11, §4.12, §4.13, §4.14 and §4.15 are all **closed** as of `86f8dbd` (ADR-135–ADR-138 record the design). Still open: §4.16-shaped mechanical gaps carried from the review round — §4.20's `MatchedNet` mislabel (Procurement, low severity, not POS's own), §4.22 OpenAPI examples (dozens of endpoints across every reopened stage, not POS-specific), and Stage 11's coverage floor. The agent panel against 2026-08-24's fix pass could not run (account session limit, see the entry at the top of this file) — reviewed directly instead; **still owed a real run once the limit resets.** *WPF shell deferred.* Build/tests (740 unit/34 architecture/417 integration, all green) independently verified; no migration needed | 2026-08-24 |
 | 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. §4.21's CRITICAL (returns double-refunded by a genuine concurrency race and separately by an unprotected retry) and §4.23 (entitlement gate) are **fixed 2026-08-23 (evening)** — `CreateSalesReturnCommand` takes a client-supplied id, `CompleteSalesReturnCommand` takes a real row lock, `RequireModule("sales")` wired onto all 5 route groups. §4.21's fix is **still agent-unreviewed** (`money-and-tax`'s pass failed twice on an infra error and was not retried again); §4.23's fix, being mechanical wiring, was proven with tests rather than needing the same review. Still open: OpenAPI-example and replication-coverage gaps (§4.22, §4.24) | 2026-08-16 |
-| 10c | Quotes, invoices & sales analytics | **NOT_STARTED** — split out of 10 by ADR-074 | — |
+| 10c | Quotes, invoices & sales analytics | **DONE** (main) — TASK-10C-001 + TASK-10C-002 complete 2026-09-07. One order → N posted invoices via the issuing saga (ADR-102/116/142), pack size snapshots (ADR-112), quote price snapshots (ADR-074), stale-by-design group analytics (ADR-119). 1058 unit + 54 arch + 476 integration green on real PG; 92.1% line coverage; migration reversible; seed proven. ADR-141/142. | 2026-09-07 |
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. Both previously-found defects confirmed genuinely fixed on `main`. §4.26 (`RollbackImportBatchCommand` lacking its sibling's idempotency branch) and §4.23 (entitlement gate) are **fixed 2026-08-23**, `RequireModule("imports")` wired onto all 3 route groups. Still open: Domain+Application coverage measured at 76.80%, below the 80% floor (§4.24) — the stage's own checklist never quoted a number, which is why nobody caught it | 2026-08-16 |
 | 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. §4.20's CRITICAL (two invoices matched against the same PO line before either is *released* could both release and both post — a real duplicate liability), the goods-receipt retry protection, and §4.23 (entitlement gate) are **fixed 2026-08-23** — `ReleaseSupplierInvoiceCommand` re-checks cumulative invoiced quantity against the order's current state, `CreateGoodsReceiptCommand` takes a client-supplied id, `RequireModule("procurement")` wired onto all 7 route groups. §4.20's fix is **still agent-unreviewed** (`money-and-tax` failed twice on an infra error). Still open: the match's `MatchedNet`/`PriceVariance` are silently mislabeled gross-not-net (§4.20, low severity), and the promised-but-unshipped permission-enforcement test (§4.24) | 2026-08-17 |
 | 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **REOPENED** — the agent panel ran 2026-08-23; `stage-verifier` returned `STAGE NOT DONE`. All three §4.19 CRITICALs and §4.23 (entitlement gate) are **fixed 2026-08-23**, agent-reviewed (`stock-availability-guard`) — `BinStock` gained real `QuantityReserved`/`Available`, allocation reserves at release and releases in full on confirm/cancel; `AddPickTaskCommand`/`OpenPutawayTaskCommand`/`MoveBinStockCommand` take client-supplied ids; `FinalizeCycleCountCommand` re-derives its delta against current on-hand instead of a frozen snapshot; `RequireModule("warehouse")` wired onto all 7 route groups. Two migrations (`BinStockReservation`, its CHECK-constraint follow-up) and ADR-134 record the design. The review found and fixed two further gaps (`ApplyOut` not respecting `Available`, a same-bin-different-SKU accumulator bug) — see the 2026-08-23 (evening) session-log entry. Permission enforcement on all four high-risk ops independently reconfirmed sound | 2026-08-19 |

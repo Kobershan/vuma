@@ -1,5 +1,9 @@
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Domain.Sales.Analytics;
+using VumaRetail.Domain.Sales.Invoices;
+using VumaRetail.Domain.Sales.Quotes;
+#pragma warning disable CS1591
 
 namespace VumaRetail.Application.Abstractions.Sales;
 
@@ -308,4 +312,146 @@ public interface IPriceOverrideLogRepository
     /// <summary>Appends an override. Nothing added through this method is ever updated or removed.</summary>
     /// <param name="entry">The override.</param>
     void Add(PriceOverrideLog entry);
+}
+
+/// <summary>Reads and writes <see cref="Domain.Sales.Quotes.Quote"/> aggregates.</summary>
+/// <remarks>
+/// Tracked entities, never <c>Update</c> — the pipeline's unit of work commits what the handler
+/// mutated, the same reason <c>ISalesReturnRepository</c> has no update path.
+/// </remarks>
+public interface IQuoteRepository
+{
+    Task<Quote?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Quote?> FindByNumberAsync(string number, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Quote>> ListForCustomerAsync(Guid customerId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Quote>> ListAsync(QuoteStatus? status, DateTimeOffset? validUntil, CancellationToken cancellationToken = default);
+    void Add(Quote quote);
+}
+
+/// <summary>Reads and writes <see cref="Domain.Sales.Invoices.Invoice"/> aggregates.</summary>
+/// <remarks>
+/// Tracked entities, never <c>Update</c> — see <see cref="IQuoteRepository"/>.
+/// </remarks>
+public interface IInvoiceRepository
+{
+    Task<Invoice?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Invoice?> FindByNumberAsync(string number, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Invoice>> ListForCompanyAsync(Guid companyId, CancellationToken cancellationToken = default);
+    void Add(Invoice invoice);
+}
+
+/// <summary>Reads and appends <see cref="Domain.Sales.Analytics.SalesAnalytics"/> read models.</summary>
+public interface ISalesAnalyticsRepository
+{
+    Task<IReadOnlyList<SalesAnalytics>> GetByCompanyAsync(Guid companyId, AnalyticsPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SalesAnalytics>> GetGroupAsync(AnalyticsPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+    Task RebuildAsync(Guid? companyId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+}
+
+/// <summary>The pack size resolved for one stock-keeping unit in the unit it is being sold in.</summary>
+/// <param name="Description">How the pack reads on the document, e.g. <c>6 x Case of 10</c> or <c>Each</c>.</param>
+/// <param name="UnitsPerPack">How many base units one pack holds, when packs apply.</param>
+/// <param name="PackUnit">The pack's unit, e.g. <c>Case</c>, when packs apply.</param>
+public sealed record PackSizeSnapshot(string Description, decimal? UnitsPerPack = null, string? PackUnit = null);
+
+/// <summary>
+/// Resolves how a quantity reads as packs at document capture (ADR-112).
+/// </summary>
+/// <remarks>
+/// A port rather than a catalogue lookup because the pack definition lives wherever the tenant's
+/// item master keeps it, while the snapshot rule — resolve once, store, never re-derive — is this
+/// stage's. The default implementation reads the unit of measure; a tenant with per-barcode pack
+/// definitions plugs a richer one in without any document code changing.
+/// </remarks>
+public interface IPackSizeResolver
+{
+    /// <summary>Resolves the pack snapshot for a quantity sold in a unit.</summary>
+    /// <param name="itemId">The item, when it has no variants. Reserved for per-barcode pack definitions.</param>
+    /// <param name="itemVariantId">The variant. Reserved for per-barcode pack definitions.</param>
+    /// <param name="uom">The unit the quantity is sold in.</param>
+    /// <param name="quantity">How much. Pack units read with their count, base units read bare.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<PackSizeSnapshot> ResolveAsync(
+        Guid? itemId, Guid? itemVariantId, string uom, decimal quantity,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>One frozen invoice line, as captured upstream (order snapshot, till line, quote line).</summary>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">How much. Must be positive.</param>
+/// <param name="Uom">The unit the quantity is counted in.</param>
+/// <param name="UnitPrice">The snapshotted unit price.</param>
+/// <param name="DiscountAmount">The snapshotted whole-line discount.</param>
+/// <param name="TaxAmount">The snapshotted tax (ADR-075).</param>
+/// <param name="PackSizeDescription">The snapshotted pack size, e.g. <c>6 x Case of 10</c> (ADR-112).</param>
+/// <param name="PriceListId">The price list resolved against, for explainability.</param>
+/// <param name="SourceLineId">The order line this invoice line settles, when known. Lets the split assert every source line lands on exactly one invoice.</param>
+public sealed record InvoiceLineInput(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Uom,
+    decimal UnitPrice,
+    decimal DiscountAmount,
+    decimal TaxAmount,
+    string PackSizeDescription,
+    Guid? PriceListId = null,
+    Guid? SourceLineId = null);
+
+/// <summary>One company's share of a multi-company invoice issue: its lines and nothing else's.</summary>
+/// <param name="CompanyId">The supplying company. Its invoice lives entirely in its database.</param>
+/// <param name="Lines">That company's lines. At least one.</param>
+public sealed record InvoiceCompanySegment(
+    Guid CompanyId,
+    IReadOnlyList<InvoiceLineInput> Lines);
+
+/// <summary>Issues one invoice per supplying company for a single fulfilled order or sale (ADR-102).</summary>
+/// <param name="TenantId">The owning tenant.</param>
+/// <param name="OrderingCompanyId">The company the order was captured against. Links are checked from here to every supplier (ADR-121).</param>
+/// <param name="SourceDocumentId">The order or sale being documented.</param>
+/// <param name="SourceDocumentNumber">Its human-readable number, shared by every segment.</param>
+/// <param name="SourceType">Which kind of document that is.</param>
+/// <param name="CustomerId">The customer who owes.</param>
+/// <param name="Currency">The ISO 4217 currency. One issue, one currency.</param>
+/// <param name="Segments">One segment per supplying company. At least one.</param>
+/// <param name="GroupDocumentRef">The shared reference every segment carries, when there is more than one.</param>
+/// <param name="IdempotencyKey">Stable across retries of the same issue.</param>
+/// <param name="InitiatedBy">Who asked, in audit-principal form.</param>
+public sealed record InvoiceIssuingRequest(
+    Guid TenantId,
+    Guid OrderingCompanyId,
+    Guid SourceDocumentId,
+    string SourceDocumentNumber,
+    VumaRetail.Domain.Sales.Invoices.InvoiceSourceType SourceType,
+    Guid CustomerId,
+    string Currency,
+    IReadOnlyList<InvoiceCompanySegment> Segments,
+    string? GroupDocumentRef,
+    string IdempotencyKey,
+    string InitiatedBy);
+
+/// <summary>One issued invoice: which company, which invoice.</summary>
+/// <param name="CompanyId">The company whose books hold it.</param>
+/// <param name="InvoiceId">The invoice.</param>
+/// <param name="InvoiceNumber">Its number in that company's <c>INV</c> series.</param>
+public sealed record IssuedInvoice(Guid CompanyId, Guid InvoiceId, string InvoiceNumber);
+
+/// <summary>
+/// Writes one posted invoice per supplying company, each entirely inside its own company's
+/// database (ADR-102, ADR-116).
+/// </summary>
+/// <remarks>
+/// An application service, NOT a command handler: a handler may resolve at most one company
+/// context, while an issue spans several — each segment posts in its own company scope, in its
+/// own transaction. The command handler stays thin and delegates here, exactly as the sourcing
+/// commit does through <c>ISourcingCommitService</c>.
+/// </remarks>
+public interface IInvoiceIssuingService
+{
+    /// <summary>Issues every segment, posting each invoice in its own company's database.</summary>
+    /// <param name="request">The segments to issue.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    Task<IReadOnlyList<IssuedInvoice>> IssueAsync(
+        InvoiceIssuingRequest request, CancellationToken cancellationToken = default);
 }

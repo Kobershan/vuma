@@ -117,7 +117,10 @@ public sealed class PersistenceRulesTests
             "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
             "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs",
             "src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs",
-            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs");
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // Stage 10c: InvoiceIssuingService commits the registry intent (a separate database
+            // boundary) and each company leg posts inside its own scope, like the sourcing saga.
+            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

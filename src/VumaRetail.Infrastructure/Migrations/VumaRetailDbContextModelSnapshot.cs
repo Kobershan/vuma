@@ -11284,6 +11284,562 @@ namespace VumaRetail.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Analytics.SalesAnalytics", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("as_at");
+
+                    b.Property<string>("CategoryCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("category_code");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsStale")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_stale");
+
+                    b.Property<int>("LineCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("line_count");
+
+                    b.Property<int>("OrderCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_count");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("period");
+
+                    b.Property<DateTimeOffset>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateTimeOffset>("PeriodStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_start");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.ComplexProperty<Dictionary<string, object>>("CostOfSale", "VumaRetail.Domain.Sales.Analytics.SalesAnalytics.CostOfSale#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("cost_of_sale_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("cost_of_sale_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Margin", "VumaRetail.Domain.Sales.Analytics.SalesAnalytics.Margin#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("margin_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("margin_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Revenue", "VumaRetail.Domain.Sales.Analytics.SalesAnalytics.Revenue#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("revenue_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("revenue_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("TaxLiability", "VumaRetail.Domain.Sales.Analytics.SalesAnalytics.TaxLiability#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("tax_liability_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("tax_liability_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_analytics");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_analytics_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_analytics_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_analytics_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_analytics_tenant_id_store_id");
+
+                    b.HasIndex("TenantId", "CompanyId", "Period", "PeriodStart", "PeriodEnd", "CategoryCode", "Channel")
+                        .HasDatabaseName("ix_analytics_tenant_company_period_category_channel");
+
+                    b.ToTable("analytics", "sales");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Invoices.Invoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("GroupDocumentRef")
+                        .HasColumnType("text")
+                        .HasColumnName("group_document_ref");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("invoice_number");
+
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("posted_at");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("SourceDocumentRef")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source_document_ref");
+
+                    b.Property<string>("SourceDocumentType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("source_document_type");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Gross", "VumaRetail.Domain.Sales.Invoices.Invoice.Gross#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("gross_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("gross_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Net", "VumaRetail.Domain.Sales.Invoices.Invoice.Net#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("net_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("net_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Tax", "VumaRetail.Domain.Sales.Invoices.Invoice.Tax#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("tax_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("tax_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_invoices");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_invoices_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_invoices_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_invoices_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "InvoiceNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_invoices_tenant_id_number")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_invoices_tenant_id_store_id");
+
+                    b.HasIndex("TenantId", "CompanyId", "Status")
+                        .HasDatabaseName("ix_invoices_tenant_id_company_id_status");
+
+                    b.ToTable("invoices", "sales");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Invoices.InvoiceLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid?>("ItemVariantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_variant_id");
+
+                    b.Property<string>("PackSizeDescription")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("pack_size_description");
+
+                    b.Property<Guid?>("PriceListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("price_list_id");
+
+                    b.Property<string>("QuantityUom")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("quantity_uom");
+
+                    b.Property<decimal>("QuantityValue")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("quantity_value");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.ComplexProperty<Dictionary<string, object>>("DiscountAmount", "VumaRetail.Domain.Sales.Invoices.InvoiceLine.DiscountAmount#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("discount_amount_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("discount_amount_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Net", "VumaRetail.Domain.Sales.Invoices.InvoiceLine.Net#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("net_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("net_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("TaxAmount", "VumaRetail.Domain.Sales.Invoices.InvoiceLine.TaxAmount#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("tax_amount_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("tax_amount_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("UnitPrice", "VumaRetail.Domain.Sales.Invoices.InvoiceLine.UnitPrice#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("unit_price_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("unit_price_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_invoice_lines");
+
+                    b.HasIndex("InvoiceId")
+                        .HasDatabaseName("ix_invoice_lines_invoice_id");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_invoice_lines_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_invoice_lines_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_invoice_lines_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_invoice_lines_tenant_id_store_id");
+
+                    b.ToTable("invoice_lines", "sales", t =>
+                        {
+                            t.HasCheckConstraint("ck_invoice_lines_pack_size_required", "pack_size_description <> ''");
+
+                            t.HasCheckConstraint("ck_invoice_lines_price_not_negative", "unit_price_amount >= 0");
+
+                            t.HasCheckConstraint("ck_invoice_lines_quantity_positive", "quantity_value > 0");
+                        });
+                });
+
             modelBuilder.Entity("VumaRetail.Domain.Sales.PriceList", b =>
                 {
                     b.Property<Guid>("Id")
@@ -12014,6 +12570,361 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.ToTable("promotion_lines", "sales", t =>
                         {
                             t.HasCheckConstraint("ck_promotion_lines_exactly_one_target", "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int + (category_code IS NOT NULL)::int) = 1");
+                        });
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Quotes.Quote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("GroupId")
+                        .HasColumnType("text")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("QuoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("quote_number");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateTimeOffset>("ValidUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_until");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Gross", "VumaRetail.Domain.Sales.Quotes.Quote.Gross#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("gross_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("gross_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Net", "VumaRetail.Domain.Sales.Quotes.Quote.Net#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("net_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("net_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Tax", "VumaRetail.Domain.Sales.Quotes.Quote.Tax#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("tax_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("tax_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotes");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_quotes_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_quotes_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_quotes_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "QuoteNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quotes_tenant_id_number")
+                        .HasFilter("deleted_at IS NULL");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_quotes_tenant_id_store_id");
+
+                    b.ToTable("quotes", "sales");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Quotes.QuoteLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("currency")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid?>("ItemVariantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_variant_id");
+
+                    b.Property<string>("PackSizeDescription")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("pack_size_description");
+
+                    b.Property<Guid?>("PriceListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("price_list_id");
+
+                    b.Property<string>("PromotionsSummary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("promotions_summary");
+
+                    b.Property<string>("QuantityUom")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("quantity_uom");
+
+                    b.Property<decimal>("QuantityValue")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("quantity_value");
+
+                    b.Property<Guid>("QuoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quote_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("store_id");
+
+                    b.Property<string>("SyncStamp")
+                        .IsRequired()
+                        .HasMaxLength(86)
+                        .HasColumnType("character varying(86)")
+                        .HasColumnName("sync_stamp");
+
+                    b.Property<string>("SyncState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("sync_state");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("updated_by");
+
+                    b.ComplexProperty<Dictionary<string, object>>("DiscountAmount", "VumaRetail.Domain.Sales.Quotes.QuoteLine.DiscountAmount#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("discount_amount_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("discount_amount_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Net", "VumaRetail.Domain.Sales.Quotes.QuoteLine.Net#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("net_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("net_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("TaxAmount", "VumaRetail.Domain.Sales.Quotes.QuoteLine.TaxAmount#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("tax_amount_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("tax_amount_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("UnitPrice", "VumaRetail.Domain.Sales.Quotes.QuoteLine.UnitPrice#Money", b1 =>
+                        {
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("unit_price_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("unit_price_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_quote_lines");
+
+                    b.HasIndex("QuoteId")
+                        .HasDatabaseName("ix_quote_lines_quote_id");
+
+                    b.HasIndex("SyncState")
+                        .HasDatabaseName("ix_quote_lines_sync_state")
+                        .HasFilter("sync_state <> 'Synced'");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_quote_lines_tenant_id");
+
+                    b.HasIndex("TenantId", "CompanyId")
+                        .HasDatabaseName("ix_quote_lines_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "StoreId")
+                        .HasDatabaseName("ix_quote_lines_tenant_id_store_id");
+
+                    b.ToTable("quote_lines", "sales", t =>
+                        {
+                            t.HasCheckConstraint("ck_quote_lines_price_not_negative", "unit_price_amount >= 0");
+
+                            t.HasCheckConstraint("ck_quote_lines_quantity_positive", "quantity_value > 0");
                         });
                 });
 
@@ -15628,6 +16539,16 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasConstraintName("fk_supplier_invoice_match_lines_supplier_invoice_matches_suppl");
                 });
 
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Invoices.InvoiceLine", b =>
+                {
+                    b.HasOne("VumaRetail.Domain.Sales.Invoices.Invoice", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_invoice_lines_invoices_invoice_id");
+                });
+
             modelBuilder.Entity("VumaRetail.Domain.Sales.PriceListLine", b =>
                 {
                     b.HasOne("VumaRetail.Domain.Sales.PriceList", null)
@@ -15646,6 +16567,16 @@ namespace VumaRetail.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_promotion_lines_promotions_promotion_id");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Quotes.QuoteLine", b =>
+                {
+                    b.HasOne("VumaRetail.Domain.Sales.Quotes.Quote", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("QuoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_lines_quotes_quote_id");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Sales.SalesReturnLine", b =>
@@ -15744,12 +16675,22 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Navigation("Lines");
                 });
 
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Invoices.Invoice", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("VumaRetail.Domain.Sales.PriceList", b =>
                 {
                     b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Sales.Promotion", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Sales.Quotes.Quote", b =>
                 {
                     b.Navigation("Lines");
                 });

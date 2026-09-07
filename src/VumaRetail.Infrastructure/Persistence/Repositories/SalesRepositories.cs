@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Domain.Sales.Analytics;
+using VumaRetail.Domain.Sales.Invoices;
+using VumaRetail.Domain.Sales.Quotes;
 
 namespace VumaRetail.Infrastructure.Persistence.Repositories;
 
@@ -306,4 +310,266 @@ public sealed class PriceOverrideLogRepository(VumaRetailDbContext context) : IP
 
     /// <inheritdoc />
     public void Add(PriceOverrideLog entry) => context.PriceOverrideLogs.Add(entry);
+}
+
+/// <summary>EF Core implementation of <see cref="IQuoteRepository"/>.</summary>
+/// <param name="context">The database context.</param>
+/// <remarks>
+/// Lines are always loaded with the quote: an aggregate whose children are missing quietly
+/// behaves as though it had none, and a quoteless quote would issue, accept and convert.
+/// </remarks>
+public sealed class QuoteRepository(VumaRetailDbContext context) : IQuoteRepository
+{
+    public Task<Quote?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.Quotes
+            .Include(quote => quote.Lines)
+            .FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
+
+    public Task<Quote?> FindByNumberAsync(string number, CancellationToken cancellationToken = default)
+        => context.Quotes
+            .Include(quote => quote.Lines)
+            .FirstOrDefaultAsync(q => q.QuoteNumber == number, cancellationToken);
+
+    public async Task<IReadOnlyList<Quote>> ListForCustomerAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        return await context.Quotes
+            .Include(quote => quote.Lines)
+            .Where(q => q.CustomerId == customerId).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Quote>> ListAsync(QuoteStatus? status, DateTimeOffset? validUntil, CancellationToken cancellationToken = default)
+    {
+        var query = context.Quotes.Include(quote => quote.Lines).AsQueryable();
+        if (status.HasValue)
+        {
+            query = query.Where(q => q.Status == status.Value);
+        }
+
+        if (validUntil.HasValue)
+        {
+            query = query.Where(q => q.ValidUntil <= validUntil.Value);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    public void Add(Quote quote) => context.Quotes.Add(quote);
+}
+
+/// <summary>EF Core implementation of <see cref="IInvoiceRepository"/>.</summary>
+/// <param name="context">The database context.</param>
+/// <remarks>
+/// Lines are always loaded with the invoice, for the same reason as quotes: totals are
+/// recomputed from the stored lines, and a lineless invoice would post at zero.
+/// </remarks>
+public sealed class InvoiceRepository(VumaRetailDbContext context) : IInvoiceRepository
+{
+    public Task<Invoice?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.Invoices
+            .Include(invoice => invoice.Lines)
+            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+
+    public Task<Invoice?> FindByNumberAsync(string number, CancellationToken cancellationToken = default)
+        => context.Invoices
+            .Include(invoice => invoice.Lines)
+            .FirstOrDefaultAsync(i => i.InvoiceNumber == number, cancellationToken);
+
+    public async Task<IReadOnlyList<Invoice>> ListForCompanyAsync(Guid companyId, CancellationToken cancellationToken = default)
+    {
+        return await context.Invoices
+            .Include(invoice => invoice.Lines)
+            .Where(i => i.CompanyId == companyId).ToListAsync(cancellationToken);
+    }
+
+    public void Add(Invoice invoice) => context.Invoices.Add(invoice);
+}
+
+/// <summary>EF Core implementation of <see cref="ISalesAnalyticsRepository"/>.</summary>
+/// <param name="context">The database context.</param>
+/// <remarks>
+/// The stored grain is daily per company per channel; weekly, monthly and year-to-date views
+/// roll those facts up in memory at read time, so one rebuild feeds every period without four
+/// copies of the truth drifting apart.
+/// </remarks>
+public sealed class SalesAnalyticsRepository(VumaRetailDbContext context) : ISalesAnalyticsRepository
+{
+    public async Task<IReadOnlyList<SalesAnalytics>> GetByCompanyAsync(Guid companyId, AnalyticsPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        List<SalesAnalytics> days = await context.SalesAnalytics
+            .AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Period == AnalyticsPeriod.Daily && a.PeriodStart >= from && a.PeriodEnd <= to)
+            .OrderBy(a => a.PeriodStart)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return RollUp(days, period);
+    }
+
+    public async Task<IReadOnlyList<SalesAnalytics>> GetGroupAsync(AnalyticsPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        List<SalesAnalytics> days = await context.SalesAnalytics
+            .AsNoTracking()
+            .Where(a => a.Period == AnalyticsPeriod.Daily && a.PeriodStart >= from && a.PeriodEnd <= to)
+            .OrderBy(a => a.PeriodStart)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return RollUp(days, period);
+    }
+
+    public async Task RebuildAsync(Guid? companyId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        IQueryable<SalesAnalytics> stale = context.SalesAnalytics
+            .Where(a => a.Period == AnalyticsPeriod.Daily && a.PeriodStart >= from && a.PeriodEnd < to);
+
+        if (companyId.HasValue)
+        {
+            stale = stale.Where(a => a.CompanyId == companyId.Value);
+        }
+
+        context.SalesAnalytics.RemoveRange(stale);
+
+        IQueryable<Invoice> posted = context.Invoices
+            .Include(invoice => invoice.Lines)
+            .Where(invoice => invoice.Status == InvoiceStatus.Posted)
+            .Where(invoice => invoice.PostedAt >= from && invoice.PostedAt < to);
+
+        if (companyId.HasValue)
+        {
+            posted = posted.Where(invoice => invoice.CompanyId == companyId.Value);
+        }
+
+        List<Invoice> invoices = await posted.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        var buckets = invoices
+            .Where(invoice => invoice.CompanyId.HasValue)
+            .GroupBy(invoice => (
+                Company: invoice.CompanyId!.Value,
+                Day: DayFloor(invoice.PostedAt!.Value),
+                invoice.TenantId,
+                invoice.StoreId,
+                Channel: invoice.SourceDocumentType.ToString(),
+                invoice.Currency))
+            .OrderBy(bucket => bucket.Key.Day)
+            .ToList();
+
+        foreach (var bucket in buckets)
+        {
+            SalesAnalytics row = SalesAnalytics.Create(
+                bucket.Key.TenantId,
+                bucket.Key.StoreId,
+                bucket.Key.Company,
+                AnalyticsPeriod.Daily,
+                bucket.Key.Day,
+                bucket.Key.Day.AddDays(1),
+                categoryCode: null,
+                bucket.Key.Channel,
+                bucket.Key.Currency);
+
+            Money revenue = Money.Zero(bucket.Key.Currency);
+            Money tax = Money.Zero(bucket.Key.Currency);
+            int lines = 0;
+            foreach (Invoice invoice in bucket)
+            {
+                revenue += invoice.Gross;
+                tax += invoice.Tax;
+                lines += invoice.Lines.Count;
+            }
+
+            // Cost of sale is zero here by construction: an invoice snapshots price and tax, not
+            // cost — cost arrives with Stage 08's valuation postings, which a follow-up joins in.
+            // Reporting revenue as margin would be the lie; reporting cost as unknown is the truth.
+            row.Aggregate(revenue, Money.Zero(bucket.Key.Currency), tax, bucket.Count(), lines, to, isStale: false);
+            context.SalesAnalytics.Add(row);
+        }
+    }
+
+    private static DateTimeOffset DayFloor(DateTimeOffset instant)
+        => new DateTimeOffset(instant.UtcDateTime.Date, TimeSpan.Zero);
+
+    private static IReadOnlyList<SalesAnalytics> RollUp(IReadOnlyList<SalesAnalytics> days, AnalyticsPeriod period)
+    {
+        if (period == AnalyticsPeriod.Daily || days.Count == 0)
+        {
+            return days;
+        }
+
+        return days
+            .GroupBy(day => (
+                day.TenantId,
+                day.StoreId,
+                day.CompanyId,
+                Bucket: BucketStart(day.PeriodStart, period),
+                day.CategoryCode,
+                day.Channel,
+                day.Currency))
+            .OrderBy(bucket => bucket.Key.Bucket)
+            .Select(bucket =>
+            {
+                SalesAnalytics first = bucket.First();
+                SalesAnalytics rolled = SalesAnalytics.Create(
+                    bucket.Key.TenantId,
+                    bucket.Key.StoreId,
+                    bucket.Key.CompanyId ?? Guid.Empty,
+                    period,
+                    bucket.Key.Bucket,
+                    BucketEnd(bucket.Key.Bucket, period),
+                    bucket.Key.CategoryCode,
+                    bucket.Key.Channel,
+                    bucket.Key.Currency);
+
+                Money revenue = Money.Zero(bucket.Key.Currency);
+                Money cost = Money.Zero(bucket.Key.Currency);
+                Money tax = Money.Zero(bucket.Key.Currency);
+                int orders = 0;
+                int lines = 0;
+                DateTimeOffset asAt = first.AsAt;
+                bool stale = false;
+                foreach (SalesAnalytics day in bucket)
+                {
+                    revenue += day.Revenue;
+                    cost += day.CostOfSale;
+                    tax += day.TaxLiability;
+                    orders += day.OrderCount;
+                    lines += day.LineCount;
+                    if (day.AsAt > asAt)
+                    {
+                        asAt = day.AsAt;
+                    }
+
+                    stale = stale || day.IsStale;
+                }
+
+                rolled.Aggregate(revenue, cost, tax, orders, lines, asAt, stale);
+                return rolled;
+            })
+            .ToList();
+    }
+
+    private static DateTimeOffset BucketStart(DateTimeOffset day, AnalyticsPeriod period)
+    {
+        DateOnly date = DateOnly.FromDateTime(day.UtcDateTime);
+        return period switch
+        {
+            AnalyticsPeriod.Weekly => new DateTimeOffset(
+                date.AddDays(-(((int)date.DayOfWeek + 6) % 7)).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            AnalyticsPeriod.Monthly => new DateTimeOffset(
+                new DateOnly(date.Year, date.Month, 1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            AnalyticsPeriod.YearToDate => new DateTimeOffset(
+                new DateOnly(date.Year, 1, 1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            _ => day,
+        };
+    }
+
+    private static DateTimeOffset BucketEnd(DateTimeOffset bucketStart, AnalyticsPeriod period)
+    {
+        DateTime date = bucketStart.UtcDateTime;
+        return period switch
+        {
+            AnalyticsPeriod.Weekly => bucketStart.AddDays(7),
+            AnalyticsPeriod.Monthly => new DateTimeOffset(new DateOnly(date.Year, date.Month, 1).AddMonths(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            AnalyticsPeriod.YearToDate => new DateTimeOffset(new DateOnly(date.Year + 1, 1, 1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            _ => bucketStart.AddDays(1),
+        };
+    }
 }

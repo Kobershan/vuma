@@ -199,6 +199,21 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The append-only record of every sale made at something other than the resolved price.</summary>
     public DbSet<Domain.Sales.PriceOverrideLog> PriceOverrideLogs => Set<Domain.Sales.PriceOverrideLog>();
 
+    /// <summary>Non-binding price promises with a lifecycle (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Quotes.Quote> Quotes => Set<Domain.Sales.Quotes.Quote>();
+
+    /// <summary>Lines on a quote, carrying price and pack size snapshots.</summary>
+    public DbSet<Domain.Sales.Quotes.QuoteLine> QuoteLines => Set<Domain.Sales.Quotes.QuoteLine>();
+
+    /// <summary>Legally binding documents, immutable once posted (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Invoices.Invoice> Invoices => Set<Domain.Sales.Invoices.Invoice>();
+
+    /// <summary>Lines on an invoice, carrying pack size snapshots.</summary>
+    public DbSet<Domain.Sales.Invoices.InvoiceLine> InvoiceLines => Set<Domain.Sales.Invoices.InvoiceLine>();
+
+    /// <summary>Company-scoped sales read models (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Analytics.SalesAnalytics> SalesAnalytics => Set<Domain.Sales.Analytics.SalesAnalytics>();
+
     /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
     public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
 

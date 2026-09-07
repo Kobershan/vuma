@@ -21,11 +21,15 @@ using VumaRetail.Application.Orders;
 using VumaRetail.Application.Orders.Commands;
 using VumaRetail.Application.Sales;
 using VumaRetail.Application.Sales.Commands;
+using VumaRetail.Application.Sales.Commands.Analytics;
+using VumaRetail.Application.Sales.Commands.Invoices;
+using VumaRetail.Application.Sales.Commands.Quotes;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
 using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Domain.Sales.Invoices;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
@@ -179,6 +183,8 @@ public static class DemoSeed
         await SeedPosAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
         await SeedSalesAsync(
             provider, context, johannesburg.Id, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
+        await SeedSalesDocumentsAsync(
+            provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
             .ConfigureAwait(false);
@@ -778,6 +784,98 @@ public static class DemoSeed
         Console.WriteLine(
             $"Return {salesReturn.ReturnNumber} completed: {salesReturn.Gross} refunded "
             + $"({salesReturn.Tax} tax), stock back on the shelf.");
+    }
+
+    /// <summary>
+    /// Seeds Stage 10c: a quoted-to-converted quote, a posted invoice with pack sizes, the posting
+    /// rule it journals through, and a rebuilt analytics read model.
+    /// </summary>
+    /// <remarks>
+    /// The single-database demo cannot provision a second company, so the two-database split itself
+    /// — one order, one invoice per company — runs as the executable demo in
+    /// <c>SalesDocumentsTests.Multi_company_order_posts_one_invoice_per_company</c>, which seeds a
+    /// real two-company trading group. What this seed shows is everything around it: the quote
+    /// lifecycle, the pack size snapshot on the invoice line (ADR-112), the group reference a split
+    /// segment would carry (ADR-102), the invoice's journal, and the analytics row it aggregates to.
+    /// </remarks>
+    private static async Task SeedSalesDocumentsAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        CancellationToken cancellationToken)
+    {
+        IClock clock = provider.GetRequiredService<IClock>();
+        DateOnly today = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        Guid debtors = await EnsureAccountAsync(
+            provider, context, "1100", "Trade debtors", AccountType.Asset,
+            ControlAccountType.AccountsReceivable, cancellationToken).ConfigureAwait(false);
+        Guid sales = await EnsureAccountAsync(
+            provider, context, "4000", "Sales", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, FinancialInvoiceEventPublisher.InvoicePostedEventType,
+            "Invoice revenue recognised",
+            [
+                new PostingRuleLineInput(debtors, NormalBalance.Debit, "Gross", InheritDimensions: false, "Trade debtors"),
+                new PostingRuleLineInput(sales, NormalBalance.Credit, "Net", InheritDimensions: true, "Sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Credit, "Tax", InheritDimensions: false, "Output VAT"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        if (await context.Quotes.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        Guid quoteId = await dispatcher.SendAsync(
+            new CreateQuoteCommand(customerId, "ZAR", today.AddDays(30), null, DemoCompanyId),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new AddQuoteLineCommand(quoteId, milkItemId, null, 12m, "EA"),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new IssueQuoteCommand(quoteId), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new AcceptQuoteCommand(quoteId), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new ConvertQuoteToOrderCommand(quoteId), cancellationToken).ConfigureAwait(false);
+
+        // Resolved for real through the pack resolver, then frozen onto the invoice line: a year
+        // from now this invoice still reads what was actually sold.
+        PackSizeSnapshot pack = await provider.GetRequiredService<IPackSizeResolver>()
+            .ResolveAsync(milkItemId, null, "BOX12", 1m, cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid orderId = UuidV7.NewGuid();
+        Guid invoiceId = await dispatcher.SendAsync(
+            new CreateInvoiceCommand(
+                customerId,
+                "ZAR",
+                orderId,
+                InvoiceSourceType.Order,
+                [
+                    // Clean book math on purpose: 12 × R50 net, 15% VAT on top.
+                    new InvoiceLineInput(milkItemId, null, 12m, "BOX12", 50m, 0m, 90m, pack.Description),
+                ],
+                "SO-DEMO-0001",
+                DemoCompanyId),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new FinalizeInvoiceCommand(invoiceId), cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new RebuildAnalyticsCommand(null, clock.UtcNow.AddDays(-90), clock.UtcNow.AddDays(1)),
+            cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Quote converted and invoice posted with pack size '{pack.Description}' "
+            + "under group reference SO-DEMO-0001; analytics rebuilt.");
     }
 
     /// <summary>
