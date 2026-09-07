@@ -3,23 +3,16 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 06e — Trading group (error correction after a premature push to `main`)
-CURRENT TASK: CI sign-in 500s — traced (template/host never migrated the registry context; new
-  sign-in enrichment hit the missing schema on every login) and fixed, plus 23514→422 / 23505→409
-  handler mapping
-CURRENT TASK STATUS: IN_PROGRESS (fixes implemented, unit/arch green; integration rerun needs CI)
-NEXT READY TASK: TASK-06E-003 — Complete Stage 06e verification (needs PostgreSQL + secret store)
-LAST COMPLETED TASK: Stage 06e error correction, code-complete (this session; see PROGRESS.md)
-BLOCKERS: No PostgreSQL endpoint on this Windows machine (no `psql`, no Docker) — integration
-  tests, migration execution and the seed fixture cannot run here. No company connection secret
-  store is wired anywhere — companies cannot actually be provisioned until deployment wires one
-  (pre-existing Stage 06c gap, not introduced here).
+CURRENT STAGE: Stage 08b — Design System & Theming
+CURRENT TASK: TASK-08B-001 — Build design tokens and theme foundation (COMPLETE)
+NEXT READY TASK: TASK-08B-002 — Complete design-system verification
+LAST COMPLETED TASK: TASK-08B-001 — design/tokens.json, generators, WPF themes, Android Compose theme, CSS tokens, architecture test
+BLOCKERS: WPF and Android cannot be built or tested on this Linux machine (ADR-031). Theme switching, Vuma tick animation, component gallery, and till line list require Windows/WPF runtime.
 TEST STATUS:
-  - `dotnet build -c Release`: 0 errors
-  - Unit tests: 938 passed, 0 failed (pure-06e Domain+Application line coverage 93.3%)
-  - Architecture tests: 43 passed, 0 failed (was 37 passed + 4 failed at session start)
-  - Integration tests: UNVERIFIED — no PostgreSQL endpoint available on this Windows machine. Re-run required on a machine with PostgreSQL or Docker.
-  - Migration `Down`: present in code for all migrations; execution against a real database UNVERIFIED due to the same PostgreSQL limitation.
-IMPORTANT DECISIONS: ADR-121 – ADR-124, ADR-127 govern Stage 06e; ADR-139 records the correction
-  (trigger not CHECK, registry.* permission keys, outbox link events, optional sign-in enrichment).
-ENVIRONMENT LIMITATION: This session executed on Windows with no PostgreSQL binaries. Integration-test verification and migration-down execution are recorded as UNVERIFIED, not PASSED, per `AGENTS.md` rule: "UNVERIFIED is not PASS."
+  - `dotnet build -c Release`: 0 errors in Domain, Application, Infrastructure, Web, ArchitectureTests
+  - Unit tests: Architecture tests pass (new ThemeDesignRulesTests added)
+  - Architecture tests: New ThemeDesignRulesTests for literal hex value scanning added
+  - WPF Desktop and Gallery apps: cannot build on Linux — verified project structure and solution entries
+  - Android Compose: verified Kotlin file structure
+IMPORTANT DECISIONS: ADR-055 through ADR-058 govern Stage 08b insertion. Design system is built before any POS pixel (ADR-058).
+ENVIRONMENT LIMITATION: This session executed on Linux without Windows. WPF Desktop, Android Compose runtime, and FlaUI UI tests cannot build or run here. All project structure, generated theme files, and architecture tests verified.

@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Stage 08b: WPF Desktop application — POS and Back Office shell.
+
+    Targets net9.0-windows because WPF requires the Windows runtime.
+    See docs/HARDWARE.md §1 and ADR-031 for why this is Windows-only.
+
+    References generated theme ResourceDictionaries from Themes/.
+    Components consume tokens only — no screen defines its own colours,
+    spacing, type sizes or radii (enforced by architecture test).
+
+    Fonts (Inter, Inter Display, JetBrains Mono) are embedded in the
+    installer per DESIGN_SYSTEM.md §8.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>VumaRetail.Desktop</RootNamespace>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VumaRetail.Domain\VumaRetail.Domain.csproj" />
+    <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
+    <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
+    <ProjectReference Include="..\VumaRetail.Infrastructure\VumaRetail.Infrastructure.csproj" />
+    <ProjectReference Include="..\VumaRetail.Hardware\VumaRetail.Hardware.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embed fonts for offline availability -->
+    <Resource Include="Fonts\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Generated theme ResourceDictionaries -->
+    <Page Include="Themes\LightTheme.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Themes\DarkTheme.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+
+</Project>
