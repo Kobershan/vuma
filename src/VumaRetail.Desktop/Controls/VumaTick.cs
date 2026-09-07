@@ -83,7 +83,7 @@ public class VumaTick : Control
             X1 = 0, Y1 = Size / 2,
             X2 = Size * 0.4, Y2 = Size * 0.85,
             X3 = Size * 0.7, Y3 = Size * 0.25,
-            Stroke = StrokeColor ?? new SolidColorBrush(Color.FromRgb(0x0B, 0x7A, 0x5A)),
+            Stroke = StrokeColor ?? GetAccentBrush(),
             StrokeThickness = StrokeThickness,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,

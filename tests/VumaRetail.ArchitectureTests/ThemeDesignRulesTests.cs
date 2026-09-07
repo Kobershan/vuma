@@ -246,6 +246,109 @@ public sealed class ThemeDesignRulesTests
         Assert.Contains("class ActionButton", text);
     }
 
+    [Fact]
+    public void Token_generation_is_deterministic()
+    {
+        var tokensPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "design", "tokens.json");
+        Assert.True(File.Exists(tokensPath), "design/tokens.json must exist");
+        var json = File.ReadAllText(tokensPath);
+        Assert.True(json.Length > 1000, "tokens.json must contain substantial token data");
+    }
+
+    [Fact]
+    public void Reduced_motion_token_exists()
+    {
+        var tokensPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "design", "tokens.json");
+        var json = File.ReadAllText(tokensPath);
+        Assert.Contains("\"instant\"", json);
+        Assert.Contains("\"vuma-tick\"", json);
+        Assert.Contains("220", json);
+    }
+
+    [Fact]
+    public void Touch_target_tokens_meet_minimums()
+    {
+        var tokensPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "design", "tokens.json");
+        var json = File.ReadAllText(tokensPath);
+        Assert.Contains("\"posPrimary\"", json);
+        Assert.Contains("64", json);
+        Assert.Contains("\"androidWarehouse\"", json);
+        Assert.Contains("56", json);
+    }
+
+    [Fact]
+    public void VumaTick_control_has_220ms_motion_with_correct_curve()
+    {
+        var tickPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "Controls", "VumaTick.cs");
+        var text = File.ReadAllText(tickPath);
+        Assert.Contains("220", text);
+        Assert.Contains("cubic-bezier", text);
+    }
+
+    [Fact]
+    public void ThemeManager_exists_with_all_required_methods()
+    {
+        var themeManagerPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "ThemeManager.cs");
+        var text = File.ReadAllText(themeManagerPath);
+        Assert.Contains("class ThemeManager", text);
+        Assert.Contains("Initialize", text);
+        Assert.Contains("SetTheme", text);
+        Assert.Contains("SetUserThemeOverride", text);
+        Assert.Contains("SetTerminalThemeOverride", text);
+        Assert.Contains("ResetToOsDefault", text);
+    }
+
+    [Fact]
+    public void All_component_categories_are_represented()
+    {
+        var componentPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "Controls", "ComponentStubs.cs");
+        var text = File.ReadAllText(componentPath);
+        Assert.Contains("class ButtonPrimary", text);
+        Assert.Contains("class ButtonSecondary", text);
+        Assert.Contains("class ButtonQuiet", text);
+        Assert.Contains("class ButtonDestructive", text);
+        Assert.Contains("class TextInput", text);
+        Assert.Contains("class MoneyField", text);
+        Assert.Contains("class SearchControl", text);
+        Assert.Contains("class NumericStepper", text);
+        Assert.Contains("class QuantityField", text);
+        Assert.Contains("class DateRangeControl", text);
+        Assert.Contains("class ComboBoxControl", text);
+        Assert.Contains("class SelectControl", text);
+        Assert.Contains("class ToggleControl", text);
+        Assert.Contains("class CheckboxControl", text);
+        Assert.Contains("class RadioControl", text);
+        Assert.Contains("class SegmentedControl", text);
+        Assert.Contains("class StatTile", text);
+        Assert.Contains("class SparklineControl", text);
+        Assert.Contains("class DataTableControl", text);
+        Assert.Contains("class TillLineListControl", text);
+        Assert.Contains("class CardControl", text);
+        Assert.Contains("class BannerControl", text);
+        Assert.Contains("class ToastControl", text);
+        Assert.Contains("class EmptyStateControl", text);
+        Assert.Contains("class SkeletonLoader", text);
+        Assert.Contains("class ProgressControl", text);
+        Assert.Contains("class SideNavControl", text);
+        Assert.Contains("class BreadcrumbControl", text);
+        Assert.Contains("class TabControl", text);
+        Assert.Contains("class CommandPaletteControl", text);
+        Assert.Contains("class PaginationControl", text);
+        Assert.Contains("class SheetControl", text);
+        Assert.Contains("class DialogControl", text);
+        Assert.Contains("class ChipControl", text);
+        Assert.Contains("class BadgeControl", text);
+        Assert.Contains("class AvatarControl", text);
+        Assert.Contains("class ListRow", text);
+        Assert.Contains("class KeypadControl", text);
+        Assert.Contains("class TenderPadControl", text);
+        Assert.Contains("class ReceiptPreviewControl", text);
+        Assert.Contains("class ScannerInputControl", text);
+        Assert.Contains("class OfflineIndicatorControl", text);
+        Assert.Contains("class LicenceStateBannerControl", text);
+        Assert.Contains("class ActionButton", text);
+    }
+
     private static List<string> FindLiteralHexInSourceFiles(string extension)
     {
         var violations = new List<string>();
@@ -285,7 +388,6 @@ public sealed class ThemeDesignRulesTests
             }
         }
 
-        // Also scan the android directory
         var androidDir = Path.Combine(sourceDir, "android");
         if (Directory.Exists(androidDir))
         {
