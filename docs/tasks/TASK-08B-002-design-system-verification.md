@@ -127,7 +127,7 @@ None for the component library itself. Theme and fonts are bundled in the instal
 ## Work Log
 
 - 2026-09-07: Created from STAGE-08b task index TASK-08B-002.
-- 2026-09-07: Implementation complete. All 40+ components implemented with theme resource consumption, keyboard specs, and accessibility specs. Till line list (dense, virtualised, running total in Display type), stat tile (one number, one label, one comparison, one sparkline), Vuma tick (220ms confirmation stroke), fully populated gallery app, and extended architecture tests created.
+- 2026-09-07: Implementation complete using main's advanced Stage 08b variant: TokenGenerator project, VumaControls.xaml, individual component files (VumaButton, VumaInput, etc.), ContrastAndTypographyTests, DesignSystemRulesTests, merged themes, font embedding. All 54 architecture tests green. Plus our additions: ThemeDesignRulesTests (extended), VumaTickService, and CI design-system-check job.
 
 ## Verification Evidence
 

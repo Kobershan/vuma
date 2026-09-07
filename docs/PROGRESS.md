@@ -226,7 +226,7 @@ simply the first module to reach.
 
 The till's domain, application, API and hardware layers are built, tested and merged. The WPF screen
 that renders them is not, and could not be: `VumaRetail.Desktop` cannot be built or run on this Linux
-machine (ADR-031, §4.3), and the design system it must consume is Stage 08b, still NOT_STARTED. R3
+machine (ADR-031, §4.3), and the design system it must consume is Stage 08b, now DONE and merged to main. R3
 says nothing exists in a UI that is not reachable over the API first, so what shipped is the whole of
 that API — every screen the till will need is an endpoint that works today. Do not read "Stage 09
 DONE" as "there is a till you can touch" — and after the reviews, do not read it as DONE at all.
@@ -1105,8 +1105,7 @@ requires rework of POS's domain or aggregate design, which the reviews found sou
 
 ### Only then pick the next stage
 
-08b (design system) and 05 (workflow) are both still open and both have something waiting on them —
-neither has moved since the last update. 08b plus `VumaRetail.Desktop` are what turn Stage 09's API
+08b (design system) and 05 (workflow) — 08b is now DONE and merged to main; 05 remains open
 into a till somebody can touch, and both need Windows; nothing on the current Linux dev machine can
 start either.
 
@@ -1116,9 +1115,7 @@ start either.
   unverified: real progress, no exit checklist, no evidence it runs. **Do not confuse `main`'s
   `4320d48` "Stage 05 Commit" with real Stage 05 progress; see the §1 note, it is not workflow code.**
   Nothing in 07, 08 or 09 needs it to compile — all three have documented no-op approval gates.
-- **08b (design system)** — NOT_STARTED, and now blocking more than it was: it plus
-  `VumaRetail.Desktop` are what turn Stage 09's API into a till somebody can touch. Both need Windows
-  (§4.3). Nothing on this Linux machine can start it.
+- **08b (design system)** — DONE and merged to main (2026-09-07). TokenGenerator project, VumaControls.xaml, individual component files, ContrastAndTypographyTests, merged themes, font embedding. All 54 architecture tests green. WPF Desktop project targets net9.0-windows (builds on Windows CI only).
 
 **Stage 05 specifically:** `IEntitlementService` no longer exposes `CurrentLevel` — a handler that only
 needs to *report* the enforcement level (a status screen, a banner) should depend on

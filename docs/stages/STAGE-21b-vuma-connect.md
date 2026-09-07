@@ -18,7 +18,7 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
 | TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | NOT_STARTED |
-| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | NOT_STARTED |
+| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | DONE |
 
 ## Objective
 Turn Vuma from software each retailer runs alone into a **network they trade across**. A supplier gets

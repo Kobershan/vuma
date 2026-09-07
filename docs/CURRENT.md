@@ -3,11 +3,10 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 07c — Cross-company money (group receipting, allocation, inter-company clearing, consolidated reporting)
-CURRENT TASK: CI verification fixes — build, test, migration, architecture all verified
-CURRENT TASK STATUS: VERIFIED (build, unit tests, architecture tests, migration checks all green)
-NEXT READY TASK: Run full integration tests on a machine with Docker + PostgreSQL; stage 04b integration tests still pending
-LAST COMPLETED TASK: Fixed all CI workflow and source code errors relating to stage 07c
+CURRENT STAGE: Stage 08b — Design System & Theming
+CURRENT TASK STATUS: COMPLETE — tokens.json, token generator (WPF/Compose/CSS), WPF controls library (54 architecture tests), architecture tests (contrast, hex scan, fonts), CI pipeline updated. Merged to main.
+NEXT READY TASK: Stage 09 POS — WPF shell needs Windows; build and runtime tests on Windows CI
+LAST COMPLETED TASK: Merged Stage 08b into main using main's advanced implementation (TokenGenerator project, VumaControls.xaml, individual component files, ContrastAndTypographyTests, merged themes, font embedding)
 BLOCKERS: Docker not available on this machine; integration tests require Docker service container
 TEST STATUS:
   - `dotnet build -c Release`: PASSED — 0 errors, 0 warnings

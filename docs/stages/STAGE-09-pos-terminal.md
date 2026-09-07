@@ -51,7 +51,7 @@ This stage owns **the sale, the tender and the shift**, not the things around th
   ("…lay-by, cash-up") predates it. This stage ships the `TenderType` members those modules settle
   against and nothing behind them. See the roadmap correction in `PROGRESS.md`.
 - **No WPF shell.** `VumaRetail.Desktop` cannot be built or run on this machine (ADR-031,
-  `PROGRESS.md` §4.3), and the design system it must consume is Stage 08b, still NOT_STARTED. R3
+  `PROGRESS.md` §4.3), and the design system it must consume is Stage 08b, now DONE and merged to main. R3
   says nothing exists in a UI that is not reachable over the API first; this stage builds that API,
   in full, and the screen that renders it is deferred with the rest of the Windows surface.
 - **No GL account.** A tendered sale raises `pos.sale.tendered`; Stage 07's posting rules engine
@@ -193,7 +193,7 @@ Stage 00.
 **Not ticked, and deliberately so:**
 
 - [ ] **The WPF till screen.** `VumaRetail.Desktop` cannot be built or run on this machine (ADR-031)
-      and the design system it must consume is Stage 08b, NOT_STARTED. R3 is satisfied — the API it
+      and the design system it must consume is Stage 08b, DONE. R3 is satisfied — the API it
       will render exists in full and is tested — but nobody can touch a till yet.
 - [ ] **The two read-only carve-outs in `LICENSING.md`** — reprint under read-only, and the
       open-session carve-out that lets an in-flight sale and cash-up finish. Both need a fourth
