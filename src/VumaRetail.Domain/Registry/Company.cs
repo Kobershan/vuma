@@ -144,20 +144,6 @@ public sealed class Company
     /// Set-once. Changing ownership of a company is a vendor-side operation with billing
     /// consequences, not an edit — a second, different assignment is refused.
     /// </remarks>
-    public void AssignOperator(Guid operatorId)
-    {
-        if (operatorId == Guid.Empty)
-        {
-            throw new ArgumentException("An operator identifier is required.", nameof(operatorId));
-        }
-
-        if (OperatorId != Guid.Empty && OperatorId != operatorId)
-        {
-            throw new InvalidOperationException("A company's Operator ID cannot be changed once assigned.");
-        }
-
-        OperatorId = operatorId;
-    }
 
     /// <summary>Stores only a reference to encrypted connection details.</summary>
     public void SetConnectionSecretRef(string connectionSecretRef)
