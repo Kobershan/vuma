@@ -118,3 +118,39 @@ public sealed class GroupAvailabilityCursor
         UpdatedAt = updatedAt;
     }
 }
+
+/// <summary>
+/// How long a new reservation hold for one source kind lives before it lapses, per tenant.
+/// Absent rows mean the stage defaults (order and pro-forma approval holds 72 hours; transfer
+/// and shipment holds never expire). A null <see cref="ExpiryHours"/> is an explicit never.
+/// </summary>
+public sealed class ReservationExpiryPolicyRow
+{
+    private ReservationExpiryPolicyRow() { }
+
+    public Guid TenantId { get; private set; }
+    public string Source { get; private set; } = string.Empty;
+    public int? ExpiryHours { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    public static ReservationExpiryPolicyRow Set(Guid tenantId, string source, int? expiryHours, DateTimeOffset updatedAt)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (string.IsNullOrWhiteSpace(source)) throw new ArgumentException("A source is required.", nameof(source));
+        if (expiryHours is < 0) throw new ArgumentException("An expiry cannot be negative.", nameof(expiryHours));
+        return new ReservationExpiryPolicyRow
+        {
+            TenantId = tenantId,
+            Source = source.Trim(),
+            ExpiryHours = expiryHours,
+            UpdatedAt = updatedAt,
+        };
+    }
+
+    public void Change(int? expiryHours, DateTimeOffset updatedAt)
+    {
+        if (expiryHours is < 0) throw new ArgumentException("An expiry cannot be negative.", nameof(expiryHours));
+        ExpiryHours = expiryHours;
+        UpdatedAt = updatedAt;
+    }
+}

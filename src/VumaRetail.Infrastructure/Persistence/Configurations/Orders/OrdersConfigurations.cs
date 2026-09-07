@@ -55,10 +55,19 @@ internal sealed class SalesOrderConfiguration : EntityConfiguration<SalesOrder>
         builder.HasMoney(order => order.Tax, "tax");
         builder.HasMoney(order => order.Gross, "gross");
 
+        // Stage 08c: the cross-company source this segment was split from, if any. Null for an
+        // order raised directly in one company.
+        builder.Property(order => order.GroupDocumentRef).HasMaxLength(64);
+
         builder.HasIndex(order => new { order.TenantId, order.OrderNumber })
             .IsUnique()
             .HasDatabaseName("ux_sales_orders_tenant_id_order_number")
             .HasFilter("deleted_at IS NULL");
+
+        // All segments of one cross-company order, whatever company holds them.
+        builder.HasIndex(order => new { order.TenantId, order.GroupDocumentRef })
+            .HasDatabaseName("ix_sales_orders_group_document_ref")
+            .HasFilter("group_document_ref IS NOT NULL AND deleted_at IS NULL");
 
         builder.HasIndex(order => order.PartnerId).HasDatabaseName("ix_sales_orders_partner_id");
         builder.HasIndex(order => order.Status).HasDatabaseName("ix_sales_orders_status");

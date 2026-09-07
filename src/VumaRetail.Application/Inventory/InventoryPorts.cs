@@ -128,6 +128,24 @@ public interface IStockReservationRepository
         Guid? itemVariantId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The live hold one saga leg took for one stock-keeping unit, or <c>null</c>. A leg holds at
+    /// most one row per line: retrying the leg finds this row instead of double-holding (ADR-116),
+    /// and the partial unique index underneath makes the find-and-hold race-safe.
+    /// </summary>
+    Task<StockReservation?> FindLegHoldAsync(
+        Guid intentId,
+        Guid legId,
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Every live hold carrying one group document reference — the compensation set.</summary>
+    Task<IReadOnlyList<StockReservation>> ListOpenByGroupRefAsync(
+        string groupDocumentRef,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Live holds whose expiry has passed, oldest expiry first, capped at <paramref name="limit"/>.</summary>
     Task<IReadOnlyList<StockReservation>> ListExpiredAsync(
         DateTimeOffset now,

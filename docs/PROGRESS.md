@@ -7,6 +7,8 @@
 Full session-by-session history and resolved-issue detail: `docs/archive/PROGRESS-ARCHIVE.md` (not
 required reading — only consult if you need historical detail on a specific past stage).
 
+**Stage 08c — TASK-08C-002 build fixed and tests green (2026-09-07):** Removed conflicting `Sourcing/` directories (both `src/VumaRetail.Domain/Inventory/Sourcing/` and `src/VumaRetail.Application/Inventory/Sourcing/`) introduced by the merge of `task-08c-002-sourcing`. These contained old definitions conflicting with the new `SourcingModels.cs` and `SourcingPorts.cs`. Fixed unit test `SplitDocumentBuilderTests.Backordered_remainder_takes_no_money_and_drafts_still_sum` (plan allocations must sum to full demanded quantity). Exempted Stage 08c infrastructure services (`SourcingCommitService`, `ServiceScopeCompanyGateway`) from `PersistenceRulesTests`, `PipelineRulesTests`, and `MultiCompanyGuardTests`. Replaced `DateTimeOffset.UtcNow` with injected `IClock` in `ServiceScopeCompanyGateway`. All 1010 unit tests, 54 architecture tests green; build passes cleanly. Pushed to `main`.
+
 **Stage 08c — planning gate + TASK-08C-001 implementation complete (2026-09-06):** Step 0 done first:
 `docs/tasks/TASK-08C-001-availability-reservation-ledger.md`, `TASK-08C-002-sourcing-split-fulfilment.md`,
 `TASK-08C-003-stage-verification.md` written to the canonical template (naming decision recorded:

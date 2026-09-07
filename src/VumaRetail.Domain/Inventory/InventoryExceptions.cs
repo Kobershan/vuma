@@ -142,6 +142,24 @@ public sealed class InventoryRuleException(string code, string message) : Domain
             "INVENTORY_RESERVATION_CLOSE_EXCEEDS_HELD",
             $"Closing {closing} against {reserved} reserved. A terminal row always carries its hold's "
             + "own quantity — anything else means the projection has drifted from the ledger.");
+
+    /// <summary>A sourcing plan promises more of a line than was demanded, or less without a matching backorder.</summary>
+    /// <param name="lineId">The demand line.</param>
+    /// <param name="demanded">What the line asked for.</param>
+    /// <param name="planned">What the plan covers plus backorders.</param>
+    public static InventoryRuleException SourcingPlanUnbalanced(Guid lineId, Quantity demanded, Quantity planned)
+        => new(
+            "INVENTORY_SOURCING_PLAN_UNBALANCED",
+            $"Line {lineId} demands {demanded} but the plan accounts for {planned}. "
+            + "Allocated plus backordered must equal demanded on every line.");
+
+    /// <summary>A split document set does not reconcile to its source.</summary>
+    /// <param name="detail">The first mismatch, naming the line.</param>
+    public static InventoryRuleException SplitReconciliationMismatch(string detail)
+        => new(
+            "INVENTORY_SPLIT_RECONCILIATION_MISMATCH",
+            $"The split does not reconcile to its source: {detail} Every line lands on exactly one "
+            + "document and the sums are exact — a mismatch here is a defect, not a rounding choice.");
 }
 
 /// <summary>An inventory action the caller is not permitted to take.</summary>

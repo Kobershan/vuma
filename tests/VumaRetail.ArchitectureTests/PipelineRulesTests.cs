@@ -95,9 +95,20 @@ public sealed class PipelineRulesTests
             // re-check availability on the acting company's own context. GroupAvailabilityRelay
             // owns the registry-side transaction that publishes and heals the projection — the
             // registry is a separate database with a separate boundary, like the lifecycle and
-            // migration operations above.
+            // migration operations above. SourcingCommitService owns the registry-side
+            // transaction for the sourcing saga (one intent, one SaveChanges); the company
+            // legs save inside their own scopes through the gateway.
+            // ServiceScopeCompanyGateway is an infrastructure gateway (not a handler) that
+            // opens one company-scope per leg and commits that scope's transaction directly —
+            // the pipeline's transaction stays empty because the handler only calls the
+            // ISourcingCommitService.
             "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
-            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs");
+            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs",
+            "src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
+            // owns its own saga transaction; the handler's pipeline transaction stays empty.
+            "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");
 
         Assert.True(violations.Count == 0, $"""
             Something outside the pipeline commits the unit of work. The exemptions are

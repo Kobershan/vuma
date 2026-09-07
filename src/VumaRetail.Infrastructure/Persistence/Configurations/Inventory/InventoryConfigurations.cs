@@ -330,13 +330,21 @@ internal sealed class StockReservationConfiguration : EntityConfiguration<StockR
             .HasDatabaseName("ux_stock_reservations_open")
             .HasFilter("state = 'Held'");
 
-        // Saga idempotency (ADR-116): retrying a leg replays its (intent_id, leg_id, sequence),
-        // which collides here instead of double-holding. The sequence is part of the key because
-        // a hold's own terminal row legitimately shares its intent and leg.
-        builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.SequenceNumber })
+        // Saga idempotency (ADR-116): retrying a leg replays its (intent, leg, line), which
+        // collides here instead of double-holding. A leg holds at most one row per line — a
+        // re-sourced remainder is a plain hold under the same group reference, never a second row
+        // on the leg's key — so the key covers the line's identity, not the chain sequence.
+        // Split in two like every other per-SKU unique in this schema, because PostgreSQL treats
+        // NULLs as distinct and one index over both nullable columns would not collide with itself.
+        builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemId })
             .IsUnique()
-            .HasDatabaseName("ux_stock_reservations_intent_leg_sequence")
-            .HasFilter("intent_id IS NOT NULL");
+            .HasDatabaseName("ux_stock_reservations_intent_leg_item")
+            .HasFilter("intent_id IS NOT NULL AND item_id IS NOT NULL");
+
+        builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemVariantId })
+            .IsUnique()
+            .HasDatabaseName("ux_stock_reservations_intent_leg_variant")
+            .HasFilter("intent_id IS NOT NULL AND item_variant_id IS NOT NULL");
 
         builder.ToTable(table =>
         {

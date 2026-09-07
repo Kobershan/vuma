@@ -271,12 +271,14 @@ public sealed record LocalAvailabilityResponse(
 /// <summary>One company's contribution to a group availability view.</summary>
 /// <param name="CompanyId">The contributing company.</param>
 /// <param name="CompanyCode">The contributing company's code.</param>
+/// <param name="LocationId">The contributing location.</param>
 /// <param name="Promise">The figure as last published.</param>
 /// <param name="AsAt">When this contributor last published.</param>
 /// <param name="IsStale">Whether the contributor has not published within the freshness threshold.</param>
 public sealed record GroupAvailabilityContributionResponse(
     Guid CompanyId,
     string CompanyCode,
+    Guid LocationId,
     AvailableToPromiseResponse Promise,
     DateTimeOffset AsAt,
     bool IsStale);
@@ -351,3 +353,148 @@ public sealed record ConsumeReservationRequest(Guid ReservationId, Guid Consumed
 /// <param name="Reason">Why the hold was released.</param>
 /// <param name="CompanyId">The company holding the stock. Bound into the request scope when supplied; see <see cref="ReserveStockRequest"/>.</param>
 public sealed record ReleaseReservationRequest(Guid ReservationId, string? Reason = null, Guid? CompanyId = null);
+
+/// <summary>One order line asking for stock, with its captured economics for the split.</summary>
+/// <param name="LineId">The source line's id.</param>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Demanded">How much the line wants.</param>
+/// <param name="UnitOfMeasure">The unit the demand is counted in.</param>
+/// <param name="UnitPrice">The line's unit price, carried not priced.</param>
+/// <param name="LineNet">The line's net, as captured.</param>
+/// <param name="LineTax">The line's tax, as captured.</param>
+/// <param name="LineGross">The line's gross, as captured.</param>
+/// <param name="Currency">The ISO 4217 currency every amount shares.</param>
+public sealed record SourcingDemandLineRequest(
+    Guid LineId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Demanded,
+    string UnitOfMeasure,
+    decimal UnitPrice,
+    decimal LineNet,
+    decimal LineTax,
+    decimal LineGross,
+    string Currency);
+
+/// <summary>How much of one demand line one company location supplies.</summary>
+/// <param name="CompanyId">The supplying company.</param>
+/// <param name="LocationId">The supplying location.</param>
+/// <param name="Quantity">How much it supplies.</param>
+/// <param name="UnitOfMeasure">The unit the quantity shares with the demand.</param>
+public sealed record SourcingAllocationResponse(
+    Guid CompanyId,
+    Guid LocationId,
+    decimal Quantity,
+    string UnitOfMeasure);
+
+/// <summary>One demand line's sourcing answer.</summary>
+/// <param name="LineId">The demand line.</param>
+/// <param name="Allocations">One row per supplying location.</param>
+/// <param name="Backorder">What group-wide availability could not cover.</param>
+/// <param name="UnitOfMeasure">The unit every figure shares.</param>
+public sealed record SourcingPlanLineResponse(
+    Guid LineId,
+    IReadOnlyList<SourcingAllocationResponse> Allocations,
+    decimal Backorder,
+    string UnitOfMeasure);
+
+/// <summary>A sourcing plan: a projection until committed.</summary>
+/// <param name="OrderingCompanyId">The company the order was captured against.</param>
+/// <param name="Lines">One answer per demand line, in demand order.</param>
+/// <param name="IsFullyCovered">Whether every line is fully covered with nothing backordered.</param>
+public sealed record SourcingPlanResponse(
+    Guid OrderingCompanyId,
+    IReadOnlyList<SourcingPlanLineResponse> Lines,
+    bool IsFullyCovered);
+
+/// <summary>Plans sourcing for an order without committing anything.</summary>
+/// <param name="OrderingCompanyId">The company the order was captured against.</param>
+/// <param name="Demands">The lines asking for stock.</param>
+/// <param name="ProximityLocationIds">Location ids nearest-first, when the caller knows geography.</param>
+public sealed record PlanSourcingRequest(
+    Guid OrderingCompanyId,
+    IReadOnlyList<SourcingDemandLineRequest> Demands,
+    IReadOnlyList<Guid> ProximityLocationIds);
+
+/// <summary>The source order a commit splits.</summary>
+/// <param name="OrderId">The source order's id.</param>
+/// <param name="OrderNumber">The source order number every segment shares.</param>
+/// <param name="PartnerId">The customer, when one was identified.</param>
+/// <param name="Channel">InStore, Phone or Online.</param>
+/// <param name="FulfilmentType">Delivery or ClickAndCollect.</param>
+/// <param name="Currency">The order's currency.</param>
+/// <param name="Demands">The lines asking for stock, with captured economics.</param>
+public sealed record SourcingSourceOrderRequest(
+    Guid OrderId,
+    string OrderNumber,
+    Guid? PartnerId,
+    string Channel,
+    string FulfilmentType,
+    string Currency,
+    IReadOnlyList<SourcingDemandLineRequest> Demands);
+
+/// <summary>Commits a sourcing plan as a saga.</summary>
+/// <param name="TenantId">The owning tenant.</param>
+/// <param name="OrderingCompanyId">The company the order was captured against.</param>
+/// <param name="Source">The source order and its lines.</param>
+/// <param name="IdempotencyKey">Stable across retries of the same commit.</param>
+/// <param name="ProximityLocationIds">Location ids nearest-first, when the caller knows geography.</param>
+/// <param name="InitiatedBy">Who asked, in audit-principal form.</param>
+public sealed record CommitSourcingPlanRequest(
+    Guid TenantId,
+    Guid OrderingCompanyId,
+    SourcingSourceOrderRequest Source,
+    string IdempotencyKey,
+    IReadOnlyList<Guid> ProximityLocationIds,
+    string InitiatedBy);
+
+/// <summary>One leg's outcome: what a company actually held, and what it could not.</summary>
+/// <param name="CompanyId">The leg's company.</param>
+/// <param name="LegId">The leg.</param>
+/// <param name="HeldLineIds">Demand lines this leg holds (reservation ids are company-local).</param>
+/// <param name="Shortfalls">Uncovered quantity per demand line id after re-sourcing.</param>
+public sealed record SourcingLegOutcomeResponse(
+    Guid CompanyId,
+    Guid LegId,
+    IReadOnlyList<Guid> HeldLineIds,
+    IReadOnlyDictionary<Guid, decimal> Shortfalls);
+
+/// <summary>A committed sourcing plan.</summary>
+/// <param name="IntentId">The saga intent that coordinated the commit.</param>
+/// <param name="Plan">The plan as committed (allocations reduced to what was actually held).</param>
+/// <param name="Legs">One outcome per leg.</param>
+/// <param name="SplitOrderIds">One confirmed order per supplying company.</param>
+/// <param name="WasReplay">Whether this call replayed a completed intent.</param>
+public sealed record CommittedSourcingPlanResponse(
+    Guid IntentId,
+    SourcingPlanResponse Plan,
+    IReadOnlyList<SourcingLegOutcomeResponse> Legs,
+    IReadOnlyList<Guid> SplitOrderIds,
+    bool WasReplay);
+
+/// <summary>One saga leg's state, as reported to operations.</summary>
+/// <param name="LegId">The leg.</param>
+/// <param name="CompanyId">The leg's company.</param>
+/// <param name="State">Where the leg stands.</param>
+/// <param name="Attempts">How many times the leg was dispatched.</param>
+/// <param name="LastError">The last failure, when one happened.</param>
+public sealed record SourcingIntentLegResponse(
+    Guid LegId,
+    Guid CompanyId,
+    string State,
+    int Attempts,
+    string? LastError);
+
+/// <summary>A sourcing saga intent and its legs, as reported to operations.</summary>
+/// <param name="IntentId">The intent.</param>
+/// <param name="Type">The intent type.</param>
+/// <param name="State">Where the intent stands.</param>
+/// <param name="CreatedAt">When the intent was written.</param>
+/// <param name="Legs">One row per leg, in company order.</param>
+public sealed record SourcingIntentResponse(
+    Guid IntentId,
+    string Type,
+    string State,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<SourcingIntentLegResponse> Legs);

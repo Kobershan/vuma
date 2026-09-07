@@ -50,6 +50,9 @@ public sealed class VumaRegistryDbContext(
     public DbSet<GroupAvailabilityRow> GroupAvailabilityRows => Set<GroupAvailabilityRow>();
     public DbSet<GroupAvailabilityCursor> GroupAvailabilityCursors => Set<GroupAvailabilityCursor>();
 
+    // Stage 08c: per-tenant reservation expiry policy (absent rows mean the stage defaults).
+    public DbSet<ReservationExpiryPolicyRow> ReservationExpiryPolicies => Set<ReservationExpiryPolicyRow>();
+
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
 
@@ -482,6 +485,16 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.UpdatedAt).IsRequired();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
+        modelBuilder.Entity<ReservationExpiryPolicyRow>(builder =>
+        {
+            builder.ToTable("reservation_expiry_policies", "registry");
+            builder.HasKey(x => new { x.TenantId, x.Source });
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.Source).HasMaxLength(24).IsRequired();
+            builder.Property(x => x.ExpiryHours);
+            builder.Property(x => x.UpdatedAt).IsRequired();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
 
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the
@@ -499,6 +512,7 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<InterCompanyClearingLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupAvailabilityRow>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupAvailabilityCursor>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ReservationExpiryPolicyRow>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }

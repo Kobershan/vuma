@@ -13,12 +13,14 @@ public sealed record LocalAvailability(Guid LocationId, Guid? ItemId, Guid? Item
 /// <summary>One company's contribution to a group availability view. Planning only — never the basis for a commit.</summary>
 /// <param name="CompanyId">The contributing company.</param>
 /// <param name="CompanyCode">The contributing company's code, for display.</param>
+/// <param name="LocationId">The contributing location.</param>
 /// <param name="Promise">The figure as last published. Read <see cref="AsAt"/> before trusting it.</param>
 /// <param name="AsAt">When this contributor last published. Shown on every surface.</param>
 /// <param name="IsStale">Whether the contributor has not published within the freshness threshold.</param>
 public sealed record GroupAvailabilityContribution(
     Guid CompanyId,
     string CompanyCode,
+    Guid LocationId,
     AvailableToPromise Promise,
     DateTimeOffset AsAt,
     bool IsStale);

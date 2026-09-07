@@ -40,6 +40,12 @@ public sealed class OrdersRuleException(string code, string message) : DomainExc
     public static OrdersRuleException OrderNotDraft(SalesOrderStatus actual)
         => new("ORDERS_ORDER_NOT_DRAFT", $"Only a draft order can be confirmed or have lines added; this order is {actual}.");
 
+    /// <summary>A split segment was tied to a blank group document reference.</summary>
+    public static OrdersRuleException GroupDocumentRefRequired()
+        => new(
+            "ORDERS_GROUP_DOCUMENT_REF_REQUIRED",
+            "A split order segment must name the source order number every sibling segment shares.");
+
     /// <summary>A return was asked to add a line, or complete, when it is not open.</summary>
     public static OrdersRuleException UnexpectedReturnStatus(SalesOrderReturnStatus actual)
         => new("ORDERS_UNEXPECTED_RETURN_STATUS", $"This operation cannot be performed while the return is {actual}.");

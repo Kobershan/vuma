@@ -247,6 +247,40 @@ public sealed class StockReservationRepository(VumaRetailDbContext context) : IS
             .ConfigureAwait(false);
 
     /// <inheritdoc />
+    public Task<StockReservation?> FindLegHoldAsync(
+        Guid intentId,
+        Guid legId,
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        CancellationToken cancellationToken = default)
+        => context.StockReservations
+            .Where(reservation => reservation.IntentId == intentId
+                && reservation.LegId == legId
+                && reservation.LocationId == locationId
+                && reservation.ItemId == itemId
+                && reservation.ItemVariantId == itemVariantId
+                && reservation.State == ReservationState.Held)
+            .OrderBy(reservation => reservation.SequenceNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StockReservation>> ListOpenByGroupRefAsync(
+        string groupDocumentRef,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(groupDocumentRef);
+
+        return await context.StockReservations
+            .Where(reservation => reservation.GroupDocumentRef == groupDocumentRef
+                && reservation.State == ReservationState.Held)
+            .OrderBy(reservation => reservation.CreatedAt)
+            .ThenBy(reservation => reservation.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<StockReservation>> ListExpiredAsync(
         DateTimeOffset now,
         int limit,

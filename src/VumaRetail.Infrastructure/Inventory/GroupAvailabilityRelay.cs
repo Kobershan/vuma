@@ -9,19 +9,6 @@ using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Inventory;
 
-/// <summary>How the group availability projection decides a contributor has gone quiet (ADR-119).</summary>
-public sealed class GroupAvailabilityOptions
-{
-    /// <summary>Section name for configuration binding.</summary>
-    public const string SectionName = "Vuma:Availability";
-
-    /// <summary>After this long without a publish, a contributor is shown as stale. Default 15 minutes.</summary>
-    public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(15);
-
-    /// <summary>How many outbox rows the relay applies per company per pass. Default 200.</summary>
-    public int RelayBatchSize { get; set; } = 200;
-}
-
 /// <summary>Publishes availability snapshots to the registry projection (ADR-119).</summary>
 /// <param name="registry">The registry database.</param>
 /// <param name="clock">The only source of time.</param>
@@ -390,7 +377,7 @@ public sealed class RegistryAvailabilityReader(
                 Quantity.Zero(row.UnitOfMeasure),
                 row.AsAt);
             return new GroupAvailabilityContribution(
-                row.CompanyId, row.CompanyCode, promise, row.AsAt, now - row.AsAt > staleAfter);
+                row.CompanyId, row.CompanyCode, row.LocationId, promise, row.AsAt, now - row.AsAt > staleAfter);
         }).ToList();
 
         return new GroupAvailabilityView(itemId, itemVariantId, contributions, now);

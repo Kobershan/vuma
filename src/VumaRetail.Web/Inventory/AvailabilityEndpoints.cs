@@ -245,6 +245,7 @@ public static class AvailabilityEndpoints
         [.. view.Contributions.Select(contribution => new GroupAvailabilityContributionResponse(
             contribution.CompanyId,
             contribution.CompanyCode,
+            contribution.LocationId,
             ToResponse(contribution.Promise),
             contribution.AsAt,
             contribution.IsStale))],

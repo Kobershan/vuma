@@ -287,11 +287,14 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
                 throw InventoryRuleException.UnitOfMeasureMismatch(unitOfMeasure, demanded.UnitOfMeasure);
             }
 
-            // A retried saga leg replays its (intent, leg): the unique index turns the replay into
-            // this lookup's hit rather than a second hold (ADR-116).
+            // A retried saga leg replays its (intent, leg, line): the unique index turns the replay
+            // into this lookup's hit rather than a second hold (ADR-116). Top-ups never replay a leg —
+            // a re-sourced remainder is a plain hold under the same group reference, never a second
+            // row on the leg's key — so a hit here is always the idempotent answer, never a stale one.
             if (intentId.HasValue && legId.HasValue)
             {
-                StockReservation? replayed = await FindLegHoldAsync(db, intentId.Value, legId.Value, cancellationToken)
+                StockReservation? replayed = await new StockReservationRepository(db).FindLegHoldAsync(
+                        intentId.Value, legId.Value, locationId, itemId, itemVariantId, cancellationToken)
                     .ConfigureAwait(false);
                 if (replayed is not null)
                 {
@@ -438,18 +441,6 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         }
     }
 
-    private static Task<StockReservation?> FindLegHoldAsync(
-        VumaRetailDbContext db,
-        Guid intentId,
-        Guid legId,
-        CancellationToken cancellationToken)
-        => db.StockReservations
-            .Where(reservation => reservation.IntentId == intentId
-                && reservation.LegId == legId
-                && reservation.State == ReservationState.Held)
-            .OrderBy(reservation => reservation.SequenceNumber)
-            .FirstOrDefaultAsync(cancellationToken);
-
     private static async Task<Exception> ClosedChainExceptionAsync(
         VumaRetailDbContext db,
         Guid reservationId,
@@ -595,31 +586,7 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         VumaRetailDbContext db = _companyDb
             ?? throw new InvalidOperationException("The company database is not open.");
 
-        foreach (StockReservation row in rows)
-        {
-            if (_replication.Find(typeof(StockReservation)) is not { } descriptor || descriptor.IsNodeLocal)
-            {
-                continue;
-            }
-
-            HlcStamp stamp = _hybridClock.Next();
-            row.MarkSyncStamp(stamp);
-            row.MarkSyncState(SyncState.Pending);
-
-            db.OutboxMessages.Add(Domain.Sync.OutboxMessage.Capture(
-                row.TenantId,
-                row.StoreId,
-                UuidV7.NewGuid(),
-                _node.NodeId,
-                nameof(StockReservation),
-                row.Id,
-                SyncOperationKind.Upsert,
-                descriptor.Scope,
-                descriptor.ConflictPolicy,
-                stamp,
-                _replicas.Serialise(row),
-                _clock.UtcNow));
-        }
+        CompanyOutboxCapture.Capture(db, _replication, _replicas, _hybridClock, _node, _clock, rows);
     }
 
     private async Task<TResult> ExecuteWithRetryAsync<TResult>(

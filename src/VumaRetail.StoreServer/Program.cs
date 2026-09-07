@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Imports;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Procurement;
 using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
@@ -118,6 +119,7 @@ builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantI
 // the binding is chosen when the publisher is resolved rather than when it is registered, so this
 // line's position relative to AddVumaFinance does not matter.
 builder.Services.AddVumaInventory();
+builder.Services.AddVumaReservationExpiry(new InventoryHostTenant(host.TenantId, host.StoreId));
 
 // Stage 09. The till: sessions, sales, tenders, receipts and the cash-up. Depends on catalog (what is
 // being sold), inventory (the stock it relieves) and finance (the tax it prices with and the journal a
@@ -260,6 +262,7 @@ app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaAvailability();
+app.MapVumaSourcing();
 app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaProcurement();

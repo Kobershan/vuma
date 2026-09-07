@@ -62,9 +62,11 @@ public enum ReservationState
 /// </para>
 /// <para>
 /// <see cref="IntentId"/>/<see cref="LegId"/> carry the saga leg that took this hold, when one
-/// did. Retrying a leg replays the same triple, and the partial unique index on
-/// <c>(intent_id, leg_id, sequence_number)</c> turns the replay into a no-op rather than a
-/// double hold (ADR-116: legs are idempotent, keyed by <c>(intent_id, leg_id)</c>).
+/// did. Retrying a leg replays the same (intent, leg, line) triple, and the partial unique index
+/// on <c>(intent_id, leg_id, location_id, item or variant)</c> turns the replay into a lookup hit
+/// rather than a double hold (ADR-116: legs are idempotent). A leg holds at most one row per
+/// line; a re-sourced remainder is a plain hold under the same group reference, never a second
+/// row on the leg's key.
 /// </para>
 /// </remarks>
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]

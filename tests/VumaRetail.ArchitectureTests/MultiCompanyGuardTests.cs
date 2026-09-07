@@ -98,7 +98,12 @@ public sealed class MultiCompanyGuardTests
             "src/VumaRetail.Infrastructure/Registry/BarcodeResolver.cs",
             "src/VumaRetail.Infrastructure/Registry/CompanyLinkService.cs",
             "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
-            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs");
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
+            // Stage 08c: the company gateway opens one company context per leg (one call per
+            // leg method), but two separate methods each call CreateAsync — one for
+            // Reserve/Release, one for WriteSplitOrder. Each call is a distinct scope; no
+            // handler has two concurrent company contexts.
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs");
 
         // Group violations by file; any file with two or more .CreateAsync calls is suspicious.
         var filesWithMultipleCalls = violations
