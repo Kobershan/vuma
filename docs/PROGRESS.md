@@ -1526,3 +1526,13 @@ location as first-by-code per company — per-terminal mapping is later work; (d
 does not exist — the basket summary ships as a model + 80mm composition through the existing
 `ReceiptRenderer`, QuestPDF arrives with Stage 29; (e) the agent panel did not run (no subagent
 capacity in this environment).
+
+### Package job fixed — full pipeline green for the first time (2026-09-08)
+
+With the Architecture-tests job green, the `Package` job ran for the first time ever (it had
+`needs` on the red job, so every prior run skipped it) and failed twice, both workflow bugs rather
+than product bugs: (1) `dotnet build --no-restore` on a fresh Windows runner with no shared
+artifacts — NETSDK1004; fixed with an explicit `dotnet restore` step. (2) The token-verify step
+used bash subshell syntax under PowerShell — `Missing closing ')'`; rewritten with
+`$LASTEXITCODE`. CI run `34283950020`: all 7 jobs green (Build, Test, Migration check, Design
+System Verification, Architecture tests, Vulnerability scan, Package). `main` is fully green.

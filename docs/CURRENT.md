@@ -13,7 +13,8 @@ DESIGN-SYSTEM RECONCILIATION + RESERVATION FIX (2026-09-08, on `main` next): the
 arch failures root-caused and fixed (generator-grounded token keys, tree-scanned components +
 ChartSet stub, sweep invariant replaced with no-commands companion — ADR-146); `FindOpenAsync`
 chain-awareness hole fixed with regression proof (ADR-147). Suites: 1170 unit / 77 arch /
-498 integration, all green.
+498 integration, all green. CI run `34283950020`: all 7 jobs green — `main` is fully green
+(first time; the Package job's two workflow bugs fixed along the way).
 NEXT STAGE (roadmap order): Stage 13b or 14b per dependency readiness (09b unblocks 13b/14b/22b paths)
 STAGE 10b (operator-authorized out-of-order): TASK-10B-001 COMPLETE (2026-09-08) — accounts +
 lay-by built, verified (1096 unit / 54 arch / 481 integration green, 82.5% coverage, migration
