@@ -3,9 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
-using VumaRetail.Finance.Hosting;
 using VumaRetail.Finance.Periods;
-using VumaRetail.Finance.Permissions;
 using VumaRetail.Finance.Posting;
 using VumaRetail.Finance.Tax;
 using VumaRetail.Infrastructure.Persistence.Repositories;
@@ -62,8 +60,8 @@ public static class FinanceServiceCollectionExtensions
 
         services.AddScoped<PeriodVarianceChecker>();
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, FinancePermissions>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, FinanceModuleManifest>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, VumaRetail.Finance.Permissions.FinancePermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, VumaRetail.Finance.Permissions.FinanceModuleManifest>());
 
         // The finance handlers and validators live in VumaRetail.Finance, which the Application-only
         // scan does not reach — the same reason AddVumaSync scans VumaRetail.Sync. Without this every
@@ -84,13 +82,13 @@ public static class FinanceServiceCollectionExtensions
     /// <param name="host">The tenant and store this host's background pass runs as.</param>
     /// <returns>The container, for chaining.</returns>
     public static IServiceCollection AddVumaFinanceReconciliation(
-        this IServiceCollection services, FinanceHostTenant host)
+        this IServiceCollection services, VumaRetail.Finance.Hosting.FinanceHostTenant host)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(host);
 
         services.AddSingleton(host);
-        services.AddHostedService<FinanceReconciliationHostedService>();
+        services.AddHostedService<VumaRetail.Finance.Hosting.FinanceReconciliationHostedService>();
 
         return services;
     }

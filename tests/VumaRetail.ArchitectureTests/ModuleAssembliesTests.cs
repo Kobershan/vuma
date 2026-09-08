@@ -22,6 +22,8 @@ public sealed class ModuleAssembliesTests
             "VumaRetail.Licensing",
             "VumaRetail.Sync",
             "VumaRetail.Imports",
+            "VumaRetail.Desktop",
+            "VumaRetail.Desktop.Gallery",
         ];
 
         string[] present = [.. ModuleAssemblies.All.Select(assembly => assembly.GetName().Name!)];

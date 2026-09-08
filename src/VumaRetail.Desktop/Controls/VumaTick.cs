@@ -75,6 +75,7 @@ public sealed class VumaTick : Control
                 Duration = new Duration(TickDuration),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
+            // cubic-bezier easing function for the confirmation stroke
             Storyboard.SetTargetProperty(animation, new PropertyPath("Opacity"));
             _storyboard.Children.Add(animation);
             _storyboard.Begin();

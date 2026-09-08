@@ -136,6 +136,7 @@ public sealed class Company
     }
 
     /// <summary>Stores only a reference to encrypted connection details.</summary>
+    /// <param name="connectionSecretRef">The reference to the encrypted connection secret.</param>
     public void SetConnectionSecretRef(string connectionSecretRef)
     {
         ConnectionSecretRef = Require(connectionSecretRef, nameof(connectionSecretRef));

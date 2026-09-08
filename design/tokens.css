@@ -64,6 +64,7 @@
   --radius-xl: 22px;
   --radius-pill: 999px;
   --motion-instant-duration: 100ms;
+  --motion-vuma-tick-duration: 220ms;
   --motion-quick-duration: 180ms;
   --motion-standard-duration: 260ms;
   --motion-vumaTick-duration: 220ms;

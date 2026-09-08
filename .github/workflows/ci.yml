@@ -20,9 +20,9 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -62,7 +62,7 @@ jobs:
           dotnet build tests/VumaRetail.IntegrationTests -c Release --no-restore
 
       - name: Upload build output
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: build-output
           path: |
@@ -102,9 +102,9 @@ jobs:
       VUMA_REGISTRY_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_registry_migrate_check;Username=vuma;Password=vuma
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -137,7 +137,7 @@ jobs:
       # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
         run: |
-          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          dotnet tool install --global dotnet-ef --version 9.0.11 || true
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet-ef --version
 
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: ./artifacts/test-results
@@ -181,9 +181,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -198,9 +198,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -254,9 +254,9 @@ jobs:
       VUMA_MIGRATIONS_CONNECTION: Host=127.0.0.1;Port=5432;Database=vuma_migrate_check;Username=vuma;Password=vuma
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -264,7 +264,7 @@ jobs:
       # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
         run: |
-          dotnet tool install --global dotnet-ef --version 10.0.11 || true
+          dotnet tool install --global dotnet-ef --version 9.0.11 || true
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet-ef --version
 
@@ -317,9 +317,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -340,26 +340,22 @@ jobs:
     needs: [test, architecture-tests, design-system-verification, migrate-check]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-
-      - name: Restore
-        run: dotnet restore VumaRetail.sln
-
-      # Regenerate first so the build below compiles verified-fresh files, not stale ones.
-      - name: Regenerate tokens and verify
-        shell: bash
-        run: |
-          dotnet run --project src/VumaRetail.TokenGenerator
-          # Verify no hand-edits — generated files must match
-          git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
 
       # Build the full solution including the Windows-only Desktop projects
       - name: Build full solution
         run: dotnet build VumaRetail.sln -c Release --no-restore
+
+      # Run the token generator to ensure generated files are up to date
+      - name: Regenerate tokens and verify
+        run: |
+          dotnet run --project src/VumaRetail.TokenGenerator
+          # Verify no hand-edits — generated files must match
+          git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
 
       - name: Package
         run: echo "Packaging built in Stage 31."

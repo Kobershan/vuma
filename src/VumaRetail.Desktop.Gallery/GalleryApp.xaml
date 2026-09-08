@@ -1,0 +1,17 @@
+<Window x:Class="VumaRetail.Desktop.Gallery.GalleryApp"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:VumaRetail.Desktop.Gallery"
+        xmlns:controls="clr-namespace:VumaRetail.Desktop.Controls;assembly=VumaRetail.Desktop"
+        Background="{DynamicResource SurfaceBaseBrush}">
+    <Window.Resources>
+        <Style x:Key="FocusVisualStyle" TargetType="Control">
+            <Setter Property="FocusVisualBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FocusVisualBorderThickness" Value="2" />
+            <Setter Property="FocusVisualMargin" Value="-2" />
+        </Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="ComponentGrid" Margin="16" />
+    </ScrollViewer>
+</Window>
