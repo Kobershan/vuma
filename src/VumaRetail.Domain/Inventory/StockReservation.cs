@@ -17,6 +17,9 @@ public enum ReservationSource
 
     /// <summary>Goods packed and awaiting shipment — held so nothing else promises them.</summary>
     Shipment = 3,
+
+    /// <summary>A Stage 10b lay-by agreement: reserved, never sold, until final payment (ADR-055).</summary>
+    LayBy = 4,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>

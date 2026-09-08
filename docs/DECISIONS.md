@@ -2412,3 +2412,15 @@ Replay under the same idempotency key re-reads each leg company's invoices rathe
 the in-flight report and, if the order is retried, credit notes for the posted segments. Automatic
 leg-level retry needs a leg→document reference on `SagaLeg`, which is 06d-owned schema — recorded
 as the follow-up, not built here.
+
+## ADR-143 — Lay-by completion settles without building a POS sale — **PROPOSED**
+**Context.** A lay-by completes at any store, including back office, while `Sale.Open` requires an
+open till session in a matching currency — till machinery a completion must not fabricate.
+**Decision.** `CompleteLayByAgreementCommand` consumes the agreement's `LayBy` holds (one
+`IReservationService.ConsumeAsync` per open hold under the agreement number — the single stock
+issue) and posts `layby.completed` (the single revenue recognition, dated at completion), then
+marks the agreement `Completed`. No `Sale` row is built; the audit trail is agreement →
+consumed reservations → completion journal → receipts. Offline completion is refused outright.
+**Consequences.** Stage 09's sale reports never show lay-by conversions as till sales; the module
+statement is the conversion record. If a future stage needs lay-by sales inside POS reporting, it
+attaches a projection, not a backfilled `Sale`.

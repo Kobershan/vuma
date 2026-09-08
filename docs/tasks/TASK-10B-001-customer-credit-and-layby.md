@@ -1,6 +1,6 @@
 # TASK-10B-001 — Customer credit accounts and lay-by
 
-**Status:** NOT_STARTED · **Depends on:** Stages 07, 09, 10 (all built) · **Reference reading:**
+**Status:** IN_PROGRESS · **Depends on:** Stages 07, 09, 10 (all built) · **Reference reading:**
 `docs/stages/STAGE-10b-accounts-layby-stokvel.md` §Deliverables (credit, lay-by) + §Business rules 1–2;
 ADR-055 (LOCKED); `docs/DATA_MODEL.md` §4f (`finance.ar_invoices`, `finance.ar_receipts`,
 `finance.posting_rules`); `docs/ARCHITECTURE.md` (boundaries);
@@ -28,8 +28,9 @@ task.
 
 - The AR/AP/GL engine, journals, posting-rules evaluation (Stage 07 owns all of it; this task only
   uses `ArInvoice`/`ArReceipt` entities and raises `IFinancialEvent`s with named amounts).
-- Sale completion mechanics (Stage 09 owns `ISaleCompletionService`; lay-by completion calls it,
-  never reimplements it).
+- Sale completion mechanics (Stage 09 owns `ISaleCompletionService` and the `Sale` aggregate,
+  which requires an open till session; lay-by completion settles without a `Sale` row per
+  ADR-143 — it consumes the lay-by holds and posts the completion event).
 - Price, tax and pack-size resolution (Stages 10/10c/07 own `IPriceResolver`, `ITaxCalculator`,
   `IPackSizeResolver`; lay-by lines snapshot their outputs at agreement time).
 - Approval evaluation and notification delivery internals (Stage 05 owns them; this task calls
@@ -55,7 +56,7 @@ task.
 - `LayByAgreement.cs` — aggregate: `PartnerId`, `AgreementNumber` (series `LAY`), `Status`
   (`LayByStatus`), `AgreedTotal` (`Money`, frozen at opening — price protection),
   `DepositRequired` (`Money`), `PaidToDate` (`Money`), `TermMonths`, `ExpiryDate`, `AdminFee`
-  (`Money`, snapshotted from terms at opening), `CompletedSaleId`, `CancelledAt`,
+  (`Money`, snapshotted from terms at opening), `CompletedAt`, `CancelledAt`,
   `CancelRefund`/`CancelFee` (`Money?`, set once at cancellation). Methods `AddInstalment`,
   `Complete(DateTimeOffset now)` (requires fully paid, stamps `CompletedAt`), `Cancel(now,
   refund, fee)`, `Expire()`.
@@ -84,11 +85,15 @@ task.
   (resolves prices via `IPriceResolver`/`ITaxCalculator`/`IPackSizeResolver`, freezes
   `AgreedTotal`, creates `StockReservation.Hold` rows with `ReservationSource.LayBy`, raises
   `LayByDepositReceivedEvent` when a deposit is taken with the same command),
-  `RecordLayByInstalmentCommand(AgreementId, Amount, Channel, IdempotencyKey)` (idempotent;
-  sets `TakenOffline` when `ITenantContext` reports the terminal offline),
-  `CompleteLayByAgreementCommand(AgreementId)` (requires fully paid and connectivity; builds the
-  Stage 09 `Sale` from the agreement snapshots and calls `ISaleCompletionService.CompleteAsync`
-  exactly once; consumes the reservations; raises `LayByCompletedEvent`),
+  `RecordLayByInstalmentCommand(AgreementId, Amount, Currency, Channel, ReceiptReference,
+  TakenOffline)` (appends the row; raises `LayByInstalmentReceivedEvent`; replay-safe through
+  the outbox/inbox idempotency),
+  `CompleteLayByAgreementCommand(AgreementId, CapturedOffline)` (refuses when `CapturedOffline`
+  is true; requires fully paid; consumes every open hold under the agreement number via
+  `IReservationService.ConsumeAsync` with `consumedByReferenceId` = the agreement id — the
+  single stock-issue set; raises `LayByCompletedEvent` with `Principal` — the single revenue
+  recognition, dated at completion; marks `Completed`. No POS `Sale` row is built: `Sale.Open`
+  requires an open till session which back-office completion does not have (ADR-143)),
   `CancelLayByAgreementCommand(AgreementId)` (refund = paid − snapshotted fee; releases
   reservations; raises `LayByCancelledEvent` with named amounts `Refund` and `Fee`).
 - `Queries/`: `GetAccountStatementQuery(AccountId, From, To)` (invoice → part payment →
