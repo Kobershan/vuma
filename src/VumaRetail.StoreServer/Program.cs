@@ -17,6 +17,7 @@ using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
+using VumaRetail.Application.CustomerAccounts.Hosting;
 using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
@@ -135,7 +136,9 @@ builder.Services.AddVumaSales();
 // Stage 10b. Customer accounts, lay-by and stokvels. After AddVumaFinance (journals post through
 // IFinancialEventPoster with no fallback), AddVumaInventory (lay-by holds go through
 // IReservationService) and AddVumaPos (lines resolve through the catalogue, prices and packs).
+// The scheduled passes are registered separately: they need the installation tenant.
 builder.Services.AddVumaCustomerAccounts();
+builder.Services.AddVumaCustomerAccountsScheduling(new CustomerAccountsHostTenant(host.TenantId, host.StoreId));
 
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).

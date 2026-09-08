@@ -5,11 +5,13 @@ namespace VumaRetail.Contracts.CustomerAccounts;
 /// <param name="CreditLimitAmount">The approved limit.</param>
 /// <param name="CreditLimitCurrency">The ISO 4217 currency.</param>
 /// <param name="TermsDays">Days to due date.</param>
+/// <param name="CompanyId">The company, or null for the acting company.</param>
 public sealed record CreateAccountRequest(
     Guid PartnerId,
     decimal CreditLimitAmount,
     string CreditLimitCurrency,
-    int TermsDays);
+    int TermsDays,
+    Guid? CompanyId = null);
 
 /// <summary>An account, as returned by the API.</summary>
 /// <param name="Id">The account.</param>
@@ -44,11 +46,18 @@ public sealed record HoldRequest(string Reason);
 /// <param name="Currency">The ISO 4217 currency.</param>
 /// <param name="Channel">Till, EFT, debit order, storefront.</param>
 /// <param name="ReceiptReference">The caller's receipt reference.</param>
+/// <param name="Allocations">Which invoices it settles. Must total the amount.</param>
 public sealed record RecordPaymentRequest(
     decimal Amount,
     string Currency,
     string Channel,
-    string ReceiptReference);
+    string ReceiptReference,
+    IReadOnlyList<PaymentAllocationRequest> Allocations);
+
+/// <summary>One invoice a payment settles.</summary>
+/// <param name="ArInvoiceId">The invoice.</param>
+/// <param name="Amount">How much of it.</param>
+public sealed record PaymentAllocationRequest(Guid ArInvoiceId, decimal Amount);
 
 /// <summary>Authorises a buyer on a business account.</summary>
 /// <param name="UserId">The buyer.</param>
@@ -127,6 +136,7 @@ public sealed record LayByLineRequest(
 /// <param name="DepositChannel">Where the deposit was taken.</param>
 /// <param name="TermMonths">The payment window.</param>
 /// <param name="LocationCode">The lay-by stock location code.</param>
+/// <param name="CompanyId">The company, or null for the acting company.</param>
 public sealed record OpenLayByRequest(
     Guid PartnerId,
     string Currency,
@@ -134,7 +144,8 @@ public sealed record OpenLayByRequest(
     decimal DepositAmount,
     string DepositChannel,
     int TermMonths,
-    string LocationCode);
+    string LocationCode,
+    Guid? CompanyId = null);
 
 /// <summary>A lay-by line, as returned by the API.</summary>
 /// <param name="Id">The line.</param>

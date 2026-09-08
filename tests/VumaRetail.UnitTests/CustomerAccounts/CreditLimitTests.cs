@@ -119,6 +119,54 @@ public sealed class CreditLimitTests
     }
 
     [Fact]
+    public async Task An_authorised_buyer_inside_both_limits_is_approved()
+    {
+        CustomerAccount account = ArableAccount(limit: 5000m);
+        _accounts.FindAsync(account.Id, Arg.Any<CancellationToken>()).Returns(account);
+        _ar.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<ArInvoice>());
+        Guid buyer = UuidV7.NewGuid();
+        var holders = Substitute.For<IAccountHolderRepository>();
+        holders.ListForAccountAsync(account.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<AccountHolder>
+            {
+                AccountHolder.Authorise(TenantId, StoreId, account.Id, buyer, "Lerato", new Money(300m, "ZAR")),
+            });
+
+        var handler = new CheckCreditLimitQueryHandler(_accounts, holders, _ar);
+
+        CreditCheckResult result = await handler.HandleAsync(
+            new CheckCreditLimitQuery(account.Id, 250m, "ZAR", 0m, buyer));
+
+        result.Approved.Should().BeTrue();
+        result.Available.Amount.Should().Be(5000m);
+    }
+
+    [Fact]
+    public async Task Statement_shows_open_items_with_cumulative_owed_and_respects_dates()
+    {
+        CustomerAccount account = ArableAccount(limit: 50000m);
+        _accounts.FindAsync(account.Id, Arg.Any<CancellationToken>()).Returns(account);
+        _ar.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<ArInvoice>
+        {
+            PostedInvoice(number: "INV-JUN", total: 1150m, outstanding: 1150m, due: new DateOnly(2026, 7, 1), invoiceDate: new DateOnly(2026, 6, 1)),
+            PostedInvoice(number: "INV-JUL", total: 2300m, outstanding: 1800m, due: new DateOnly(2026, 7, 20), invoiceDate: new DateOnly(2026, 6, 20)),
+            PostedInvoice(number: "INV-AUG", total: 575m, outstanding: 575m, due: new DateOnly(2026, 8, 20), invoiceDate: new DateOnly(2026, 8, 5)),
+        });
+
+        var handler = new GetAccountStatementQueryHandler(_accounts, _ar);
+
+        IReadOnlyList<StatementLine> july = await handler.HandleAsync(new GetAccountStatementQuery(
+            account.Id, new DateOnly(2026, 6, 1), new DateOnly(2026, 7, 31)));
+
+        july.Should().HaveCount(2);
+        july[0].Description.Should().Contain("INV-JUN");
+        july[0].Debit.Amount.Should().Be(1150m);
+        july[0].Credit.Amount.Should().Be(0m);
+        july[0].RunningBalance.Amount.Should().Be(1150m);
+        july[1].RunningBalance.Amount.Should().Be(2950m);
+    }
+
+    [Fact]
     public void Opening_needs_a_partner_a_positive_limit_and_positive_terms()
     {
         Action noPartner = () => CustomerAccount.Open(
@@ -141,10 +189,10 @@ public sealed class CreditLimitTests
             new Money(limit, "ZAR"), 30, UuidV7.NewGuid());
     }
 
-    private static ArInvoice PostedInvoice(string number, decimal total, decimal outstanding, DateOnly due)
+    private static ArInvoice PostedInvoice(string number, decimal total, decimal outstanding, DateOnly due, DateOnly? invoiceDate = null)
     {
         var invoice = ArInvoice.Draft(
-            TenantId, StoreId, new PartnerId(PartnerId), number, Today.AddDays(-60), due, "ZAR");
+            TenantId, StoreId, new PartnerId(PartnerId), number, invoiceDate ?? Today.AddDays(-60), due, "ZAR");
         invoice.AddLine("Goods", new Money(total - total * 15m / 115m, "ZAR"), "STANDARD", new Money(total * 15m / 115m, "ZAR"));
         invoice.Post(UuidV7.NewGuid());
         if (outstanding < total)

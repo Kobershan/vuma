@@ -1316,3 +1316,36 @@ as an extension, instead of falling through to 500. Enrichment additionally degr
 pre-registry token when the directory is unreachable, so sign-in never fails for the directory's
 sake (ADR-140). Verified: build 0 errors, unit 938/938, architecture 43/43. Integration rerun
 needs PostgreSQL/Docker, unavailable on this machine — UNVERIFIED here, must go green in CI.
+
+## Stage 10b — TASK-10B-001 customer credit + lay-by COMPLETE (2026-09-08)
+
+Implemented end to end: `CustomerAccount`/`AccountHolder`/`CustomerFinanceTerms`/`LayByAgreement`
+(+lines, instalments) domain; 12 commands (open/limit/hold/release/payment/authorise-holder,
+open/instalment/complete/cancel lay-by, expire + interest scheduled commands); 3 queries
+(statement, ageing, tender-time credit check with holder caps and offline queue); 6 posting-rule
+events; permissions (`customeraccounts.*`) + module manifest (flag `customeraccounts`); EF
+configs + repos + `Schemas.CustomerAccounts`; migration `Stage10b_AccountsAndLayBy` (6 tables);
+15 REST endpoints; expiry + interest hosted services; seed (terms, 2120 deposits liability,
+4050/4060 income, 6 rules, LAYBY location, ACT account, active LAY agreement). `ReservationSource`
+gained `LayBy = 4`; `ControlAccountType` gained `CustomerDeposits = 4` with a
+`PeriodVarianceChecker` case summing active paid-to-date.
+
+Verified: `dotnet build -c Release` 0 errors; unit 1096/1096 (37 new CustomerAccounts tests);
+architecture 54/54; integration 481/481 incl. 5 new CustomerAccounts tests on real PostgreSQL;
+82.5% line coverage on the stage's new Domain + Application; migration Down executed on scratch
+(0 tables) and re-applied (6 tables); seed exit 0 with proof line (1 account, 1 agreement,
+2 instalments, 1 hold); all 15 routes in live `/openapi/v1.json` (268 → 283 paths).
+
+Decisions: ADR-143 (lay-by completion consumes holds + posts one revenue event, no POS `Sale`
+row — `Sale.Open` needs an open till session back-office completion does not have). Company
+resolution helper binds-if-unbound and refuses mismatch loudly. Deferred with reasons:
+settlement-discount application + bad-debt write-off (need a Stage 07 AR adjustment path —
+posted lines frozen, receipts allocate in full); `StokvelFunds` control type lands with 002.
+
+Findings for future seed work: (1) binding company on the shared seed scope blinds all later
+company-filtered reads — bind inside a child scope or not at all; (2) two DbContext trackers
+advancing shared lookup rows (document counters) poison each other — the seed detaches counter
+entries after the company-scoped section; (3) `--seed` never migrated the registry context —
+`DemoSeed.RunAsync` now migrates both, like `BackupCli.MigrateAsync`; (4) account code 2100 was
+taken by Trade creditors — deposits live at 2120. Stokvel tables (`Stage10b_Stokvels`) are
+TASK-10B-002's, not this task's.

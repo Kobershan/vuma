@@ -31,12 +31,6 @@ public sealed class CustomerAccountExceptions(string code, string message) : Dom
     public static CustomerAccountExceptions AccountNotChargeable(AccountStatus actual)
         => new("ACCOUNT_NOT_CHARGEABLE", $"This account cannot take a charge while it is {actual}.");
 
-    /// <summary>The tender exceeds what the account has available.</summary>
-    /// <param name="tender">What was asked.</param>
-    /// <param name="available">What the account has.</param>
-    public static CustomerAccountExceptions LimitExceeded(Money tender, Money available)
-        => new("ACCOUNT_LIMIT_EXCEEDED", $"Tender {tender.Amount} exceeds the available {available.Amount} {available.Currency}.");
-
     /// <summary>The buyer may not put this much on one charge.</summary>
     public static CustomerAccountExceptions HolderLimitExceeded()
         => new("ACCOUNT_HOLDER_LIMIT_EXCEEDED", "This charge exceeds the buyer's personal limit.");

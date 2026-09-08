@@ -15,6 +15,7 @@ public interface ILayByAgreementRepository
 {
     Task<LayByAgreement?> FindAsync(Guid id, CancellationToken cancellationToken = default);
     Task<LayByAgreement?> FindByNumberAsync(string number, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LayByAgreement>> ListActiveAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<LayByAgreement>> ListExpiringAsync(DateTimeOffset before, CancellationToken cancellationToken = default);
     void Add(LayByAgreement agreement);
 }

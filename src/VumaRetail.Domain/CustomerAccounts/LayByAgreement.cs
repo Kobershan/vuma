@@ -76,10 +76,26 @@ public sealed class LayByAgreement : Entity
     public DateTimeOffset? CancelledAt { get; private set; }
 
     /// <summary>What went back to the customer on cancellation. Set once.</summary>
-    public Money? CancelRefund { get; private set; }
+    public Money? CancelRefund => CancelRefundAmount.HasValue && CancelRefundCurrency is not null
+        ? new Money(CancelRefundAmount.Value, CancelRefundCurrency)
+        : null;
 
     /// <summary>What the shop kept on cancellation. Set once.</summary>
-    public Money? CancelFee { get; private set; }
+    public Money? CancelFee => CancelFeeAmount.HasValue && CancelFeeCurrency is not null
+        ? new Money(CancelFeeAmount.Value, CancelFeeCurrency)
+        : null;
+
+    /// <summary>Refund amount storage. See <see cref="CancelRefund"/> (ADR-067: no optional Money).</summary>
+    public decimal? CancelRefundAmount { get; private set; }
+
+    /// <summary>Refund currency storage.</summary>
+    public string? CancelRefundCurrency { get; private set; }
+
+    /// <summary>Fee amount storage. See <see cref="CancelFee"/> (ADR-067: no optional Money).</summary>
+    public decimal? CancelFeeAmount { get; private set; }
+
+    /// <summary>Fee currency storage.</summary>
+    public string? CancelFeeCurrency { get; private set; }
 
     /// <summary>The frozen lines.</summary>
     public IReadOnlyList<LayByAgreementLine> Lines => _lines;
@@ -247,8 +263,10 @@ public sealed class LayByAgreement : Entity
 
         Status = LayByStatus.Cancelled;
         CancelledAt = now;
-        CancelRefund = refund;
-        CancelFee = fee;
+        CancelRefundAmount = refund.Amount;
+        CancelRefundCurrency = refund.Currency;
+        CancelFeeAmount = fee.Amount;
+        CancelFeeCurrency = fee.Currency;
     }
 
     /// <summary>Lapses an unpaid agreement at expiry. Paid money stays claimable, stock is freed.</summary>

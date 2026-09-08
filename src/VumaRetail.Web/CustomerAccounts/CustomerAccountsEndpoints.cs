@@ -2,8 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.CustomerAccounts;
-using VumaRetail.Application.CustomerAccounts.Commands.Accounts;
+using VumaRetail.Application.Abstractions.CustomerAccounts;using VumaRetail.Application.CustomerAccounts.Commands.Accounts;
 using VumaRetail.Application.CustomerAccounts.Commands.LayBy;
 using VumaRetail.Application.CustomerAccounts.Permissions;
 using VumaRetail.Application.CustomerAccounts.Queries;
@@ -33,7 +32,7 @@ public static class CustomerAccountsEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder accounts = api.MapGroup("/customer-accounts").WithTags("CustomerAccounts").RequireModule("customer-accounts");
+        RouteGroupBuilder accounts = api.MapGroup("/customer-accounts").WithTags("CustomerAccounts").RequireModule("customeraccounts");
 
         accounts.MapPost("/", OpenAccountAsync)
             .RequirePermission(CustomerAccountsPermissions.AccountManage)
@@ -94,7 +93,7 @@ public static class CustomerAccountsEndpoints
             .Produces<CreditCheckResponse>()
             .WithSummary("Tender-time limit answer, offline queue included.");
 
-        RouteGroupBuilder layby = api.MapGroup("/layby").WithTags("CustomerAccounts").RequireModule("customer-accounts");
+        RouteGroupBuilder layby = api.MapGroup("/layby").WithTags("CustomerAccounts").RequireModule("customeraccounts");
 
         layby.MapPost("/", OpenLayByAsync)
             .RequirePermission(CustomerAccountsPermissions.LayByManage)
@@ -137,7 +136,8 @@ public static class CustomerAccountsEndpoints
     {
         Guid id = await dispatcher.SendAsync(
             new OpenCustomerAccountCommand(
-                request.PartnerId, request.CreditLimitAmount, request.CreditLimitCurrency, request.TermsDays),
+                request.PartnerId, request.CreditLimitAmount, request.CreditLimitCurrency,
+                request.TermsDays, request.CompanyId),
             cancellationToken);
         return Results.Created($"/api/v1/customer-accounts/{id}", id);
     }
@@ -186,7 +186,8 @@ public static class CustomerAccountsEndpoints
     {
         Guid id = await dispatcher.SendAsync(
             new RecordAccountPaymentCommand(
-                accountId, request.Amount, request.Currency, request.Channel, request.ReceiptReference),
+                accountId, request.Amount, request.Currency, request.Channel, request.ReceiptReference,
+                [.. request.Allocations.Select(a => new PaymentAllocationInput(a.ArInvoiceId, a.Amount))]),
             cancellationToken);
         return Results.Created($"/api/v1/customer-accounts/{accountId}/payments/{id}", id);
     }
@@ -203,24 +204,25 @@ public static class CustomerAccountsEndpoints
     }
 
     private static async Task<IResult> GetStatementAsync(
-        Guid accountId, IDispatcher dispatcher, CancellationToken cancellationToken,
+        Guid accountId, IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken,
         DateOnly? from = null, DateOnly? to = null)
     {
+        DateTimeOffset now = clock.UtcNow;
         var lines = await dispatcher.QueryAsync(
             new GetAccountStatementQuery(
                 accountId,
                 from ?? new DateOnly(2000, 1, 1),
-                to ?? DateOnly.FromDateTime(DateTime.UtcNow)),
+                to ?? DateOnly.FromDateTime(now.UtcDateTime)),
             cancellationToken);
         return Results.Ok(new StatementResponse(accountId,
             [.. lines.Select(l => new StatementLineResponse(l.Date, l.Description, l.Debit.Amount, l.Credit.Amount, l.RunningBalance.Amount))]));
     }
 
     private static async Task<IResult> GetAgeingAsync(
-        Guid accountId, IDispatcher dispatcher, CancellationToken cancellationToken, DateOnly? asAt = null)
+        Guid accountId, IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken, DateOnly? asAt = null)
     {
         var buckets = await dispatcher.QueryAsync(
-            new GetAccountAgeingQuery(accountId, asAt ?? DateOnly.FromDateTime(DateTime.UtcNow)),
+            new GetAccountAgeingQuery(accountId, asAt ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)),
             cancellationToken);
         return Results.Ok(new AgeingResponse(accountId,
             [.. buckets.Select(b => new AgeingBucketResponse(b.Bucket, b.Balance.Amount))]));
@@ -243,7 +245,8 @@ public static class CustomerAccountsEndpoints
             new OpenLayByAgreementCommand(
                 request.PartnerId, request.Currency,
                 [.. request.Lines.Select(l => new LayByLineInput(l.ItemId, l.ItemVariantId, l.Quantity, l.Uom))],
-                request.DepositAmount, request.DepositChannel, request.TermMonths, request.LocationCode),
+                request.DepositAmount, request.DepositChannel, request.TermMonths, request.LocationCode,
+                request.CompanyId),
             cancellationToken);
         return Results.Created($"/api/v1/layby/{id}", id);
     }

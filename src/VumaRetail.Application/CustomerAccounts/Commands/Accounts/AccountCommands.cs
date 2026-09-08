@@ -11,11 +11,13 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.CustomerAccounts.Commands.Accounts;
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record OpenCustomerAccountCommand(
     Guid PartnerId,
     decimal CreditLimitAmount,
     string CreditLimitCurrency,
-    int TermsDays) : ICommand<Guid>;
+    int TermsDays,
+    Guid? CompanyId = null) : ICommand<Guid>;
 
 public sealed class OpenCustomerAccountCommandValidator : AbstractValidator<OpenCustomerAccountCommand>
 {
@@ -43,13 +45,24 @@ public sealed class OpenCustomerAccountCommandHandler(
         var account = CustomerAccount.Open(
             tenant.TenantId, tenant.StoreId, number, command.PartnerId,
             new Money(command.CreditLimitAmount, command.CreditLimitCurrency),
-            command.TermsDays, company.RequireCompany());
+            command.TermsDays, command.CompanyId ?? company.RequireCompany());
         accounts.Add(account);
         return account.Id;
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record SetCreditLimitCommand(Guid AccountId, decimal Amount, string Currency) : ICommand;
+
+public sealed class SetCreditLimitCommandValidator : AbstractValidator<SetCreditLimitCommand>
+{
+    public SetCreditLimitCommandValidator()
+    {
+        RuleFor(c => c.AccountId).NotEmpty();
+        RuleFor(c => c.Amount).GreaterThan(0m);
+        RuleFor(c => c.Currency).NotEmpty().Length(3);
+    }
+}
 
 public sealed class SetCreditLimitCommandHandler(
     ICustomerAccountRepository accounts,
@@ -76,7 +89,17 @@ public sealed class SetCreditLimitCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record PlaceAccountHoldCommand(Guid AccountId, string Reason) : ICommand;
+
+public sealed class PlaceAccountHoldCommandValidator : AbstractValidator<PlaceAccountHoldCommand>
+{
+    public PlaceAccountHoldCommandValidator()
+    {
+        RuleFor(c => c.AccountId).NotEmpty();
+        RuleFor(c => c.Reason).NotEmpty().MaximumLength(256);
+    }
+}
 
 public sealed class PlaceAccountHoldCommandHandler(
     ICustomerAccountRepository accounts,
@@ -103,7 +126,13 @@ public sealed class PlaceAccountHoldCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ReleaseAccountHoldCommand(Guid AccountId) : ICommand;
+
+public sealed class ReleaseAccountHoldCommandValidator : AbstractValidator<ReleaseAccountHoldCommand>
+{
+    public ReleaseAccountHoldCommandValidator() => RuleFor(c => c.AccountId).NotEmpty();
+}
 
 public sealed class ReleaseAccountHoldCommandHandler(ICustomerAccountRepository accounts)
     : ICommandHandler<ReleaseAccountHoldCommand, Unit>
@@ -119,13 +148,16 @@ public sealed class ReleaseAccountHoldCommandHandler(ICustomerAccountRepository 
     }
 }
 
-public sealed record PaymentAllocationInput(Guid ArInvoiceId, decimal Amount);public sealed record RecordAccountPaymentCommand(
+public sealed record PaymentAllocationInput(Guid ArInvoiceId, decimal Amount);
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RecordAccountPaymentCommand(
     Guid AccountId,
     decimal Amount,
     string Currency,
     string Channel,
     string ReceiptReference,
-    IReadOnlyList<PaymentAllocationInput>? Allocations = null) : ICommand<Guid>;
+    IReadOnlyList<PaymentAllocationInput> Allocations) : ICommand<Guid>;
 
 public sealed class RecordAccountPaymentCommandValidator : AbstractValidator<RecordAccountPaymentCommand>
 {
@@ -136,6 +168,7 @@ public sealed class RecordAccountPaymentCommandValidator : AbstractValidator<Rec
         RuleFor(c => c.Currency).NotEmpty().Length(3);
         RuleFor(c => c.Channel).NotEmpty().MaximumLength(64);
         RuleFor(c => c.ReceiptReference).NotEmpty().MaximumLength(64);
+        RuleFor(c => c.Allocations).NotEmpty();
     }
 }
 
@@ -159,7 +192,7 @@ public sealed class RecordAccountPaymentCommandHandler(
         DateTimeOffset now = clock.UtcNow;
 
         var allocations = new List<(Guid ArInvoiceId, Money Amount)>();
-        foreach (var allocation in command.Allocations ?? [])
+        foreach (var allocation in command.Allocations)
         {
             var invoice = await arInvoices.FindByIdAsync(allocation.ArInvoiceId, cancellationToken).ConfigureAwait(false)
                 ?? throw new CustomerAccountExceptions("ACCOUNT_INVOICE_NOT_FOUND", $"No AR invoice with id {allocation.ArInvoiceId}.");
@@ -168,7 +201,7 @@ public sealed class RecordAccountPaymentCommandHandler(
             allocations.Add((allocation.ArInvoiceId, slice));
         }
 
-        string receiptNumber = await numbers.NextAsync("ARR", cancellationToken).ConfigureAwait(false);
+        string receiptNumber = await numbers.NextAsync("ARREC", cancellationToken).ConfigureAwait(false);
         Guid journalId = await events.PostAsync(
             new Events.AccountPaymentReceivedEvent(
                 tenant.TenantId, tenant.StoreId, now, receiptNumber,
@@ -182,6 +215,7 @@ public sealed class RecordAccountPaymentCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record AuthoriseHolderCommand(
     Guid AccountId,
     Guid UserId,

@@ -1,11 +1,15 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Imports.Commands;
 using VumaRetail.Domain.Imports;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Abstractions.Workflow;
 using VumaRetail.Application.Catalog.Commands;
+using VumaRetail.Application.CustomerAccounts.Commands.Accounts;
+using VumaRetail.Application.CustomerAccounts.Commands.LayBy;
+using VumaRetail.Application.CustomerAccounts.Events;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
@@ -31,6 +35,7 @@ using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Sales;
 using VumaRetail.Domain.Sales.Invoices;
 using VumaRetail.Domain.Catalog;
+using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Identity;
@@ -92,6 +97,12 @@ public static class DemoSeed
         IUnitOfWork unitOfWork = provider.GetRequiredService<IUnitOfWork>();
 
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+
+        // Both databases, like BackupCli.MigrateAsync: company-aware paths (reservations, sagas)
+        // read registry.* at runtime, so a seed-fresh database without it breaks the moment a
+        // lay-by holds stock or an order splits across companies.
+        VumaRegistryDbContext registry = provider.GetRequiredService<VumaRegistryDbContext>();
+        await registry.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
         Tenant tenant = await EnsureTenantAsync(context, tenantContext, unitOfWork, cancellationToken).ConfigureAwait(false);
         tenantContext.SetTenant(tenant.Id);
@@ -185,6 +196,8 @@ public static class DemoSeed
             provider, context, johannesburg.Id, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedSalesDocumentsAsync(
             provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
+        await SeedCustomerAccountsAsync(
+            provider, context, corpClient, milk, johannesburg.Id, cancellationToken).ConfigureAwait(false);
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
             .ConfigureAwait(false);
@@ -876,6 +889,223 @@ public static class DemoSeed
         Console.WriteLine(
             $"Quote converted and invoice posted with pack size '{pack.Description}' "
             + "under group reference SO-DEMO-0001; analytics rebuilt.");
+    }
+
+    /// <summary>
+    /// Seeds Stage 10b (accounts + lay-by): the terms row, the customer-deposits liability account
+    /// and its variance wiring, the six posting rules, a LAYBY location with stock, one ACT
+    /// account and one active LAY agreement with deposit plus instalment.
+    /// </summary>
+    private static async Task SeedCustomerAccountsAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        // The seed acts as the demo tenant inside its own scope: endpoints bind tenant and
+        // company per request, and filtered reads go blind the moment either is bound — so neither
+        // may be set on the root provider the rest of the seed shares. Company resolution happens
+        // inside the 10b handlers (explicit command id, else the bound scope, never a silent
+        // switch), which is also what keeps the seed's unbound catalogue reads working.
+        using IServiceScope companyScope = provider.CreateScope();
+        companyScope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenant(DemoTenantId, storeId);
+        IDispatcher dispatcher = companyScope.ServiceProvider.GetRequiredService<IDispatcher>();
+
+        Guid bank = await EnsureAccountAsync(
+            provider, context, "1200", "Bank — cheque account", AccountType.Asset,
+            ControlAccountType.Bank, cancellationToken).ConfigureAwait(false);
+        Guid debtors = await EnsureAccountAsync(
+            provider, context, "1100", "Trade debtors", AccountType.Asset,
+            ControlAccountType.AccountsReceivable, cancellationToken).ConfigureAwait(false);
+        Guid sales = await EnsureAccountAsync(
+            provider, context, "4000", "Sales", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid vatControl = await EnsureAccountAsync(
+            provider, context, "2200", "VAT control", AccountType.Liability,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid deposits = await EnsureAccountAsync(
+            provider, context, "2120", "Customer deposits", AccountType.Liability,
+            ControlAccountType.CustomerDeposits, cancellationToken).ConfigureAwait(false);
+        Guid feeIncome = await EnsureAccountAsync(
+            provider, context, "4050", "Admin fee income", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+        Guid interestIncome = await EnsureAccountAsync(
+            provider, context, "4060", "Interest received", AccountType.Revenue,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "layby.deposit.received", "Lay-by deposit to liability",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Principal", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(deposits, NormalBalance.Credit, "Principal", InheritDimensions: false, "Customer deposits"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "layby.instalment.received", "Lay-by instalment to liability",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Principal", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(deposits, NormalBalance.Credit, "Principal", InheritDimensions: false, "Customer deposits"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "layby.completed", "Lay-by completion releases revenue",
+            [
+                new PostingRuleLineInput(deposits, NormalBalance.Debit, "Principal", InheritDimensions: false, "Customer deposits"),
+                new PostingRuleLineInput(sales, NormalBalance.Credit, "Net", InheritDimensions: true, "Sales"),
+                new PostingRuleLineInput(vatControl, NormalBalance.Credit, "Tax", InheritDimensions: false, "Output VAT"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "layby.cancelled", "Lay-by cancellation refunds and keeps the fee",
+            [
+                new PostingRuleLineInput(deposits, NormalBalance.Debit, "Refund", InheritDimensions: false, "Customer deposits"),
+                new PostingRuleLineInput(deposits, NormalBalance.Debit, "Fee", InheritDimensions: false, "Customer deposits"),
+                new PostingRuleLineInput(bank, NormalBalance.Credit, "Refund", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(feeIncome, NormalBalance.Credit, "Fee", InheritDimensions: false, "Admin fee income"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "account.payment.received", "Customer account payment",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Principal", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(debtors, NormalBalance.Credit, "Principal", InheritDimensions: false, "Trade debtors"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "account.interest.raised", "Overdue interest",
+            [
+                new PostingRuleLineInput(debtors, NormalBalance.Debit, "Interest", InheritDimensions: false, "Trade debtors"),
+                new PostingRuleLineInput(interestIncome, NormalBalance.Credit, "Interest", InheritDimensions: false, "Interest received"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        if (!await context.CustomerFinanceTerms.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            context.CustomerFinanceTerms.Add(CustomerFinanceTerms.Seed(DemoTenantId, "ZAR"));
+            await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await EnsureStockLocationAsync(
+            provider, context, "LAYBY", "Lay-by holding", StockLocationType.Other, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (await context.LayByAgreements.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        Guid accountId = await dispatcher.SendAsync(
+            new OpenCustomerAccountCommand(customerId, 5000m, "ZAR", 30, DemoCompanyId),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new ReceiveStockCommand(
+                (await context.StockLocations.FirstAsync(
+                    location => location.Code == "LAYBY", cancellationToken).ConfigureAwait(false)).Id,
+                milkItemId,
+                null,
+                new Quantity(2m, "EA"),
+                new Money(42.50m, "ZAR"),
+                "Lay-by demo holding"),
+            cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid agreementId = await SeedLayByDemoAsync(
+            provider, context, customerId, milkItemId, cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new RecordLayByInstalmentCommand(agreementId, 10m, "ZAR", "Till", "RCPT-LAY-DEMO-1", false),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(
+            new RecordLayByInstalmentCommand(agreementId, 10m, "ZAR", "Till", "RCPT-LAY-DEMO-2", false),
+            cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Account {accountId} opened (R5,000 limit) with an active lay-by {agreementId}: "
+            + "deposit plus instalment paid, stock held at LAYBY.");
+
+        // This section dispatched through its own company scope while the rest of the seed shares
+        // one long-lived context. Any document counter it advanced (notably JNL) is stale in that
+        // context's tracker now, and the next lookup-then-increment read would reuse the old value
+        // and collide. Detaching the counter rows forces fresh reads; they carry no unsaved
+        // business meaning, only the next value, which the database owns.
+        foreach (var tracked in context.ChangeTracker
+            .Entries<Domain.Finance.DocumentNumberCounter>().ToList())
+        {
+            tracked.State = EntityState.Detached;
+        }
+    }
+
+    /// <summary>
+    /// Opens the demo lay-by without going through <c>OpenLayByAgreementCommand</c>.
+    /// </summary>
+    /// <remarks>
+    /// The command would take its holds through <c>IReservationService</c>, which fans out to the
+    /// acting company's database through the registry — and the demo company is not a provisioned
+    /// registry company with a connection secret, exactly the case <c>SeedReservationAsync</c>
+    /// documents for Stage 08c. So the seed writes the same rows the command would have written
+    /// (agreement, frozen lines, hold plus projection) while every cent moves through the real
+    /// pipeline afterwards as instalments; the command's own orchestration is proven by
+    /// <c>LayByAgreementIntegrationTests</c> instead.
+    /// </remarks>
+    private static async Task<Guid> SeedLayByDemoAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        CancellationToken cancellationToken)
+    {
+        IClock clock = provider.GetRequiredService<IClock>();
+        DateTimeOffset now = clock.UtcNow;
+        DateOnly today = DateOnly.FromDateTime(now.UtcDateTime);
+        TimeOnly nowTime = TimeOnly.FromDateTime(now.UtcDateTime);
+
+        PriceResolution resolution = await provider.GetRequiredService<IPriceResolver>().ResolveAsync(
+            new PriceResolutionRequest(milkItemId, null, null, 1m, null, today, nowTime, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+        TaxCalculation calculation = await provider.GetRequiredService<ITaxCalculator>().CalculateAsync(
+            "STANDARD", resolution.NetPayable, today, cancellationToken).ConfigureAwait(false);
+        PackSizeSnapshot pack = await provider.GetRequiredService<IPackSizeResolver>()
+            .ResolveAsync(milkItemId, null, "EA", 1m, cancellationToken).ConfigureAwait(false);
+
+        string number = await provider.GetRequiredService<IDocumentNumberSequence>()
+            .NextAsync("LAY", cancellationToken).ConfigureAwait(false);
+        Money total = resolution.NetPayable + calculation.TaxAmount;
+        var agreement = LayByAgreement.Open(
+            DemoTenantId, null, number, customerId, total, new Money(10m, "ZAR"), 3,
+            now.AddMonths(3), new Money(100m, "ZAR"), DemoCompanyId);
+        agreement.AddLine(LayByAgreementLine.Create(
+            DemoTenantId, null, agreement.Id, milkItemId, null, 1m, "EA",
+            resolution.UnitPrice, resolution.DiscountAmount, calculation.TaxAmount,
+            pack.Description, "ZAR", resolution.PriceListId));
+        agreement.Activate();
+        context.LayByAgreements.Add(agreement);
+
+        StockLocation? layby = await context.StockLocations
+            .FirstOrDefaultAsync(l => l.Code == "LAYBY", cancellationToken).ConfigureAwait(false);
+        if (layby is not null)
+        {
+            var hold = StockReservation.Hold(
+                DemoTenantId, null, DemoCompanyId, layby.Id, milkItemId, null,
+                new Quantity(1m, "EA"), ReservationSource.LayBy, agreement.Id,
+                groupDocumentRef: number, reason: "Demo lay-by");
+            context.StockReservations.Add(hold);
+
+            var position = AvailableBalance.Open(
+                DemoTenantId, null, DemoCompanyId, layby.Id, milkItemId, null, "EA");
+            position.ApplyHold(new Quantity(1m, "EA"));
+            context.AvailableBalances.Add(position);
+        }
+
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+        return agreement.Id;
     }
 
     /// <summary>

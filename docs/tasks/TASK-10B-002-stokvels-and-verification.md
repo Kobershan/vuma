@@ -181,5 +181,36 @@ permission-gated (`stokvel.manage` for writes, `stokvel.view` for reads) and pre
 - [ ] 6. Application: three `IFinancialEvent` records; extend permissions file; extend
       module manifest licence flag coverage (same `customer-accounts` flag)
 - [ ] 7. Infrastructure: six EF configurations; three repositories (contribution repo has
-      no `Update` — assert by construction); `add
-...[truncated 5839 chars]
+      no `Update` — assert by construction); DI registrations ride the existing
+      `AddVumaCustomerAccounts`; migration `Stage10b_Stokvels` (reversible `Down` executed)
+- [ ] 8. Contracts + Web: full DTO surface and 11 permission-gated endpoints; OpenAPI check
+- [ ] 9. `DemoSeed.cs`: grocery stokvel (3 members, fixture contributions), December hamper
+      basket, three posting-rule rows; seed run prints the proof line
+- [ ] 10. Tests: time-weighted fixture, pro-rata leaving, hamper payout, visibility wall,
+      handler refusal paths, validators, permissions (all named below)
+- [ ] 11. Verification: full suites green, coverage ≥ 80%, 5,000-transaction reconciliation,
+      migration round-trip, agent panel, `docs/PROGRESS.md` + `docs/CURRENT.md`, commit + push
+
+## Tests / acceptance
+
+| Class | Test | Fixture → expectation |
+|---|---|---|
+| `StokvelBenefitTests` | `Time_weighted_split_matches_the_hand_computed_fixture` | Pool R300; weights A 300,000 / B 150,000 / C 200,000 → R138.46 / R69.23 / R92.31, sums to R300.00 |
+| `StokvelBenefitTests` | `Leaver_forfeits_unvested_benefits_pro_rata` | Paid R10,000 (A 6,000 / B 4,000), committed R1,000 → A refund R5,400; rows retained, vesting frozen |
+| `StokvelPayoutTests` | `Hamper_payout_issues_stock_and_reduces_both_balances` | Member with R500 balance takes a R450 hamper: one sale, stock issued, member R50, group −R450, tax/margin correct |
+| `StokvelPayoutTests` | `Payout_beyond_available_refuses` | R500 balance, R501 requested → coded refusal before any approval |
+| `StokvelPayoutTests` | `Stale_balance_payout_needs_connectivity` | Balance older than terms threshold + offline flag → refusal |
+| `StokvelVisibilityTests` | `Member_sees_only_their_own_line` | Member A queries B's rows → `StokvelVisibilityException`; own rows pass |
+| `StokvelVisibilityTests` | `Treasurer_chair_secretary_see_the_group` | Each role reads `GetGroupStatementQuery` cleanly |
+| `StokvelCommandTests` | `Payout_needs_approval` | `ApprovePayoutCommand` without approval → refusal; NSubstitute verifies `EvaluateAsync` |
+| `StokvelReconciliationTests` | `Five_thousand_transactions_reconcile_to_the_cent` | Mixed seed: every liability balance equals its GL control account; variance flags clean |
+| `StokvelApiTests` | `Endpoints_answer_behind_their_permissions` | 401 without token; 403 with a non-stokvel role on each write route |
+
+## Exit checklist
+
+- [ ] `dotnet build VumaRetail.sln -c Release`: 0 errors, 0 warnings in Domain/Application
+- [ ] `dotnet test` unit + architecture + integration green; stage coverage ≥ 80% on Domain + Application
+- [ ] Migration `Down` executed on scratch DB and re-applied; model/snapshot in sync
+- [ ] All three schemes demonstrable on seed data; OpenAPI lists every route; seed proof line printed
+- [ ] Agent panel (`architecture-guard`, `money-and-tax`, `multi-company-guard`, `sync-and-offline`, `licence-safety`, `stage-verifier`) findings closed or recorded
+- [ ] `docs/PROGRESS.md` + `docs/CURRENT.md` updated; ADRs appended; committed and pushed

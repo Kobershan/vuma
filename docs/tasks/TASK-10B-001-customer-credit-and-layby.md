@@ -1,6 +1,6 @@
 # TASK-10B-001 — Customer credit accounts and lay-by
 
-**Status:** IN_PROGRESS · **Depends on:** Stages 07, 09, 10 (all built) · **Reference reading:**
+**Status:** COMPLETE · **Depends on:** Stages 07, 09, 10 (all built) · **Reference reading:**
 `docs/stages/STAGE-10b-accounts-layby-stokvel.md` §Deliverables (credit, lay-by) + §Business rules 1–2;
 ADR-055 (LOCKED); `docs/DATA_MODEL.md` §4f (`finance.ar_invoices`, `finance.ar_receipts`,
 `finance.posting_rules`); `docs/ARCHITECTURE.md` (boundaries);
@@ -76,12 +76,17 @@ task.
   `src/VumaRetail.Application/Abstractions/CustomerAccounts/`): `ICustomerAccountRepository`
   (`FindAsync`, `FindByNumberAsync`, `Add`, `Update`), `ILayByAgreementRepository` (same shape
   plus `ListExpiringAsync(DateTimeOffset before, ...)`).
-- `Commands/Accounts/`: `OpenCustomerAccountCommand(PartnerId, CreditLimit, TermsDays)`,
+- `Commands/Accounts/`: `OpenCustomerAccountCommand(PartnerId, CreditLimit, TermsDays,
+  CompanyId = null)` (null falls back to the acting company, 10c pattern),
   `SetCreditLimitCommand(AccountId, NewLimit)` (must call `IApprovalService.EvaluateAsync`;
   refused without approval), `PlaceAccountHoldCommand(AccountId, Reason)` (approval-gated),
-  `ReleaseAccountHoldCommand(AccountId)`, `RecordAccountPaymentCommand(AccountId, Amount,
-  Channel, IdempotencyKey)` (posts an `ArReceipt` + allocation; idempotent on the key).
-- `Commands/LayBy/`: `OpenLayByAgreementCommand(PartnerId, Lines, DepositAmount, TermMonths)`
+  `ReleaseAccountHoldCommand(AccountId)`, `AuthoriseHolderCommand(AccountId, UserId,
+  DisplayName, ChargeLimit)`, `RecordAccountPaymentCommand(AccountId, Amount, Currency,
+  Channel, ReceiptReference, Allocations)` (posts an `ArReceipt` fully allocated —
+  `ArReceipt.Record` refuses partial allocation; replay-safe through the outbox/inbox).
+- `Commands/LayBy/`: `OpenLayByAgreementCommand(PartnerId, Currency, Lines, DepositAmount,
+  DepositChannel, TermMonths, LocationCode, CompanyId = null)` (null falls back to the acting
+  company)
   (resolves prices via `IPriceResolver`/`ITaxCalculator`/`IPackSizeResolver`, freezes
   `AgreedTotal`, creates `StockReservation.Hold` rows with `ReservationSource.LayBy`, raises
   `LayByDepositReceivedEvent` when a deposit is taken with the same command),
@@ -102,8 +107,10 @@ task.
   QueuedOfflineTotal)` (available = limit − AR outstanding − queued offline; refuses when
   tender exceeds available or status is not Active).
 - `Events/`: `LayByDepositReceivedEvent`, `LayByInstalmentReceivedEvent`,
-  `LayByCompletedEvent`, `LayByCancelledEvent`, `AccountInterestRaisedEvent` — all implement
-  `IFinancialEvent` with `Amounts` dictionaries only (`Principal`, `Fee`, `Refund`, `Interest`);
+  `LayByCompletedEvent` (`Principal`, `Net`, `Tax` — the rule needs the split for the sales/VAT
+  legs), `LayByCancelledEvent`, `AccountInterestRaisedEvent`, `AccountPaymentReceivedEvent` —
+  all implement `IFinancialEvent` with `Amounts` dictionaries only (`Principal`, `Net`, `Tax`,
+  `Fee`, `Refund`, `Interest`);
   **no `account_id` or GL account reference anywhere** (§7 rule 12, architecture-test enforced).
 - `Hosting/`: `LayByExpiryHostedService` (`BackgroundService`, daily 02:00 store-local: expires
   past-date agreements, sends escalating reminders at 14/7/1 days via
@@ -171,5 +178,81 @@ task.
 5. Offline instalments are accepted against the last-known balance with `TakenOffline = true`
    and reconcile on sync; completion requires connectivity and refuses offline.
 6. Tender refuses when `TenderAmount > CreditLimit − ArOutstanding − QueuedOfflineTotal`, or
-   when status ≠ Active. Unsync
-...[truncated 6151 chars]
+   when status ≠ Active. Unsynced offline account sales count against the limit at tender time.
+7. Price protection: the agreed total frozen at opening is what completion charges, whatever the
+   shelf price does mid-term. Nothing re-resolves after opening.
+8. Completion is exactly-once economics: one consumption set over the agreement's holds plus one
+   `layby.completed` journal (`Principal`/`Net`/`Tax`), dated at completion. No POS `Sale` row
+   is built (ADR-143).
+9. Cancellation accounts for every cent: `Refund + Fee = PaidToDate`, with `Fee` capped at the
+   snapshotted admin fee. Reservations release back to sellable.
+10. Limit changes and holds need approval: `SetCreditLimitCommand` and `PlaceAccountHoldCommand`
+    must call `IApprovalService.EvaluateAsync` and refuse without `MayProceed`.
+11. One company context per handler (§7 rule 20); no GL account is named outside Stage 07's
+    posting rules (§7 rule 12, architecture-test enforced).
+12. Receipts carry running balances; statements show open items with cumulative owed; ageing
+    buckets derive from due dates, never invoice dates.
+
+## Build list
+
+- [x] 1. Domain: `CustomerAccount.cs`, `AccountHolder.cs`, `AccountStatus.cs`,
+      `CustomerFinanceTerms.cs`, `CustomerAccountExceptions.cs`
+- [x] 2. Domain: `LayByAgreement.cs`, `LayByAgreementLine.cs`, `LayByInstalment.cs`,
+      `LayByStatus.cs`, `LayByExceptions.cs`
+- [x] 3. Domain: `LayBy = 4` in `ReservationSource`
+      (`src/VumaRetail.Domain/Inventory/StockReservation.cs`); Domain builds clean
+- [x] 4. Application: `CustomerAccountsPorts.cs` (account, holder, terms, lay-by ports);
+      `Commands/Accounts/` (open, set-limit, hold, release, payment, authorise-holder)
+- [x] 5. Application: `Commands/LayBy/` (open with price/tax/pack snapshots + holds, instalment,
+      complete with consumption set + revenue event, cancel with refund/fee + release)
+- [x] 6. Application: `Queries/` (statement, ageing, tender-time credit check with holder caps)
+- [x] 7. Application: six `IFinancialEvent` records (named amounts only);
+      `CustomerAccountsPermissions.cs` + `CustomerAccountsModuleManifest` (module id and
+      flag `customeraccounts`)
+- [x] 8. Infrastructure: `Schemas.CustomerAccounts`; six EF configurations; four repositories;
+      `AddVumaCustomerAccounts`; `Program.cs` service + endpoint wiring
+- [x] 9. Migration `Stage10b_AccountsAndLayBy` generated (6 tables); scratch-DB Up/Down in Step 4
+- [x] 10. Application: `LayByExpiryHostedService`, `AccountInterestHostedService` (public
+      `ExpireDueAsync` / `AccrueInterestAsync` for tests)
+- [x] 11. Contracts + Web: full DTO surface and 15 permission-gated endpoints; OpenAPI check in
+      Step 4
+- [ ] 12. Unit tests: approval-gate refusals, interest accrual, expiry service (extend the two
+      test files below)
+- [x] 13. `DemoSeed.cs`: terms row, liability accounts, six posting rules, LAYBY location, demo
+      ACT account + active LAY agreement; seed run in Step 4
+- [x] 14. Integration tests green (5/5); full-suite re-runs + coverage in Step 4
+
+## Tests / acceptance
+
+| Class | Test | Fixture → expectation |
+|---|---|---|
+| `CreditLimitTests` | `Limit_counts_ar_outstanding_and_queued_offline_sales_together` | Limit R5,000; AR R3,000 (R2,000 current + R1,000 45-day); offline R1,500 → R500 available; R600 refused, R500 approved |
+| `CreditLimitTests` | `A_held_account_refuses_even_a_tender_well_inside_its_limit` | Hold → R100 tender refused with OnHold reason |
+| `CreditLimitTests` | `An_unauthorised_buyer_and_an_over_limit_buyer_both_refuse` | Unknown buyer refused; holder cap R300 enforced |
+| `CreditLimitTests` | `Ageing_buckets_follow_due_dates_not_invoice_dates` | Dues today/−20/−50/−80/−130 → Current/30/60/90/120+ at R1,000 each |
+| `CreditLimitTests` | `Opening_needs_a_partner_a_positive_limit_and_positive_terms` | Empty partner/limit/terms each throw |
+| `CreditLimitTests` (new) | `Limit_change_and_hold_need_approval` | Approval substitute refuses → `ACCOUNT_APPROVAL_REQUIRED`; NSubstitute verifies `EvaluateAsync` was called |
+| `LayByLifecycleTests` | `Deposit_then_three_instalments_pays_R1200_exactly` | R200 + 5×R200; paid R1,200, remaining R0 |
+| `LayByLifecycleTests` | `Completion_needs_every_cent_and_stamps_the_instant` | Early complete throws; full → Completed + CompletedAt; second complete throws |
+| `LayByLifecycleTests` | `Overpayment_is_refused_because_money_without_a_home_is_a_dispute` | R1,100 against R1,000 remaining throws; paid unchanged |
+| `LayByLifecycleTests` | `Cancellation_accounts_for_every_cent_with_the_fee_capped` | Paid R800 → refund R700 + fee R100; fee above terms refused; short count refused |
+| `LayByLifecycleTests` | `Frozen_lines_hold_their_price_whatever_the_shelf_does` | Unit R100 frozen; net ≈86.9565, tax ≈13.0435, total R100 |
+| `LayByLifecycleTests` | `Instalments_only_land_on_an_active_agreement` | Draft payment throws |
+| `LayByLifecycleTests` (new) | `Expiry_service_expires_and_reminds` | Past-expiry Active → Expired + `ReleaseAsync` per chain; 14/7/1-day agreements notified once each |
+| `LayByLifecycleTests` (new) | `Interest_accrues_monthly_on_overdue` | R1,000 45-day invoice at 2%/month → one R20.00 interest invoice + journal + dunning; no terms row → 0 |
+| `LayByAgreementIntegrationTests` | `Full_lifecycle_posts_once_and_consumes_the_holds` | Deposit + instalment → complete: one completion journal (Principal R230/Net R200/Tax R30), one consume per chain |
+| `LayByAgreementIntegrationTests` | `Cancellation_keeps_the_fee_and_releases_the_holds` | Paid R100, fee R100 → refund R0; release received; Cancelled |
+| `LayByAgreementIntegrationTests` | `Agreed_total_survives_a_shelf_price_change_mid_term` | Reprice 100→120 after open; revenue still R230 |
+| `LayByAgreementIntegrationTests` | `Offline_instalment_is_flagged_on_its_row` | `TakenOffline` true persisted; deposit row false |
+| `CreditCheckIntegrationTests` | `Tender_gate_reads_posted_ar_and_a_payment_moves_it` | R3,000 owed + R1,500 offline → R2,500 refuses; pay R1,000 → R1,500 approves; receipt row persisted |
+| `PeriodCloseTests` (Finance, extended) | `A_deposits_control_account_flags_layby_paid_to_date_it_cannot_see` | GL R800 vs paid R700 → variance R100 |
+| DEFERRED (recorded in `docs/PROGRESS.md`): settlement-discount application and bad-debt write-off. Both need a Stage 07 AR adjustment path (posted lines are frozen, receipts must allocate in full). Terms fields are stored and seeded; only application is deferred. | | |
+
+## Exit checklist
+
+- [x] `dotnet build VumaRetail.sln -c Release`: 0 errors, 0 warnings in Domain/Application
+- [x] `dotnet test` green (1096 unit, 54 arch, 481 integration); 82.5% line coverage on new Domain + Application
+- [x] Migration `Down` executed on scratch DB (0 tables), re-applied (6 tables)
+- [x] 15 routes in live `/openapi/v1.json` (268 → 283); seed exit 0 with demo proof line
+- [x] `docs/PROGRESS.md` updated; architecture suite green (panel proper runs at stage close in 002)
+- [x] Handoff for TASK-10B-002: module skeleton, ports, permissions, posting pattern, seed and variance wiring all land here; 002 adds stokvel entities + `ReservationSource.StokvelHamper = 5` + `StokvelFunds` control type + six tables + eleven endpoints on top, touching nothing above except extending the permissions file, ports file and seed

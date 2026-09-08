@@ -35,11 +35,29 @@ public static class CustomerAccountsServiceCollectionExtensions
         services.AddScoped<ICustomerFinanceTermsRepository, CustomerFinanceTermsRepository>();
         services.AddScoped<ILayByAgreementRepository, LayByAgreementRepository>();
 
-        services.AddHostedService<LayByExpiryHostedService>();
-        services.AddHostedService<AccountInterestHostedService>();
-
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, CustomerAccountsPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, CustomerAccountsModuleManifest>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the scheduled passes: lay-by expiry and monthly interest. Separated from
+    /// <see cref="AddVumaCustomerAccounts"/> because the passes need the installation tenant,
+    /// the same split <c>AddVumaFinanceReconciliation</c> makes.
+    /// </summary>
+    /// <param name="services">The container.</param>
+    /// <param name="host">The tenant the passes run as.</param>
+    /// <returns>The container, for chaining.</returns>
+    public static IServiceCollection AddVumaCustomerAccountsScheduling(
+        this IServiceCollection services, CustomerAccountsHostTenant host)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(host);
+
+        services.AddSingleton(host);
+        services.AddHostedService<LayByExpiryHostedService>();
+        services.AddHostedService<AccountInterestHostedService>();
 
         return services;
     }

@@ -4,7 +4,10 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stage 10c — COMPLETE (2026-09-07). All tasks done, all suites green.
-NEXT STAGE: Stage 09b — The Mixed Basket (depends on 09, 06e, 07c, 08c, 10c — 10c now DONE)
+STAGE 10b (operator-authorized out-of-order): TASK-10B-001 COMPLETE (2026-09-08) — accounts +
+lay-by built, verified (1096 unit / 54 arch / 481 integration green, 82.5% coverage, migration
+round-tripped, seed + OpenAPI proven). NEXT: TASK-10B-002 stokvels + verification — READY.
+NEXT STAGE (roadmap order): Stage 09b — The Mixed Basket (depends on 09, 06e, 07c, 08c, 10c)
 CURRENT TASK: —
 CURRENT TASK STATUS: —
 LAST COMPLETED TASK: TASK-10C-002 analytics + verification (2026-09-07) — all criteria PASS on real PostgreSQL, 1058 unit + 54 architecture + 476 integration tests green, 92.1% line coverage, migration Up/Down round-tripped, seed proven

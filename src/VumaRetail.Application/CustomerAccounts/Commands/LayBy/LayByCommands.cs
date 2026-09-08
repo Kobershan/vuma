@@ -19,6 +19,7 @@ public sealed record LayByLineInput(
     decimal Quantity,
     string Uom);
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record OpenLayByAgreementCommand(
     Guid PartnerId,
     string Currency,
@@ -26,7 +27,8 @@ public sealed record OpenLayByAgreementCommand(
     decimal DepositAmount,
     string DepositChannel,
     int TermMonths,
-    string LocationCode) : ICommand<Guid>;
+    string LocationCode,
+    Guid? CompanyId = null) : ICommand<Guid>;
 
 public sealed class OpenLayByAgreementCommandValidator : AbstractValidator<OpenLayByAgreementCommand>
 {
@@ -103,7 +105,8 @@ public sealed class OpenLayByAgreementCommandHandler(
 
         var agreement = LayByAgreement.Open(
             tenant.TenantId, tenant.StoreId, number, command.PartnerId, total, deposit,
-            command.TermMonths, expiry, policy.LayByAdminFee, company.RequireCompany());
+            command.TermMonths, expiry, policy.LayByAdminFee,
+            LayByCompanyScope.ResolveCompany(company, command.CompanyId));
         foreach (var snapshot in snapshots)
         {
             agreement.AddLine(LayByAgreementLine.Create(
@@ -156,6 +159,7 @@ public sealed class OpenLayByAgreementCommandHandler(
         Guid? PriceListId);
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RecordLayByInstalmentCommand(
     Guid AgreementId,
     decimal Amount,
@@ -206,6 +210,7 @@ public sealed class RecordLayByInstalmentCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CompleteLayByAgreementCommand(Guid AgreementId, bool CapturedOffline = false) : ICommand;
 
 public sealed class CompleteLayByAgreementCommandValidator : AbstractValidator<CompleteLayByAgreementCommand>
@@ -219,6 +224,7 @@ public sealed class CompleteLayByAgreementCommandHandler(
     IReservationService reservations,
     IFinancialEventPoster events,
     ITenantContext tenant,
+    ICompanyContext company,
     IClock clock)
     : ICommandHandler<CompleteLayByAgreementCommand, Unit>
 {
@@ -233,6 +239,7 @@ public sealed class CompleteLayByAgreementCommandHandler(
 
         var agreement = await laybys.FindAsync(command.AgreementId, cancellationToken).ConfigureAwait(false)
             ?? throw new LayByExceptions("LAYBY_NOT_FOUND", $"No lay-by with id {command.AgreementId}.");
+        LayByCompanyScope.ResolveCompany(company, agreement.CompanyId);
         DateTimeOffset now = clock.UtcNow;
 
         IReadOnlyList<StockReservation> open = await holds.ListOpenByGroupRefAsync(
@@ -242,10 +249,23 @@ public sealed class CompleteLayByAgreementCommandHandler(
             await reservations.ConsumeAsync(chainId, agreement.Id, cancellationToken).ConfigureAwait(false);
         }
 
+        Money net = Money.Zero(agreement.AgreedTotal.Currency);
+        Money tax = Money.Zero(agreement.AgreedTotal.Currency);
+        foreach (var line in agreement.Lines)
+        {
+            net += line.Net;
+            tax += line.TaxAmount;
+        }
+
         await events.PostAsync(
             new Events.LayByCompletedEvent(
                 tenant.TenantId, tenant.StoreId, now, agreement.AgreementNumber,
-                new Dictionary<string, Money> { ["Principal"] = agreement.AgreedTotal }),
+                new Dictionary<string, Money>
+                {
+                    ["Principal"] = agreement.AgreedTotal,
+                    ["Net"] = net,
+                    ["Tax"] = tax,
+                }),
             cancellationToken).ConfigureAwait(false);
 
         agreement.Complete(now);
@@ -253,6 +273,7 @@ public sealed class CompleteLayByAgreementCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CancelLayByAgreementCommand(Guid AgreementId) : ICommand;
 
 public sealed class CancelLayByAgreementCommandValidator : AbstractValidator<CancelLayByAgreementCommand>
@@ -266,6 +287,7 @@ public sealed class CancelLayByAgreementCommandHandler(
     IReservationService reservations,
     IFinancialEventPoster events,
     ITenantContext tenant,
+    ICompanyContext company,
     IClock clock)
     : ICommandHandler<CancelLayByAgreementCommand, Unit>
 {
@@ -275,6 +297,7 @@ public sealed class CancelLayByAgreementCommandHandler(
 
         var agreement = await laybys.FindAsync(command.AgreementId, cancellationToken).ConfigureAwait(false)
             ?? throw new LayByExceptions("LAYBY_NOT_FOUND", $"No lay-by with id {command.AgreementId}.");
+        LayByCompanyScope.ResolveCompany(company, agreement.CompanyId);
         DateTimeOffset now = clock.UtcNow;
 
         Money fee = agreement.PaidToDate.Amount < agreement.AdminFee.Amount
@@ -297,5 +320,36 @@ public sealed class CancelLayByAgreementCommandHandler(
             cancellationToken).ConfigureAwait(false);
 
         return Unit.Value;
+    }
+}
+
+internal static class LayByCompanyScope
+{
+    /// <summary>
+    /// Resolves the acting company for a lay-by leg: an explicit request wins, otherwise the
+    /// bound scope applies, and a bound scope never silently switches mid-operation (10c's
+    /// BindCompany rule). Binds the scope when nothing is bound yet so ambient-only readers
+    /// (notably <c>IReservationService</c>) see the same company the rows carry.
+    /// </summary>
+    internal static Guid ResolveCompany(ICompanyContext company, Guid? requested)
+    {
+        ArgumentNullException.ThrowIfNull(company);
+
+        if (requested.HasValue && requested.Value != Guid.Empty)
+        {
+            if (company.CompanyId is { } bound && bound != requested.Value)
+            {
+                throw LayByExceptions.CompanyMismatch();
+            }
+
+            if (company.CompanyId is null)
+            {
+                company.SetCompany(requested.Value);
+            }
+
+            return requested.Value;
+        }
+
+        return company.CompanyId ?? throw LayByExceptions.CompanyRequired();
     }
 }

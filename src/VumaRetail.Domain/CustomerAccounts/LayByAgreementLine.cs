@@ -4,9 +4,10 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Domain.CustomerAccounts;
 
 /// <summary>
-/// One line on a lay-by agreement: the price resolution frozen at opening (ADR-074) with the pack
-/// size snapshot beside it (ADR-112). Immutable once created — a changed offer is a new agreement.
+/// One line on a lay-by agreement: the price resolution frozen at creation (ADR-074) with the pack size
+/// snapshot beside it (ADR-112). Immutable once created — a changed offer is a new line.
 /// </summary>
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class LayByAgreementLine : Entity
 {
     private LayByAgreementLine(

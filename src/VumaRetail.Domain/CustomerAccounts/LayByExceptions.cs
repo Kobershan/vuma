@@ -34,10 +34,6 @@ public sealed class LayByExceptions(string code, string message) : DomainExcepti
     public static LayByExceptions PackSizeNotResolved()
         => new("LAYBY_PACK_SIZE_NOT_RESOLVED", "Could not resolve the pack size for this lay-by line.");
 
-    /// <summary>The agreement number is missing.</summary>
-    public static LayByExceptions MissingNumber()
-        => new("LAYBY_MISSING_NUMBER", "A lay-by agreement must carry its series number.");
-
     /// <summary>The tenant has no customer-finance terms row.</summary>
     public static LayByExceptions TermsNotConfigured()
         => new("LAYBY_TERMS_NOT_CONFIGURED", "The tenant has no customer-finance terms configured.");
@@ -59,4 +55,12 @@ public sealed class LayByExceptions(string code, string message) : DomainExcepti
     /// <summary>Completion was captured offline.</summary>
     public static LayByExceptions CompletionNeedsConnectivity()
         => new("LAYBY_COMPLETION_NEEDS_CONNECTIVITY", "A lay-by completes only with connectivity.");
+
+    /// <summary>No company could be resolved for the operation.</summary>
+    public static LayByExceptions CompanyRequired()
+        => new("LAYBY_COMPANY_REQUIRED", "A company is required: pass one or bind an acting company.");
+
+    /// <summary>The request names a different company than the scope holds.</summary>
+    public static LayByExceptions CompanyMismatch()
+        => new("LAYBY_COMPANY_MISMATCH", "The request names a different company than the scope already holds.");
 }

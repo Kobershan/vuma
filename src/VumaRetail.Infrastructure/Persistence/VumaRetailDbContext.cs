@@ -427,6 +427,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         typeof(Domain.Licensing.ClockWatermark),
         typeof(Domain.Licensing.MeteringRecord),
         typeof(Domain.Licensing.SupportGrant),
+        // Stage 10b: one tenant-wide customer-money policy row, read under any bound company.
+        typeof(Domain.CustomerAccounts.CustomerFinanceTerms),
     ];
 
     /// <inheritdoc />

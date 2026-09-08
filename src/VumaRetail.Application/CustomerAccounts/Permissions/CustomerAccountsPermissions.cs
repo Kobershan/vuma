@@ -17,7 +17,7 @@ public sealed class CustomerAccountsPermissions : IModulePermissions
     public const string LayByManage = "customeraccounts.layby.manage";
 
     /// <inheritdoc />
-    public string Module => "customer-accounts";
+    public string Module => "customeraccounts";
 
     /// <inheritdoc />
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
@@ -33,10 +33,10 @@ public sealed class CustomerAccountsPermissions : IModulePermissions
 public sealed class CustomerAccountsModuleManifest : IModuleManifest
 {
     /// <inheritdoc />
-    public string Module => "customer-accounts";
+    public string Module => "customeraccounts";
 
     /// <inheritdoc />
-    public string LicenceFlag => "customer-accounts";
+    public string LicenceFlag => "customeraccounts";
 
     /// <inheritdoc />
     public string Description => "Customer credit accounts, lay-by and stokvels.";
