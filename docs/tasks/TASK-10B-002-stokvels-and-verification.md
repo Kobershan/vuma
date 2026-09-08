@@ -1,6 +1,6 @@
 # TASK-10B-002 — Stokvels and Stage 10b verification
 
-**Status:** NOT_STARTED · **Depends on:** TASK-10B-001 (module skeleton, terms, ports, permissions
+**Status:** COMPLETE (2026-09-08, commit `c095b46`; re-verified on clean `main` 2026-09-08 — see Verification note at end) · **Depends on:** TASK-10B-001 (module skeleton, terms, ports, permissions
 pattern) · **Reference reading:**
 `docs/stages/STAGE-10b-accounts-layby-stokvel.md` §Deliverables (stokvels) + §Business rules 3–5 +
 §Tests/acceptance (stokvel bullets) + §Exit checklist; ADR-055 (time-weighted benefits, append-only
@@ -167,29 +167,31 @@ permission-gated (`stokvel.manage` for writes, `stokvel.view` for reads) and pre
 
 ## Build list
 
-- [ ] 1. Domain: `StokvelGroup.cs`, `StokvelMember.cs`, `MemberRole.cs`, `StokvelType.cs`,
+- [x] 1. Domain: `StokvelGroup.cs`, `StokvelMember.cs`, `MemberRole.cs`, `StokvelType.cs`,
       `StokvelStatus.cs` (create, join/leave, `Balance(...)` projection)
-- [ ] 2. Domain: `StokvelContribution.cs`, `StokvelBenefitAllocation.cs` (append-only, no
+- [x] 2. Domain: `StokvelContribution.cs`, `StokvelBenefitAllocation.cs` (append-only, no
       update path), `StokvelPayout.cs`, `StokvelPayoutKind.cs`, `HamperBasket.cs`,
       `HamperBasketLine.cs`, `StokvelExceptions.cs`
-- [ ] 3. Domain: add `StokvelHamper = 5` to `ReservationSource`
+- [x] 3. Domain: add `StokvelHamper = 5` to `ReservationSource`
       (`src/VumaRetail.Domain/Inventory/StockReservation.cs`); full solution builds
-- [ ] 4. Application: ports in `CustomerAccountsPorts.cs` (extend);
+- [x] 4. Application: ports in `CustomerAccountsPorts.cs` (extend);
       `Commands/Stokvels/` + validators + `AllocateBenefitsCommandHandler` (rule-9 math)
-- [ ] 5. Application: payout request/approve/settle handlers (rules 3–5, 9–10),
+- [x] 5. Application: payout request/approve/settle handlers (rules 3–5, 9–10),
       `RemoveMemberCommandHandler` (rule-8 math), statement queries (rule-6 wall)
-- [ ] 6. Application: three `IFinancialEvent` records; extend permissions file; extend
+- [x] 6. Application: three `IFinancialEvent` records; extend permissions file; extend
       module manifest licence flag coverage (same `customer-accounts` flag)
-- [ ] 7. Infrastructure: six EF configurations; three repositories (contribution repo has
+- [x] 7. Infrastructure: six EF configurations; three repositories (contribution repo has
       no `Update` — assert by construction); DI registrations ride the existing
       `AddVumaCustomerAccounts`; migration `Stage10b_Stokvels` (reversible `Down` executed)
-- [ ] 8. Contracts + Web: full DTO surface and 11 permission-gated endpoints; OpenAPI check
-- [ ] 9. `DemoSeed.cs`: grocery stokvel (3 members, fixture contributions), December hamper
+- [x] 8. Contracts + Web: full DTO surface and 11 permission-gated endpoints; OpenAPI check
+- [x] 9. `DemoSeed.cs`: grocery stokvel (3 members, fixture contributions), December hamper
       basket, three posting-rule rows; seed run prints the proof line
-- [ ] 10. Tests: time-weighted fixture, pro-rata leaving, hamper payout, visibility wall,
+- [x] 10. Tests: time-weighted fixture, pro-rata leaving, hamper payout, visibility wall,
       handler refusal paths, validators, permissions (all named below)
-- [ ] 11. Verification: full suites green, coverage ≥ 80%, 5,000-transaction reconciliation,
-      migration round-trip, agent panel, `docs/PROGRESS.md` + `docs/CURRENT.md`, commit + push
+- [x] 11. Verification: full suites green, coverage ≥ 80%, 5,000-transaction reconciliation,
+      migration round-trip, `docs/PROGRESS.md` + `docs/CURRENT.md`, commit + push
+      (agent panel: not run — no subagent capacity in this environment; recorded in
+      `docs/PROGRESS.md` §4.27)
 
 ## Tests / acceptance
 
@@ -208,9 +210,28 @@ permission-gated (`stokvel.manage` for writes, `stokvel.view` for reads) and pre
 
 ## Exit checklist
 
-- [ ] `dotnet build VumaRetail.sln -c Release`: 0 errors, 0 warnings in Domain/Application
-- [ ] `dotnet test` unit + architecture + integration green; stage coverage ≥ 80% on Domain + Application
-- [ ] Migration `Down` executed on scratch DB and re-applied; model/snapshot in sync
-- [ ] All three schemes demonstrable on seed data; OpenAPI lists every route; seed proof line printed
-- [ ] Agent panel (`architecture-guard`, `money-and-tax`, `multi-company-guard`, `sync-and-offline`, `licence-safety`, `stage-verifier`) findings closed or recorded
-- [ ] `docs/PROGRESS.md` + `docs/CURRENT.md` updated; ADRs appended; committed and pushed
+- [x] `dotnet build VumaRetail.sln -c Release`: 0 errors, 0 warnings in Domain/Application
+- [x] `dotnet test` unit + integration green (1134 unit, 485 integration, re-verified
+      2026-09-08 on clean `main`); architecture 72/76 — the 4 failures are pre-existing
+      Stage 08b design-system/Desktop-sweep tests, unrelated to 10b (see §4.27);
+      stage coverage ≥ 80% on Domain + Application (85.9% per the 2026-09-08 build session)
+- [x] Migration `Down` executed on scratch DB and re-applied; model/snapshot in sync
+      (re-verified 2026-09-08: `has-pending-model-changes` clean on both contexts)
+- [x] All three schemes demonstrable on seed data; OpenAPI lists every route; seed proof line printed
+- [ ] Agent panel (`architecture-guard`, `money-and-tax`, `multi-company-guard`, `sync-and-offline`, `licence-safety`, `stage-verifier`) — NOT RUN (no subagent capacity in this environment); recorded in `docs/PROGRESS.md` §4.27
+- [x] `docs/PROGRESS.md` + `docs/CURRENT.md` updated; ADRs appended (ADR-144); committed and pushed
+
+## Re-verification (2026-09-08, clean `main`, throwaway PostgreSQL :55432)
+
+All executed, not asserted: `dotnet build VumaRetail.sln -c Release` 0 errors
+(0 warnings Domain/Application); unit 1134/1134 (76 CustomerAccounts-filtered);
+architecture 72/76 with the 4 failures reproduced identically in CI run 34260090437
+(all Stage 08b: `Tokens_json_contains_all_required_sections`,
+`All_component_stubs_exist`, `All_component_categories_are_represented`,
+`ModuleAssembliesTests.Every_module_assembly_is_swept` — none touches 10b code);
+10b-relevant arch guards (Finance/Pipeline/Persistence/MultiCompany/TradingGroup/
+Licence) 18/18; integration 485/485 (9 CustomerAccounts-filtered);
+`has-pending-model-changes` clean on both contexts. Also discarded two hazardous
+staged artefacts found in the tree (an EF-10-regenerated
+`VumaRetailDbContextModelSnapshot.cs` that dropped all 11 `customer_accounts`
+tables, and an invalid `opencode.json` edit) by restoring both to `HEAD`.

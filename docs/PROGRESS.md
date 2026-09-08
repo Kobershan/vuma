@@ -487,6 +487,38 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
+### 4.27 Four architecture tests red on `main`, all Stage 08b-owned — CI `Architecture tests` job failing — **OPEN, found 2026-09-08 during Stage 10b re-verification**
+
+Re-verifying Stage 10b on a clean `main` reproduced 4/76 architecture failures locally
+*and* in CI run `34260090437` (same 4, same assertions). None touches 10b code; all four
+are Stage 08b design-system/Desktop scope, and `main`'s CI has been red on them for the
+last five pushes (runs `34212838559` → `34260090437`). The 10b-relevant guards
+(Finance/Pipeline/Persistence/MultiCompany/TradingGroup/Licence, 18 tests) all pass,
+and the CI `Test` + `Migration check` jobs are green — so this blocks a green pipeline,
+not Stage 10b's correctness.
+
+1. `ThemeDesignRulesTests.Tokens_json_contains_all_required_sections` — expects
+   `"type"`, `"scale"`, `"touchTargets"` keys; `design/tokens.json` now carries
+   `typography`, `touchTarget` (singular) and no `type`/`scale`. The 2026-09-08 token
+   regen commits changed the schema without updating the test (or vice versa —
+   `DESIGN_SYSTEM.md` is the arbiter; not checked this session).
+2. `ThemeDesignRulesTests.All_component_stubs_exist` — expects
+   `class TillLineListControl` inside `Controls/ComponentStubs.cs`; the class was moved
+   to `Controls/Till/TillLineListControl.cs` and the stub removed.
+3. `ThemeDesignRulesTests.All_component_categories_are_represented` — expects
+   `class StatTile` in `ComponentStubs.cs`; moved to `Controls/StatTile.cs`
+   (`ChartSetControl` is likewise absent from the stubs file).
+4. `ModuleAssembliesTests.Every_module_assembly_is_swept` — `VumaRetail.Desktop` and
+   `VumaRetail.Desktop.Gallery` (net9.0-windows) are not reached by the discovery walk
+   on the Linux CI runner, so the sweep omits them there.
+
+Fix direction (for the 08b follow-up session, not 10b): decide whether the stub file
+is a registry the refactor must keep in sync (add the moved classes back as stubs or
+repoint the tests at the real files), reconcile `tokens.json` against the test's
+expected keys via `DESIGN_SYSTEM.md`, and make Desktop/Gallery sweep membership
+loadable on Linux or explicitly exempted with a reason. Do not silence these by
+deleting assertions without an ADR.
+
 ### 4.26 Imports: `RollbackImportBatchCommand` lacks the idempotency branch its sibling `Commit` has — **OPEN, LOW, found in Stage 11 (2026-08-23 review)**
 
 `CommitImportBatchCommandHandler` (`src/VumaRetail.Application/Imports/Commands/ImportBatchCommands.cs:416-499`) is deliberately idempotent: row-locks the batch, and if it is already `Committed` returns the cached counters instead of throwing, with a doc comment explaining why (a timed-out browser press should get the honest answer, not a 422). `RollbackImportBatchCommandHandler` (same file, lines 539-599) has no equivalent — it requires `Status is Committed` and throws `UnexpectedBatchStatus` otherwise, so a retried rollback that already succeeded on the first attempt (ack lost, not the rollback) throws on replay. Not corrupting — `CompensatableRows` only selects rows still `Committed`, so a genuine double-rollback can't double-compensate — but it reads as failure to an operator who will then go looking for a problem that isn't there. Fix: give `Rollback` the same "already in target state → return the cached result" branch `Commit` has.

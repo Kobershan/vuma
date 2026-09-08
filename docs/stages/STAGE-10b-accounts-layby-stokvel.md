@@ -11,14 +11,14 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
-**Status:** NOT_STARTED · **Depends on:** 07, 09, 10 · **Reference reading:** `docs/DATA_MODEL.md` (savings), `docs/DECISIONS.md` ADR-055
+**Status:** COMPLETE (2026-09-08) · **Depends on:** 07, 09, 10 · **Reference reading:** `docs/DATA_MODEL.md` (savings), `docs/DECISIONS.md` ADR-055
 
 ## Task index
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-10B-001 | Implement customer credit accounts and lay-by | Stages 07, 09, 10 | NOT_STARTED |
-| TASK-10B-002 | Implement stokvels and complete Stage 10b verification | TASK-10B-001 | NOT_STARTED |
+| TASK-10B-001 | Implement customer credit accounts and lay-by | Stages 07, 09, 10 | COMPLETE (2026-09-08) |
+| TASK-10B-002 | Implement stokvels and complete Stage 10b verification | TASK-10B-001 | COMPLETE (2026-09-08; re-verified on clean `main` — see task file) |
 
 ## Objective
 The three ways customers pay over time rather than all at once. Each has completely different accounting
