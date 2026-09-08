@@ -135,17 +135,8 @@ public sealed class Company
         OperatorId = operatorId;
     }
 
-    /// <summary>
-    /// Assigns the owning Operator ID. Vendor-side only: called during provisioning from the
-    /// signed licence, never from a tenant command (ADR-121).
-    /// </summary>
-    /// <param name="operatorId">The operator that owns this company.</param>
-    /// <remarks>
-    /// Set-once. Changing ownership of a company is a vendor-side operation with billing
-    /// consequences, not an edit — a second, different assignment is refused.
-    /// </remarks>
-
     /// <summary>Stores only a reference to encrypted connection details.</summary>
+    /// <param name="connectionSecretRef">The reference to the encrypted connection secret.</param>
     public void SetConnectionSecretRef(string connectionSecretRef)
     {
         ConnectionSecretRef = Require(connectionSecretRef, nameof(connectionSecretRef));
