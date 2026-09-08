@@ -268,3 +268,129 @@ internal sealed class StocktakeLineConfiguration : EntityConfiguration<Stocktake
             "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1"));
     }
 }
+
+/// <summary><c>inventory.stock_reservations</c> — the append-only hold ledger (Stage 08c, ADR-103).</summary>
+internal sealed class StockReservationConfiguration : EntityConfiguration<StockReservation>
+{
+    protected override string Schema => Schemas.Inventory;
+
+    protected override string TableName => "stock_reservations";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StockReservation> builder)
+    {
+        builder.Property(reservation => reservation.LocationId).IsRequired();
+        builder.Property(reservation => reservation.ItemId);
+        builder.Property(reservation => reservation.ItemVariantId);
+
+        builder.HasQuantity(reservation => reservation.Quantity, "quantity");
+
+        builder.Property(reservation => reservation.Source)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(24);
+
+        builder.Property(reservation => reservation.SourceDocumentId).IsRequired();
+        builder.Property(reservation => reservation.GroupDocumentRef).HasMaxLength(64);
+
+        builder.Property(reservation => reservation.ReservationId).IsRequired();
+        builder.Property(reservation => reservation.SequenceNumber).IsRequired();
+
+        builder.Property(reservation => reservation.State)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(16);
+
+        builder.Property(reservation => reservation.ExpiresAt);
+        builder.Property(reservation => reservation.IntentId);
+        builder.Property(reservation => reservation.LegId);
+        builder.Property(reservation => reservation.ConsumedByReferenceId);
+        builder.Property(reservation => reservation.Reason).HasMaxLength(500);
+
+        // Live holds for one stock-keeping unit at one location — the re-check's working set.
+        builder.HasIndex(reservation => new { reservation.LocationId, reservation.ItemId, reservation.State })
+            .HasDatabaseName("ix_stock_reservations_location_id_item_id_state");
+
+        builder.HasIndex(reservation => new { reservation.LocationId, reservation.ItemVariantId, reservation.State })
+            .HasDatabaseName("ix_stock_reservations_location_id_item_variant_id_state");
+
+        // One chain's history.
+        builder.HasIndex(reservation => new { reservation.ReservationId, reservation.SequenceNumber })
+            .HasDatabaseName("ix_stock_reservations_reservation_id_sequence_number");
+
+        // The expiry job's working set: live holds past their time, oldest first.
+        builder.HasIndex(reservation => new { reservation.TenantId, reservation.State, reservation.ExpiresAt })
+            .HasDatabaseName("ix_stock_reservations_expiry")
+            .HasFilter("state = 'Held' AND expires_at IS NOT NULL");
+
+        // Exactly one live row per logical reservation: a chain is a hold (sequence 0) plus at
+        // most one terminal row (sequence 1), so a second Held row for the same ReservationId is
+        // always a bug. Partial so closed chains cost nothing.
+        builder.HasIndex(reservation => new { reservation.ReservationId, reservation.State })
+            .IsUnique()
+            .HasDatabaseName("ux_stock_reservations_open")
+            .HasFilter("state = 'Held'");
+
+        // Saga idempotency (ADR-116): retrying a leg replays its (intent, leg, line), which
+        // collides here instead of double-holding. A leg holds at most one row per line — a
+        // re-sourced remainder is a plain hold under the same group reference, never a second row
+        // on the leg's key — so the key covers the line's identity, not the chain sequence.
+        // Split in two like every other per-SKU unique in this schema, because PostgreSQL treats
+        // NULLs as distinct and one index over both nullable columns would not collide with itself.
+        builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemId })
+            .IsUnique()
+            .HasDatabaseName("ux_stock_reservations_intent_leg_item")
+            .HasFilter("intent_id IS NOT NULL AND item_id IS NOT NULL");
+
+        builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemVariantId })
+            .IsUnique()
+            .HasDatabaseName("ux_stock_reservations_intent_leg_variant")
+            .HasFilter("intent_id IS NOT NULL AND item_variant_id IS NOT NULL");
+
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint(
+                "ck_stock_reservations_exactly_one_sku",
+                "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1");
+
+            // A chain is a hold plus at most one terminal row — the domain never writes a third.
+            table.HasCheckConstraint(
+                "ck_stock_reservations_sequence_range",
+                "sequence_number IN (0, 1)");
+        });
+    }
+}
+
+/// <summary><c>inventory.available_balances</c> — the reservation-half projection (Stage 08c).</summary>
+internal sealed class AvailableBalanceConfiguration : EntityConfiguration<AvailableBalance>
+{
+    protected override string Schema => Schemas.Inventory;
+
+    protected override string TableName => "available_balances";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<AvailableBalance> builder)
+    {
+        builder.Property(balance => balance.LocationId).IsRequired();
+        builder.Property(balance => balance.ItemId);
+        builder.Property(balance => balance.ItemVariantId);
+
+        builder.HasQuantity(balance => balance.Reserved, "reserved");
+        builder.HasQuantity(balance => balance.InStaging, "in_staging");
+        builder.HasQuantity(balance => balance.Incoming, "incoming");
+
+        // One position per location per stock-keeping unit — the same split-unique-index pattern
+        // as stock_balances, for the same reason: PostgreSQL treats NULLs as distinct.
+        builder.HasIndex(balance => new { balance.LocationId, balance.ItemId })
+            .IsUnique()
+            .HasDatabaseName("ux_available_balances_location_id_item_id")
+            .HasFilter("item_id IS NOT NULL AND deleted_at IS NULL");
+
+        builder.HasIndex(balance => new { balance.LocationId, balance.ItemVariantId })
+            .IsUnique()
+            .HasDatabaseName("ux_available_balances_location_id_item_variant_id")
+            .HasFilter("item_variant_id IS NOT NULL AND deleted_at IS NULL");
+
+        builder.ToTable(table => table.HasCheckConstraint(
+            "ck_available_balances_exactly_one_sku",
+            "((item_id IS NOT NULL)::int + (item_variant_id IS NOT NULL)::int) = 1"));
+    }
+}

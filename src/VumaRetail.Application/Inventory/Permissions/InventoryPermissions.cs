@@ -34,6 +34,12 @@ public sealed class InventoryPermissions : IModulePermissions
     /// <summary>Finalize a stocktake session, posting every line's variance to the ledger.</summary>
     public const string StocktakeFinalize = "inventory.stocktake.finalize";
 
+    /// <summary>See available-to-promise figures for this company's stock (Stage 08c).</summary>
+    public const string AvailabilityView = "inventory.availability.view";
+
+    /// <summary>Take, consume and release reservation holds on this company's stock (Stage 08c).</summary>
+    public const string ReservationManage = "inventory.reservation.manage";
+
     /// <inheritdoc />
     public string Module => "inventory";
 
@@ -48,6 +54,8 @@ public sealed class InventoryPermissions : IModulePermissions
         new(PermissionKey.Parse(StockTransfer), "Transfer stock between locations.", IsHighRisk: true),
         new(PermissionKey.Parse(StocktakeManage), "Open a stocktake session and record counts.", IsHighRisk: true),
         new(PermissionKey.Parse(StocktakeFinalize), "Finalize a stocktake, posting its variances to the ledger.", IsHighRisk: true),
+        new(PermissionKey.Parse(AvailabilityView), "See available-to-promise figures for this company's stock."),
+        new(PermissionKey.Parse(ReservationManage), "Take, consume and release reservation holds on stock.", IsHighRisk: true),
     ];
 }
 

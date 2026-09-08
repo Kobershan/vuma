@@ -126,6 +126,13 @@ public sealed class SalesOrder : Entity
     /// <summary>The order's lines.</summary>
     public IReadOnlyList<SalesOrderLine> Lines => _lines;
 
+    /// <summary>
+    /// The cross-company source this order was split from, when one exists — the order number every
+    /// sibling segment shares (Stage 08c, <c>docs/MULTI_COMPANY.md</c> §5). A bare reference, never
+    /// a cross-database foreign key. Null for an order raised directly in one company.
+    /// </summary>
+    public string? GroupDocumentRef { get; private set; }
+
     /// <summary>True while lines may still be added and priced.</summary>
     public bool IsDraft => Status is SalesOrderStatus.Draft;
 
@@ -343,6 +350,24 @@ public sealed class SalesOrder : Entity
     public SalesOrderLine RequireLine(Guid lineId)
         => _lines.Find(candidate => candidate.Id == lineId)
             ?? throw new OrdersNotFoundException("sales order line", lineId);
+
+    /// <summary>
+    /// Ties this order to the cross-company source it was split from (Stage 08c). Set once, while
+    /// still a draft, before the order is confirmed — history, once written, is never re-pointed.
+    /// </summary>
+    /// <param name="groupDocumentRef">The source order number every sibling segment shares.</param>
+    /// <exception cref="OrdersRuleException">The order is not a draft, or the reference is blank.</exception>
+    public void AssignGroupDocument(string groupDocumentRef)
+    {
+        EnsureDraft();
+
+        if (string.IsNullOrWhiteSpace(groupDocumentRef))
+        {
+            throw OrdersRuleException.GroupDocumentRefRequired();
+        }
+
+        GroupDocumentRef = groupDocumentRef.Trim();
+    }
 
     private void EnsureDraft()
     {

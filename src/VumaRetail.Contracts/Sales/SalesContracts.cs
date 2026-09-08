@@ -1,5 +1,108 @@
 namespace VumaRetail.Contracts.Sales;
 
+/// <summary>Creates a quote from a basket.</summary>
+/// <param name="CustomerId">The customer.</param>
+/// <param name="Currency">The ISO 4217 currency.</param>
+/// <param name="ValidUntil">When the quote expires.</param>
+/// <param name="GroupId">The trading group document reference, if any.</param>
+/// <param name="CompanyId">The owning company, or <c>null</c> for the acting company.</param>
+public sealed record CreateQuoteRequest(
+    Guid CustomerId,
+    string Currency,
+    DateOnly ValidUntil,
+    string? GroupId = null,
+    Guid? CompanyId = null);
+
+/// <summary>Puts a priced line onto a draft quote. Price, tax and pack size snapshot at this instant.</summary>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">How much. Must be positive.</param>
+/// <param name="Uom">The unit the quantity is counted in.</param>
+/// <param name="PriceListId">The price list to resolve against, or <c>null</c> for the winning list.</param>
+public sealed record AddQuoteLineRequest(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Uom,
+    Guid? PriceListId = null);
+
+/// <summary>One frozen invoice line, as captured upstream.</summary>
+/// <param name="ItemId">The item, when it has no variants.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">How much. Must be positive.</param>
+/// <param name="Uom">The unit the quantity is counted in.</param>
+/// <param name="UnitPrice">The snapshotted unit price.</param>
+/// <param name="DiscountAmount">The snapshotted whole-line discount.</param>
+/// <param name="TaxAmount">The snapshotted tax.</param>
+/// <param name="PackSizeDescription">The snapshotted pack size, e.g. <c>6 x Case of 10</c>.</param>
+/// <param name="PriceListId">The price list resolved against.</param>
+/// <param name="SourceLineId">The order line this settles, when known.</param>
+public sealed record CreateInvoiceLineRequest(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Uom,
+    decimal UnitPrice,
+    decimal DiscountAmount,
+    decimal TaxAmount,
+    string PackSizeDescription,
+    Guid? PriceListId = null,
+    Guid? SourceLineId = null);
+
+/// <summary>Opens a draft invoice in one company's books from already-frozen lines.</summary>
+/// <param name="CustomerId">The customer who owes.</param>
+/// <param name="Currency">The ISO 4217 currency.</param>
+/// <param name="SourceDocumentId">The order or sale being documented.</param>
+/// <param name="SourceType">Order, sale, or quote.</param>
+/// <param name="Lines">The frozen lines. At least one.</param>
+/// <param name="GroupDocumentRef">The split's shared reference, when this is one segment of N.</param>
+/// <param name="CompanyId">The company, or <c>null</c> for the acting company.</param>
+public sealed record CreateInvoiceRequest(
+    Guid CustomerId,
+    string Currency,
+    Guid SourceDocumentId,
+    string SourceType,
+    IReadOnlyList<CreateInvoiceLineRequest> Lines,
+    string? GroupDocumentRef = null,
+    Guid? CompanyId = null);
+
+/// <summary>One company's share of an invoice issue.</summary>
+/// <param name="CompanyId">The supplying company.</param>
+/// <param name="Lines">That company's frozen lines. At least one.</param>
+public sealed record InvoiceSegmentRequest(
+    Guid CompanyId,
+    IReadOnlyList<CreateInvoiceLineRequest> Lines);
+
+/// <summary>Generates the invoices for one fulfilled order or sale — one per supplying company.</summary>
+/// <param name="SourceDocumentNumber">The order's human-readable number, shared by every segment.</param>
+/// <param name="SourceType">Order, sale, or quote.</param>
+/// <param name="OrderingCompanyId">The company the order was captured against.</param>
+/// <param name="CustomerId">The customer who owes.</param>
+/// <param name="Currency">The ISO 4217 currency.</param>
+/// <param name="Segments">One segment per supplying company, from the sourcing outcome.</param>
+/// <param name="GroupDocumentRef">The shared reference, when there is more than one segment.</param>
+/// <param name="IdempotencyKey">Stable across retries of the same generation.</param>
+/// <param name="InitiatedBy">Who asked, in audit-principal form.</param>
+public sealed record GenerateInvoicesRequest(
+    string SourceDocumentNumber,
+    string SourceType,
+    Guid OrderingCompanyId,
+    Guid CustomerId,
+    string Currency,
+    IReadOnlyList<InvoiceSegmentRequest> Segments,
+    string? GroupDocumentRef,
+    string IdempotencyKey,
+    string InitiatedBy);
+
+/// <summary>Rebuilds the sales read models for a period from posted invoices.</summary>
+/// <param name="CompanyId">The company, or <c>null</c> for every company in scope.</param>
+/// <param name="From">The first day, inclusive.</param>
+/// <param name="To">The last day, exclusive.</param>
+public sealed record RebuildAnalyticsRequest(
+    Guid? CompanyId,
+    DateOnly From,
+    DateOnly To);
+
 /// <summary>The id of something the <c>sales</c> module just created.</summary>
 /// <param name="Id">The new row's id.</param>
 public sealed record SalesIdResponse(Guid Id);
@@ -399,3 +502,142 @@ public sealed record PriceOverrideResponse(
     string Currency,
     string Reason,
     DateTimeOffset OccurredAt);
+
+/// <summary>A quote, as returned by the API.</summary>
+/// <param name="Id">The quote's id.</param>
+/// <param name="QuoteNumber">The quote number.</param>
+/// <param name="CustomerId">The customer.</param>
+/// <param name="Currency">The ISO 4217 currency.</param>
+/// <param name="Status">The quote's lifecycle status.</param>
+/// <param name="ValidUntil">When the quote expires.</param>
+/// <param name="Net">The net total.</param>
+/// <param name="Tax">The tax total.</param>
+/// <param name="Gross">The gross total.</param>
+/// <param name="GroupId">The trading group document reference, if any.</param>
+/// <param name="Lines">The quote lines.</param>
+public sealed record QuoteResponse(
+    Guid Id,
+    string QuoteNumber,
+    Guid CustomerId,
+    string Currency,
+    string Status,
+    DateTimeOffset ValidUntil,
+    decimal Net,
+    decimal Tax,
+    decimal Gross,
+    string? GroupId,
+    IReadOnlyList<QuoteLineResponse> Lines);
+
+/// <summary>A quote line, as returned by the API.</summary>
+/// <param name="Id">The line's id.</param>
+/// <param name="ItemId">The item, when it has no variant.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">The quantity.</param>
+/// <param name="Uom">The unit of measure.</param>
+/// <param name="UnitPrice">The unit price.</param>
+/// <param name="DiscountAmount">The discount.</param>
+/// <param name="TaxAmount">The tax.</param>
+/// <param name="Net">The net amount.</param>
+/// <param name="PackSizeDescription">The pack size snapshot.</param>
+/// <param name="PromotionsSummary">The promotions that fired.</param>
+public sealed record QuoteLineResponse(
+    Guid Id,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Uom,
+    decimal UnitPrice,
+    decimal DiscountAmount,
+    decimal TaxAmount,
+    decimal Net,
+    string PackSizeDescription,
+    string PromotionsSummary);
+
+/// <summary>An invoice, as returned by the API.</summary>
+/// <param name="Id">The invoice's id.</param>
+/// <param name="InvoiceNumber">The invoice number.</param>
+/// <param name="CompanyId">The company.</param>
+/// <param name="SourceDocumentRef">The source order/sale id.</param>
+/// <param name="SourceDocumentType">Order, sale, or quote.</param>
+/// <param name="CustomerId">The customer.</param>
+/// <param name="Status">Draft, posted, or cancelled.</param>
+/// <param name="Net">The net total.</param>
+/// <param name="Tax">The tax total.</param>
+/// <param name="Gross">The gross total.</param>
+/// <param name="PostedAt">When posted.</param>
+/// <param name="GroupDocumentRef">The group document ref, if split.</param>
+/// <param name="Lines">The invoice lines.</param>
+public sealed record InvoiceResponse(
+    Guid Id,
+    string InvoiceNumber,
+    Guid CompanyId,
+    string SourceDocumentRef,
+    string SourceDocumentType,
+    Guid CustomerId,
+    string Status,
+    decimal Net,
+    decimal Tax,
+    decimal Gross,
+    DateTimeOffset? PostedAt,
+    string? GroupDocumentRef,
+    IReadOnlyList<InvoiceLineResponse> Lines);
+
+/// <summary>An invoice line, as returned by the API.</summary>
+/// <param name="Id">The line's id.</param>
+/// <param name="ItemId">The item, when it has no variant.</param>
+/// <param name="ItemVariantId">The variant.</param>
+/// <param name="Quantity">The quantity.</param>
+/// <param name="Uom">The unit of measure.</param>
+/// <param name="UnitPrice">The unit price.</param>
+/// <param name="DiscountAmount">The discount.</param>
+/// <param name="TaxAmount">The tax.</param>
+/// <param name="Net">The net amount.</param>
+/// <param name="PackSizeDescription">The pack size snapshot.</param>
+public sealed record InvoiceLineResponse(
+    Guid Id,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Uom,
+    decimal UnitPrice,
+    decimal DiscountAmount,
+    decimal TaxAmount,
+    decimal Net,
+    string PackSizeDescription);
+
+/// <summary>A sales analytics row, as returned by the API.</summary>
+/// <param name="CompanyId">The company.</param>
+/// <param name="Period">The aggregation period.</param>
+/// <param name="PeriodStart">The start of the period.</param>
+/// <param name="PeriodEnd">The end of the period.</param>
+/// <param name="CategoryCode">The product category, if any.</param>
+/// <param name="Channel">The sales channel.</param>
+/// <param name="Revenue">The revenue.</param>
+/// <param name="CostOfSale">The cost of sale.</param>
+/// <param name="Margin">The margin.</param>
+/// <param name="TaxLiability">The tax liability.</param>
+/// <param name="OrderCount">The number of orders.</param>
+/// <param name="LineCount">The number of lines.</param>
+/// <param name="AsAt">When the data was computed.</param>
+/// <param name="IsStale">True when the underlying saga is behind.</param>
+public sealed record SalesAnalyticsResponse(
+    Guid CompanyId,
+    string Period,
+    DateTimeOffset PeriodStart,
+    DateTimeOffset PeriodEnd,
+    string? CategoryCode,
+    string Channel,
+    decimal Revenue,
+    decimal CostOfSale,
+    decimal Margin,
+    decimal TaxLiability,
+    int OrderCount,
+    int LineCount,
+    DateTimeOffset AsAt,
+    bool IsStale);
+
+/// <summary>The ids of the generated invoices.</summary>
+/// <param name="InvoiceIds">The invoice ids.</param>
+public sealed record InvoiceIdsResponse(List<Guid> InvoiceIds);
+
+

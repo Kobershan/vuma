@@ -2,14 +2,23 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Identity;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Registry;
 using VumaRetail.Application.Sales.Commands;
+using VumaRetail.Application.Sales.Commands.Analytics;
+using VumaRetail.Application.Sales.Commands.Invoices;
+using VumaRetail.Application.Sales.Commands.Quotes;
 using VumaRetail.Application.Sales.Permissions;
 using VumaRetail.Application.Sales.Queries;
 using VumaRetail.Contracts.Sales;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sales;
+using VumaRetail.Domain.Sales.Analytics;
+using VumaRetail.Domain.Sales.Invoices;
+using VumaRetail.Domain.Sales.Quotes;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -254,6 +263,157 @@ public static class SalesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Abandons a draft return. Nothing was refunded and nothing moved.");
+
+        RouteGroupBuilder quotes = api.MapGroup("/sales/quotes").WithTags("Sales").RequireModule("sales");
+
+        quotes.MapPost("/", CreateQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces<SalesIdResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Opens a draft quote: a priced basket with an expiry.")
+            .WithDescription(
+                "Promises price, never stock. Add lines, issue to lock the prices, accept inside the "
+                + "validity window, then convert into an order or a sale.");
+
+        quotes.MapPost("/{quoteId:guid}/lines", AddQuoteLineAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces<SalesIdResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Snapshots one priced line onto a draft quote.")
+            .WithDescription(
+                "Price, tax and pack size freeze at this instant (ADR-074, ADR-075, ADR-112). A later "
+                + "price-list change never reprices a live quote.");
+
+        quotes.MapGet("/{quoteId:guid}", GetQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteView)
+            .Produces<QuoteResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("One quote, with its snapshotted lines.");
+
+        quotes.MapPost("/{quoteId:guid}/issue", IssueQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Issues a quote, locking its prices.");
+
+        quotes.MapPost("/{quoteId:guid}/accept", AcceptQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Accepts a quote inside its validity window.");
+
+        quotes.MapPost("/{quoteId:guid}/reject", RejectQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Rejects a quote.");
+
+        quotes.MapPost("/{quoteId:guid}/expire", ExpireQuoteAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Expires a quote before its validity period.");
+
+        quotes.MapPost("/{quoteId:guid}/convert-order", ConvertQuoteToOrderAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces<SalesIdResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Converts an accepted quote into a Stage 14 order.")
+            .WithDescription(
+                "Marks the quote converted so one acceptance can never become two orders. Stage 14 "
+                + "builds the real document from the quote's snapshots.");
+
+        quotes.MapPost("/{quoteId:guid}/convert-sale", ConvertQuoteToSaleAsync)
+            .RequirePermission(SalesPermissions.QuoteManage)
+            .Produces<SalesIdResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Converts an accepted quote into a Stage 09 till sale.")
+            .WithDescription(
+                "Marks the quote converted so one acceptance can never become two sales. The till "
+                + "builds the real document from the quote's snapshots.");
+
+        quotes.MapGet("/", ListQuotesAsync)
+            .RequirePermission(SalesPermissions.QuoteView)
+            .Produces<IReadOnlyList<QuoteResponse>>()
+            .WithSummary("Quotes, optionally narrowed by status and customer.");
+
+        RouteGroupBuilder invoices = api.MapGroup("/sales/invoices").WithTags("Sales").RequireModule("sales");
+
+        invoices.MapPost("/", CreateInvoiceAsync)
+            .RequirePermission(SalesPermissions.InvoiceManage)
+            .Produces<SalesIdResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Opens a draft invoice in one company's books from frozen lines.")
+            .WithDescription(
+                "The lines arrive snapshotted — price, tax, pack size — from the order, sale or quote "
+                + "being documented. Nothing is resolved or re-derived here.");
+
+        invoices.MapPost("/{invoiceId:guid}/finalize", FinalizeInvoiceAsync)
+            .RequirePermission(SalesPermissions.InvoiceManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Finalizes a draft: freezes it and posts it to the ledger. Irreversible.");
+
+        invoices.MapPost("/{invoiceId:guid}/cancel", CancelInvoiceAsync)
+            .RequirePermission(SalesPermissions.InvoiceManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Abandons a draft invoice. Posted invoices take the credit-note path.");
+
+        invoices.MapGet("/{invoiceId:guid}", GetInvoiceAsync)
+            .RequirePermission(SalesPermissions.InvoiceView)
+            .Produces<InvoiceResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("One invoice, with its frozen lines and pack sizes.");
+
+        invoices.MapGet("/", ListInvoicesAsync)
+            .RequirePermission(SalesPermissions.InvoiceView)
+            .Produces<IReadOnlyList<InvoiceResponse>>()
+            .WithSummary("One company's invoices, newest first. Company-scoped: another company's rows never appear.");
+
+        api.MapPost("/orders/{orderId:guid}/generate-invoices", GenerateInvoicesForOrderAsync)
+            .WithTags("Sales")
+            .RequireModule("sales")
+            .RequirePermission(SalesPermissions.InvoiceManage)
+            .Produces<InvoiceIdsResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Generates the invoices for one fulfilled order: one per supplying company.")
+            .WithDescription(
+                "One order, N invoices (ADR-102). Each segment posts in its own company's database "
+                + "under the shared group reference; the response carries one invoice id per company.");
+
+        RouteGroupBuilder analytics = api.MapGroup("/sales/analytics").WithTags("Sales").RequireModule("sales");
+
+        analytics.MapGet("/", GetSalesAnalyticsAsync)
+            .RequirePermission(SalesPermissions.AnalyticsView)
+            .Produces<IReadOnlyList<SalesAnalyticsResponse>>()
+            .WithSummary("Company-scoped sales analytics: daily facts rolled to any period.");
+
+        analytics.MapGet("/group", GetGroupAnalyticsAsync)
+            .RequirePermission(SalesPermissions.AnalyticsView)
+            .Produces<IReadOnlyList<SalesAnalyticsResponse>>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .WithSummary("Group-level analytics. Stale by design; never blocks trade (ADR-119).")
+            .WithDescription(
+                "Additionally requires registry.analytics.view, checked in the handler. Every figure "
+                + "carries AsAt; stale contributors are disclosed, never silently summed.");
+
+        analytics.MapPost("/rebuild", RebuildAnalyticsAsync)
+            .RequirePermission(SalesPermissions.AnalyticsView)
+            .Produces(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Rebuilds the sales read models for a period from posted invoices.")
+            .WithDescription(
+                "Planning figures only. A rebuild never blocks trade and never feeds a commit.");
 
         return endpoints;
     }
@@ -837,5 +997,451 @@ public static class SalesEndpoints
             {
                 [propertyName] = [$"'{value}' is not one of: {string.Join(", ", Enum.GetNames<TEnum>())}."],
             });
+    }
+
+    private static async Task<IResult> CreateQuoteAsync(
+        CreateQuoteRequest request,
+        IDispatcher dispatcher,
+        ICompanyContext company,
+        CancellationToken cancellationToken)
+    {
+        BindCompany(company, request.CompanyId);
+
+        Guid id = await dispatcher
+            .SendAsync(
+                new CreateQuoteCommand(
+                    request.CustomerId, request.Currency, request.ValidUntil,
+                    request.GroupId, request.CompanyId),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Created($"/api/v1/sales/quotes/{id}", new SalesIdResponse(id));
+    }
+
+    private static async Task<IResult> AddQuoteLineAsync(
+        Guid quoteId,
+        AddQuoteLineRequest request,
+        IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher
+            .SendAsync(
+                new AddQuoteLineCommand(
+                    quoteId, request.ItemId, request.ItemVariantId,
+                    request.Quantity, request.Uom, request.PriceListId),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Created($"/api/v1/sales/quotes/{quoteId}", new SalesIdResponse(id));
+    }
+
+    private static async Task<IResult> GetQuoteAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Quote quote = await dispatcher
+            .QueryAsync(new GetQuoteQuery(quoteId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok(ToResponse(quote));
+    }
+
+    private static async Task<IResult> IssueQuoteAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new IssueQuoteCommand(quoteId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> AcceptQuoteAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new AcceptQuoteCommand(quoteId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RejectQuoteAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new RejectQuoteCommand(quoteId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ExpireQuoteAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new ExpireQuoteCommand(quoteId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ConvertQuoteToOrderAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher
+            .SendAsync(new ConvertQuoteToOrderCommand(quoteId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok(new SalesIdResponse(id));
+    }
+
+    private static async Task<IResult> ConvertQuoteToSaleAsync(
+        Guid quoteId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher
+            .SendAsync(new ConvertQuoteToSaleCommand(quoteId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok(new SalesIdResponse(id));
+    }
+
+    private static async Task<IResult> ListQuotesAsync(
+        IDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        string? status = null,
+        Guid? customerId = null)
+    {
+        QuoteStatus? parsedStatus = status is null
+            ? null
+            : ParseEnum<QuoteStatus>(status, nameof(status), nameof(ListQuotesQuery));
+
+        IReadOnlyList<Quote> quotes = await dispatcher
+            .QueryAsync(new ListQuotesQuery(parsedStatus, customerId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok<IReadOnlyList<QuoteResponse>>([.. quotes.Select(ToResponse)]);
+    }
+
+    private static async Task<IResult> CreateInvoiceAsync(
+        CreateInvoiceRequest request,
+        IDispatcher dispatcher,
+        ICompanyContext company,
+        CancellationToken cancellationToken)
+    {
+        BindCompany(company, request.CompanyId);
+
+        InvoiceSourceType sourceType = ParseEnum<InvoiceSourceType>(
+            request.SourceType, nameof(request.SourceType), nameof(CreateInvoiceCommand));
+
+        Guid id = await dispatcher
+            .SendAsync(
+                new CreateInvoiceCommand(
+                    request.CustomerId,
+                    request.Currency,
+                    request.SourceDocumentId,
+                    sourceType,
+                    [.. request.Lines.Select(ToInput)],
+                    request.GroupDocumentRef,
+                    request.CompanyId),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Created($"/api/v1/sales/invoices/{id}", new SalesIdResponse(id));
+    }
+
+    private static async Task<IResult> FinalizeInvoiceAsync(
+        Guid invoiceId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new FinalizeInvoiceCommand(invoiceId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> CancelInvoiceAsync(
+        Guid invoiceId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new CancelInvoiceCommand(invoiceId), cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetInvoiceAsync(
+        Guid invoiceId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Invoice invoice = await dispatcher
+            .QueryAsync(new GetInvoiceQuery(invoiceId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok(ToResponse(invoice));
+    }
+
+    private static async Task<IResult> ListInvoicesAsync(
+        IDispatcher dispatcher,
+        ICompanyContext company,
+        CancellationToken cancellationToken,
+        Guid? companyId = null)
+    {
+        Guid effective = companyId ?? company.CompanyId ?? Guid.Empty;
+        if (effective == Guid.Empty)
+        {
+            throw new ValidationFailedException(
+                nameof(ListInvoicesQuery),
+                new Dictionary<string, string[]>(StringComparer.Ordinal)
+                {
+                    [nameof(companyId)] = ["Listing invoices needs its company."],
+                });
+        }
+
+        IReadOnlyList<Invoice> invoices = await dispatcher
+            .QueryAsync(new ListInvoicesQuery(effective), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok<IReadOnlyList<InvoiceResponse>>([.. invoices.Select(ToResponse)]);
+    }
+
+    private static async Task<IResult> GenerateInvoicesForOrderAsync(
+        Guid orderId,
+        GenerateInvoicesRequest request,
+        IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        InvoiceSourceType sourceType = ParseEnum<InvoiceSourceType>(
+            request.SourceType, nameof(request.SourceType), nameof(GenerateInvoicesFromOrderCommand));
+
+        IReadOnlyList<Guid> ids = await dispatcher
+            .SendAsync(
+                new GenerateInvoicesFromOrderCommand(
+                    orderId,
+                    request.SourceDocumentNumber,
+                    sourceType,
+                    request.OrderingCompanyId,
+                    request.CustomerId,
+                    request.Currency,
+                    [.. request.Segments.Select(segment => new InvoiceCompanySegment(
+                        segment.CompanyId,
+                        [.. segment.Lines.Select(ToInput)]))],
+                    request.GroupDocumentRef,
+                    request.IdempotencyKey,
+                    request.InitiatedBy),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Created(
+            $"/api/v1/sales/invoices/{ids.First()}", new InvoiceIdsResponse([.. ids]));
+    }
+
+    private static async Task<IResult> GetSalesAnalyticsAsync(
+        IDispatcher dispatcher,
+        ICompanyContext company,
+        IClock clock,
+        CancellationToken cancellationToken,
+        Guid? companyId = null,
+        string period = nameof(AnalyticsPeriod.Daily),
+        DateOnly? from = null,
+        DateOnly? to = null)
+    {
+        Guid effective = companyId ?? company.CompanyId ?? Guid.Empty;
+        if (effective == Guid.Empty)
+        {
+            throw new ValidationFailedException(
+                nameof(GetSalesAnalyticsQuery),
+                new Dictionary<string, string[]>(StringComparer.Ordinal)
+                {
+                    [nameof(companyId)] = ["Company analytics need their company."],
+                });
+        }
+
+        if (company.CompanyId is { } bound && bound != effective)
+        {
+            throw AnalyticsRuleException.CompanyNotAuthorized(effective);
+        }
+
+        AnalyticsPeriod parsedPeriod = ParseEnum<AnalyticsPeriod>(
+            period, nameof(period), nameof(GetSalesAnalyticsQuery));
+
+        IReadOnlyList<SalesAnalytics> result = await dispatcher
+            .QueryAsync(
+                new GetSalesAnalyticsQuery(
+                    effective,
+                    parsedPeriod,
+                    StartOfDay(from, clock.UtcNow),
+                    StartOfDay(to, clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok<IReadOnlyList<SalesAnalyticsResponse>>([.. result.Select(ToResponse)]);
+    }
+
+    private static async Task<IResult> GetGroupAnalyticsAsync(
+        IDispatcher dispatcher,
+        ITenantContext tenant,
+        IPrincipalAccessor principal,
+        IPermissionChecker permissions,
+        IClock clock,
+        CancellationToken cancellationToken,
+        string period = nameof(AnalyticsPeriod.Daily),
+        DateOnly? from = null,
+        DateOnly? to = null)
+    {
+        // The route gate carries sales.analytics.view; the group scope additionally needs
+        // registry.analytics.view, checked here because the endpoint cannot know which applies
+        // until it runs — the same shape as availability's groupScope (ADR-137's escape hatch).
+        Guid userId = ParseUserId(principal.Principal);
+        bool allowed = await permissions.HasPermissionAsync(
+                userId, tenant.StoreId, RegistryPermissions.GroupAnalyticsView, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!allowed)
+        {
+            throw SalesForbiddenException.GroupAnalyticsNotPermitted();
+        }
+
+        AnalyticsPeriod parsedPeriod = ParseEnum<AnalyticsPeriod>(
+            period, nameof(period), nameof(GetGroupAnalyticsQuery));
+
+        IReadOnlyList<SalesAnalytics> result = await dispatcher
+            .QueryAsync(
+                new GetGroupAnalyticsQuery(
+                    parsedPeriod,
+                    StartOfDay(from, clock.UtcNow),
+                    StartOfDay(to, clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Ok<IReadOnlyList<SalesAnalyticsResponse>>([.. result.Select(ToResponse)]);
+    }
+
+    private static async Task<IResult> RebuildAnalyticsAsync(
+        RebuildAnalyticsRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher
+            .SendAsync(
+                new RebuildAnalyticsCommand(
+                    request.CompanyId,
+                    new DateTimeOffset(request.From.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+                    new DateTimeOffset(request.To.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Accepted("/api/v1/sales/analytics");
+    }
+
+    private static InvoiceLineInput ToInput(CreateInvoiceLineRequest line) => new(
+        line.ItemId,
+        line.ItemVariantId,
+        line.Quantity,
+        line.Uom,
+        line.UnitPrice,
+        line.DiscountAmount,
+        line.TaxAmount,
+        line.PackSizeDescription,
+        line.PriceListId,
+        line.SourceLineId);
+
+    private static QuoteResponse ToResponse(Quote quote) => new(
+        quote.Id,
+        quote.QuoteNumber,
+        quote.CustomerId,
+        quote.Currency,
+        quote.Status.ToString(),
+        quote.ValidUntil,
+        quote.Net.Amount,
+        quote.Tax.Amount,
+        quote.Gross.Amount,
+        quote.GroupId,
+        [
+            .. quote.Lines.Select(line => new QuoteLineResponse(
+                line.Id,
+                line.ItemId,
+                line.ItemVariantId,
+                line.QuantityValue,
+                line.QuantityUom,
+                line.UnitPrice.Amount,
+                line.DiscountAmount.Amount,
+                line.TaxAmount.Amount,
+                line.Net.Amount,
+                line.PackSizeDescription,
+                line.PromotionsSummary)),
+        ]);
+
+    private static InvoiceResponse ToResponse(Invoice invoice) => new(
+        invoice.Id,
+        invoice.InvoiceNumber,
+        invoice.CompanyId ?? Guid.Empty,
+        invoice.SourceDocumentRef,
+        invoice.SourceDocumentType.ToString(),
+        invoice.CustomerId,
+        invoice.Status.ToString(),
+        invoice.Net.Amount,
+        invoice.Tax.Amount,
+        invoice.Gross.Amount,
+        invoice.PostedAt,
+        invoice.GroupDocumentRef,
+        [
+            .. invoice.Lines.Select(line => new InvoiceLineResponse(
+                line.Id,
+                line.ItemId,
+                line.ItemVariantId,
+                line.QuantityValue,
+                line.QuantityUom,
+                line.UnitPrice.Amount,
+                line.DiscountAmount.Amount,
+                line.TaxAmount.Amount,
+                line.Net.Amount,
+                line.PackSizeDescription)),
+        ]);
+
+    private static SalesAnalyticsResponse ToResponse(SalesAnalytics analytics) => new(
+        analytics.CompanyId ?? Guid.Empty,
+        analytics.Period.ToString(),
+        analytics.PeriodStart,
+        analytics.PeriodEnd,
+        analytics.CategoryCode,
+        analytics.Channel,
+        analytics.Revenue.Amount,
+        analytics.CostOfSale.Amount,
+        analytics.Margin.Amount,
+        analytics.TaxLiability.Amount,
+        analytics.OrderCount,
+        analytics.LineCount,
+        analytics.AsAt,
+        analytics.IsStale);
+
+    private static DateTimeOffset StartOfDay(DateOnly? day, DateTimeOffset now)
+    {
+        DateOnly effective = day ?? DateOnly.FromDateTime(now.UtcDateTime);
+        return new DateTimeOffset(effective.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+    }
+
+    private static Guid ParseUserId(string principal)
+    {
+        const string prefix = "user:";
+        if (principal.StartsWith(prefix, StringComparison.Ordinal)
+            && Guid.TryParse(principal[prefix.Length..], out Guid userId)
+            && userId != Guid.Empty)
+        {
+            return userId;
+        }
+
+        throw SalesForbiddenException.GroupAnalyticsNotPermitted();
+    }
+
+    /// <summary>
+    /// Binds the acting company for this request scope when the caller named one explicitly.
+    /// </summary>
+    /// <remarks>
+    /// The interim selection mechanism until per-request company middleware lands (the Stage 06c
+    /// follow-up): a request that names a different company than the scope already holds is
+    /// refused loudly rather than silently switching ledgers mid-call.
+    /// </remarks>
+    private static void BindCompany(ICompanyContext company, Guid? companyId)
+    {
+        ArgumentNullException.ThrowIfNull(company);
+
+        if (companyId is null || companyId == Guid.Empty)
+        {
+            return;
+        }
+
+        if (company.CompanyId is { } bound && bound != companyId)
+        {
+            throw new ValidationFailedException(
+                nameof(companyId),
+                new Dictionary<string, string[]>(StringComparer.Ordinal)
+                {
+                    [nameof(companyId)] = ["The request names a different company than the scope already holds."],
+                });
+        }
+
+        if (company.CompanyId is null)
+        {
+            company.SetCompany(companyId.Value);
+        }
     }
 }

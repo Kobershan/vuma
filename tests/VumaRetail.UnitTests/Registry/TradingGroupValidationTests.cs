@@ -87,13 +87,17 @@ public sealed class TradingGroupValidationTests
     }
 
     [Fact]
-    public void Registry_module_declares_seven_permissions_and_a_core_manifest()
+    public void Registry_module_declares_its_permissions_and_a_core_manifest()
     {
         var permissions = new RegistryPermissions();
         var manifest = new RegistryModuleManifest();
 
         permissions.Module.Should().Be("registry");
-        permissions.Permissions.Should().HaveCount(13);
+        permissions.Permissions.Should().HaveCount(15);
+        permissions.Permissions.Should().ContainSingle(descriptor =>
+            descriptor.Key.Value == RegistryPermissions.GroupAvailabilityView);
+        permissions.Permissions.Should().ContainSingle(descriptor =>
+            descriptor.Key.Value == RegistryPermissions.GroupAnalyticsView);
         manifest.Module.Should().Be("registry");
         manifest.LicenceFlag.Should().Be("registry");
         manifest.IsCore.Should().BeTrue();

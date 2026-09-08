@@ -109,7 +109,18 @@ public sealed class PersistenceRulesTests
                 || line.Contains("SaveChangesAsync(", StringComparison.Ordinal),
             "src/VumaRetail.Infrastructure/Persistence/VumaRetailDbContext.cs",
             // The registry has its own database and transaction boundary.
-            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
+            // Stage 08c: SourcingCommitService commits the registry intent (a separate database
+            // boundary from the company contexts, like the lifecycle and migration operations).
+            // ServiceScopeCompanyGateway is an infrastructure gateway (not a handler) that
+            // opens one company-scope per leg and commits that scope's transaction directly.
+            "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs",
+            "src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // Stage 10c: InvoiceIssuingService commits the registry intent (a separate database
+            // boundary) and each company leg posts inside its own scope, like the sourcing saga.
+            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

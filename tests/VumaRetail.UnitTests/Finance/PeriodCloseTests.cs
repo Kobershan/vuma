@@ -1,5 +1,7 @@
 using NSubstitute;
+using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Finance.Commands;
@@ -22,6 +24,7 @@ public sealed class PeriodCloseTests
     private readonly IJournalRepository _journals = Substitute.For<IJournalRepository>();
     private readonly IArInvoiceRepository _arInvoices = Substitute.For<IArInvoiceRepository>();
     private readonly IApInvoiceRepository _apInvoices = Substitute.For<IApInvoiceRepository>();
+    private readonly ILayByAgreementRepository _laybys = Substitute.For<ILayByAgreementRepository>();
     private readonly IBankAccountRepository _bankAccounts = Substitute.For<IBankAccountRepository>();
     private readonly IBankStatementLineRepository _statementLines = Substitute.For<IBankStatementLineRepository>();
     private readonly IAccountingPeriodRepository _periods = Substitute.For<IAccountingPeriodRepository>();
@@ -29,7 +32,7 @@ public sealed class PeriodCloseTests
     private readonly AccountingPeriod _period = OpenPeriod();
 
     private PeriodVarianceChecker Checker
-        => new(_accounts, _journals, _arInvoices, _apInvoices, _bankAccounts, _statementLines);
+        => new(_accounts, _journals, _arInvoices, _apInvoices, _bankAccounts, _statementLines, _laybys);
 
     private ClosePeriodCommandHandler Handler
         => new(_periods, Checker, new FixedPrincipal(), _clock);
@@ -196,6 +199,44 @@ public sealed class PeriodCloseTests
             TenantId, new DateOnly(2026, 6, 30), new DateOnly(2026, 6, 1));
 
         opening.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task A_deposits_control_account_flags_layby_paid_to_date_it_cannot_see()
+    {
+        // The GL says R800 of customer deposits; active lay-bys hold R700 paid. The R100
+        // difference is a flag, not a silent drift (Stage 10b, ADR-055).
+        Account account = ControlAccount("2100", AccountType.Liability, ControlAccountType.CustomerDeposits);
+        _accounts.ListControlAccountsAsync(Arg.Any<CancellationToken>()).Returns([account]);
+        _journals.GetAccountBalanceAsync(account.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(800m);
+        _laybys.ListActiveAsync(Arg.Any<CancellationToken>()).Returns([LayByPaid(700m)]);
+
+        IReadOnlyList<ControlAccountVariance> variances = await Checker.CheckAsync(_period);
+
+        variances.Should().ContainSingle().Which.Variance.Should().Be(100m);
+    }
+
+    private static LayByAgreement LayByPaid(decimal paid)
+    {
+        var agreement = LayByAgreement.Open(
+            TenantId, StoreId, $"LAY-{Guid.NewGuid():N}", UuidV7.NewGuid(),
+            new Money(1200m, "ZAR"), new Money(200m, "ZAR"), 3,
+            Now.AddMonths(3), new Money(100m, "ZAR"), UuidV7.NewGuid());
+        agreement.AddLine(LayByAgreementLine.Create(
+            TenantId, StoreId, agreement.Id, UuidV7.NewGuid(), null,
+            12m, "EA", new Money(100m, "ZAR"), new Money(0m, "ZAR"),
+            new Money(180m, "ZAR"), "Each", "ZAR", null));
+        agreement.Activate();
+        agreement.AddInstalment(LayByInstalment.Record(
+            TenantId, StoreId, agreement.Id, 1, new Money(200m, "ZAR"), "RCPT-1", Now, "Till"));
+        if (paid > 200m)
+        {
+            agreement.AddInstalment(LayByInstalment.Record(
+                TenantId, StoreId, agreement.Id, 2, new Money(paid - 200m, "ZAR"), "RCPT-2", Now, "Till"));
+        }
+
+        return agreement;
     }
 
     private void _bankStatementReconciledBalanceIs(Guid bankAccountId, decimal balance)

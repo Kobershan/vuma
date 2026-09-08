@@ -635,6 +635,107 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                     b.ToTable("credit_holds", "registry");
                 });
 
+            modelBuilder.Entity("VumaRetail.Domain.Registry.GroupAvailabilityCursor", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<Guid>("LastOutboxRowId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("last_outbox_row_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("TenantId", "CompanyId")
+                        .HasName("pk_group_availability_cursors");
+
+                    b.ToTable("group_availability_cursors", "registry");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Registry.GroupAvailabilityRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("as_at");
+
+                    b.Property<decimal>("Available")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("available");
+
+                    b.Property<string>("CompanyCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("company_code");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<decimal>("InStaging")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("in_staging");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid?>("ItemVariantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_variant_id");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<decimal>("OnHand")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("on_hand");
+
+                    b.Property<decimal>("Reserved")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("reserved");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("unit_of_measure");
+
+                    b.HasKey("Id")
+                        .HasName("pk_group_availability_rows");
+
+                    b.HasIndex("TenantId", "ItemId", "ItemVariantId")
+                        .HasDatabaseName("ix_group_availability_rows_tenant_id_item_id_item_variant_id");
+
+                    b.HasIndex("TenantId", "CompanyId", "LocationId", "ItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_group_availability_company_location_item")
+                        .HasFilter("item_id IS NOT NULL");
+
+                    b.HasIndex("TenantId", "CompanyId", "LocationId", "ItemVariantId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_group_availability_company_location_variant")
+                        .HasFilter("item_variant_id IS NOT NULL");
+
+                    b.ToTable("group_availability_rows", "registry");
+                });
+
             modelBuilder.Entity("VumaRetail.Domain.Registry.GroupPaymentAllocation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1432,6 +1533,31 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                         .HasDatabaseName("ix_user_company_access_tenant_id_registry_user_id");
 
                     b.ToTable("user_company_access", "registry");
+                });
+
+            modelBuilder.Entity("VumaRetail.Domain.Registry.ReservationExpiryPolicyRow", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("source");
+
+                    b.Property<int?>("ExpiryHours")
+                        .HasColumnType("integer")
+                        .HasColumnName("expiry_hours");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("TenantId", "Source")
+                        .HasName("pk_reservation_expiry_policies");
+
+                    b.ToTable("reservation_expiry_policies", "registry");
                 });
 
             modelBuilder.Entity("VumaRetail.Domain.Registry.SagaIntent", b =>

@@ -157,6 +157,12 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One counted stock-keeping unit within a session.</summary>
     public DbSet<Domain.Inventory.StocktakeLine> StocktakeLines => Set<Domain.Inventory.StocktakeLine>();
 
+    /// <summary>The append-only reservation hold ledger. Releases are new rows, never edits (Stage 08c, ADR-103).</summary>
+    public DbSet<Domain.Inventory.StockReservation> StockReservations => Set<Domain.Inventory.StockReservation>();
+
+    /// <summary>Reserved / staging / incoming positions, the projection the reservation ledger sums to (Stage 08c).</summary>
+    public DbSet<Domain.Inventory.AvailableBalance> AvailableBalances => Set<Domain.Inventory.AvailableBalance>();
+
     /// <summary>A cashier's shift at one terminal, and the cash-up that closes it (Stage 09).</summary>
     public DbSet<Domain.Pos.TillSession> TillSessions => Set<Domain.Pos.TillSession>();
 
@@ -192,6 +198,39 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     /// <summary>The append-only record of every sale made at something other than the resolved price.</summary>
     public DbSet<Domain.Sales.PriceOverrideLog> PriceOverrideLogs => Set<Domain.Sales.PriceOverrideLog>();
+
+    /// <summary>Non-binding price promises with a lifecycle (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Quotes.Quote> Quotes => Set<Domain.Sales.Quotes.Quote>();
+
+    /// <summary>Lines on a quote, carrying price and pack size snapshots.</summary>
+    public DbSet<Domain.Sales.Quotes.QuoteLine> QuoteLines => Set<Domain.Sales.Quotes.QuoteLine>();
+
+    /// <summary>Legally binding documents, immutable once posted (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Invoices.Invoice> Invoices => Set<Domain.Sales.Invoices.Invoice>();
+
+    /// <summary>Lines on an invoice, carrying pack size snapshots.</summary>
+    public DbSet<Domain.Sales.Invoices.InvoiceLine> InvoiceLines => Set<Domain.Sales.Invoices.InvoiceLine>();
+
+    /// <summary>Company-scoped sales read models (Stage 10c).</summary>
+    public DbSet<Domain.Sales.Analytics.SalesAnalytics> SalesAnalytics => Set<Domain.Sales.Analytics.SalesAnalytics>();
+
+    /// <summary>Customer credit accounts with limits, terms and standing (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.CustomerAccount> CustomerAccounts => Set<Domain.CustomerAccounts.CustomerAccount>();
+
+    /// <summary>Named buyers authorised to charge to a business account (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.AccountHolder> AccountHolders => Set<Domain.CustomerAccounts.AccountHolder>();
+
+    /// <summary>The tenant's customer-money policy row, one per tenant (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.CustomerFinanceTerms> CustomerFinanceTerms => Set<Domain.CustomerAccounts.CustomerFinanceTerms>();
+
+    /// <summary>Lay-by agreements: frozen price, payment plan, held stock (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByAgreement> LayByAgreements => Set<Domain.CustomerAccounts.LayByAgreement>();
+
+    /// <summary>Lines on a lay-by agreement, carrying price and pack size snapshots (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByAgreementLine> LayByAgreementLines => Set<Domain.CustomerAccounts.LayByAgreementLine>();
+
+    /// <summary>Append-only lay-by payments (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByInstalment> LayByInstalments => Set<Domain.CustomerAccounts.LayByInstalment>();
 
     /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
     public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
@@ -371,6 +410,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The active company, or null for legacy/bootstrap contexts.</summary>
     internal Guid? CurrentCompanyId => _companyContext?.CompanyId;
 
+    /// <summary>
+    /// Entities the company predicate never applies to. Licensing is per tenant by design — one
+    /// licence, one subscription, one enforcement ladder (R9, ADR-028) — so a bound company must
+    /// never hide the activation, licence, lease and metering rows the read-only guard reads.
+    /// Without this, the first company-scoped write in any process answers 403 NotActivated
+    /// against a fully current subscription, because the guard's own lookups come back empty.
+    /// </summary>
+    private static readonly HashSet<Type> CompanyFilterExemptions =
+    [
+        typeof(Domain.Licensing.Activation),
+        typeof(Domain.Licensing.Licence),
+        typeof(Domain.Licensing.Lease),
+        typeof(Domain.Licensing.EmergencyUnlock),
+        typeof(Domain.Licensing.TamperFlag),
+        typeof(Domain.Licensing.ClockWatermark),
+        typeof(Domain.Licensing.MeteringRecord),
+        typeof(Domain.Licensing.SupportGrant),
+        // Stage 10b: one tenant-wide customer-money policy row, read under any bound company.
+        typeof(Domain.CustomerAccounts.CustomerFinanceTerms),
+    ];
+
     /// <inheritdoc />
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -452,14 +512,28 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
             // Built through reflection because HasQueryFilter needs the filter typed to the entity,
             // and the whole point is that no entity gets to opt out by being configured by hand.
+            // Licensing rows take the tenant-only shape: they are tenant-level by design, and the
+            // company predicate would blind the enforcement guard under a bound company.
+            string builder = CompanyFilterExemptions.Contains(entityType.ClrType)
+                ? nameof(BuildTenantQueryFilter)
+                : nameof(BuildQueryFilter);
+
             MethodInfo filter = typeof(VumaRetailDbContext)
-                .GetMethod(nameof(BuildQueryFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod(builder, BindingFlags.NonPublic | BindingFlags.Instance)!
                 .MakeGenericMethod(entityType.ClrType);
 
             modelBuilder.Entity(entityType.ClrType)
                 .HasQueryFilter((System.Linq.Expressions.LambdaExpression)filter.Invoke(this, null)!);
         }
     }
+
+    private System.Linq.Expressions.Expression<Func<TEntity, bool>> BuildTenantQueryFilter<TEntity>()
+        where TEntity : Entity
+        // Soft delete (§7 rule 8) and tenant isolation, without the company predicate — for the
+        // CompanyFilterExemptions set only. See the exemptions' own remarks for why licensing rows
+        // must stay visible under a bound company.
+        => entity => entity.DeletedAt == null
+            && (IsTenantFilterBypassed || entity.TenantId == CurrentTenantId);
 
     private System.Linq.Expressions.Expression<Func<TEntity, bool>> BuildQueryFilter<TEntity>()
         where TEntity : Entity

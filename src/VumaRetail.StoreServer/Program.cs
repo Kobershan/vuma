@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Imports;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Procurement;
 using VumaRetail.Finance.Hosting;
 using VumaRetail.Infrastructure.Backup;
@@ -16,6 +17,8 @@ using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
+using VumaRetail.Application.CustomerAccounts.Hosting;
+using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
@@ -118,6 +121,7 @@ builder.Services.AddVumaFinanceReconciliation(new FinanceHostTenant(host.TenantI
 // the binding is chosen when the publisher is resolved rather than when it is registered, so this
 // line's position relative to AddVumaFinance does not matter.
 builder.Services.AddVumaInventory();
+builder.Services.AddVumaReservationExpiry(new InventoryHostTenant(host.TenantId, host.StoreId));
 
 // Stage 09. The till: sessions, sales, tenders, receipts and the cash-up. Depends on catalog (what is
 // being sold), inventory (the stock it relieves) and finance (the tax it prices with and the journal a
@@ -128,6 +132,13 @@ builder.Services.AddVumaPos();
 // Stage 10. Price lists, promotions, returns and the price override log. After POS because a return
 // reads the sale it reverses, and after inventory because a completed return puts the stock back.
 builder.Services.AddVumaSales();
+
+// Stage 10b. Customer accounts, lay-by and stokvels. After AddVumaFinance (journals post through
+// IFinancialEventPoster with no fallback), AddVumaInventory (lay-by holds go through
+// IReservationService) and AddVumaPos (lines resolve through the catalogue, prices and packs).
+// The scheduled passes are registered separately: they need the installation tenant.
+builder.Services.AddVumaCustomerAccounts();
+builder.Services.AddVumaCustomerAccountsScheduling(new CustomerAccountsHostTenant(host.TenantId, host.StoreId));
 
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
@@ -259,8 +270,11 @@ app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaFinance();
 app.MapVumaInventory();
+app.MapVumaAvailability();
+app.MapVumaSourcing();
 app.MapVumaPos();
 app.MapVumaSales();
+app.MapVumaCustomerAccounts();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();

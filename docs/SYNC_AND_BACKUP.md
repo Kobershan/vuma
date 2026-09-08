@@ -185,6 +185,11 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SalesReturn` | `sales` | `StoreToCloud` | `StoreWins` | Goods come back over one counter; mutable while it is a draft, frozen once completed, and only the store can be editing it |
 | `SalesReturnLine` | `sales` | `StoreToCloud` | `StoreWins` | Follows its return |
 | `PriceOverrideLog` | `sales` | `StoreToCloud` | `AppendOnly` | A log a later write can overwrite is not a log |
+| `Quote` | `sales` | `StoreToCloud` | `StoreWins` | A price promise made at one counter; mutable through its lifecycle, frozen once converted, and only the store can be editing it (Stage 10c) |
+| `QuoteLine` | `sales` | `StoreToCloud` | `StoreWins` | Follows its quote; snapshotted, never re-resolved |
+| `Invoice` | `sales` | `StoreToCloud` | `StoreWins` | Posted in one company's books; one segment of a split replicates like any other row, the split itself is per-database (Stage 10c) |
+| `InvoiceLine` | `sales` | `StoreToCloud` | `StoreWins` | Follows its invoice, pack size snapshot included |
+| `SalesAnalytics` | `sales` | `NodeLocal` | `StoreWins` | Rebuilt per node from posted invoices like `StockBalance`; never replicated, never a commit input (Stage 10c, ADR-119) |
 | `ImportBatch` | `imports` | `StoreToCloud` | `StoreWins` | An import happens at one store; the cloud observes the outcome |
 | `ImportColumnMapping` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch |
 | `ImportRow` | `imports` | `StoreToCloud` | `StoreWins` | Follows its batch; rewritten at validate, commit and rollback, all on the owning node |

@@ -44,6 +44,21 @@ public sealed class SalesPermissions : IModulePermissions
     /// <summary>Complete a return: refund the money, put the stock back, raise the financial event.</summary>
     public const string ReturnComplete = "sales.return.complete";
 
+    /// <summary>Create, issue, accept, reject and expire quotes.</summary>
+    public const string QuoteManage = "sales.quote.manage";
+
+    /// <summary>View quotes.</summary>
+    public const string QuoteView = "sales.quote.view";
+
+    /// <summary>Create, finalize and cancel invoices.</summary>
+    public const string InvoiceManage = "sales.invoice.manage";
+
+    /// <summary>View invoices.</summary>
+    public const string InvoiceView = "sales.invoice.view";
+
+    /// <summary>View sales analytics and reports.</summary>
+    public const string AnalyticsView = "sales.analytics.view";
+
     /// <inheritdoc />
     public string Module => "sales";
 
@@ -57,6 +72,11 @@ public sealed class SalesPermissions : IModulePermissions
         new(PermissionKey.Parse(ReturnView), "See returns and the price override log."),
         new(PermissionKey.Parse(ReturnRaise), "Raise a return against a completed sale."),
         new(PermissionKey.Parse(ReturnComplete), "Complete a return and refund the money.", IsHighRisk: true),
+        new(PermissionKey.Parse(QuoteManage), "Create, issue, accept and expire quotes.", IsHighRisk: true),
+        new(PermissionKey.Parse(QuoteView), "View quotes."),
+        new(PermissionKey.Parse(InvoiceManage), "Create, finalize and cancel invoices.", IsHighRisk: true),
+        new(PermissionKey.Parse(InvoiceView), "View invoices."),
+        new(PermissionKey.Parse(AnalyticsView), "View sales analytics and reports."),
     ];
 }
 
@@ -87,7 +107,7 @@ public sealed class SalesModuleManifest : IModuleManifest
     public string LicenceFlag => "sales";
 
     /// <inheritdoc />
-    public string Description => "Sales management — price lists, promotions, returns and price overrides.";
+    public string Description => "Sales management — price lists, promotions, returns, quotes, invoices and analytics.";
 
     /// <inheritdoc />
     public bool IsCore => false;

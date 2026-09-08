@@ -88,7 +88,33 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Registry/SagaCoordinator.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
-            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs");
+            "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
+            // Stage 08c. Neither file is a handler. ReservationService owns the serialisable,
+            // single-company transaction a hold requires (ADR-102): the pipeline transaction is
+            // ReadCommitted on the ambient context, while a hold must lock its position row and
+            // re-check availability on the acting company's own context. GroupAvailabilityRelay
+            // owns the registry-side transaction that publishes and heals the projection — the
+            // registry is a separate database with a separate boundary, like the lifecycle and
+            // migration operations above. SourcingCommitService owns the registry-side
+            // transaction for the sourcing saga (one intent, one SaveChanges); the company
+            // legs save inside their own scopes through the gateway.
+            // ServiceScopeCompanyGateway is an infrastructure gateway (not a handler) that
+            // opens one company-scope per leg and commits that scope's transaction directly —
+            // the pipeline's transaction stays empty because the handler only calls the
+            // ISourcingCommitService.
+            "src/VumaRetail.Infrastructure/Inventory/ReservationService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/GroupAvailabilityRelay.cs",
+            "src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs",
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // Stage 10c. Same standing as the sourcing saga: InvoiceIssuingService owns the
+            // registry-side transaction for the invoice-issue saga (one intent, one SaveChanges)
+            // and each company leg posts inside its own scope and commits that scope's own
+            // serialisable transaction (ADR-102) — the pipeline's transaction stays empty because
+            // GenerateInvoicesFromOrderCommandHandler only calls IInvoiceIssuingService.
+            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs",
+            // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
+            // owns its own saga transaction; the handler's pipeline transaction stays empty.
+            "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");
 
         Assert.True(violations.Count == 0, $"""
             Something outside the pipeline commits the unit of work. The exemptions are

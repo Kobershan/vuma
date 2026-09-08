@@ -5,6 +5,8 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Inventory.Permissions;
+using VumaRetail.Infrastructure.Inventory;
+using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -50,6 +52,27 @@ public static class InventoryServiceCollectionExtensions
         services.AddScoped<IStockTransferRepository, StockTransferRepository>();
         services.AddScoped<IStocktakeRepository, StocktakeRepository>();
 
+        // Stage 08c: availability and reservations.
+        services.AddScoped<IStockReservationRepository, StockReservationRepository>();
+        services.AddScoped<IAvailableBalanceRepository, AvailableBalanceRepository>();
+        services.AddScoped<IReservationService, ReservationService>();
+        services.AddScoped<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IStagingQuantityReader>(provider =>
+            new EfStagingQuantityReader(provider.GetRequiredService<VumaRetailDbContext>()));
+        services.AddScoped<IGroupAvailabilityPublisher, RegistryAvailabilityPublisher>();
+        services.AddScoped<IRegistryAvailabilityReader, RegistryAvailabilityReader>();
+        services.AddScoped<GroupAvailabilityRelay>();
+        services.Configure<GroupAvailabilityOptions>(_ => { });
+
+        // Stage 08c: sourcing and split fulfilment.
+        services.AddScoped<ICompanySourcingStrategy, AvailabilityThenProximityStrategy>();
+        services.AddScoped<ISourcingPlanner, SourcingPlanner>();
+        services.AddScoped<ISplitDocumentBuilder, SplitDocumentBuilder>();
+        services.AddScoped<ISourcingCommitService, SourcingCommitService>();
+        services.AddScoped<ISourcingCompanyGateway, ServiceScopeCompanyGateway>();
+        services.AddScoped<IReservationExpiryPolicy, RegistryReservationExpiryPolicy>();
+        services.AddScoped<ISourcingIntentReader, SourcingIntentReader>();
+
         services.AddScoped<IStockKeepingUnitResolver, StockKeepingUnitResolver>();
         services.AddScoped<IStockLedgerPoster, StockLedgerPoster>();
 
@@ -65,6 +88,24 @@ public static class InventoryServiceCollectionExtensions
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, InventoryPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, InventoryModuleManifest>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the reservation expiry sweep — the job that lapses due holds on a schedule.
+    /// </summary>
+    /// <param name="services">The container.</param>
+    /// <param name="host">The tenant and store this host's background pass runs as.</param>
+    /// <returns>The container, for chaining.</returns>
+    public static IServiceCollection AddVumaReservationExpiry(
+        this IServiceCollection services, InventoryHostTenant host)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(host);
+
+        services.AddSingleton(host);
+        services.AddHostedService<ReservationExpiryHostedService>();
 
         return services;
     }

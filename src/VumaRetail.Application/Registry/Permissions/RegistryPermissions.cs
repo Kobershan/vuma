@@ -40,6 +40,12 @@ public sealed class RegistryPermissions : IModulePermissions
     /// <summary>View consolidated reports.</summary>
     public const string GroupReportConsolidated = "registry.report.consolidated";
 
+    /// <summary>View group availability across linked companies (Stage 08c).</summary>
+    public const string GroupAvailabilityView = "registry.availability.view";
+
+    /// <summary>View group sales analytics across companies — stale planning figures, never commits (Stage 10c).</summary>
+    public const string GroupAnalyticsView = "registry.analytics.view";
+
     /// <inheritdoc />
     public string Module => "registry";
 
@@ -59,6 +65,8 @@ public sealed class RegistryPermissions : IModulePermissions
         new(PermissionKey.Parse(GroupPaymentCapture), "Capture a group payment run."),
         new(PermissionKey.Parse(GroupPaymentAllocate), "Allocate a group payment run to a company."),
         new(PermissionKey.Parse(GroupReportConsolidated), "View consolidated reports."),
+        new(PermissionKey.Parse(GroupAvailabilityView), "View group availability across linked companies."),
+        new(PermissionKey.Parse(GroupAnalyticsView), "View group sales analytics across companies."),
     ];
 }
 

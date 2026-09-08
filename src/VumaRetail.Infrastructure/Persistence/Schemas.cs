@@ -141,4 +141,15 @@ public static class Schemas
     /// the daily metering rollup, the same way every schema since <see cref="Pos"/> does.
     /// </remarks>
     public const string Orders = "orders";
+
+    /// <summary>
+    /// Customer credit accounts, lay-by agreements and stokvels — money held on behalf of
+    /// customers. Stage 10b (ADR-055).
+    /// </summary>
+    /// <remarks>
+    /// Its own schema rather than a subdivision of <see cref="Sales"/> or <see cref="Finance"/>:
+    /// a lay-by is neither a sale nor a journal, and its liability balances reconcile to control
+    /// accounts like every other sub-ledger rather than living inside one.
+    /// </remarks>
+    public const string CustomerAccounts = "customer_accounts";
 }
