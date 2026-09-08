@@ -346,7 +346,11 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Build the full solution including the Windows-only Desktop projects
+      # Build the full solution including the Windows-only Desktop projects.
+      # Restore first: this job runs on a fresh runner with no shared artifacts from build.
+      - name: Restore
+        run: dotnet restore VumaRetail.sln
+
       - name: Build full solution
         run: dotnet build VumaRetail.sln -c Release --no-restore
 
