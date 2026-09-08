@@ -2461,3 +2461,33 @@ a terminal-location mapping (rather than first-by-code) is a later stage. Legs c
 dispatcher when it lands (same note 08c/10c carry): legs execute inline today. Per-company `INV`
 sequences both start at INV-000001 — prefixed sequences (NG-INV-…) are a numbering-policy follow-up, and
 the return guard compares invoice identity by company first, number second.
+
+## ADR-146 — The tokens schema and component registry follow the generator and the Controls tree — **PROPOSED**
+**Context.** The 08b verification tests asserted a tokens.json schema (`type`, `touchTargets`) and a
+single-file component registry (`ComponentStubs.cs`) that the product had already outgrown: the
+TokenGenerator revision settled on `typography` (with nested `scale`) and singular `touchTarget`, and
+`TillLineListControl`/`StatTile` graduated to real files — while the tests still asserted the old shape.
+Main went red and stayed red; the tests never passed on main.
+**Decision.** The generator-consumed keys are the contract (`color` with light/dark, `typography` with
+`scale`, `spacing`, `radius`, `motion`, `touchTarget`) — each load-bearing by construction, since a
+missing key throws at generation time. Component coverage scans the whole `Controls/` tree, so a stub's
+graduation no longer breaks the build; the genuinely missing `ChartSetControl` (§7 names a chart set)
+was added as a stub. The sweep keeps its must-be-present list for loadable assemblies and gains a
+source-scanned `Desktop_declares_no_commands` companion: the Windows-only shells cannot load on Linux CI
+(ADR-031) and the test project does not reference them, so presence was unachievable on any OS — the
+companion fails the day a handler lands in either shell unwired.
+**Consequences.** The duplicate `StatTile` (root + `Display/` namespaces) stays: Windows-only code this
+machine cannot compile-test is not unified blind. `colour`/`elevation`/`theme`/`fonts` keys exist but are
+not generator-read; asserting them would pin decoration, not contract.
+
+## ADR-147 — `FindOpenAsync` is chain-aware: openness is the absence of a terminal row — **PROPOSED**
+**Context.** A reservation row's born-state stays `Held` forever, so the seq-0 row of a closed chain
+still matches a bare state filter. Closing it again appended a second terminal row next to the first
+(hold → consume → hold → release-the-first: the stale release zeroed the live hold's availability and
+left one chain with two terminal rows). The balance check usually masks this (ApplyClose throws when
+reserved is short) — except exactly when a later hold restored the balance, which is when the corruption
+is real.
+**Decision.** `FindOpenAsync` anti-joins terminal rows; a close against a closed chain now refuses with
+the chain-closed error instead of writing. Regression test refreshes the exact worked example.
+**Consequences.** Callers that relied on re-closing (none found — the only caller is CloseOnce) keep
+working; 09b's compensation keeps its own anti-join as defense in depth rather than exception flow.

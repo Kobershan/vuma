@@ -215,10 +215,17 @@ public sealed class StockReservationRepository(VumaRetailDbContext context) : IS
 {
     /// <inheritdoc />
     public Task<StockReservation?> FindOpenAsync(Guid reservationId, CancellationToken cancellationToken = default)
-        => context.StockReservations.FirstOrDefaultAsync(
-            reservation => reservation.ReservationId == reservationId
-                && reservation.State == ReservationState.Held,
-            cancellationToken);
+        // Chain-aware: a row's born-state stays Held forever, so the seq-0 row of a closed chain
+        // still matches a bare state filter. Openness is the absence of a terminal row — without
+        // the anti-join, closing an already-closed chain appends a bogus second terminal row
+        // instead of refusing (found by Stage 09b compensation, which filters the same way).
+        => context.StockReservations
+            .Where(reservation => reservation.ReservationId == reservationId
+                && reservation.State == ReservationState.Held
+                && !context.StockReservations.Any(terminal =>
+                    terminal.ReservationId == reservationId
+                    && terminal.State != ReservationState.Held))
+            .FirstOrDefaultAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<StockReservation>> ListChainAsync(

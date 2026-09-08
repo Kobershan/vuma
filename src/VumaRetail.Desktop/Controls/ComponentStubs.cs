@@ -506,6 +506,18 @@ public class SparklineControl : VumaControl
     }
 }
 
+/// <summary>Chart set: the DESIGN_SYSTEM.md §7 chart family (bar/line/donut) sharing one theme.</summary>
+public class ChartSetControl : VumaControl
+{
+    public ChartSetControl()
+    {
+        Background = GetSurfaceBaseBrush();
+        Foreground = GetTextPrimaryBrush();
+        AutomationProperties.Name = "Chart set";
+        AutomationProperties.ControlType = ControlType.Custom;
+    }
+}
+
 /// <summary>Avatar.</summary>
 public class AvatarControl : VumaControl
 {

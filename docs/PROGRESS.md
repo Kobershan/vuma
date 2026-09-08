@@ -487,15 +487,25 @@ and recreates the shared template on every `InitializeAsync`.
 note rather than a code fix: **a session running the suite alongside another must set both.** This
 session used port 55433 and `~/.cache/vuma-test-pg` for exactly that reason.
 
-### 4.27 Four architecture tests red on `main`, all Stage 08b-owned — CI `Architecture tests` job failing — **OPEN, found 2026-09-08 during Stage 10b re-verification**
+### 4.27 Four architecture tests red on `main`, all Stage 08b-owned — CI `Architecture tests` job failing — **RESOLVED 2026-09-08 (design-system reconciliation, ADR-146)**
 
-Re-verifying Stage 10b on a clean `main` reproduced 4/76 architecture failures locally
-*and* in CI run `34260090437` (same 4, same assertions). None touches 10b code; all four
-are Stage 08b design-system/Desktop scope, and `main`'s CI has been red on them for the
-last five pushes (runs `34212838559` → `34260090437`). The 10b-relevant guards
-(Finance/Pipeline/Persistence/MultiCompany/TradingGroup/Licence, 18 tests) all pass,
-and the CI `Test` + `Migration check` jobs are green — so this blocks a green pipeline,
-not Stage 10b's correctness.
+Root-caused, not patched over: the tests asserted a world the product had already left. (1) The tokens
+test asserted the pre-generator schema (`type`, `touchTargets`); the TokenGenerator revision (c755cb3)
+settled on `typography`+nested `scale` and singular `touchTarget`, and the whole pipeline (generator,
+WPF/Android outputs, determinism check) runs on the new schema — so the test now asserts exactly the
+generator-consumed keys, each load-bearing by construction. (2)/(3) The component tests asserted every
+class inside `ComponentStubs.cs`, but `TillLineListControl`/`StatTile` had graduated to real files (the
+hex-scan exclusion list already knew); both tests now scan the whole `Controls/` tree, and the genuinely
+missing `ChartSetControl` (§7 names a chart set) was added as a stub. (4) The sweep demanded two
+assemblies the test project does not reference and cannot load on Linux (ADR-031) — unachievable on any
+OS; the list now covers the loadable modules and a source-scanned `Desktop_declares_no_commands`
+companion fails the day a handler lands in either shell unwired (neither shell has one today — verified).
+Architecture suite: 77/77 green, CI `Architecture tests` job green.
+
+As found (2026-09-08, during the Stage 10b re-verification): 4/76 failures reproduced locally
+*and* in CI run `34260090437` (same 4, same assertions), red for the five pushes
+`34212838559` → `34260090437`. None touched 10b code; all four were Stage 08b
+design-system/Desktop scope.
 
 1. `ThemeDesignRulesTests.Tokens_json_contains_all_required_sections` — expects
    `"type"`, `"scale"`, `"touchTargets"` keys; `design/tokens.json` now carries
@@ -512,12 +522,21 @@ not Stage 10b's correctness.
    `VumaRetail.Desktop.Gallery` (net9.0-windows) are not reached by the discovery walk
    on the Linux CI runner, so the sweep omits them there.
 
-Fix direction (for the 08b follow-up session, not 10b): decide whether the stub file
-is a registry the refactor must keep in sync (add the moved classes back as stubs or
-repoint the tests at the real files), reconcile `tokens.json` against the test's
-expected keys via `DESIGN_SYSTEM.md`, and make Desktop/Gallery sweep membership
-loadable on Linux or explicitly exempted with a reason. Do not silence these by
-deleting assertions without an ADR.
+Resolution (above): generator-grounded keys, tree-scanned components, ChartSet stub, sweep
+invariant replaced with the no-commands companion. Nothing silenced without an ADR (ADR-146).
+
+### 4.28 `FindOpenAsync` was not chain-aware — closing a closed chain appended a second terminal row — **FOUND and FIXED 2026-09-08 (ADR-147)**
+
+A reservation row's born-state stays `Held` forever, so the seq-0 row of a closed chain still
+matched a bare state filter. Worked example (proven by the new regression test, which fails
+without the fix and passes with it): hold 6, consume it, hold 6 again, then release the FIRST
+hold — the stale release zeroed the live hold's availability and left one chain with two
+terminal rows. The balance check usually masks this (ApplyClose throws when reserved runs
+short) — except exactly when a later hold restored the balance, which is when the corruption
+is real. Fix: `FindOpenAsync` anti-joins terminal rows, so a close against a closed chain
+refuses with the chain-closed error. Only caller is CloseOnce; 09b's compensation keeps its
+own anti-join as defense in depth rather than exception flow. Reservation suite green
+(incl. the new test).
 
 ### 4.26 Imports: `RollbackImportBatchCommand` lacks the idempotency branch its sibling `Commit` has — **OPEN, LOW, found in Stage 11 (2026-08-23 review)**
 

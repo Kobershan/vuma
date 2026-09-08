@@ -87,6 +87,48 @@ public sealed class ReservationLedgerTests
     }
 
     [Fact]
+    public async Task Releasing_an_already_consumed_hold_refuses_instead_of_appending_a_second_terminal_row()
+    {
+        // Chain-awareness (Stage 09b fix): a row's born-state stays Held forever, so the seq-0 row
+        // of a consumed chain still matches a bare state filter. Releasing it must refuse with the
+        // chain-closed error — not append a Released row next to the Consumed one while zeroing a
+        // reservation balance another hold now owns. Worked example: hold 6, consume it (reserved
+        // 0), hold 6 again (reserved 6), then release the FIRST hold: the naive close zeroes the
+        // second hold's availability and leaves one chain with two terminal rows.
+        await using var harness = await AvailabilityHarness.CreateAsync(_fixture).ConfigureAwait(false);
+        await harness.ReceiveAsync(10m).ConfigureAwait(false);
+        IReservationService reservations = harness.CreateService();
+        Guid orderId = Guid.NewGuid();
+
+        ReserveOutcome first = await reservations.ReserveAsync(
+            harness.LocationId, harness.ItemId, null,
+            new Quantity(6m, "EA"),
+            ReservationSource.Order, orderId).ConfigureAwait(false);
+        await reservations.ConsumeAsync(first.ReservationId!.Value, Guid.NewGuid()).ConfigureAwait(false);
+
+        ReserveOutcome second = await reservations.ReserveAsync(
+            harness.LocationId, harness.ItemId, null,
+            new Quantity(6m, "EA"),
+            ReservationSource.Order, orderId).ConfigureAwait(false);
+
+        Func<Task> staleRelease = () => reservations.ReleaseAsync(first.ReservationId!.Value, "stale compensation");
+        await staleRelease.Should().ThrowAsync<InventoryRuleException>().ConfigureAwait(false);
+
+        // The second hold stands untouched: still open, availability still held.
+        (await harness.ReadAvailableAsync().ConfigureAwait(false)).Should().Be(4m);
+
+        await using var check = harness.OpenCompanyDb();
+        int terminalRows = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
+            check.StockReservations.Where(reservation =>
+                reservation.ReservationId == first.ReservationId!.Value
+                && reservation.State != ReservationState.Held)).ConfigureAwait(false);
+        terminalRows.Should().Be(1, "one chain, one terminal row");
+
+        // Cleanup: release the live hold so the ledger ends balanced.
+        await reservations.ReleaseAsync(second.ReservationId!.Value, "test cleanup").ConfigureAwait(false);
+    }
+
+    [Fact]
     public async Task Two_concurrent_orders_for_the_last_five_units_yield_one_winner_and_one_backorder()
     {
         // Genuinely parallel transactions on two connections: a barrier starts both at once, and

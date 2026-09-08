@@ -14,6 +14,13 @@ public sealed class ModuleAssembliesTests
         // The two assemblies whose absence caused §4.16 and would cause the next one. Named
         // explicitly on top of the derivation, so that a change to the discovery logic that quietly
         // dropped a module fails here rather than in production two stages later.
+        //
+        // VumaRetail.Desktop and VumaRetail.Desktop.Gallery are deliberately NOT on this list:
+        // this project does not reference them (net9.0-windows cannot build or load on the Linux
+        // CI runner, ADR-031), so no reference walk from here can ever reach them on any OS. Their
+        // absence from the sweep is safe if and only if they declare no commands — asserted by
+        // Desktop_declares_no_commands below, which fails the day someone adds a handler there
+        // without wiring the sweep. See docs/PROGRESS.md §4.27.
         string[] mustBePresent =
         [
             "VumaRetail.Application",
@@ -22,8 +29,6 @@ public sealed class ModuleAssembliesTests
             "VumaRetail.Licensing",
             "VumaRetail.Sync",
             "VumaRetail.Imports",
-            "VumaRetail.Desktop",
-            "VumaRetail.Desktop.Gallery",
         ];
 
         string[] present = [.. ModuleAssemblies.All.Select(assembly => assembly.GetName().Name!)];
@@ -36,6 +41,43 @@ public sealed class ModuleAssembliesTests
 
             Missing: {string.Join(", ", missing)}
             Swept:   {string.Join(", ", present)}
+            """);
+    }
+
+    [Fact]
+    public void Desktop_declares_no_commands()
+    {
+        // The companion to Every_module_assembly_is_swept: the Windows-only shells sit outside the
+        // sweep (see above), which is only sound while they contain no ICommandHandler. Scanned as
+        // source — the assemblies cannot load here — so a handler added to either shell fails this
+        // test on every OS rather than slipping past the sweep silently.
+        List<string> offenders = [];
+
+        foreach (string project in new[] { "VumaRetail.Desktop", "VumaRetail.Desktop.Gallery" })
+        {
+            string dir = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", project);
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
+
+            foreach (string file in Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories))
+            {
+                string text = File.ReadAllText(file);
+                if (text.Contains("ICommandHandler<", StringComparison.Ordinal)
+                    || text.Contains("IQueryHandler<", StringComparison.Ordinal))
+                {
+                    offenders.Add(Path.GetRelativePath(SolutionSource.RepositoryRoot.FullName, file));
+                }
+            }
+        }
+
+        Assert.True(offenders.Count == 0, $"""
+            A Windows-only shell declares a command or query handler outside every reflection sweep
+            (ADR-078). Either move the handler into a swept assembly or wire the shell into the
+            sweep with a Windows-runner architecture job.
+
+            {string.Join(Environment.NewLine, offenders.Select(name => $"  - {name}"))}
             """);
     }
 

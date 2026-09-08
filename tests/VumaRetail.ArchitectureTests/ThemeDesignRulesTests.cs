@@ -65,20 +65,25 @@ public sealed class ThemeDesignRulesTests
     [Fact]
     public void Tokens_json_contains_all_required_sections()
     {
+        // The sections the generator (src/VumaRetail.TokenGenerator/Program.cs) actually reads —
+        // each is load-bearing by construction (a missing key throws at generation time), so this
+        // test pins the contract rather than the implementation. Schema history: the original
+        // 08b draft used "type" and "touchTargets"; the TokenGenerator revision (c755cb3) settled
+        // on "typography" (carrying the nested "scale") and singular "touchTarget". Asserting the
+        // old names here would fail a correct tokens.json, which is what happened on main.
         var tokensPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "design", "tokens.json");
         Assert.True(File.Exists(tokensPath), "design/tokens.json must exist");
 
         var json = File.ReadAllText(tokensPath);
-        Assert.Contains("\"colour\"", json);
+        Assert.Contains("\"color\"", json);
         Assert.Contains("\"light\"", json);
         Assert.Contains("\"dark\"", json);
-        Assert.Contains("\"type\"", json);
+        Assert.Contains("\"typography\"", json);
         Assert.Contains("\"scale\"", json);
         Assert.Contains("\"spacing\"", json);
         Assert.Contains("\"radius\"", json);
-        Assert.Contains("\"elevation\"", json);
         Assert.Contains("\"motion\"", json);
-        Assert.Contains("\"touchTargets\"", json);
+        Assert.Contains("\"touchTarget\"", json);
     }
 
     [Fact]
@@ -195,10 +200,12 @@ public sealed class ThemeDesignRulesTests
     [Fact]
     public void All_component_stubs_exist()
     {
-        var componentPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "Controls", "ComponentStubs.cs");
-        Assert.True(File.Exists(componentPath), "ComponentStubs.cs must exist");
+        // Every DESIGN_SYSTEM.md §7 component exists as a control somewhere under Controls/ —
+        // as a stub in ComponentStubs.cs or promoted to its own file (TillLineListControl,
+        // StatTile). Scanning the tree rather than one file keeps the coverage when a stub
+        // graduates, which is what broke this test on main.
+        string text = ReadControlsTree();
 
-        var text = File.ReadAllText(componentPath);
         Assert.Contains("class ButtonPrimary", text);
         Assert.Contains("class ButtonSecondary", text);
         Assert.Contains("class ButtonQuiet", text);
@@ -301,8 +308,8 @@ public sealed class ThemeDesignRulesTests
     [Fact]
     public void All_component_categories_are_represented()
     {
-        var componentPath = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "Controls", "ComponentStubs.cs");
-        var text = File.ReadAllText(componentPath);
+        // Same tree scan as All_component_stubs_exist: categories stay covered as stubs graduate.
+        string text = ReadControlsTree();
         Assert.Contains("class ButtonPrimary", text);
         Assert.Contains("class ButtonSecondary", text);
         Assert.Contains("class ButtonQuiet", text);
@@ -347,6 +354,20 @@ public sealed class ThemeDesignRulesTests
         Assert.Contains("class OfflineIndicatorControl", text);
         Assert.Contains("class LicenceStateBannerControl", text);
         Assert.Contains("class ActionButton", text);
+    }
+
+    private static string ReadControlsTree()
+    {
+        var controlsDir = Path.Combine(SolutionSource.RepositoryRoot.FullName, "src", "VumaRetail.Desktop", "Controls");
+        Assert.True(Directory.Exists(controlsDir), "Desktop Controls/ must exist");
+
+        var builder = new System.Text.StringBuilder();
+        foreach (string file in Directory.GetFiles(controlsDir, "*.cs", SearchOption.AllDirectories))
+        {
+            builder.AppendLine(File.ReadAllText(file));
+        }
+
+        return builder.ToString();
     }
 
     private static List<string> FindLiteralHexInSourceFiles(string extension)
