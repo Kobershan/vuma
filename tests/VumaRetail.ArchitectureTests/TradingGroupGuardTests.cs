@@ -14,9 +14,9 @@ namespace VumaRetail.ArchitectureTests;
 /// </para>
 /// <para>
 /// Entry points in stages not yet built (07c group receipting, 13b
-/// wave building, 09b basket lines, 07c consolidated reporting) register their rows when those
-/// stages land; <c>docs/TRADING_GROUP.md</c> §2 is the checklist. Stage 08c's commit registered
-/// its row on landing.
+/// wave building, 07c consolidated reporting) register their rows when those
+/// stages land; <c>docs/TRADING_GROUP.md</c> §2 is the checklist. Stage 08c's commit and
+/// Stage 09b's completion registered their rows on landing.
 /// </para>
 /// </remarks>
 public sealed class TradingGroupGuardTests
@@ -27,6 +27,7 @@ public sealed class TradingGroupGuardTests
         ("src/VumaRetail.Infrastructure/Registry/TradingGroupServices.cs", "AddOccupancyAsync", "SharedFloor"),
         ("src/VumaRetail.Infrastructure/Inventory/SourcingCommitService.cs", "CommitAsync", "SharedSourcing"),
         ("src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs", "IssueAsync", "SharedSourcing"),
+        ("src/VumaRetail.Infrastructure/Registry/MixedBasketCompletionService.cs", "CompleteAsync", "SharedTill"),
     ];
 
     [Fact]

@@ -336,15 +336,21 @@ internal sealed class StockReservationConfiguration : EntityConfiguration<StockR
         // on the leg's key — so the key covers the line's identity, not the chain sequence.
         // Split in two like every other per-SKU unique in this schema, because PostgreSQL treats
         // NULLs as distinct and one index over both nullable columns would not collide with itself.
+        // Partial on live holds (Stage 09b fix): the terminal row that closes a chain carries the
+        // same key by design (it IS that hold's history), and a full index makes every
+        // intent-keyed hold unconsumable, unreleasable and unexpirable — CloseOnce always dies on
+        // its own hold's key. Replay safety is unchanged: an open hold still collides, and a
+        // resumed leg whose chain already closed replays from its stored documents, never by
+        // re-holding (MixedBasketCompletionService.ExecuteAsync).
         builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemId })
             .IsUnique()
             .HasDatabaseName("ux_stock_reservations_intent_leg_item")
-            .HasFilter("intent_id IS NOT NULL AND item_id IS NOT NULL");
+            .HasFilter("intent_id IS NOT NULL AND item_id IS NOT NULL AND state = 'Held'");
 
         builder.HasIndex(reservation => new { reservation.IntentId, reservation.LegId, reservation.LocationId, reservation.ItemVariantId })
             .IsUnique()
             .HasDatabaseName("ux_stock_reservations_intent_leg_variant")
-            .HasFilter("intent_id IS NOT NULL AND item_variant_id IS NOT NULL");
+            .HasFilter("intent_id IS NOT NULL AND item_variant_id IS NOT NULL AND state = 'Held'");
 
         builder.ToTable(table =>
         {

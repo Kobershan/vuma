@@ -32,6 +32,7 @@ using VumaRetail.Web.Registry;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.TradingSessions;
 using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Warehouse;
 
@@ -139,6 +140,12 @@ builder.Services.AddVumaSales();
 // The scheduled passes are registered separately: they need the installation tenant.
 builder.Services.AddVumaCustomerAccounts();
 builder.Services.AddVumaCustomerAccountsScheduling(new CustomerAccountsHostTenant(host.TenantId, host.StoreId));
+
+// Stage 09b. The mixed basket: one till, two companies' books. After AddVumaPos (tender
+// vocabulary), AddVumaSales (tax invoices, returns), AddVumaFinance (company-bound posting
+// engine per leg), AddVumaInventory (reservations) and the 06e/06d registry services (links,
+// routing index, saga intents).
+builder.Services.AddVumaTradingSessions();
 
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
@@ -276,6 +283,7 @@ app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaCustomerAccounts();
 app.MapVumaStokvels();
+app.MapTradingSessions();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();

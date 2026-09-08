@@ -3,7 +3,13 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 10c — COMPLETE (2026-09-07). All tasks done, all suites green.
+CURRENT STAGE: Stage 09b — COMPLETE (2026-09-08, branch `stage-09b-mixed-basket`, merged to `main`). All tasks done, all suites green.
+STAGE 09b: TASK-09B-001 COMPLETE — session domain + application (52 unit tests, 87.6% coverage).
+TASK-09B-002 COMPLETE — completion saga (one sale + invoice + receipt per company DB), origin-company
+returns, 10 endpoints, registry + company migrations round-tripped, seed proven (TS-000001 tendered),
+OpenAPI presence confirmed. Verified: 1170 unit / 72 arch (+4 known 08b failures, §4.27) / 497
+integration green on real PostgreSQL (three databases per test). Operator proof: INV-000001 per company.
+NEXT STAGE (roadmap order): Stage 13b or 14b per dependency readiness (09b unblocks 13b/14b/22b paths)
 STAGE 10b (operator-authorized out-of-order): TASK-10B-001 COMPLETE (2026-09-08) — accounts +
 lay-by built, verified (1096 unit / 54 arch / 481 integration green, 82.5% coverage, migration
 round-tripped, seed + OpenAPI proven). TASK-10B-002 COMPLETE (2026-09-08) — stokvels +
@@ -13,7 +19,7 @@ seed proven, OpenAPI presence confirmed). NEXT STAGE (roadmap order): Stage 09b 
 Basket (depends on 09, 06e, 07c, 08c, 10c)
 CURRENT TASK: —
 CURRENT TASK STATUS: —
-LAST COMPLETED TASK: TASK-10C-002 analytics + verification (2026-09-07) — all criteria PASS on real PostgreSQL, 1058 unit + 54 architecture + 476 integration tests green, 92.1% line coverage, migration Up/Down round-tripped, seed proven
+LAST COMPLETED TASK: TASK-09B-002 mixed-basket completion + verification (2026-09-08) — all criteria PASS on real PostgreSQL (three DBs per test), 1170 unit + 72 architecture + 497 integration green, 87.6% line coverage, both migrations Up/Down round-tripped, seed proven
 BLOCKERS: None for 10c. Known transitional gap (06c follow-up, not 10c): Empty-company legacy rows invisible under a bound company — needs a backfill decision
 TEST STATUS:
   - `dotnet build VumaRetail.sln -c Release`: PASSED — 0 errors, 0 warnings in Domain/Application

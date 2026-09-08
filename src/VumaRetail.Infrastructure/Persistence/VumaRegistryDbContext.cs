@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Domain.Registry.Trading;
 using VumaRetail.Infrastructure.Persistence.Configurations;
 
 namespace VumaRetail.Infrastructure.Persistence;
@@ -52,6 +53,12 @@ public sealed class VumaRegistryDbContext(
 
     // Stage 08c: per-tenant reservation expiry policy (absent rows mean the stage defaults).
     public DbSet<ReservationExpiryPolicyRow> ReservationExpiryPolicies => Set<ReservationExpiryPolicyRow>();
+
+    // Stage 09b: mixed-basket trading sessions — the registry coordination record. Posting
+    // happens per company; this is the basket, its per-company segments and its scanned lines.
+    public DbSet<TradingSession> TradingSessions => Set<TradingSession>();
+    public DbSet<TradingSessionSegment> TradingSessionSegments => Set<TradingSessionSegment>();
+    public DbSet<TradingSessionLine> TradingSessionLines => Set<TradingSessionLine>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -495,6 +502,98 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.UpdatedAt).IsRequired();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
+        modelBuilder.Entity<TradingSession>(builder =>
+        {
+            builder.ToTable("trading_sessions", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.SessionCompanyId).IsRequired();
+            builder.Property(x => x.SessionNumber).HasMaxLength(32).IsRequired();
+            builder.Property(x => x.PremisesId).IsRequired();
+            builder.Property(x => x.TerminalId).IsRequired();
+            builder.Property(x => x.CashierUserId).IsRequired();
+            builder.Property(x => x.CustomerGroupPartnerId);
+            builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            builder.Property(x => x.IdempotencyKey).HasMaxLength(128).IsRequired();
+            builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+            builder.Property(x => x.TenderType).HasMaxLength(32);
+            builder.Property(x => x.TenderAmountValue).HasColumnType("numeric(18,4)");
+            builder.Property(x => x.TenderAmountCurrency).HasMaxLength(3).IsFixedLength();
+            builder.Ignore(x => x.TenderAmount);
+            builder.Property(x => x.TenderReference).HasMaxLength(128);
+            builder.Property(x => x.FailureReason).HasMaxLength(500);
+            builder.Property(x => x.UnwoundInvoicesJson).HasMaxLength(2000).IsRequired();
+            builder.Ignore(x => x.UnwoundInvoiceNumbers);
+            builder.Property(x => x.OpenedAt).IsRequired();
+            builder.Property(x => x.TenderedAt);
+            builder.Property(x => x.CompletedAt);
+            builder.Property(x => x.VoidedAt);
+            builder.Property(x => x.VoidReason).HasMaxLength(500);
+            builder.HasMany(x => x.Segments).WithOne().HasForeignKey(s => s.SessionId);
+            builder.Ignore(x => x.Gross);
+            builder.Ignore(x => x.IsOpen);
+            builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.SessionNumber }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<TradingSessionSegment>(builder =>
+        {
+            builder.ToTable("trading_session_segments", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.SessionId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+            builder.Property(x => x.TenderAllocationAmount).HasColumnType("numeric(18,4)");
+            builder.Property(x => x.TenderAllocationCurrency).HasMaxLength(3).IsFixedLength();
+            builder.Ignore(x => x.TenderAllocation);
+            builder.Property(x => x.AllocationBasis).HasMaxLength(256);
+            builder.Property(x => x.ResultingSaleId);
+            builder.Property(x => x.ResultingInvoiceId);
+            builder.Property(x => x.ResultingInvoiceNumber).HasMaxLength(32);
+            builder.Property(x => x.IsRemoved).IsRequired();
+            builder.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.SegmentId);
+            builder.Ignore(x => x.LiveLines);
+            builder.Ignore(x => x.Net);
+            builder.Ignore(x => x.Tax);
+            builder.Ignore(x => x.Gross);
+            builder.HasIndex(x => new { x.TenantId, x.SessionId });
+            builder.HasIndex(x => new { x.TenantId, x.SessionId, x.CompanyId }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<TradingSessionLine>(builder =>
+        {
+            builder.ToTable("trading_session_lines", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.SessionId).IsRequired();
+            builder.Property(x => x.SegmentId).IsRequired();
+            builder.Property(x => x.CompanyId).IsRequired();
+            builder.Property(x => x.Barcode).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.ItemId);
+            builder.Property(x => x.ItemVariantId);
+            builder.Property(x => x.Description).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.QuantityValue).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.QuantityUom).HasMaxLength(16).IsRequired();
+            builder.HasMoney(x => x.UnitPrice, "unit_price");
+            builder.HasMoney(x => x.DiscountAmount, "discount");
+            builder.Property(x => x.TaxCode).HasMaxLength(32).IsRequired();
+            builder.HasMoney(x => x.TaxAmount, "tax");
+            builder.HasMoney(x => x.Net, "net");
+            builder.Ignore(x => x.Gross);
+            builder.Property(x => x.PackSizeDescription).HasMaxLength(128).IsRequired();
+            builder.Property(x => x.PriceListId);
+            builder.Property(x => x.IsVoided).IsRequired();
+            builder.Property(x => x.AddedAt).IsRequired();
+            builder.Property(x => x.VoidedAt);
+            builder.HasIndex(x => new { x.TenantId, x.SegmentId });
+            builder.HasIndex(x => new { x.TenantId, x.SessionId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
 
         // Registry rows are tenant-scoped just like company-database rows. Administrative callers
         // that genuinely span tenants must open the same explicit, logged bypass scope used by the
@@ -513,6 +612,9 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<GroupAvailabilityRow>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupAvailabilityCursor>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<ReservationExpiryPolicyRow>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<TradingSession>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<TradingSessionSegment>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<TradingSessionLine>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
 
         base.OnModelCreating(modelBuilder);
     }

@@ -1437,3 +1437,73 @@ reminder escalation ladder (SMS → email → store visit) will need a new `Stok
 entity with status tracking; (4) `HamperBasketLine.SubstitutionItemId` is nullable and
 only resolved at settle time — the basket itself carries a frozen `GroupPrice` so the
 price is never recomputed.
+
+## Stage 09 audit (2026-09-08, pre-09b groundwork A1)
+
+All eight Stage 09 defects (§4.10–§4.15) verified present in code with section citations:
+idempotent replay on Add/Tender/Complete/RecordReceiptPrint (§4.11), `RequireModule("pos")` on
+all five route groups (§4.12), currency derived from the till session with mismatch refusal
+(§4.13, `Sale.Open`), single rounding on weighed lines (§4.14), `IPermissionChecker` +
+`pos.receipt.reprint` in the reprint handler (§4.15), open-session carve-out wired with 30-min
+sale / 12-hr cash-up deadlines + `ReceiptReprint` exemption (ADR-135, §4.10). POS suites green:
+332 unit + 76 integration on real PostgreSQL. Open, not started here: TASK-001 (review panel —
+no subagent capacity, same as every prior session) and TASK-002 (OpenAPI examples). The WPF till
+screen stays deferred (ADR-031).
+
+## Stage 09b — TASK-09B-001 domain + application COMPLETE (2026-09-08)
+
+`TradingSession` aggregate (Open/Tendered/Completing/Completed/Voided/CompletionFailed) +
+`TradingSessionSegment` (per-company tax/rounding, basket = sum of rounded segments) +
+`TradingSessionLine` (priced snapshots) + `TenderAllocator` (proportional, cent-exact, dust to
+the largest segment, ties by lowest company id) + coded exceptions; 7 commands (open/replay,
+add-line with routing + `SharedTill` scan-time refusal + tax/pack snapshots + line replay,
+void line/session, tender + replay, override, thin complete) + 2 queries (view, documents with
+the not-a-tax-invoice sentence); `trading.basket.mixed` / `trading.basket.override` /
+`trading.basket.void` (all high-risk, 3-segment keys per ADR-013) + manifest (module `trading`,
+flag `multicompany`, non-core). Handlers touch the registry only; the repository commits the
+registry boundary itself (the pipeline covers the company DB alone — same standing as
+`CompanyLinkService`). 52 unit tests green; 87.6% line coverage on the stage's Domain +
+Application (floor 80%).
+
+## Stage 09b — TASK-09B-002 completion saga, API + verification COMPLETE (2026-09-08)
+
+`MixedBasketCompletionService` (intent `trading-session-complete`, link re-check at completion,
+per-company serialisable legs in company order, single-segment fast path with no intent row),
+`MixedBasketReturnService` (origin-company returns, cross-company refusal naming both invoices),
+`TradingCompanyGateway`, deterministic leg ids, company-bound posting engines per leg,
+`TradingSessionRepository`, registry migration `Stage09b_TradingSessions` (3 tables, Up/Down
+round-tripped), company migration `Stage09b_ReservationIdempotencyFix` (see below), 10 endpoints
+(401/403 + OpenAPI presence proven over HTTP), `TradingGroupGuardTests` SharedTill row, seed
+(TS-000001 tendered: 2 × R59.99 milk, gross R119.98, rules `trading.session.receipt.settled` +
+`leg-reversed` seeded; the two-database split runs in integration).
+
+Verified on real PostgreSQL (throwaway cluster :55432, three databases per test — the production
+topology): unit 1170/1170; architecture 72/76 — the 4 failures are the known pre-existing 08b
+design-system/Desktop-sweep rows (§4.27), all 09b guard rows green; integration 497/497
+(12 new: 7 completion + 2 returns + 3 API). `has-pending-model-changes` clean on both contexts.
+Operator proof, from `Mixed_basket_produces_one_tax_invoice_per_company`: 2 × R799.00 + 3 ×
+R100.33 (Noortgats) + 1 × R214.00 (Siyaya), VAT 15% incl → **INV-000001** in each company's own
+series (R1 898.99 / R214.00), per-segment VAT (R247.69 + R27.91 = R275.60 vs R275.61 single-doc —
+ADR-125 pinned), one sale + one fully-allocated receipt per company, per-company till sessions.
+
+Decisions: ADR-145 (per-company till sessions, company-bound engines, deterministic ids,
+compensation as sales return + negative receipt + released holds with unwound-invoice listing,
+exclusive-unit derivation with sub-cent dust rule, single-segment fast path). No new ADR for the
+saga shape (ADR-116) or allocation math (ADR-126).
+
+Cross-stage repairs (blocked 09b, minimal, tested): (1) `DocumentNumberSequence` reuses the
+tracked counter for same-context redraws — three journals per leg died on the unique index;
+(2) `ux_stock_reservations_intent_leg_{item,variant}` are now partial on live holds — the full
+index made every intent-keyed hold unconsumable/unreleasable/unexpirable (CloseOnce died on its
+own hold's key; 08c never consumed intent-keyed holds so it never noticed); (3) `MixedBasket = 6`
+added to `ReservationSource`.
+
+Follow-ups (not this stage): (a) `CloseOnceAsync`/`FindOpenAsync` are not chain-aware — releasing
+an already-closed chain appends a bogus second terminal row (found while making compensation
+chain-aware; 09b works around it with an anti-join, 08c owns the fix); (b) per-company INV
+sequences both start at INV-000001 — prefixed sequences (NG-INV-…) are a numbering-policy
+decision; the return guard keys on company first, number second; (c) legs resolve the selling
+location as first-by-code per company — per-terminal mapping is later work; (d) `VumaRetail.Reporting`
+does not exist — the basket summary ships as a model + 80mm composition through the existing
+`ReceiptRenderer`, QuestPDF arrives with Stage 29; (e) the agent panel did not run (no subagent
+capacity in this environment).

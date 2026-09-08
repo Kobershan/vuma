@@ -24,6 +24,11 @@ public enum ReservationSource
     /// <summary>A Stage 10b stokvel hamper basket: December stock held from reservation day so a
     /// 200-member payout wave cannot read as sellable in November (ADR-055).</summary>
     StokvelHamper = 5,
+
+    /// <summary>A Stage 09b mixed-basket trading session: each segment's lines held in their
+    /// owning company from completion-leg start, consumed on posting, released on void or
+    /// compensation (ADR-125).</summary>
+    MixedBasket = 6,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>

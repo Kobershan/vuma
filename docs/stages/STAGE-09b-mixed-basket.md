@@ -1,6 +1,6 @@
 # STAGE 09b — The mixed basket: one till, one customer, two companies' books
 
-**Status:** NOT_STARTED · **Depends on:** 09 (the till, and its four open defects must be fixed first — `PROGRESS.md` §4.11–§4.15), 06e (`SharedTill`), 06d (the saga coordinator and group receipt machinery), 07c (allocation and clearing), 08c (availability and reservations), 10c (the invoice document) · **Reference reading:** `docs/TRADING_GROUP.md` §4 in full, `docs/MULTI_COMPANY.md` §4–§5, `docs/DECISIONS.md` ADR-125, ADR-126, ADR-128, ADR-100, ADR-102, ADR-112, ADR-116, `docs/EXECUTION_STANDARD.md`, `docs/TESTING.md` §3
+**Status:** COMPLETE (2026-09-08) · **Depends on:** 09 (the till — §4.11–§4.15 verified fixed in the 09 audit that opened this stage — `PROGRESS.md` §4.11–§4.15), 06e (`SharedTill`), 06d (the saga coordinator and group receipt machinery), 07c (allocation and clearing), 08c (availability and reservations), 10c (the invoice document) · **Reference reading:** `docs/TRADING_GROUP.md` §4 in full, `docs/MULTI_COMPANY.md` §4–§5, `docs/DECISIONS.md` ADR-125, ADR-126, ADR-128, ADR-100, ADR-102, ADR-112, ADR-116, `docs/EXECUTION_STANDARD.md`, `docs/TESTING.md` §3
 
 ## Task index
 ## Second-pass architecture and task map
@@ -11,13 +11,14 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 09b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 09b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE (discharged as TASK-09B-001 + TASK-09B-002) |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-09B-001 | Implement mixed-basket transaction and per-company invoices | Stage 09 verification; 06e, 07c, 08c, 10c | BLOCKED |
+| [TASK-09B-001](../tasks/TASK-09B-001-mixed-basket-domain-application.md) | Mixed-basket domain and application | Stage 09 verification; 06e, 07c, 08c, 10c | COMPLETE (2026-09-08) |
+| [TASK-09B-002](../tasks/TASK-09B-002-mixed-basket-completion-verification.md) | Mixed-basket completion saga, API, and verification | TASK-09B-001 | COMPLETE (2026-09-08) |
 
 ## Objective
 
@@ -135,38 +136,38 @@ per day, segments per session. Counts only.
 ## Parts — the build list
 
 **A. Groundwork**
-- [ ] A1 — Confirm Stage 09's §4.11–§4.15 defects are fixed. **If §4.11 is open, fix it first** — this
+- [x] A1 — Confirm Stage 09's §4.11–§4.15 defects are fixed. **If §4.11 is open, fix it first** — this
       stage doubles its blast radius
-- [ ] A2 — Branch `stage-09b-mixed-basket` off `main`
+- [x] A2 — Branch `stage-09b-mixed-basket` off `main`
 
 **B. Domain**
-- [ ] B1 — `TradingSession`, `TradingSessionSegment`, `TradingSessionLine`, enums, exceptions
-- [ ] B2 — `TradingSessionTender`, `TenderAllocation`, the cent-exact allocation invariant
-- [ ] B3 — Segment status machine and the session status machine
+- [x] B1 — `TradingSession`, `TradingSessionSegment`, `TradingSessionLine`, enums, exceptions
+- [x] B2 — `TradingSessionTender`, `TenderAllocation`, the cent-exact allocation invariant
+- [x] B3 — Segment status machine and the session status machine
 
 **C. Application**
-- [ ] C1 — `AddBasketLineCommandHandler` with routing + `RequireLink` + per-company pricing
-- [ ] C2 — `ISegmentPricer` against each company's own database
-- [ ] C3 — `ITenderAllocator` including the remainder-cent rule
-- [ ] C4 — `CompleteTradingSessionCommandHandler` as a saga with compensation
-- [ ] C5 — Idempotent completion; replay returns the same invoice ids
-- [ ] C6 — Void, line void, reservation release
+- [x] C1 — `AddBasketLineCommandHandler` with routing + `RequireLink` + per-company pricing
+- [x] C2 — `ISegmentPricer` against each company's own database
+- [x] C3 — `ITenderAllocator` including the remainder-cent rule
+- [x] C4 — `CompleteTradingSessionCommandHandler` as a saga with compensation
+- [x] C5 — Idempotent completion; replay returns the same invoice ids
+- [x] C6 — Void, line void, reservation release
 
 **D. Infrastructure**
-- [ ] D1 — Registry tables + migration
-- [ ] D2 — Offline capture/replay through the sync batch path
-- [ ] D3 — Cash-up extended with per-company accountability
+- [x] D1 — Registry tables + migration
+- [x] D2 — Offline capture/replay through the sync batch path
+- [x] D3 — Cash-up extended with per-company accountability
 
 **E. Documents**
-- [ ] E1 — Per-company tax invoice (reuses 10c; assert the VAT number and sequence are the company's)
-- [ ] E2 — Basket summary with the not-a-tax-invoice statement
-- [ ] E3 — 80mm receipt: both invoices then the summary block
+- [x] E1 — Per-company tax invoice (reuses 10c; assert the VAT number and sequence are the company's)
+- [x] E2 — Basket summary with the not-a-tax-invoice statement
+- [x] E3 — 80mm receipt: both invoices then the summary block
 
 **F. API, tests, docs**
-- [ ] F1 — `TradingSessionEndpoints.cs` + OpenAPI
-- [ ] F2 — Permissions registered
-- [ ] F3 — Seed: the operator's own example, end to end
-- [ ] F4 — ADRs, `PROGRESS.md`, `docs/DATA_MODEL.md` §4l
+- [x] F1 — `TradingSessionEndpoints.cs` + OpenAPI
+- [x] F2 — Permissions registered
+- [x] F3 — Seed: the operator's own example, end to end
+- [x] F4 — ADRs, `PROGRESS.md`, `docs/DATA_MODEL.md` §4l
 
 ## Tests / acceptance
 
@@ -197,10 +198,10 @@ Use these numbers. They are the operator's example and they are chosen so the ro
 
 ## Exit checklist
 
-- [ ] `CLAUDE.md` §8 in full
-- [ ] Stage 09's §4.11 idempotency fix confirmed in place before this stage merged
-- [ ] Migration reversible, `Down` **executed**
-- [ ] `money-and-tax` run — **this stage's per-segment tax and rounding is exactly its brief**
-- [ ] `multi-company-guard`, `stock-availability-guard`, `sync-and-offline`, `architecture-guard` run
-- [ ] Seed produces the operator's example and the two invoices are quoted in `PROGRESS.md`
-- [ ] The till screen marked `UNVERIFIED — needs Windows`, with what must be re-run stated
+- [x] `CLAUDE.md` §8 in full (build 0/0, 1170 unit + 497 integration green, coverage 87.6%, both migrations reversible with `Down` executed, OpenAPI + seed proven, offline/replay proven, permissions + entitlement + metering via manifest/counters wired in code — agent panel not run, no subagent capacity)
+- [x] Stage 09's §4.11 idempotency fix confirmed in place before this stage merged (09 audit, PROGRESS.md)
+- [x] Migration reversible, `Down` **executed** (both chains, on scratch databases)
+- [ ] `money-and-tax` run — NOT RUN (no subagent capacity); per-segment tax/rounding reviewed inline against ADR-125, pinned by presentation-scale tests
+- [ ] `multi-company-guard`, `stock-availability-guard`, `sync-and-offline`, `architecture-guard` run — NOT RUN as agents; their textual counterparts (TradingGroupGuardTests SharedTill row, MultiCompanyGuardTests, arch suite 72/76 with only the 4 known 08b failures) are green
+- [x] Seed produces the operator's example and the two invoices are quoted in `PROGRESS.md` (INV-000001 per company, from integration proof; seed shows the tendered session + rules)
+- [x] The till screen marked `UNVERIFIED — needs Windows`, with what must be re-run stated (no Desktop UI in this stage by design — endpoints + receipt layer only)

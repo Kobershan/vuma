@@ -2424,3 +2424,40 @@ consumed reservations → completion journal → receipts. Offline completion is
 **Consequences.** Stage 09's sale reports never show lay-by conversions as till sales; the module
 statement is the conversion record. If a future stage needs lay-by sales inside POS reporting, it
 attaches a projection, not a backfilled `Sale`.
+
+## ADR-144 — `CustomerFinanceTerms` and `DocumentNumberCounter` are exempt from the company predicate — **PROPOSED**
+**Context.** Stage 10b's bound-company handlers read tenant-wide reference rows — the customer-money
+policy and the node-local document counters — and the company predicate hid them, so guards evaluated
+against missing data (`FINANCE_POSTING_RULE_NOT_FOUND` on fully seeded rules; blind finance-terms reads).
+**Decision.** Both types join `CompanyFilterExemptions` (tenant-only filter): they are read-only reference
+data, and binding a company must not blind the guard. Operational finance rows (journals, invoices,
+receipts, counters' *values*) stay company-predicated — stamped per company at write time, which is what
+keeps one company's books out of another's.
+**Consequences.** A bound scope that cannot see the node's own counter no longer re-creates it and dies
+on the unique index. The exemption set stays minimal and each entry carries its reason in code.
+
+## ADR-145 — A mixed-basket segment settles in its own till session inside its own company leg — **PROPOSED**
+**Context.** One till completes one basket into N companies' books. `Sale.Open` needs an open till
+session, and the shared till's session lives in the session company's database — a sister company may
+have none open. Each leg must also write a sale, a tax invoice and a receipt that all agree to the cent.
+**Decision.** (1) Each completion leg ensures an open till session for (terminal, company) in that
+company's database, opening a zero-float session as the cashier when none is open — cash-up then splits
+per company out of the existing per-company sessions, with no cash-up recomputation. (2) Journals post
+through a company-database-bound `PostingRuleEngine` constructed in the leg, not the ambient pipeline's
+engine — a sister company's journal must land in the sister company's books. (3) All legs write through
+caller-minted deterministic (UUIDv5-shaped) document ids, so a retried leg finds its rows instead of
+doubling them. (4) A failed leg compensates posted siblings with new reversing documents — a full sales
+return (a completed sale is void-proof by Stage 09 rule 6), a negative-amount reversal receipt against
+the same invoice (domain-legal: `Money` documents negatives as reversals), released holds — and returns
+the session to tendered-with-reason; posted invoices that cannot auto-credit are listed on the session
+for back-office credit-noting, because Stage 10's invoice credit note does not exist yet. Nothing is
+deleted or edited, ever. (5) Invoice lines carry exclusive units derived back out of the captured
+inclusive snapshots as (Net + Discount) / qty: the invoice model prices exclusive while the till captures
+inclusive, and repeating decimals leave sub-cent dust (proven: 0.0001 on R1 898.99) that is invisible at
+presentation scale, where both read identically. (6) A single-segment session takes no registry path —
+one direct leg, no intent row (Stage 09b rule 12).
+**Consequences.** Per-company till sessions accumulate one zero-float row per shared terminal per company;
+a terminal-location mapping (rather than first-by-code) is a later stage. Legs converge with 07C-004's
+dispatcher when it lands (same note 08c/10c carry): legs execute inline today. Per-company `INV`
+sequences both start at INV-000001 — prefixed sequences (NG-INV-…) are a numbering-policy follow-up, and
+the return guard compares invoice identity by company first, number second.

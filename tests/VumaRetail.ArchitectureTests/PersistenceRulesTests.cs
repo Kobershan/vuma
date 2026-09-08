@@ -120,7 +120,17 @@ public sealed class PersistenceRulesTests
             "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
             // Stage 10c: InvoiceIssuingService commits the registry intent (a separate database
             // boundary) and each company leg posts inside its own scope, like the sourcing saga.
-            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs");
+            "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs",
+            // Stage 09b: TradingSessionRepository is the persistence layer for the registry
+            // boundary — the rule's own home ground. Handlers mutate through it and never call
+            // SaveChanges themselves; the pipeline cannot commit this boundary (company only).
+            "src/VumaRetail.Infrastructure/Registry/TradingSessionRepository.cs",
+            // Stage 09b: MixedBasketCompletionService and MixedBasketReturnService commit the
+            // registry intent and each company leg's own serialisable transaction, like the
+            // sourcing and invoice-issue sagas above — one human action, N databases, no
+            // two-phase commit (ADR-116). TradingCompanyGateway opens scopes but saves nothing.
+            "src/VumaRetail.Infrastructure/Registry/MixedBasketCompletionService.cs",
+            "src/VumaRetail.Infrastructure/Registry/MixedBasketReturnService.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked
