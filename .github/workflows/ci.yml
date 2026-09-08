@@ -354,12 +354,14 @@ jobs:
       - name: Build full solution
         run: dotnet build VumaRetail.sln -c Release --no-restore
 
-      # Run the token generator to ensure generated files are up to date
+      # Run the token generator to ensure generated files are up to date.
+      # PowerShell syntax: this job runs on windows-latest (bash subshell syntax fails here).
       - name: Regenerate tokens and verify
         run: |
           dotnet run --project src/VumaRetail.TokenGenerator
           # Verify no hand-edits — generated files must match
-          git diff --quiet design/generated/ design/tokens.css || (echo "::error::Generated files differ from committed output"; exit 1)
+          git diff --quiet design/generated/ design/tokens.css
+          if ($LASTEXITCODE -ne 0) { echo "::error::Generated files differ from committed output"; exit 1 }
 
       - name: Package
         run: echo "Packaging built in Stage 31."
