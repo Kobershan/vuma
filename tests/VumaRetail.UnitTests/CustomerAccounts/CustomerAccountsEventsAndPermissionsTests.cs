@@ -30,6 +30,12 @@ public sealed class CustomerAccountsEventsAndPermissionsTests
             .Should().Be("account.interest.raised");
         new AccountPaymentReceivedEvent(Guid.Empty, null, now, "ARREC-1", amounts).EventType
             .Should().Be("account.payment.received");
+        new StokvelContributionReceivedEvent(Guid.Empty, null, now, "STK-1", amounts).EventType
+            .Should().Be("stokvel.contribution.received");
+        new StokvelBenefitAllocatedEvent(Guid.Empty, null, now, "STK-1", amounts).EventType
+            .Should().Be("stokvel.benefit.allocated");
+        new StokvelPayoutSettledEvent(Guid.Empty, null, now, "STK-1", amounts).EventType
+            .Should().Be("stokvel.payout.settled");
     }
 
     [Fact]
@@ -61,17 +67,19 @@ public sealed class CustomerAccountsEventsAndPermissionsTests
     }
 
     [Fact]
-    public void Module_declares_three_permissions_and_a_non_core_manifest()
+    public void Module_declares_five_permissions_and_a_non_core_manifest()
     {
         var permissions = new CustomerAccountsPermissions();
 
         permissions.Module.Should().Be("customeraccounts");
-        permissions.Permissions.Should().HaveCount(3);
+        permissions.Permissions.Should().HaveCount(5);
         permissions.Permissions.Select(p => p.Key.Value).Should().BeEquivalentTo(
             "customeraccounts.account.manage",
             "customeraccounts.account.view",
-            "customeraccounts.layby.manage");
-        permissions.Permissions.Where(p => p.IsHighRisk).Should().HaveCount(2);
+            "customeraccounts.layby.manage",
+            "customeraccounts.stokvel.manage",
+            "customeraccounts.stokvel.view");
+        permissions.Permissions.Where(p => p.IsHighRisk).Should().HaveCount(3);
 
         var manifest = new CustomerAccountsModuleManifest();
         manifest.Module.Should().Be("customeraccounts");

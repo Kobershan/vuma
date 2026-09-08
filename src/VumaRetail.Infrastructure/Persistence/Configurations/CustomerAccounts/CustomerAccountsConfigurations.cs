@@ -182,3 +182,192 @@ internal sealed class LayByInstalmentConfiguration : EntityConfiguration<LayByIn
             .HasDatabaseName("ix_layby_instalments_agreement_id");
     }
 }
+
+/// <summary><c>customer_accounts.stokvel_groups</c> — saving circles with a cycle and a constitution.</summary>
+internal sealed class StokvelGroupConfiguration : EntityConfiguration<StokvelGroup>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "stokvel_groups";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StokvelGroup> builder)
+    {
+        builder.Property(g => g.GroupNumber).IsRequired().HasMaxLength(32);
+        builder.Property(g => g.Name).IsRequired().HasMaxLength(128);
+        builder.Property(g => g.Type).IsRequired().HasConversion<string>().HasMaxLength(32);
+        builder.Property(g => g.Constitution).IsRequired().HasMaxLength(2000);
+        builder.Property(g => g.CycleStart).IsRequired();
+        builder.Property(g => g.CycleEnd).IsRequired();
+        builder.Property(g => g.StoreScopeId).IsRequired();
+        builder.Property(g => g.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Ignore(g => g.MembersSeeAll);
+
+        builder.HasIndex(g => new { g.TenantId, g.GroupNumber })
+            .IsUnique()
+            .HasDatabaseName("ux_stokvel_groups_tenant_id_number")
+            .HasFilter("deleted_at IS NULL");
+
+        builder.HasIndex(g => new { g.TenantId, g.Status })
+            .HasDatabaseName("ix_stokvel_groups_tenant_id_status");
+    }
+}
+
+/// <summary><c>customer_accounts.stokvel_members</c> — roles, join/leave instants, obligations.</summary>
+internal sealed class StokvelMemberConfiguration : EntityConfiguration<StokvelMember>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "stokvel_members";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StokvelMember> builder)
+    {
+        builder.Property(m => m.GroupId).IsRequired();
+        builder.Property(m => m.PartnerId).IsRequired();
+        builder.Property(m => m.Role).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(m => m.JoinedAt).IsRequired();
+        builder.Property(m => m.LeftAt);
+        builder.HasMoney(m => m.ContributionObligation, "contribution_obligation");
+
+        builder.HasIndex(m => m.GroupId)
+            .HasDatabaseName("ix_stokvel_members_group_id");
+
+        builder.HasIndex(m => new { m.GroupId, m.PartnerId })
+            .HasDatabaseName("ix_stokvel_members_group_id_partner_id");
+    }
+}
+
+/// <summary><c>customer_accounts.stokvel_contributions</c> — append-only member receipts. No update path.</summary>
+internal sealed class StokvelContributionConfiguration : EntityConfiguration<StokvelContribution>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "stokvel_contributions";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StokvelContribution> builder)
+    {
+        builder.Property(c => c.GroupId).IsRequired();
+        builder.Property(c => c.MemberId).IsRequired();
+        builder.HasMoney(c => c.Amount, "amount");
+        builder.Property(c => c.ReceiptReference).IsRequired().HasMaxLength(64);
+        builder.Property(c => c.PaidAt).IsRequired();
+        builder.Property(c => c.Channel).IsRequired().HasMaxLength(64);
+        builder.Property(c => c.TakenOffline).IsRequired();
+
+        // Offline replay idempotency at the storage layer: the same receipt for the same member
+        // is one contribution, however many times the terminal retries it.
+        builder.HasIndex(c => new { c.MemberId, c.ReceiptReference })
+            .IsUnique()
+            .HasDatabaseName("ux_stokvel_contributions_member_id_receipt");
+
+        builder.HasIndex(c => c.GroupId)
+            .HasDatabaseName("ix_stokvel_contributions_group_id");
+
+        builder.HasIndex(c => c.MemberId)
+            .HasDatabaseName("ix_stokvel_contributions_member_id");
+    }
+}
+
+/// <summary><c>customer_accounts.stokvel_benefit_allocations</c> — append-only shares. No update path.</summary>
+internal sealed class StokvelBenefitAllocationConfiguration : EntityConfiguration<StokvelBenefitAllocation>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "stokvel_benefit_allocations";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StokvelBenefitAllocation> builder)
+    {
+        builder.Property(b => b.GroupId).IsRequired();
+        builder.Property(b => b.MemberId).IsRequired();
+        builder.HasMoney(b => b.Amount, "amount");
+        builder.Property(b => b.Basis).IsRequired().HasMaxLength(256);
+        builder.Property(b => b.AllocatedAt).IsRequired();
+
+        builder.HasIndex(b => b.GroupId)
+            .HasDatabaseName("ix_stokvel_benefit_allocations_group_id");
+
+        builder.HasIndex(b => b.MemberId)
+            .HasDatabaseName("ix_stokvel_benefit_allocations_member_id");
+    }
+}
+
+/// <summary><c>customer_accounts.stokvel_payouts</c> — requested, approved, settled exactly once.</summary>
+internal sealed class StokvelPayoutConfiguration : EntityConfiguration<StokvelPayout>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "stokvel_payouts";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<StokvelPayout> builder)
+    {
+        builder.Property(p => p.GroupId).IsRequired();
+        builder.Property(p => p.MemberId).IsRequired();
+        builder.Property(p => p.Kind).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.HasMoney(p => p.Amount, "amount");
+        builder.Property(p => p.HamperBasketId);
+        builder.Property(p => p.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(p => p.RequestedAt).IsRequired();
+        builder.Property(p => p.ApprovedAt);
+        builder.Property(p => p.SettledAt);
+        builder.Property(p => p.SaleId);
+
+        builder.HasIndex(p => p.GroupId)
+            .HasDatabaseName("ix_stokvel_payouts_group_id");
+
+        builder.HasIndex(p => p.MemberId)
+            .HasDatabaseName("ix_stokvel_payouts_member_id");
+    }
+}
+
+/// <summary><c>customer_accounts.hamper_baskets</c> — frozen group prices with a season and a location.</summary>
+internal sealed class HamperBasketConfiguration : EntityConfiguration<HamperBasket>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "hamper_baskets";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<HamperBasket> builder)
+    {
+        builder.Property(b => b.GroupId).IsRequired();
+        builder.Property(b => b.Name).IsRequired().HasMaxLength(128);
+        builder.HasMoney(b => b.GroupPrice, "group_price");
+        builder.Property(b => b.ValidFrom).IsRequired();
+        builder.Property(b => b.ValidTo).IsRequired();
+        builder.Property(b => b.LocationId).IsRequired();
+
+        builder.HasMany(b => b.Lines)
+            .WithOne()
+            .HasForeignKey(line => line.BasketId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(b => b.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(b => b.GroupId)
+            .HasDatabaseName("ix_hamper_baskets_group_id");
+    }
+}
+
+/// <summary><c>customer_accounts.hamper_basket_lines</c> — frozen contents with substitution rules.</summary>
+internal sealed class HamperBasketLineConfiguration : EntityConfiguration<HamperBasketLine>
+{
+    protected override string Schema => Schemas.CustomerAccounts;
+    protected override string TableName => "hamper_basket_lines";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<HamperBasketLine> builder)
+    {
+        builder.Property(line => line.BasketId).IsRequired();
+        builder.Property(line => line.ItemId);
+        builder.Property(line => line.ItemVariantId);
+
+        builder.Property(line => line.QuantityValue)
+            .HasColumnName("quantity_value")
+            .HasColumnType(ValueObjectMapping.QuantityColumnType)
+            .IsRequired();
+        builder.Property(line => line.QuantityUom)
+            .HasColumnName("quantity_uom")
+            .HasMaxLength(16)
+            .IsRequired();
+        builder.Property(line => line.SubstitutionItemId);
+        builder.Property(line => line.SubstitutionItemVariantId);
+
+        builder.HasIndex(line => line.BasketId)
+            .HasDatabaseName("ix_hamper_basket_lines_basket_id");
+
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint("ck_hamper_basket_lines_quantity_positive", "quantity_value > 0");
+        });
+    }
+}

@@ -34,6 +34,9 @@ public static class CustomerAccountsServiceCollectionExtensions
         services.AddScoped<IAccountHolderRepository, AccountHolderRepository>();
         services.AddScoped<ICustomerFinanceTermsRepository, CustomerFinanceTermsRepository>();
         services.AddScoped<ILayByAgreementRepository, LayByAgreementRepository>();
+        services.AddScoped<IStokvelGroupRepository, StokvelGroupRepository>();
+        services.AddScoped<IStokvelContributionRepository, StokvelContributionRepository>();
+        services.AddScoped<IStokvelPayoutRepository, StokvelPayoutRepository>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, CustomerAccountsPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, CustomerAccountsModuleManifest>());
@@ -58,6 +61,7 @@ public static class CustomerAccountsServiceCollectionExtensions
         services.AddSingleton(host);
         services.AddHostedService<LayByExpiryHostedService>();
         services.AddHostedService<AccountInterestHostedService>();
+        services.AddHostedService<StokvelReminderHostedService>();
 
         return services;
     }

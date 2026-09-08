@@ -20,6 +20,10 @@ public enum ReservationSource
 
     /// <summary>A Stage 10b lay-by agreement: reserved, never sold, until final payment (ADR-055).</summary>
     LayBy = 4,
+
+    /// <summary>A Stage 10b stokvel hamper basket: December stock held from reservation day so a
+    /// 200-member payout wave cannot read as sellable in November (ADR-055).</summary>
+    StokvelHamper = 5,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>

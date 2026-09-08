@@ -222,6 +222,19 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `SalesOrderLine` | `orders` | `StoreToCloud` | `StoreWins` | Follows its order |
 | `SalesOrderReturn` | `orders` | `StoreToCloud` | `StoreWins` | Goods come back at one counter; frozen once completed. Same shape as `SalesReturn` and `GoodsReceipt` |
 | `SalesOrderReturnLine` | `orders` | `StoreToCloud` | `StoreWins` | Follows its return |
+| `CustomerAccount` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Opened at one counter; mutable while it trades (Stage 10b) |
+| `AccountHolder` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its account |
+| `CustomerFinanceTerms` | `customer_accounts` | `StoreToCloud` | `StoreWins` | The tenant's customer-money policy row, written where the store trades |
+| `LayByAgreement` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Opened at one counter; frozen once completed, cancelled or expired |
+| `LayByAgreementLine` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its agreement; snapshotted, never re-resolved |
+| `LayByInstalment` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its agreement; append-only |
+| `StokvelGroup` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Formed at one store; mutable through its cycle, frozen once closed (Stage 10b) |
+| `StokvelMember` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its group; leaving is a new timestamp, never a delete |
+| `StokvelContribution` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Money that changed hands at one till. Append-only, so it accumulates |
+| `StokvelBenefitAllocation` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its group; append-only |
+| `StokvelPayout` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Requested at one counter; frozen once settled |
+| `HamperBasket` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Defined at one store; frozen once the season opens |
+| `HamperBasketLine` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its basket; snapshotted, never re-resolved |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

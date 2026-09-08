@@ -16,6 +16,12 @@ public sealed class CustomerAccountsPermissions : IModulePermissions
     /// <summary>Open lay-bys, take instalments, complete, cancel and expire them.</summary>
     public const string LayByManage = "customeraccounts.layby.manage";
 
+    /// <summary>Run stokvel groups: members, contributions, benefits, hampers and payouts.</summary>
+    public const string StokvelManage = "customeraccounts.stokvel.manage";
+
+    /// <summary>See stokvel groups, statements and balances.</summary>
+    public const string StokvelView = "customeraccounts.stokvel.view";
+
     /// <inheritdoc />
     public string Module => "customeraccounts";
 
@@ -25,6 +31,8 @@ public sealed class CustomerAccountsPermissions : IModulePermissions
         new(PermissionKey.Parse(AccountManage), "Open and run customer credit accounts.", IsHighRisk: true),
         new(PermissionKey.Parse(AccountView), "View accounts, statements and ageing."),
         new(PermissionKey.Parse(LayByManage), "Run lay-by agreements end to end.", IsHighRisk: true),
+        new(PermissionKey.Parse(StokvelManage), "Run stokvel groups end to end.", IsHighRisk: true),
+        new(PermissionKey.Parse(StokvelView), "View stokvel groups and statements."),
     ];
 }
 

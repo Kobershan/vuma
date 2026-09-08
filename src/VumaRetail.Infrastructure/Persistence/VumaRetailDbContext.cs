@@ -232,6 +232,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Append-only lay-by payments (Stage 10b).</summary>
     public DbSet<Domain.CustomerAccounts.LayByInstalment> LayByInstalments => Set<Domain.CustomerAccounts.LayByInstalment>();
 
+    /// <summary>Stokvel saving circles with a cycle and a constitution (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.StokvelGroup> StokvelGroups => Set<Domain.CustomerAccounts.StokvelGroup>();
+
+    /// <summary>Members of a stokvel group: roles, join/leave instants, obligations (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.StokvelMember> StokvelMembers => Set<Domain.CustomerAccounts.StokvelMember>();
+
+    /// <summary>Append-only stokvel member receipts (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.StokvelContribution> StokvelContributions => Set<Domain.CustomerAccounts.StokvelContribution>();
+
+    /// <summary>Append-only time-weighted benefit shares (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.StokvelBenefitAllocation> StokvelBenefitAllocations => Set<Domain.CustomerAccounts.StokvelBenefitAllocation>();
+
+    /// <summary>Member draw-downs: goods, hampers, cash or store credit (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.StokvelPayout> StokvelPayouts => Set<Domain.CustomerAccounts.StokvelPayout>();
+
+    /// <summary>Predefined baskets at a frozen group price (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.HamperBasket> HamperBaskets => Set<Domain.CustomerAccounts.HamperBasket>();
+
+    /// <summary>Frozen hamper contents with substitution rules (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.HamperBasketLine> HamperBasketLines => Set<Domain.CustomerAccounts.HamperBasketLine>();
+
     /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
     public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
 
@@ -429,6 +450,23 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         typeof(Domain.Licensing.SupportGrant),
         // Stage 10b: one tenant-wide customer-money policy row, read under any bound company.
         typeof(Domain.CustomerAccounts.CustomerFinanceTerms),
+        // Stage 10b: tenant-wide finance configuration — the chart, the tax rules, the calendar
+        // and the posting rules engine's own rules (all CloudToStore, all head-office data). A
+        // company-bound handler that posts a journal reads every one of these on its way through
+        // PostingRuleEngine; without this, the first bound write in any process answers
+        // FINANCE_POSTING_RULE_NOT_FOUND against fully seeded rules, because the guard's own
+        // lookups come back empty. Operational finance rows (journals, invoices, receipts,
+        // bank accounts, counters) stay company-predicated: they are stamped per company at
+        // write time, which is what keeps one company's books out of another's.
+        typeof(Domain.Finance.Account),
+        typeof(Domain.Finance.TaxRule),
+        typeof(Domain.Finance.AccountingPeriod),
+        typeof(Domain.Finance.PostingRule),
+        typeof(Domain.Finance.PostingRuleLine),
+        // The node-local document counters. One node owns one series (SYNC_AND_BACKUP.md §3):
+        // a bound scope that cannot see the node's own counter re-creates it and dies on the
+        // unique index instead of issuing the next number.
+        typeof(Domain.Finance.DocumentNumberCounter),
     ];
 
     /// <inheritdoc />
@@ -559,7 +597,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
                 else if (entry.Entity.CompanyId is null)
                     entry.Entity.AssignCompany(companyId);
             }
-            else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active)
+            else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active
+                && !CompanyFilterExemptions.Contains(entry.Entity.GetType()))
             {
                 throw new InvalidOperationException("A business row cannot be reassigned to another company.");
             }

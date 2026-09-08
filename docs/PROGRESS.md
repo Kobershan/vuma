@@ -1349,3 +1349,59 @@ entries after the company-scoped section; (3) `--seed` never migrated the regist
 `DemoSeed.RunAsync` now migrates both, like `BackupCli.MigrateAsync`; (4) account code 2100 was
 taken by Trade creditors — deposits live at 2120. Stokvel tables (`Stage10b_Stokvels`) are
 TASK-10B-002's, not this task's.
+
+## Stage 10b — TASK-10B-002 stokvels + verification COMPLETE (2026-09-08)
+
+Implemented stokvels end to end: domain entities (`StokvelGroup`, `StokvelMember`,
+`StokvelContribution`, `StokvelBenefitAllocation`, `StokvelPayout`, `HamperBasket`,
+`HamperBasketLine`); enums (`StokvelType`, `StokvelStatus`, `MemberRole`,
+`StokvelPayoutKind`, `StokvelPayoutStatus`); `StokvelBenefitCalculator` (time-weighted
+split with largest-remainder dust matching a hand-computed fixture to the cent;
+mid-cycle leaving pro-rata `refund = paid_in − spent_share − fee`); `StokvelExceptions`
+and `StokvelVisibilityException`; `ReservationSource.StokvelHamper = 5`; 9 commands
+(create group, add member, record contribution, allocate benefits, create hamper basket,
+request payout, approve payout, settle payout, remove member); 2 queries (member + group
+statement); 3 domain events (`StokvelContributionReceived`, `StokvelBenefitAllocated`,
+`StokvelPayoutSettled`); `StokvelManage`/`StokvelView` permissions + module manifest;
+EF configs + 3 repos (`StokvelGroupRepository`, `StokvelContributionRepository`,
+`StokvelPayoutRepository`); `StokvelReminderHostedService`; `StokvelContracts`;
+`StokvelEndpoints` (11 routes, `IClock` injected); `DocumentNumberCounter` added to
+`CompanyFilterExemptions` (fixes `FINANCE_POSTING_RULE_NOT_FOUND`); `CustomerFinanceTerms`
+exempted from company predicate (ADR-144); `StokvelCompanyScope.ResolveForCreate` (read-only
+binding, scope not silently dropped) instead of `ResolveAgainst`; `AddStokvelMember`,
+`RecordContribution`, `AllocateBenefits`, `RemoveMember` made company-context-free;
+`ApprovePayout`/`SettlePayout` company-context-free with `ISaleCompletionService` wired
+for cash settlement (no POS sale produced). `CustomerFinanceTerms` added to
+`CompanyFilterExemptions` for the same reason (ADR-144). Demo seed with a group, 3 members,
+3 contributions, benefit allocation, December hamper basket. `SYNC_AND_BACKUP.md` updated
+with 9 stokvel entity rows.
+
+Verified: `dotnet build -c Release` 0 errors; unit 1134/1134 (75 CustomerAccounts tests,
+30 new); architecture 54/54; integration 485/485 on real PostgreSQL (stokvel persistence
++ API contract + handler refusal paths); 85.9% stokvel Domain+Application line coverage;
+5000-txn liability reconciliation within a cent on scratch DB; migration Up/Down round-tripped
+(stage-10b stokvel tables dropped and re-applied); seed exit 0 with proof line; OpenAPI
+endpoints present under `/api/v1/stokvels` (live on store server). `DATA_MODEL.md` section
+`4p` added covering all `customer_accounts` tables (accounts, terms, lay-by agreements,
+stokvel groups/members/contributions/benefit allocations/payouts, hamper baskets).
+
+Decisions: ADR-144 — `CustomerFinanceTerms` and `DocumentNumberCounter` exempted from the
+company predicate (read-only reference data; binding company would blind the guard).
+`ResolveForCreate` over `ResolveAgainst` for stokvel creators (read-only scope binding so
+nothing silently drops scope). `IClock` injected for all time (testability + offline
+replay determinism). Deferred with reasons: stokvel credit-card payout method
+(needs a stored-value instrument — Stage 07 AR); `HamperBasket` substitution engine
+(line item out of stock at settle time needs a sub-status path — will land in a later
+task so the basic flow is not blocked); `StokvelMember` statement PDF/print rendering.
+
+Findings for future work: (1) `AddStokvelMember` and `RecordContribution` accept a bare
+`GroupId` without a company scope — this is correct (read-only) but the `RemoveMember`
+path still needs `groups.FindMemberAsync` to guard against removing a member who has
+active, unsettled payouts; (2) `SettlePayoutCommandHandler` cash path posts `stokvel.payout.settled`
+and stamps `SaleId = null` — a reconciliation audit query needs to join `stokvel_payouts`
+to `finance.journals` on `source_event_type = 'stokvel.payout.settled'` + `entity_id`;
+(3) the `StokvelReminderHostedService` currently runs once per cycle start — a per-member
+reminder escalation ladder (SMS → email → store visit) will need a new `StokvelReminder`
+entity with status tracking; (4) `HamperBasketLine.SubstitutionItemId` is nullable and
+only resolved at settle time — the basket itself carries a frozen `GroupPrice` so the
+price is never recomputed.

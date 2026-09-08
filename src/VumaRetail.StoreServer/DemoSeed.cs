@@ -9,6 +9,7 @@ using VumaRetail.Application.Abstractions.Workflow;
 using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.CustomerAccounts.Commands.Accounts;
 using VumaRetail.Application.CustomerAccounts.Commands.LayBy;
+using VumaRetail.Application.CustomerAccounts.Commands.Stokvels;
 using VumaRetail.Application.CustomerAccounts.Events;
 using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
@@ -197,6 +198,8 @@ public static class DemoSeed
         await SeedSalesDocumentsAsync(
             provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedCustomerAccountsAsync(
+            provider, context, corpClient, milk, johannesburg.Id, cancellationToken).ConfigureAwait(false);
+        await SeedStokvelsAsync(
             provider, context, corpClient, milk, johannesburg.Id, cancellationToken).ConfigureAwait(false);
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
@@ -1106,6 +1109,135 @@ public static class DemoSeed
 
         await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
         return agreement.Id;
+    }
+
+    /// <summary>
+    /// Seeds Stage 10b stokvels: the three posting rules, one grocery group with three members and
+    /// fixture contributions, a time-weighted benefit allocation, and a December hamper basket.
+    /// </summary>
+    /// <remarks>
+    /// Runs in its own company scope bound to the demo company, the same shape
+    /// <see cref="SeedCustomerAccountsAsync"/> uses: endpoints bind tenant and company per request,
+    /// and the stokvel handlers resolve the acting company from that scope. Contributions go
+    /// through the real dispatcher — receipts, running balances and the liability journal are what
+    /// is being demonstrated — while the benefit fixture's cent-exactness is proven by
+    /// <c>StokvelBenefitTests</c> rather than by this seed's illustrative pool.
+    /// </remarks>
+    private static async Task SeedStokvelsAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        Guid bank = await EnsureAccountAsync(
+            provider, context, "1200", "Bank — cheque account", AccountType.Asset,
+            ControlAccountType.Bank, cancellationToken).ConfigureAwait(false);
+        Guid deposits = await EnsureAccountAsync(
+            provider, context, "2120", "Customer deposits", AccountType.Liability,
+            ControlAccountType.CustomerDeposits, cancellationToken).ConfigureAwait(false);
+        Guid benefits = await EnsureAccountAsync(
+            provider, context, "5050", "Stokvel benefits", AccountType.Expense,
+            ControlAccountType.None, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "stokvel.contribution.received", "Stokvel contribution to liability",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Principal", InheritDimensions: false, "Bank"),
+                new PostingRuleLineInput(deposits, NormalBalance.Credit, "Principal", InheritDimensions: false, "Customer deposits"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "stokvel.benefit.allocated", "Stokvel bonus allocated",
+            [
+                new PostingRuleLineInput(benefits, NormalBalance.Debit, "Benefit", InheritDimensions: false, "Stokvel benefits"),
+                new PostingRuleLineInput(deposits, NormalBalance.Credit, "Benefit", InheritDimensions: false, "Customer deposits"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, "stokvel.payout.settled", "Stokvel cash payout",
+            [
+                new PostingRuleLineInput(deposits, NormalBalance.Debit, "Principal", InheritDimensions: false, "Customer deposits"),
+                new PostingRuleLineInput(bank, NormalBalance.Credit, "Principal", InheritDimensions: false, "Bank"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        if (await context.StokvelGroups.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        using IServiceScope companyScope = provider.CreateScope();
+        companyScope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenant(DemoTenantId, storeId);
+        IDispatcher dispatcher = companyScope.ServiceProvider.GetRequiredService<IDispatcher>();
+
+        Guid ayanda = await EnsurePartnerAsync(
+            provider, context, "STK-AYANDA", "Ayanda Nkosi", PartnerType.Customer,
+            "ayanda@example.co.za", cancellationToken).ConfigureAwait(false);
+        Guid johan = await EnsurePartnerAsync(
+            provider, context, "STK-JOHAN", "Johan Botha", PartnerType.Customer,
+            "johan@example.co.za", cancellationToken).ConfigureAwait(false);
+
+        IClock clock = provider.GetRequiredService<IClock>();
+        DateOnly today = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+
+        Guid groupId = await dispatcher.SendAsync(
+            new CreateStokvelGroupCommand(
+                "December Grocery Stokvel", StokvelType.GroceryHamper,
+                "Payouts in December hampers. Members see their own line only.",
+                new DateOnly(today.Year, 1, 1), new DateOnly(today.Year, 12, 15),
+                storeId, DemoCompanyId),
+            cancellationToken).ConfigureAwait(false);
+
+        Guid thandiMember = await dispatcher.SendAsync(
+            new AddStokvelMemberCommand(groupId, customerId, MemberRole.Treasurer, 500m, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+        Guid ayandaMember = await dispatcher.SendAsync(
+            new AddStokvelMemberCommand(groupId, ayanda, MemberRole.Member, 500m, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+        Guid johanMember = await dispatcher.SendAsync(
+            new AddStokvelMemberCommand(groupId, johan, MemberRole.Member, 500m, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new RecordContributionCommand(groupId, thandiMember, 500m, "ZAR", "Till", "RCPT-STK-DEMO-1"),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(
+            new RecordContributionCommand(groupId, ayandaMember, 500m, "ZAR", "EFT", "RCPT-STK-DEMO-2"),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(
+            new RecordContributionCommand(groupId, johanMember, 500m, "ZAR", "Till", "RCPT-STK-DEMO-3"),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new AllocateBenefitsCommand(groupId, 90m, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+
+        StockLocation warehouse = await context.StockLocations
+            .FirstAsync(location => location.Code == "MAIN", cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid basketId = await dispatcher.SendAsync(
+            new CreateHamperBasketCommand(
+                groupId, "December family hamper", 450m, "ZAR",
+                new DateOnly(today.Year, 12, 1), new DateOnly(today.Year, 12, 24),
+                warehouse.Code,
+                [new HamperLineInput(milkItemId, null, 2m, "EA")],
+                DemoCompanyId),
+            cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Stokvel {groupId} opened (3 members, R500 each, R90 bonus allocated) "
+            + $"with December hamper {basketId} at R450.");
+
+        foreach (var tracked in context.ChangeTracker
+            .Entries<Domain.Finance.DocumentNumberCounter>().ToList())
+        {
+            tracked.State = EntityState.Detached;
+        }
     }
 
     /// <summary>

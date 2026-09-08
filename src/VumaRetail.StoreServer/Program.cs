@@ -275,6 +275,7 @@ app.MapVumaSourcing();
 app.MapVumaPos();
 app.MapVumaSales();
 app.MapVumaCustomerAccounts();
+app.MapVumaStokvels();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();

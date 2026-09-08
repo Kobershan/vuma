@@ -1440,6 +1440,46 @@ Closed-period, immutable, per rep per company with the group roll-up: captured, 
 credited, net, margin (where permitted), collections, customer coverage. A recomputation writes a new
 version with a reason (ADR-110).
 
+## 4p. Tables in `customer_accounts` (Stage 10b)
+
+Money held on behalf of customers: credit accounts, lay-by agreements and stokvels (ADR-055).
+Every balance here is projected from append-only rows and reconciles to a GL control account;
+nothing is edited, nothing is hard-deleted.
+
+### `customer_accounts.accounts` / `account_holders`
+The credit limit, terms and standing (Active/OnHold/Closed) with a required hold reason. Balances
+live in `finance.ar_invoices`/`ar_receipts`, never here — exposure is computed at tender time as
+limit less AR outstanding less queued offline sales. Holders are named buyers with per-charge caps.
+
+### `customer_accounts.terms`
+One row per tenant: interest and settlement-discount rates, lay-by admin fee and max term, and
+the stale-balance freshness threshold. Tenant configuration, exempt from the company predicate
+like the licensing rows (ADR-144).
+
+### `customer_accounts.layby_agreements` / `_lines` / `_instalments`
+Frozen price promise (`AgreedTotal` never re-resolved), snapshotted lines (price, discount, tax,
+pack size), append-only instalments with unique `(agreement_id, sequence)`. Stock held under
+`ReservationSource.LayBy`, consumed once at completion with one `layby.completed` journal.
+
+### `customer_accounts.stokvel_groups` / `stokvel_members`
+The circle (number series `STK`, type, constitution, cycle, store, status
+Forming/Active/PayingOut/Closed) and its members (role, `JoinedAt`/`LeftAt`, per-cycle
+obligation). Leaving stamps `LeftAt` and freezes vesting; rows stay queryable forever.
+
+### `customer_accounts.stokvel_contributions` / `stokvel_benefit_allocations`
+Append-only member receipts (unique `(member_id, receipt_reference)` for offline-replay
+idempotency) and time-weighted bonus shares with the weight basis on each row. No update path
+on either repository — by construction, asserted in test.
+
+### `customer_accounts.stokvel_payouts`
+Requested → Approved (through `IApprovalService`) → Settled exactly once. Goods/hamper payouts
+settle as one normal POS sale (`SaleId` stamped); cash/store-credit raise `stokvel.payout.settled`.
+
+### `customer_accounts.hamper_baskets` / `hamper_basket_lines`
+Predefined baskets at a frozen group price with a season and a stock location. Lines carry
+scalar quantities and nullable substitution references; substitution fires only when the line
+item's available is zero at settle time, priced at the group price.
+
 ---
 
 ## 5. Replication registry
