@@ -1368,6 +1368,14 @@ and a **pack size snapshot**; one tender captured against the session and alloca
 cent-exact. Completion is a saga producing one tax invoice per company, and is idempotent on the
 session's `idempotency_key` (ADR-125, ADR-126).
 
+> **As-built correction (Stage 09b, 2026-09-08).** The tender and its per-segment allocation live
+> as columns on the session (`tender_type/amount/reference`, `tendered_at`) and segment
+> (`tender_allocation_amount/currency`, `allocation_basis`) — there are no separate `_tenders` /
+> `_tender_allocations` tables. Optional money follows the ADR-067 plain-columns pattern
+> (`tender_amount_value/currency`, computed `Money?` accessors); `unwound_invoice_numbers` is a
+> JSON string column (a `List<string>` value conversion breaks EF change tracking). Each leg's
+> sale/invoice/receipt ids are deterministic (UUIDv5-shaped) so retried legs find their rows.
+
 ### `registry.contact_bindings` (Stage 22b)
 Channel address (E.164 phone or email) → contact → the companies it may reach, with
 `verification_state`, `verified_at`, `consent_state`, `locked_until`. **Created tenant-side only** — never

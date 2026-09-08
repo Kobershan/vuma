@@ -112,6 +112,13 @@ public sealed class PipelineRulesTests
             // serialisable transaction (ADR-102) — the pipeline's transaction stays empty because
             // GenerateInvoicesFromOrderCommandHandler only calls IInvoiceIssuingService.
             "src/VumaRetail.Infrastructure/Sales/InvoiceIssuingService.cs",
+            // Stage 09b. Same standing again: the mixed-basket completion and return services own
+            // the registry intent plus each company leg's serialisable transaction (ADR-116) —
+            // the pipeline's transaction stays empty because CompleteTradingSessionCommandHandler
+            // only calls IMixedBasketCompletionService and the trading handlers only mutate the
+            // registry through ITradingSessionRepository.
+            "src/VumaRetail.Infrastructure/Registry/MixedBasketCompletionService.cs",
+            "src/VumaRetail.Infrastructure/Registry/MixedBasketReturnService.cs",
             // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
             // owns its own saga transaction; the handler's pipeline transaction stays empty.
             "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");

@@ -333,6 +333,17 @@ public sealed class DocumentNumberSequence(VumaRetailDbContext context, ITenantC
 
         string normalized = series.Trim().ToUpperInvariant();
 
+        // Same-context reuse first: a saga leg posts several events (sale, invoice, receipt)
+        // through one SaveChanges, and each draw would otherwise Add its own counter row for
+        // a series the context already created but has not saved yet — dying on the unique
+        // index at commit. The raw SELECT below cannot see unsaved rows by construction.
+        DocumentNumberCounter? tracked = context.DocumentNumberCounters.Local
+            .FirstOrDefault(counter => counter.TenantId == tenant.TenantId && counter.Series == normalized);
+        if (tracked is not null)
+        {
+            return $"{normalized}-{tracked.Advance():D6}";
+        }
+
         DocumentNumberCounter? counter = await context.DocumentNumberCounters
             .FromSqlInterpolated(
                 $"""

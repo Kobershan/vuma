@@ -24,6 +24,7 @@ using VumaRetail.Application.Abstractions.Procurement;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Orders.Commands;
+using VumaRetail.Application.Registry.Trading;
 using VumaRetail.Application.Sales;
 using VumaRetail.Application.Sales.Commands;
 using VumaRetail.Application.Sales.Commands.Analytics;
@@ -49,6 +50,7 @@ using VumaRetail.Domain.Warehouse;
 using VumaRetail.Domain.Workflow;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Registry;
 using VumaRetail.Finance.Commands;
 using VumaRetail.Workflow.Approvals;
 using VumaRetail.Licensing.Commands;
@@ -201,6 +203,8 @@ public static class DemoSeed
             provider, context, corpClient, milk, johannesburg.Id, cancellationToken).ConfigureAwait(false);
         await SeedStokvelsAsync(
             provider, context, corpClient, milk, johannesburg.Id, cancellationToken).ConfigureAwait(false);
+        await SeedTradingSessionsAsync(
+            provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedImportsAsync(provider, context, cancellationToken).ConfigureAwait(false);
         await SeedProcurementAsync(provider, context, freshFarm, milk, cancellationToken)
             .ConfigureAwait(false);
@@ -892,6 +896,108 @@ public static class DemoSeed
         Console.WriteLine(
             $"Quote converted and invoice posted with pack size '{pack.Description}' "
             + "under group reference SO-DEMO-0001; analytics rebuilt.");
+    }
+
+    /// <summary>
+    /// Seeds Stage 09b: the two posting rules a basket leg journals through, a published routing
+    /// row for the demo barcode, and one tendered single-company trading session.
+    /// </summary>
+    /// <remarks>
+    /// The single-database demo cannot provision a second company database, so the two-database
+    /// split itself — one basket, one tax invoice per company — runs as the executable demo in
+    /// <c>MixedBasketCompletionTests.Mixed_basket_produces_one_tax_invoice_per_company</c>, which
+    /// seeds a real two-company trading group. What this seed shows is everything around it that
+    /// runs on one database: routing publish and resolve, the scan-time link skip for the till's
+    /// own company, tax/pack snapshots at capture, and the tender with its proportional
+    /// allocation. Completion of a multi-company basket needs provisioned company databases and
+    /// stays in the integration suite by design.
+    /// </remarks>
+    private static async Task SeedTradingSessionsAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        CancellationToken cancellationToken)
+    {
+        IClock clock = provider.GetRequiredService<IClock>();
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+        VumaRegistryDbContext registry = provider.GetRequiredService<VumaRegistryDbContext>();
+
+        Guid bank = await EnsureAccountAsync(
+            provider, context, "1200", "Bank — cheque account", AccountType.Asset,
+            ControlAccountType.Bank, cancellationToken).ConfigureAwait(false);
+        Guid debtors = await EnsureAccountAsync(
+            provider, context, "1100", "Trade debtors", AccountType.Asset,
+            ControlAccountType.AccountsReceivable, cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, MixedBasketCompletionService.ReceiptSettledEventType,
+            "Basket segment receipt",
+            [
+                new PostingRuleLineInput(bank, NormalBalance.Debit, "Principal", InheritDimensions: false, "Till bank"),
+                new PostingRuleLineInput(debtors, NormalBalance.Credit, "Principal", InheritDimensions: false, "Trade debtors"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        await EnsurePostingRuleAsync(
+            provider, context, MixedBasketCompletionService.LegReversedEventType,
+            "Basket leg reversal",
+            [
+                new PostingRuleLineInput(debtors, NormalBalance.Debit, "Principal", InheritDimensions: false, "Trade debtors"),
+                new PostingRuleLineInput(bank, NormalBalance.Credit, "Principal", InheritDimensions: false, "Till bank"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        const string demoKey = "DEMO-TS-0001";
+        if (await registry.TradingSessions
+                .FirstOrDefaultAsync(
+                    session => session.TenantId == DemoTenantId && session.IdempotencyKey == demoKey,
+                    cancellationToken)
+                .ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        // The demo barcode resolves to the demo company: one till, one company, no link needed.
+        await provider.GetRequiredService<IBarcodeResolver>().PublishAsync(
+            DemoTenantId,
+            DemoCompanyId,
+            new BarcodeEntry("6009880123456", milkItemId, null, "MILK-2L", "Full cream milk 2L", clock.UtcNow),
+            cancellationToken).ConfigureAwait(false);
+
+        IUserRepository users = provider.GetRequiredService<IUserRepository>();
+        Guid cashierId = (await users.FindByUserNameAsync("cashier1", cancellationToken).ConfigureAwait(false))?.Id
+            ?? throw new InvalidOperationException("Demo seed expects the cashier1 user to exist.");
+
+        ITerminalRepository terminals = provider.GetRequiredService<ITerminalRepository>();
+        Store store = await context.Stores.FirstAsync(cancellationToken).ConfigureAwait(false);
+        Guid terminalId = (await terminals.FindByCodeAsync(store.Id, "T01", cancellationToken).ConfigureAwait(false))?.Id
+            ?? throw new InvalidOperationException("Demo seed expects the T01 terminal to exist.");
+
+        Guid sessionId = await dispatcher.SendAsync(
+            new OpenTradingSessionCommand(
+                store.Id, terminalId, cashierId, DemoCompanyId, "ZAR", demoKey, customerId),
+            cancellationToken).ConfigureAwait(false);
+
+        // R59.99 shelf, two bottles: the tax/pack snapshots freeze at capture, whatever the
+        // shelf does afterwards — the same promise lay-by makes in Stage 10b.
+        await dispatcher.SendAsync(
+            new AddBasketLineCommand(sessionId, "6009880123456", 2m, "EA", 59.99m, "ZAR"),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(
+            new CaptureTenderCommand(sessionId, "Cash", 119.98m, "ZAR", "DRAWER-1"),
+            cancellationToken).ConfigureAwait(false);
+
+        TradingSessionView view = await dispatcher
+            .QueryAsync(new GetTradingSessionQuery(sessionId), cancellationToken)
+            .ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Trading session {view.SessionNumber} tendered: "
+            + $"{view.Segments.Count} segment(s), gross {view.Gross.Amount:F2} {view.Currency}, "
+            + $"allocated {view.Segments.Single().Allocation?.Amount:F2} {view.Currency} "
+            + "(single-company fast path — no registry saga; the mixed split is proven in MixedBasketCompletionTests).");
     }
 
     /// <summary>
