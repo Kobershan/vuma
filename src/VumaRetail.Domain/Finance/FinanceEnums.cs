@@ -52,6 +52,9 @@ public enum ControlAccountType
 
     /// <summary>The GL balance this must equal a bank account's reconciled balance.</summary>
     Bank = 3,
+
+    /// <summary>The GL balance this must equal the sum of active lay-by paid-to-date (Stage 10b).</summary>
+    CustomerDeposits = 4,
 }
 
 /// <summary>Whether an accounting period accepts postings.</summary>

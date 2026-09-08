@@ -17,6 +17,7 @@ using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
+using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
@@ -130,6 +131,11 @@ builder.Services.AddVumaPos();
 // Stage 10. Price lists, promotions, returns and the price override log. After POS because a return
 // reads the sale it reverses, and after inventory because a completed return puts the stock back.
 builder.Services.AddVumaSales();
+
+// Stage 10b. Customer accounts, lay-by and stokvels. After AddVumaFinance (journals post through
+// IFinancialEventPoster with no fallback), AddVumaInventory (lay-by holds go through
+// IReservationService) and AddVumaPos (lines resolve through the catalogue, prices and packs).
+builder.Services.AddVumaCustomerAccounts();
 
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
@@ -265,6 +271,7 @@ app.MapVumaAvailability();
 app.MapVumaSourcing();
 app.MapVumaPos();
 app.MapVumaSales();
+app.MapVumaCustomerAccounts();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
 app.MapVumaOrders();

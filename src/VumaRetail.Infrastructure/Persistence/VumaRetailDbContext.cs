@@ -214,6 +214,24 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Company-scoped sales read models (Stage 10c).</summary>
     public DbSet<Domain.Sales.Analytics.SalesAnalytics> SalesAnalytics => Set<Domain.Sales.Analytics.SalesAnalytics>();
 
+    /// <summary>Customer credit accounts with limits, terms and standing (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.CustomerAccount> CustomerAccounts => Set<Domain.CustomerAccounts.CustomerAccount>();
+
+    /// <summary>Named buyers authorised to charge to a business account (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.AccountHolder> AccountHolders => Set<Domain.CustomerAccounts.AccountHolder>();
+
+    /// <summary>The tenant's customer-money policy row, one per tenant (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.CustomerFinanceTerms> CustomerFinanceTerms => Set<Domain.CustomerAccounts.CustomerFinanceTerms>();
+
+    /// <summary>Lay-by agreements: frozen price, payment plan, held stock (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByAgreement> LayByAgreements => Set<Domain.CustomerAccounts.LayByAgreement>();
+
+    /// <summary>Lines on a lay-by agreement, carrying price and pack size snapshots (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByAgreementLine> LayByAgreementLines => Set<Domain.CustomerAccounts.LayByAgreementLine>();
+
+    /// <summary>Append-only lay-by payments (Stage 10b).</summary>
+    public DbSet<Domain.CustomerAccounts.LayByInstalment> LayByInstalments => Set<Domain.CustomerAccounts.LayByInstalment>();
+
     /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
     public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
 

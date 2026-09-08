@@ -17,6 +17,12 @@
       test only forbids depending on the layers below and the hosts above.
     -->
     <PackageReference Include="FluentValidation" />
+    <!--
+      Hosting.Abstractions for BackgroundService subclasses only (Stage 10b expiry/interest runs).
+      Same package VumaRetail.Finance takes for its reconciliation service; no host types leak
+      into use cases.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
 </Project>

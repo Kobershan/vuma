@@ -1,4 +1,6 @@
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Finance;
 
 namespace VumaRetail.Finance.Periods;
@@ -20,13 +22,15 @@ namespace VumaRetail.Finance.Periods;
 /// <param name="apInvoices">The AP sub-ledger.</param>
 /// <param name="bankAccounts">Bank accounts, paired with their GL control account.</param>
 /// <param name="bankStatementLines">Bank statement lines and their matched state.</param>
+/// <param name="laybys">Active lay-by agreements, whose paid-to-date backs customer deposits.</param>
 public sealed class PeriodVarianceChecker(
     IAccountRepository accounts,
     IJournalRepository journals,
     IArInvoiceRepository arInvoices,
     IApInvoiceRepository apInvoices,
     IBankAccountRepository bankAccounts,
-    IBankStatementLineRepository bankStatementLines)
+    IBankStatementLineRepository bankStatementLines,
+    ILayByAgreementRepository laybys)
 {
     /// <summary>
     /// Checks every control account for a period, returning one entry per account — including
@@ -81,6 +85,11 @@ public sealed class PeriodVarianceChecker(
                     : await bankStatementLines
                         .GetReconciledBalanceAsync(bankAccount.Id, cancellationToken)
                         .ConfigureAwait(false);
+
+            case ControlAccountType.CustomerDeposits:
+                IReadOnlyList<LayByAgreement> active = await laybys
+                    .ListActiveAsync(cancellationToken).ConfigureAwait(false);
+                return active.Sum(a => a.PaidToDate.Amount);
 
             case ControlAccountType.None:
             default:
