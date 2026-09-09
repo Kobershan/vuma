@@ -130,7 +130,11 @@ public sealed class PersistenceRulesTests
             // sourcing and invoice-issue sagas above — one human action, N databases, no
             // two-phase commit (ADR-116). TradingCompanyGateway opens scopes but saves nothing.
             "src/VumaRetail.Infrastructure/Registry/MixedBasketCompletionService.cs",
-            "src/VumaRetail.Infrastructure/Registry/MixedBasketReturnService.cs");
+            "src/VumaRetail.Infrastructure/Registry/MixedBasketReturnService.cs",
+            // Stage 14b: FieldSalesApprovalService owns the registry intent plus each company
+            // leg's serialisable transaction (ADR-108, ADR-116) — the pipeline's transaction
+            // stays empty because ApproveProFormaCommandHandler only calls the service.
+            "src/VumaRetail.Infrastructure/FieldSales/FieldSalesApprovalService.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

@@ -17,8 +17,8 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | NOT_STARTED |
-| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | NOT_STARTED |
+| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | COMPLETE |
+| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | COMPLETE |
 
 ## Objective
 

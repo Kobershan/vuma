@@ -258,3 +258,58 @@ public sealed class CycleCountRepository(VumaRetailDbContext context) : ICycleCo
     /// <inheritdoc />
     public void AddLine(CycleCountLine line) => context.CycleCountLines.Add(line);
 }
+
+/// <summary>EF Core implementation of <see cref="IPickWaveLineBreakdownRepository"/>.</summary>
+public sealed class PickWaveLineBreakdownRepository(VumaRetailDbContext context) : IPickWaveLineBreakdownRepository
+{
+    /// <inheritdoc />
+    public Task<PickWaveLineBreakdown?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.PickWaveLineBreakdowns.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PickWaveLineBreakdown>> ListForWaveLineAsync(
+        Guid pickWaveLineId, CancellationToken cancellationToken = default)
+        => await context.PickWaveLineBreakdowns
+            .AsNoTracking()
+            .Where(b => b.PickWaveLineId == pickWaveLineId)
+            .OrderBy(b => b.CreatedAt)
+            .ThenBy(b => b.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<PickWaveLineBreakdown>> FindByWaveLineIdAsync(Guid pickWaveLineId, CancellationToken cancellationToken = default)
+        => ListForWaveLineAsync(pickWaveLineId, cancellationToken);
+
+    /// <inheritdoc />
+    public void Add(PickWaveLineBreakdown breakdown) => context.PickWaveLineBreakdowns.Add(breakdown);
+}
+
+/// <summary>EF Core implementation of <see cref="ICountScheduleRepository"/>.</summary>
+public sealed class CountScheduleRepository(VumaRetailDbContext context) : ICountScheduleRepository
+{
+    /// <inheritdoc />
+    public Task<CountSchedule?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.CountSchedules.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CountSchedule>> ListActiveDueAsync(
+        DateTimeOffset asAt, CancellationToken cancellationToken = default)
+        => await context.CountSchedules
+            .AsNoTracking()
+            .Where(s => s.IsActive && s.NextRunAt <= asAt)
+            .OrderBy(s => s.NextRunAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public void Add(CountSchedule schedule) => context.CountSchedules.Add(schedule);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CountSchedule>> ListAllAsync(CancellationToken cancellationToken = default)
+        => await context.CountSchedules
+            .AsNoTracking()
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+}

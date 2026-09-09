@@ -20,6 +20,9 @@ public interface IGroupCreditService
     
     /// <summary>Expired holds are cleaned by a background job. This is the idempotent method it calls.</summary>
     Task<int> ExpireHoldsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>Every group the company belongs to (Stage 14b: the approval saga holds here).</summary>
+    Task<IReadOnlyList<CreditGroupSummary>> ListGroupsForCompanyAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The outcome of a hold attempt.</summary>

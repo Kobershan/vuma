@@ -25,6 +25,18 @@ public sealed class WarehousePermissions : IModulePermissions
     /// <summary>Open and release a pick wave, and allocate its lines.</summary>
     public const string PickManage = "warehouse.pick.manage";
 
+    /// <summary>Build and release consolidated pick waves.</summary>
+    public const string WaveBuild = "warehouse.wave.build";
+
+    /// <summary>Release a consolidated wave for picking.</summary>
+    public const string WaveRelease = "warehouse.wave.release";
+
+    /// <summary>Create and manage count schedules.</summary>
+    public const string CountSchedule = "warehouse.count.schedule";
+
+    /// <summary>Perform count schedules, generate count sheets and record counts.</summary>
+    public const string CountPerform = "warehouse.count.perform";
+
     /// <summary>Confirm a pick against its allocation.</summary>
     public const string PickConfirm = "warehouse.pick.confirm";
 
@@ -51,7 +63,12 @@ public sealed class WarehousePermissions : IModulePermissions
         new(PermissionKey.Parse(PickConfirm), "Confirm a pick against its allocation.", IsHighRisk: true),
         new(PermissionKey.Parse(PackConfirm), "Pack a picked wave.", IsHighRisk: true),
         new(PermissionKey.Parse(ShipConfirm), "Confirm a wave's shipment — stock leaves the location.", IsHighRisk: true),
+        new(PermissionKey.Parse(ShipConfirm), "Confirm a wave's shipment — stock leaves the location.", IsHighRisk: true),
         new(PermissionKey.Parse(CycleCountManage), "Open a cycle count, record counts, and finalize it.", IsHighRisk: true),
+        new(PermissionKey.Parse(WaveBuild), "Build and preview consolidated pick waves.", IsHighRisk: true),
+        new(PermissionKey.Parse(WaveRelease), "Release a consolidated wave for picking.", IsHighRisk: true),
+        new(PermissionKey.Parse(CountSchedule), "Create and manage count schedules.", IsHighRisk: true),
+        new(PermissionKey.Parse(CountPerform), "Perform counts and generate count sheets.", IsHighRisk: true),
     ];
 }
 

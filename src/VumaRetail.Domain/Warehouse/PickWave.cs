@@ -45,6 +45,21 @@ public sealed class PickWave : Entity
     /// <summary>When the wave shipped, or <c>null</c> if not yet.</summary>
     public DateTimeOffset? ShippedAt { get; private set; }
 
+    /// <summary>The geography level this wave groups by.</summary>
+    public string? GeographyLevel { get; private set; }
+
+    /// <summary>The geography value at that level (province name, city name, suburb name).</summary>
+    public string? GeographyValue { get; private set; }
+
+    /// <summary>The period this wave covers, if period-based.</summary>
+    public DateOnly? PeriodFrom { get; private set; }
+
+    /// <summary>The period this wave covers up to, if period-based.</summary>
+    public DateOnly? PeriodTo { get; private set; }
+
+    /// <summary>The company scope this wave applies to, if company-scoped.</summary>
+    public Guid? CompanyScopeId { get; private set; }
+
     /// <summary>Opens a new wave at a location.</summary>
     public static PickWave Open(Guid tenantId, Guid? storeId, Guid locationId)
     {
@@ -59,6 +74,28 @@ public sealed class PickWave : Entity
         }
 
         return new PickWave(tenantId, storeId, locationId);
+    }
+
+    /// <summary>Opens a consolidated wave with geography and period context.</summary>
+    public static PickWave OpenConsolidated(
+        Guid tenantId,
+        Guid? storeId,
+        Guid locationId,
+        string geographyLevel,
+        string geographyValue,
+        DateOnly periodFrom,
+        DateOnly periodTo,
+        Guid? companyScope = null)
+    {
+        ArgumentNullException.ThrowIfNull(geographyLevel);
+        ArgumentNullException.ThrowIfNull(geographyValue);
+        var wave = Open(tenantId, storeId, locationId);
+        wave.GeographyLevel = geographyLevel.Trim();
+        wave.GeographyValue = geographyValue.Trim();
+        wave.PeriodFrom = periodFrom;
+        wave.PeriodTo = periodTo;
+        wave.CompanyScopeId = companyScope;
+        return wave;
     }
 
     /// <summary>Releases the wave — its lines are allocated and picking may begin.</summary>

@@ -152,4 +152,11 @@ public static class Schemas
     /// accounts like every other sub-ledger rather than living inside one.
     /// </remarks>
     public const string CustomerAccounts = "customer_accounts";
+
+    /// <summary>
+    /// Field sales: reps, territories, pro forma orders and credit notes, targets and performance
+    /// snapshots. Stage 14b. Proposals live in the ordering company's database (ADR-148); nothing
+    /// here posts — approval creates the real documents in their own modules.
+    /// </summary>
+    public const string FieldSales = "fieldsales";
 }

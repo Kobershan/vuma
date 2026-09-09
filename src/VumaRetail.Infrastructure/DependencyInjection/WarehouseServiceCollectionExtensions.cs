@@ -9,14 +9,15 @@ using VumaRetail.Infrastructure.Persistence.Repositories;
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
 /// <summary>
-/// Registers the Stage 13 <c>warehouse</c> module — zones, bins, bin stock, putaway, pick/pack/ship
-/// and cycle counts.
+/// Registers the Stage 13 <c>warehouse</c> module — zones, bins, bin stock, putaway, pick/pack/ship,
+/// cycle counts, pick wave line breakdowns and count schedules.
 /// </summary>
 public static class WarehouseServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the warehouse repositories, the bin-stock mover, the pick allocation strategy, the
-    /// module's permission declaration and its manifest.
+    /// Registers the warehouse repositories, the bin-stock mover, the pick allocation strategy,
+    /// pick wave line breakdown and count schedule repositories, the module's permission
+    /// declaration and its manifest.
     /// </summary>
     /// <param name="services">The container.</param>
     /// <returns>The container, for chaining.</returns>
@@ -40,6 +41,8 @@ public static class WarehouseServiceCollectionExtensions
         services.AddScoped<IPackTaskRepository, PackTaskRepository>();
         services.AddScoped<IShipmentConfirmationRepository, ShipmentConfirmationRepository>();
         services.AddScoped<ICycleCountRepository, CycleCountRepository>();
+        services.AddScoped<IPickWaveLineBreakdownRepository, PickWaveLineBreakdownRepository>();
+        services.AddScoped<ICountScheduleRepository, CountScheduleRepository>();
 
         services.AddScoped<IBinStockMover, BinStockMover>();
         services.AddScoped<IPickAllocationStrategy, LargestBinFirstAllocationStrategy>();
