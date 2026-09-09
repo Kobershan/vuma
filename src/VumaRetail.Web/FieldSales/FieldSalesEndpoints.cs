@@ -27,7 +27,7 @@ public static class FieldSalesEndpoints
 
         RouteGroupBuilder api = endpoints.MapVumaApi();
 
-        RouteGroupBuilder sales = api.MapGroup("/field-sales").WithTags("FieldSales").RequireModule("field-sales");
+        RouteGroupBuilder sales = api.MapGroup("/field-sales").WithTags("FieldSales").RequireModule("fieldsales");
 
         sales.MapPost("/pro-formas", CaptureProFormaAsync)
             .RequirePermission(FieldSalesPermissions.ProFormaCapture)

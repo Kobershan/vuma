@@ -118,6 +118,18 @@ public sealed class FieldSalesHarness : IAsyncDisposable
             new GroupProjectionAvailability(registry, clock),
             new AvailabilityThenProximityStrategy()));
         scopes.AddScoped<ITradingCompanyGateway, TradingCompanyGateway>();
+        scopes.AddScoped<Application.Sales.IInvoiceFinancialEventPublisher, LoggingInvoiceEventPublisher>();
+        scopes.AddScoped<IInvoiceIssuingService>(provider => new InvoiceIssuingService(
+            registry,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new CompanyLinkGuard(new CompanyLinkService(
+                registry, clock, tenant, Substitute.For<IOperatorContext>())),
+            new ReplicationRegistry(OpenCompanyDb(companyAId)),
+            new ReplicaWriter(OpenCompanyDb(companyAId), new Infrastructure.Sync.ReplicationScope()),
+            new HybridLogicalClock(clock, StoreNode),
+            StoreNode,
+            clock,
+            NullLogger<InvoiceIssuingService>.Instance));
         _scopes = scopes.BuildServiceProvider();
         _owned.Add(_scopes);
     }
@@ -265,6 +277,25 @@ public sealed class FieldSalesHarness : IAsyncDisposable
 
             tenant.SetTenant(tenantId, storeId);
             tenant.EndBypass();
+
+            // The ordering company prices everything its reps may quote, including stock it will
+            // source cross-company: approval reprices every line against the ordering company's
+            // own lists, so company A's RETAIL list carries company B's maize or no split
+            // basket could ever approve. Bound to company A so the row is visible there.
+            var listCompany = new AmbientCompanyContext();
+            listCompany.SetCompany(companyAId);
+            await using (VumaRetailDbContext priceDb = new(
+                TestDbContextFactory.BuildOptions<VumaRetailDbContext>(companyAConnection, clock, principal),
+                tenant, listCompany))
+            {
+                PriceList retailA = await priceDb.PriceLists
+                    .FirstAsync(list => list.Code == "RETAIL")
+                    .ConfigureAwait(false);
+                priceDb.PriceListLines.Add(PriceListLine.Create(
+                    tenantId, storeId, retailA.Id, seedB.ItemIds["MAIZE-10KG"], null,
+                    new Money(214.00m, "ZAR"), minimumQuantity: 1m));
+                await priceDb.SaveChangesAsync().ConfigureAwait(false);
+            }
 
             VumaRegistryDbContext registry = TestDbContextFactory.ForRegistry(registryConnection, tenant);
 
@@ -468,13 +499,23 @@ public sealed class FieldSalesHarness : IAsyncDisposable
             Clock);
     }
 
-    /// <summary>Opens a context over one company's database.</summary>
+    /// <summary>Opens a context over one company's database, bound to that company.</summary>
+    /// <remarks>
+    /// Bound, like a production terminal scope: rows written here are stamped with the company
+    /// instead of orphaned, so company-scoped saga reads (the credit path's origin sale, rep
+    /// lookups) see what the driver wrote. An unbound context stamps Guid.Empty and its rows
+    /// vanish under any bound read.
+    /// </remarks>
     public VumaRetailDbContext OpenCompanyDb(Guid companyId)
     {
         string connection = companyId == CompanyAId ? CompanyAConnection
             : companyId == CompanyBId ? CompanyBConnection
             : throw new ArgumentException("Unknown test company.", nameof(companyId));
-        VumaRetailDbContext context = TestDbContextFactory.For(connection, Clock, Principal, TenantContext);
+        var bound = new AmbientCompanyContext();
+        bound.SetCompany(companyId);
+        VumaRetailDbContext context = new(
+            TestDbContextFactory.BuildOptions<VumaRetailDbContext>(connection, Clock, Principal),
+            TenantContext, bound);
         Track(context);
         return context;
     }

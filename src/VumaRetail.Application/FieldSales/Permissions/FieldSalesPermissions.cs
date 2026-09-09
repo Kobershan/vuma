@@ -36,7 +36,7 @@ public sealed class FieldSalesPermissions : IModulePermissions
     public const string PerformanceTeam = "fieldsales.performance.team";
 
     /// <inheritdoc />
-    public string Module => "field-sales";
+    public string Module => "fieldsales";
 
     /// <inheritdoc />
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
@@ -56,10 +56,10 @@ public sealed class FieldSalesPermissions : IModulePermissions
 public sealed class FieldSalesModuleManifest : IModuleManifest
 {
     /// <inheritdoc />
-    public string Module => "field-sales";
+    public string Module => "fieldsales";
 
     /// <inheritdoc />
-    public string LicenceFlag => "field-sales";
+    public string LicenceFlag => "fieldsales";
 
     /// <inheritdoc />
     public string Description => "Field sales — rep pro formas, approval-to-order, performance.";

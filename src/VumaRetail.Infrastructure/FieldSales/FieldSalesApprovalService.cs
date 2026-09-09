@@ -225,7 +225,7 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
         }
 
         Guid? holdId = null;
-        List<Guid> reservationIds = [];
+        List<(Guid ReservationId, Guid CompanyId)> reservationIds = [];
         Guid? orderId = null;
 
         try
@@ -282,7 +282,7 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
 
                     if (outcome.ReservationId.HasValue)
                     {
-                        reservationIds.Add(outcome.ReservationId.Value);
+                        reservationIds.Add((outcome.ReservationId.Value, share.CompanyId));
                     }
 
                     if (outcome.Shortfall.Value > 0m)
@@ -309,6 +309,40 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
                     .ConfigureAwait(false);
                 order.MarkConverted(orderId.Value);
                 await orderingDb.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // Step 5b — the order owns the stock now: consume each leg's hold into it. The
+            // chain read makes a resumed attempt skip what the first pass already consumed
+            // instead of closing an already-closed chain, which CloseOnceAsync refuses.
+            foreach ((Guid reservationId, Guid companyId) in reservationIds)
+            {
+                using IServiceScope consumeScope = _scopes.CreateScope();
+                Bind(consumeScope, order.TenantId, companyId);
+                await using VumaRetailDbContext companyDb = await OpenCompanyDbAsync(
+                        consumeScope, CompanyAccessMode.Write, cancellationToken)
+                    .ConfigureAwait(false);
+
+                IReadOnlyList<StockReservation> chain = await new StockReservationRepository(companyDb)
+                    .ListChainAsync(reservationId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                bool consumedByUs = chain.Any(row =>
+                    row.SequenceNumber == 1 && row.ConsumedByReferenceId == orderId.Value);
+                bool open = chain.Any(row => row.SequenceNumber == 0)
+                    && chain.All(row => row.SequenceNumber == 0);
+
+                if (!consumedByUs && open)
+                {
+                    await consumeScope.ServiceProvider
+                        .GetRequiredService<ITradingCompanyGateway>()
+                        .RunReservationAsync(
+                            order.TenantId,
+                            companyId,
+                            provider => provider.GetRequiredService<IReservationService>()
+                                .ConsumeAsync(reservationId, orderId.Value, cancellationToken),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
             }
 
             // Step 6 — invoices through 10c (idempotent by key; splits per company).
@@ -359,6 +393,14 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
             await SaveRegistryAsync(cancellationToken).ConfigureAwait(false);
             await orderingDb.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+            // A business refusal already carries its code (PROFORMA_CREDIT_EXHAUSTED and kin):
+            // wrapping it would demote a 422-with-a-code into a 500 without one. Infrastructure
+            // failures stay wrapped with the intent id for diagnosis.
+            if (failure is FieldSalesException)
+            {
+                throw;
+            }
+
             throw new FieldSalesApprovalFailedException(order.Id, intent.Id, failure.Message, failure);
         }
     }
@@ -401,12 +443,18 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
                     item?.TaxClassCode ?? line.TaxCode, resolution.NetPayable, today, cancellationToken)
                 .ConfigureAwait(false);
 
-            Money lineGross = resolution.NetPayable + calculation.TaxAmount;
+            // The engine already returns the correct gross for either tax treatment; adding
+            // NetPayable + Tax on top double-counts VAT on tax-inclusive lists (the shelf price
+            // already contains it). Likewise every downstream consumer (order lines, invoice
+            // lines) computes Net = UnitPrice × qty − Discount, so the unit price must be net
+            // of tax: the line net, with the whole-line discount added back, per unit.
+            Money lineGross = calculation.GrossAmount;
+            Money unitNet = (calculation.NetAmount + resolution.DiscountAmount) / line.QuantityValue;
             repriced += lineGross.Amount;
 
             lines.Add(new RepricedLine(
                 line.Id, line.ItemId, line.ItemVariantId,
-                resolution.UnitPrice, resolution.DiscountAmount, calculation.TaxAmount,
+                unitNet, resolution.DiscountAmount, calculation.TaxAmount,
                 resolution.PriceListId, resolution.Explanation));
         }
 
@@ -699,23 +747,25 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
     private async Task CompensateAsync(
         ProFormaOrder order,
         Guid? holdId,
-        List<Guid> reservationIds,
+        List<(Guid ReservationId, Guid CompanyId)> reservationIds,
         Guid? orderId,
         string reason,
         CancellationToken cancellationToken)
     {
         // Reverse order: reservations, then the order, then the hold. Releases, never deletions.
-        foreach (Guid reservationId in reservationIds)
+        // Each hold releases through its own supplying company, not the ordering one: a
+        // cross-company hold lives in its supplier's database and no other.
+        foreach ((Guid reservationId, Guid companyId) in reservationIds)
         {
             try
             {
                 using IServiceScope legScope = _scopes.CreateScope();
-                Bind(legScope, order.TenantId, order.CompanyId!.Value);
+                Bind(legScope, order.TenantId, companyId);
                 await legScope.ServiceProvider
                     .GetRequiredService<ITradingCompanyGateway>()
                     .RunReservationAsync(
                         order.TenantId,
-                        order.CompanyId.Value,
+                        companyId,
                         provider => provider.GetRequiredService<IReservationService>()
                             .ReleaseAsync(reservationId, $"Pro forma {order.ProFormaNumber} compensation", cancellationToken),
                         cancellationToken)
@@ -827,7 +877,7 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
         var returns = new SalesReturnRepository(companyDb, scopedTenant);
         var sales = new SaleRepository(companyDb);
         var numbers = new DocumentNumberSequence(companyDb, scopedTenant);
-        var principal = new FixedPrincipalAccessor($"user:{decidedBy}");
+        var principal = new FixedPrincipalAccessor(decidedBy);
 
         var createHandler = new CreateSalesReturnCommandHandler(returns, sales, numbers, principal, _clock);
 
@@ -869,6 +919,11 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
                         Domain.Pos.TenderType.Cash),
                     cancellationToken)
                 .ConfigureAwait(false);
+
+            // The line handler reads the return back through the repository, which queries the
+            // database rather than the change tracker: persist the draft first. Still inside the
+            // serializable transaction, so the saga stays atomic.
+            await companyDb.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             var addHandler = new AddSalesReturnLineCommandHandler(returns, sales);
             var remaining = sale.LiveLines.ToDictionary(line => line.Id, line => line.Quantity.Value);
