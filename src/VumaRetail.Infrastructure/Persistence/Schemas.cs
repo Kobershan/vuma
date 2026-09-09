@@ -159,4 +159,10 @@ public static class Schemas
     /// here posts — approval creates the real documents in their own modules.
     /// </summary>
     public const string FieldSales = "fieldsales";
+
+    /// <summary>
+    /// Merchandise planning: demand history, forecasts, replenishment parameters, classifications,
+    /// safety-stock calculations, open-to-buy budgets, suggestions and markdown plans. Stage 15.
+    /// </summary>
+    public const string Planning = "planning";
 }

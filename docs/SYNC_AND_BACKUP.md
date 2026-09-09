@@ -235,6 +235,15 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `StokvelPayout` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Requested at one counter; frozen once settled |
 | `HamperBasket` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Defined at one store; frozen once the season opens |
 | `HamperBasketLine` | `customer_accounts` | `StoreToCloud` | `StoreWins` | Follows its basket; snapshotted, never re-resolved |
+| `DemandHistory` | `planning` | `StoreToCloud` | `AppendOnly` | Rebuilt from the ledger; re-runs refresh rows, never double them (Stage 15) |
+| `DemandForecast` | `planning` | `StoreToCloud` | `CloudWins` | A versioned snapshot; re-runs append v(n+1), never overwrite |
+| `ReplenishmentParameter` | `planning` | `StoreToCloud` | `CloudWins` | Planner-maintained settings, written where the shop trades |
+| `AbcXyzClassification` | `planning` | `StoreToCloud` | `CloudWins` | Append-only snapshots; existing rows never change on new sales |
+| `SafetyStockCalculation` | `planning` | `StoreToCloud` | `CloudWins` | Calculation audit with inputs snapshotted |
+| `OpenToBuyBudget` | `planning` | `StoreToCloud` | `CloudWins` | Management intent, freely re-planned |
+| `ReplenishmentSuggestion` | `planning` | `StoreToCloud` | `CloudWins` | Raised where the need is; decided where the stock is |
+| `MarkdownPlan` | `planning` | `StoreToCloud` | `CloudWins` | Mutable through its lifecycle, frozen once completed or amended |
+| `MarkdownPlanLine` | `planning` | `StoreToCloud` | `CloudWins` | Follows its plan; decision inputs snapshotted, never re-resolved |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

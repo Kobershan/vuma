@@ -18,6 +18,7 @@ using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
 using VumaRetail.Application.CustomerAccounts.Hosting;
+using VumaRetail.Application.Planning.Hosting;
 using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
@@ -29,6 +30,7 @@ using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Pos;
+using VumaRetail.Web.Planning;
 using VumaRetail.Web.Registry;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
@@ -155,6 +157,14 @@ builder.Services.AddVumaTradingSessions();
 builder.Services.AddVumaFieldSales();
 builder.Services.AddVumaFieldSalesScheduling(new FieldSalesHostTenant(host.TenantId, host.StoreId));
 
+// Stage 15. Merchandise planning, forecasting and replenishment. After AddVumaInventory (the
+// ledger the rollup reads, balances for costs, the transfer command), AddVumaProcurement (the
+// requisition commands accepts raise, open-order reads for commitments), AddVumaSales (the
+// promotion commands markdowns activate), AddVumaWorkflow (Stage 05 approvals) and the registry
+// services (links, group availability). The scheduled passes are registered separately: they
+// need the installation tenant.
+builder.Services.AddVumaPlanningScheduling(new PlanningHostTenant(host.TenantId, host.StoreId));
+
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
 // Like the two above it, the journal binding is resolved at build time, so this line only has to come
@@ -184,7 +194,9 @@ builder.Services.AddVumaOrders();
 // document number sequence. Registration order does not actually matter — every one of those is
 // resolved per request — but reading it here in dependency order is the point.
 builder.Services.AddVumaImports(
-    builder.Configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>() ?? new ImportOptions());
+     builder.Configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>() ?? new ImportOptions());
+
+builder.Services.AddVumaPlanning();
 
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
@@ -298,6 +310,7 @@ app.MapVumaWarehouse();
 app.MapPickWaves();
 app.MapVumaOrders();
 app.MapVumaImports();
+app.MapVumaPlanning();
 app.MapVumaRegistry();
 app.MapGroupReceiptEndpoints();
 app.MapConsolidationEndpoints();

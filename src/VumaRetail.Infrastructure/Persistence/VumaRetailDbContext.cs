@@ -445,6 +445,39 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Finance.DocumentNumberCounter> DocumentNumberCounters
         => Set<Domain.Finance.DocumentNumberCounter>();
 
+    /// <summary>Demand history read model entries. Stage 15.</summary>
+    public DbSet<Domain.Planning.DemandHistory> DemandHistories => Set<Domain.Planning.DemandHistory>();
+
+    /// <summary>Versioned demand forecast snapshots. Stage 15.</summary>
+    public DbSet<Domain.Planning.DemandForecast> DemandForecasts => Set<Domain.Planning.DemandForecast>();
+
+    /// <summary>Replenishment parameters per SKU/location. Stage 15.</summary>
+    public DbSet<Domain.Planning.ReplenishmentParameter> ReplenishmentParameters
+        => Set<Domain.Planning.ReplenishmentParameter>();
+
+    /// <summary>ABC/XYZ classification snapshots. Stage 15.</summary>
+    public DbSet<Domain.Planning.AbcXyzClassification> AbcXyzClassifications
+        => Set<Domain.Planning.AbcXyzClassification>();
+
+    /// <summary>Safety-stock calculations. Stage 15.</summary>
+    public DbSet<Domain.Planning.SafetyStockCalculation> SafetyStockCalculations
+        => Set<Domain.Planning.SafetyStockCalculation>();
+
+    /// <summary>Open-to-buy budgets. Stage 15.</summary>
+    public DbSet<Domain.Planning.OpenToBuyBudget> OpenToBuyBudgets
+        => Set<Domain.Planning.OpenToBuyBudget>();
+
+    /// <summary>Replenishment suggestions. Stage 15.</summary>
+    public DbSet<Domain.Planning.ReplenishmentSuggestion> ReplenishmentSuggestions
+        => Set<Domain.Planning.ReplenishmentSuggestion>();
+
+    /// <summary>Markdown plans. Stage 15.</summary>
+    public DbSet<Domain.Planning.MarkdownPlan> MarkdownPlans => Set<Domain.Planning.MarkdownPlan>();
+
+    /// <summary>Markdown plan lines. Stage 15.</summary>
+    public DbSet<Domain.Planning.MarkdownPlanLine> MarkdownPlanLines
+        => Set<Domain.Planning.MarkdownPlanLine>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a
