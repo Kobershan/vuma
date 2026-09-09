@@ -25,6 +25,7 @@ public sealed record ProFormaCreditLineInput(
     string Currency);
 
 /// <summary>Captures a pro forma credit note. Replays by idempotency key.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CaptureProFormaCreditNoteCommand(
     Guid RepId,
     Guid CompanyId,
@@ -120,6 +121,7 @@ public sealed class CaptureProFormaCreditNoteCommandHandler(
 }
 
 /// <summary>Submits a credit proposal for approval.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record SubmitProFormaCreditNoteCommand(Guid CreditNoteId) : ICommand;
 
 /// <summary>Validates <see cref="SubmitProFormaCreditNoteCommand"/>.</summary>
@@ -175,6 +177,7 @@ public sealed class SubmitProFormaCreditNoteCommandHandler(
 }
 
 /// <summary>Approves a credit proposal: decides in Stage 05, then applies the sales return.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ApproveProFormaCreditNoteCommand(Guid CreditNoteId, string Comment) : ICommand<Guid>;
 
 /// <summary>Validates <see cref="ApproveProFormaCreditNoteCommand"/>.</summary>
@@ -246,6 +249,7 @@ public sealed class ApproveProFormaCreditNoteCommandHandler(
 }
 
 /// <summary>Rejects a credit proposal with a reason.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RejectProFormaCreditNoteCommand(Guid CreditNoteId, string Reason) : ICommand;
 
 /// <summary>Validates <see cref="RejectProFormaCreditNoteCommand"/>.</summary>

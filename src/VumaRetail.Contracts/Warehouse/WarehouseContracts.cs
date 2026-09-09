@@ -18,6 +18,29 @@ public sealed record CreateCountScheduleRequest(
     int RandomSampleSize,
     DateTimeOffset NextRunAt);
 
+public sealed record PreviewConsolidatedWaveResponse(
+    Guid LocationId,
+    string GeographyLevel,
+    string GeographyValue,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    IReadOnlyList<GroupedLinePreview> GroupedLines,
+    IReadOnlyList<OrderBreakdownPreview> OrderBreakdowns);
+
+public sealed record GroupedLinePreview(
+    Guid ItemId,
+    Guid? ItemVariantId,
+    string UnitOfMeasure,
+    string PackSize,
+    decimal TotalQuantity,
+    int OrderCount);
+
+public sealed record OrderBreakdownPreview(
+    Guid OrderId,
+    Guid OrderLineId,
+    Guid ItemId,
+    decimal Quantity);
+
 public sealed record ConsolidatedWaveResponse(
     Guid Id,
     string Status,
@@ -119,15 +142,13 @@ public sealed record BinResponse(
     bool IsActive);
 
 public sealed record MoveBinStockRequest(
-    Guid BinId,
+    Guid SourceBinId,
+    Guid DestinationBinId,
     Guid? ItemId,
     Guid? ItemVariantId,
     decimal Quantity,
     string UnitOfMeasure,
-    string MovementType,
-    string ReferenceType,
-    Guid ReferenceId,
-    string? Note = null);
+    Guid? TransferId = null);
 
 public sealed record OpenPutawayTaskRequest(
     Guid LocationId,
@@ -142,7 +163,8 @@ public sealed record OpenPutawayTaskRequest(
 public sealed record ConfirmPutawayRequest(
     Guid PutawayTaskId,
     Guid ConfirmedBinId,
-    decimal ConfirmedQuantity);
+    decimal ConfirmedQuantity,
+    string UnitOfMeasure);
 
 public sealed record PutawayTaskResponse(
     Guid Id,
@@ -167,7 +189,8 @@ public sealed record AddPickTaskRequest(
 
 public sealed record ConfirmPickRequest(
     Guid PickTaskId,
-    decimal Quantity);
+    decimal Quantity,
+    string UnitOfMeasure);
 
 public sealed record PackWaveRequest(
     Guid PickWaveId,
@@ -189,8 +212,8 @@ public sealed record RecordCycleCountRequest(
     Guid BinId,
     Guid? ItemId,
     Guid? ItemVariantId,
-    decimal SystemQuantity,
-    decimal CountedQuantity);
+    decimal CountedQuantity,
+    string UnitOfMeasure);
 
 public sealed record BinStockResponse(
     Guid BinId,

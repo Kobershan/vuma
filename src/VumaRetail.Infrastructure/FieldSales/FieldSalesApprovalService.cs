@@ -213,6 +213,17 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
         string decidedBy,
         CancellationToken cancellationToken)
     {
+        // ADR-122: the link is checked at the point of use, on every execution — including a
+        // resume, which re-enters here without passing through ApproveOrderAsync's check. A link
+        // suspended after the first attempt must refuse the retry, not silently complete it.
+        foreach (Guid supplier in plan.SupplyingCompanies.Where(company => company != order.CompanyId))
+        {
+            await _links.RequireLinkAsync(
+                    order.TenantId, order.CompanyId!.Value, supplier,
+                    CompanyLinkScope.SharedSourcing, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         Guid? holdId = null;
         List<Guid> reservationIds = [];
         Guid? orderId = null;

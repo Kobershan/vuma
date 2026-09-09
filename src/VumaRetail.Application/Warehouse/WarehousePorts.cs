@@ -175,6 +175,23 @@ public sealed record OrderLineSummary(
     string PackSize,
     string GeographyValue);
 
+/// <summary>
+/// No order lines, ever: Order Management (Stage 14) does not exist yet, so there is nothing to
+/// read — consolidated-wave preview and build see an empty demand pool until Stage 14 replaces
+/// this with a real reader. Registered in <c>AddVumaWarehouse</c>; exists only so the host's
+/// dependency validation passes and the preview path is callable.
+/// </summary>
+public sealed class EmptyOrderLineReader : IOrderLineReader
+{
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OrderLineSummary>> ReadOpenLinesAsync(
+        Guid locationId,
+        DateOnly periodFrom,
+        DateOnly periodTo,
+        Guid? companyScopeId,
+        CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<OrderLineSummary>>([]);
+}
+
 /// <summary>Reads and writes <see cref="CycleCount"/> and <see cref="CycleCountLine"/> rows.</summary>
 public interface ICycleCountRepository
 {

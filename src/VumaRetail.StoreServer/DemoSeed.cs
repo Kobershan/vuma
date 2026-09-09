@@ -32,8 +32,10 @@ using VumaRetail.Application.Sales.Commands.Invoices;
 using VumaRetail.Application.Sales.Commands.Quotes;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
+using VumaRetail.Application.Abstractions.FieldSales;
 using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Application.FieldSales;
+using VumaRetail.Application.FieldSales.Permissions;
 using VumaRetail.Domain.FieldSales;
 using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Pos;
@@ -493,13 +495,13 @@ public static class DemoSeed
             .SendAsync(new CreateUserCommand("rep1", "Sipho Ndlovu", "ChangeMe-Rep-2026"), cancellationToken)
             .ConfigureAwait(false);
         await dispatcher.SendAsync(new AssignRoleCommand(rep1UserId, repRoleId, null), cancellationToken).ConfigureAwait(false);
-        await SetUserPinIfMissingAsync(provider, rep1UserId, "1111", cancellationToken).ConfigureAwait(false);
+        await SetUserPinAsync(provider, rep1UserId, "1111", cancellationToken).ConfigureAwait(false);
 
         Guid rep2UserId = await dispatcher
             .SendAsync(new CreateUserCommand("rep2", "Thabo Mokoena", "ChangeMe-Rep-2026"), cancellationToken)
             .ConfigureAwait(false);
         await dispatcher.SendAsync(new AssignRoleCommand(rep2UserId, repRoleId, null), cancellationToken).ConfigureAwait(false);
-        await SetUserPinIfMissingAsync(provider, rep2UserId, "2222", cancellationToken).ConfigureAwait(false);
+        await SetUserPinAsync(provider, rep2UserId, "2222", cancellationToken).ConfigureAwait(false);
 
         var rep1 = Rep.Register(
             DemoTenantId, null, rep1UserId, "Sipho Ndlovu", [DemoCompanyId], seeCost: false);
@@ -519,8 +521,8 @@ public static class DemoSeed
         Guid pf1Id = await dispatcher.SendAsync(
             new CaptureProFormaCommand(
                 rep1.Id, DemoCompanyId, customerId, currency, "PF-DEMO-001",
-                [new ProFormaLineInput(milkItemId, null, 12m, "EA", 50m, 0m, "STANDARD", new Money(600m, currency), new Money(90m, currency), new Money(590m, currency), "BOX12 (12x500ml)", null, "", new Money(690m, currency), clock.UtcNow)],
-                deliveryLine1: "12 Rivonia Road", deliveryCity: "Sandton", deliveryCountryCode: "ZA"),
+                [new ProFormaLineInput(milkItemId, null, 12m, "EA", 50m, 0m, "STANDARD", currency)],
+                DeliveryLine1: "12 Rivonia Road", DeliveryCity: "Sandton", DeliveryCountryCode: "ZA"),
             cancellationToken).ConfigureAwait(false);
         await dispatcher.SendAsync(new SubmitProFormaCommand(pf1Id), cancellationToken).ConfigureAwait(false);
         ProFormaOrder pf1 = await proFormas.FindAsync(pf1Id, cancellationToken).ConfigureAwait(false)
@@ -545,8 +547,8 @@ public static class DemoSeed
         Guid pf2Id = await dispatcher.SendAsync(
             new CaptureProFormaCommand(
                 rep2.Id, DemoCompanyId, customerId, currency, "PF-DEMO-002",
-                [new ProFormaLineInput(milkItemId, null, 6m, "EA", 55m, 0m, "STANDARD", new Money(330m, currency), new Money(49.5m, currency), new Money(329.5m, currency), "EA", null, "", new Money(379.5m, currency), clock.UtcNow)],
-                deliveryLine1: "45 Commissioner Street", deliveryCity: "Johannesburg", deliveryCountryCode: "ZA"),
+                [new ProFormaLineInput(milkItemId, null, 6m, "EA", 55m, 0m, "STANDARD", currency)],
+                DeliveryLine1: "45 Commissioner Street", DeliveryCity: "Johannesburg", DeliveryCountryCode: "ZA"),
             cancellationToken).ConfigureAwait(false);
         await dispatcher.SendAsync(new SubmitProFormaCommand(pf2Id), cancellationToken).ConfigureAwait(false);
         ProFormaOrder pf2 = await proFormas.FindAsync(pf2Id, cancellationToken).ConfigureAwait(false)
@@ -558,8 +560,8 @@ public static class DemoSeed
         Guid pf3Id = await dispatcher.SendAsync(
             new CaptureProFormaCommand(
                 rep1.Id, DemoCompanyId, customerId, currency, "PF-DEMO-003",
-                [new ProFormaLineInput(milkItemId, null, 24m, "EA", 48m, 0m, "STANDARD", new Money(1152m, currency), new Money(172.8m, currency), new Money(1152m, currency), "BOX12 (12x500ml)", null, "", new Money(1324.8m, currency), clock.UtcNow)],
-                deliveryLine1: "78 Oxford Road", deliveryCity: "Sandton", deliveryCountryCode: "ZA"),
+                [new ProFormaLineInput(milkItemId, null, 24m, "EA", 48m, 0m, "STANDARD", currency)],
+                DeliveryLine1: "78 Oxford Road", DeliveryCity: "Sandton", DeliveryCountryCode: "ZA"),
             cancellationToken).ConfigureAwait(false);
         await dispatcher.SendAsync(new SubmitProFormaCommand(pf3Id), cancellationToken).ConfigureAwait(false);
         ProFormaOrder pf3 = await proFormas.FindAsync(pf3Id, cancellationToken).ConfigureAwait(false)

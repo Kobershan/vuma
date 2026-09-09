@@ -6,9 +6,9 @@ using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Permissions;
 using VumaRetail.Contracts.Warehouse;
+using VumaRetail.Domain.Warehouse;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
-using VumaRetail.Contracts.Warehouse;
 
 namespace VumaRetail.Web.Warehouse;
 
@@ -45,7 +45,7 @@ public static class PickWaveEndpoints
 
         waves.MapGet("/preview", PreviewConsolidatedWaveAsync)
             .RequirePermission(WarehousePermissions.WaveBuild)
-            .Produces<PreviewConsolidatedWaveResponse>()
+            .Produces<VumaRetail.Contracts.Warehouse.PreviewConsolidatedWaveResponse>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Previews a consolidated wave without committing it.");
 
@@ -108,28 +108,56 @@ public static class PickWaveEndpoints
     }
 
     private static async Task<IResult> PreviewConsolidatedWaveAsync(
-        VumaRetail.Application.Warehouse.Queries.PreviewConsolidatedWaveQuery query, IDispatcher dispatcher, CancellationToken cancellationToken)
+        Guid locationId,
+        DateOnly periodFrom,
+        DateOnly periodTo,
+        string geographyLevel,
+        string geographyValue,
+        Guid? companyScopeId,
+        IDispatcher dispatcher,
+        CancellationToken cancellationToken)
     {
-        PreviewConsolidatedWaveResponse response = await dispatcher
+        var query = new VumaRetail.Application.Warehouse.Queries.PreviewConsolidatedWaveQuery(
+            locationId, periodFrom, periodTo, geographyLevel, geographyValue, companyScopeId);
+
+        var appResponse = await dispatcher
             .QueryAsync(query, cancellationToken)
             .ConfigureAwait(false);
-        return TypedResults.Ok(response);
+
+        var contractResponse = new VumaRetail.Contracts.Warehouse.PreviewConsolidatedWaveResponse(
+            appResponse.LocationId,
+            appResponse.GeographyLevel,
+            appResponse.GeographyValue,
+            appResponse.PeriodFrom,
+            appResponse.PeriodTo,
+            appResponse.GroupedLines.Select(g => new VumaRetail.Contracts.Warehouse.GroupedLinePreview(
+                g.ItemId, g.ItemVariantId, g.UnitOfMeasure, g.PackSize, g.TotalQuantity, g.OrderCount)).ToList(),
+            appResponse.OrderBreakdowns.Select(b => new VumaRetail.Contracts.Warehouse.OrderBreakdownPreview(
+                b.OrderId, b.OrderLineId, b.ItemId, b.Quantity)).ToList());
+
+        return TypedResults.Ok(contractResponse);
     }
 
     private static async Task<IResult> GetBreakdownAsync(
         Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        IReadOnlyList<OrderBreakdownResponse> breakdowns = await dispatcher
+        var appBreakdowns = await dispatcher
             .QueryAsync(new VumaRetail.Application.Warehouse.Queries.GetBreakdownQuery(id), cancellationToken)
             .ConfigureAwait(false);
-        return TypedResults.Ok(breakdowns);
+
+        var contractBreakdowns = appBreakdowns.Select(b => new VumaRetail.Contracts.Warehouse.OrderBreakdownResponse(
+            b.OrderId, b.OrderLineId, b.Quantity)).ToList();
+
+        return TypedResults.Ok(contractBreakdowns);
     }
 
     private static async Task<IResult> CreateCountScheduleAsync(
         CreateCountScheduleRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        CountCadence cadence = ParseEnum<CountCadence>(request.Cadence, nameof(request.Cadence), nameof(CreateCountScheduleCommand));
+
         CreateCountScheduleCommand command = new CreateCountScheduleCommand(
-            request.Name, request.Cadence, request.Scope,
+            request.Name, cadence, request.Scope,
             request.SlowMoverDays, request.RandomSampleSize, request.NextRunAt);
 
         Guid id = await dispatcher.SendAsync(command, cancellationToken).ConfigureAwait(false);
@@ -144,23 +172,34 @@ public static class PickWaveEndpoints
     private static async Task<IResult> ListCountSchedulesAsync(
         Guid? storeId, bool activeOnly, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        IReadOnlyList<CountScheduleSummary> summaries = await dispatcher
+        var appSummaries = await dispatcher
             .QueryAsync(new VumaRetail.Application.Warehouse.Queries.ListCountSchedulesQuery(storeId, activeOnly), cancellationToken)
             .ConfigureAwait(false);
 
-        return TypedResults.Ok(
-            summaries.Select(s => new CountScheduleResponse(
-                s.Id, s.Name, s.Cadence, s.Scope, s.SlowMoverDays,
-                s.RandomSampleSize, s.NextRunAt, s.IsActive)).ToList());
+        var contractSummaries = appSummaries.Select(s => new CountScheduleResponse(
+            s.Id, s.Name, s.Cadence, s.Scope, s.SlowMoverDays,
+            s.RandomSampleSize, s.NextRunAt, s.IsActive)).ToList();
+
+        return TypedResults.Ok(contractSummaries);
     }
 
     private static async Task<IResult> GetCountSheetAsync(
         Guid id, Guid locationId, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        CountSheetResponse sheet = await dispatcher
+        var appSheet = await dispatcher
             .QueryAsync(new VumaRetail.Application.Warehouse.Queries.GetCountSheetQuery(id, locationId), cancellationToken)
             .ConfigureAwait(false);
-        return TypedResults.Ok(sheet);
+
+        var contractSheet = new CountSheetResponse(
+            appSheet.ScheduleId,
+            appSheet.LocationId,
+            appSheet.GeneratedAt,
+            appSheet.Counts.Select(c => new CycleCountSummary(
+                c.CycleCountId, c.Scope, c.Status, c.ScheduledAt)).ToList(),
+            appSheet.InFlightWarnings.Select(w => new InFlightWarning(
+                w.BinId, w.ItemId, w.ItemVariantId, w.InFlightQuantity, w.WaveReference)).ToList());
+
+        return TypedResults.Ok(contractSheet);
     }
 
     private static void BindCompany(ICompanyContext company, Guid? companyId)
@@ -183,5 +222,21 @@ public static class PickWaveEndpoints
         {
             company.SetCompany(companyId.Value);
         }
+    }
+
+    private static TEnum ParseEnum<TEnum>(string value, string propertyName, string messageName)
+        where TEnum : struct, Enum
+    {
+        if (Enum.TryParse(value, ignoreCase: true, out TEnum parsed) && Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        throw new ValidationFailedException(
+            messageName,
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [propertyName] = [$"'{value}' is not one of: {string.Join(", ", Enum.GetNames<TEnum>())}."],
+            });
     }
 }
