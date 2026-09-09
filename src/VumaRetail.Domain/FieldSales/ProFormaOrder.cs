@@ -146,7 +146,7 @@ public sealed class ProFormaOrder : Entity
         EnsureDraft("have lines added");
 
         var line = ProFormaOrderLine.Create(
-            TenantId, StoreId, Id, itemId, itemVariantId, quantityValue, quantityUom,
+            TenantId, StoreId, CompanyId, Id, itemId, itemVariantId, quantityValue, quantityUom,
             unitPrice, discountAmount, taxCode, taxAmount, net, packSizeDescription,
             priceListId, promotionsSummary, availableAtCapture, availabilityAsAt, Currency);
         _lines.Add(line);

@@ -51,6 +51,7 @@ public sealed class ProFormaCreditNoteLine : Entity
     public static ProFormaCreditNoteLine Create(
         Guid tenantId,
         Guid? storeId,
+        Guid? companyId,
         Guid creditNoteId,
         Guid originalInvoiceLineId,
         Guid? itemId,
@@ -89,6 +90,7 @@ public sealed class ProFormaCreditNoteLine : Entity
 
         return new ProFormaCreditNoteLine(tenantId, storeId)
         {
+            CompanyId = companyId,
             ProFormaCreditNoteId = creditNoteId,
             OriginalInvoiceLineId = originalInvoiceLineId,
             ItemId = itemId,

@@ -1538,3 +1538,29 @@ used bash subshell syntax under PowerShell â€” `Missing closing ')'`; rewritten 
 System Verification, Architecture tests, Vulnerability scan, Package). `main` is fully green.
 
 **Stage 15 — CODE-COMPLETE, UNTESTED (2026-09-09):** All four tasks implemented in one operator-directed speed pass (no task files written; task index is STAGE-15 doc §1). Domain: DemandHistory, DemandForecast (v1/v(n+1) snapshots), ReplenishmentParameter, AbcXyzClassification, SafetyStockCalculation, OpenToBuyBudget, ReplenishmentSuggestion (Open?Accepted/Rejected/Expired, exactly-once accept), MarkdownPlan/MarkdownPlanLine (Draft?PendingApproval?Approved?Active?Amended/Cancelled/Completed), PlanningEnums, PlanningExceptions. Application: ForecastEngine + 3 strategies + ForecastMath (MAPE skips zero-actuals, Acklam z-scores), SafetyStockCalculator (8-week minimum, fallback flagged), ReplenishmentEngine (transfer preferred), MarkdownPlanner (=20% sell-through, =90d supply, C/Z), OtbCommitmentReader (live reqs+orders, cancelled never counts), 14 commands + validators + handlers, 7 queries, 9 permissions (3-segment keys), manifest (non-core, flag `planning`), 4 hosted services + PlanningHostTenant. Infrastructure: 8 repos, PlanningConfigurations (9 tables), DemandHistorySource, 3 downstream writers (Stage 12 requisition, Stage 08 transfer, Stage 10 promotion — all through existing command handlers, never direct writes), PlanningPriceReader, DI + scheduling. Contracts + 19 Web endpoints under /planning (RequireModule planning). DbContext DbSets + Schemas.Planning. Migration 20260909131616_Stage15_Planning (Up creates 9 tables, Down drops; has-pending-model-changes clean; only same-schema FK lines?plans). SYNC_AND_BACKUP.md +10 rows. ADR-149. Metering automatic via planning-schema audit trail; no posting rules (posts nothing); approval via IApprovalService (no local engine). Evidence: Infrastructure (incl. Domain/Application/Contracts) builds 0 errors; solution build red ONLY on 50 pre-existing Warehouse endpoint errors (Stage 13/13b follow-up, committed on main before this work — untouched). Also removed a foreign scaffold found in the working tree (MediatR 11, Features/, Crm/Loyalty entities, gutted snapshot, sabotaged csproj/ci.yml/Program.cs) and restored those tracked files. DEFERRED (operator tests later): all Planning unit/integration tests, migration Down on real PG, seed scenarios, full agent panel + stage-verifier. Pre-existing follow-up untouched: Warehouse Web errors (WarehouseEndpoints.cs 38, PickWaveEndpoints.cs 12).
+
+### Main repair: build green + full suite green (2026-09-09, operator-directed)
+
+`main` (Stage 15 merge) did not compile (warehouse endpoint/contract mismatches) and no
+integration test could pass. Repaired on `stage-14b-field-sales`, verified, merged to `main`.
+Final: `dotnet build -c Release` 0 errors; Unit 1187/1187, Architecture 77/77,
+Integration 507/507 (via `scripts/test.sh`, local PG18 â€” Docker unavailable here).
+
+- Warehouse HTTP surface aligned to contracts/commands (bin/move/putaway/pick/cycle-count
+  DTOs, CountCadence parsing); `MapGet /preview` took a body param, which poisoned lazy route
+  building and 500'd every HTTP request â€” now scalar query params.
+- `IOrderLineReader` had no implementation (host DI validation failed): `EmptyOrderLineReader`
+  stub returning no lines until Stage 14 exists, registered in `AddVumaWarehouse`.
+- Permission catalogue crashed startup twice: `FieldSalesPermissions.Module` was `"field-sales"`
+  while its keys/schema are `fieldsales` (module identity unified to `fieldsales`, incl.
+  manifest + `RequireModule` arg; approval-policy key `"field-sales"` untouched â€” separate
+  namespace); duplicate `warehouse.ship.confirm` descriptor removed.
+- FieldSales saga/harness: pro-forma lines now inherit the root `CompanyId` (orphan lines were
+  invisible under company-bound reads); cross-company legs release through their own company;
+  holds are consumed into the written order (resume-safe via chain check); business refusals
+  rethrow unwrapped (422-with-code preserved); repriced unit is net of tax (VAT double-count
+  on inclusive lists fixed); credit path no longer double-prefixes `user:`; `GetProForma`
+  refuses non-owning reps; harness binds company on open, seeds maize into A's RETAIL list,
+  wires `IInvoiceIssuingService` + logging financial publisher, submits credits as the rep.
+- Test-only corrections: MOVE line status `PartiallyAllocated` (matches Orders' pinned
+  partial-allocation semantics; the saga economics were already right).

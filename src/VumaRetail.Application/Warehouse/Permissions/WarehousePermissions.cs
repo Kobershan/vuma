@@ -63,7 +63,6 @@ public sealed class WarehousePermissions : IModulePermissions
         new(PermissionKey.Parse(PickConfirm), "Confirm a pick against its allocation.", IsHighRisk: true),
         new(PermissionKey.Parse(PackConfirm), "Pack a picked wave.", IsHighRisk: true),
         new(PermissionKey.Parse(ShipConfirm), "Confirm a wave's shipment — stock leaves the location.", IsHighRisk: true),
-        new(PermissionKey.Parse(ShipConfirm), "Confirm a wave's shipment — stock leaves the location.", IsHighRisk: true),
         new(PermissionKey.Parse(CycleCountManage), "Open a cycle count, record counts, and finalize it.", IsHighRisk: true),
         new(PermissionKey.Parse(WaveBuild), "Build and preview consolidated pick waves.", IsHighRisk: true),
         new(PermissionKey.Parse(WaveRelease), "Release a consolidated wave for picking.", IsHighRisk: true),

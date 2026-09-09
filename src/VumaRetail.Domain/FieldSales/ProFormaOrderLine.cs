@@ -72,6 +72,7 @@ public sealed class ProFormaOrderLine : Entity
     public static ProFormaOrderLine Create(
         Guid tenantId,
         Guid? storeId,
+        Guid? companyId,
         Guid proFormaOrderId,
         Guid? itemId,
         Guid? itemVariantId,
@@ -123,6 +124,7 @@ public sealed class ProFormaOrderLine : Entity
 
         return new ProFormaOrderLine(tenantId, storeId)
         {
+            CompanyId = companyId,
             ProFormaOrderId = proFormaOrderId,
             ItemId = itemId,
             ItemVariantId = itemVariantId,

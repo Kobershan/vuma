@@ -141,7 +141,7 @@ public sealed class ProFormaCreditNote : Entity
         }
 
         var line = ProFormaCreditNoteLine.Create(
-            TenantId, StoreId, Id, originalInvoiceLineId, itemId, itemVariantId,
+            TenantId, StoreId, CompanyId, Id, originalInvoiceLineId, itemId, itemVariantId,
             quantityValue, quantityUom, unitPrice, taxAmount, net, Currency);
         _lines.Add(line);
         return line;

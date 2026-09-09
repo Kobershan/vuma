@@ -88,7 +88,7 @@ public sealed class FieldSalesApprovalTests(PostgresFixture fixture)
             .FirstAsync(o => o.Id == orderId);
         order.Status.Should().Be(SalesOrderStatus.Confirmed);
         SalesOrderLine line = order.Lines.Should().ContainSingle().Subject;
-        line.LineStatus.Should().Be(SalesOrderLineStatus.Backordered);
+        line.LineStatus.Should().Be(SalesOrderLineStatus.PartiallyAllocated);
         line.BackorderedQuantity.Value.Should().Be(15m);
 
         // Only what exists was reserved: 5 units held and consumed, 15 backordered.
@@ -222,7 +222,6 @@ public sealed class FieldSalesApprovalTests(PostgresFixture fixture)
         await using VumaRetailDbContext dbRead = harness.OpenCompanyDb(harness.CompanyAId);
         var reads = new GetProFormaQueryHandler(
             new ProFormaOrderRepository(dbRead),
-            new RepRepository(dbRead),
             harness.TenantContext);
         Func<Task> act = () => reads.HandleAsync(new GetProFormaQuery(proFormaId, repB));
         await act.Should().ThrowAsync<FieldSalesException>()
@@ -283,7 +282,7 @@ public sealed class FieldSalesApprovalTests(PostgresFixture fixture)
         Guid creditId = await driver.CaptureCreditAsync(
             repId, harness.CompanyAId, invoiceId, "INV-000007",
             [(invoiceLineId, harness.HotPlateAId, 1m, 799.00m)]);
-        await driver.SubmitCreditAsync(creditId);
+        await driver.SubmitCreditAsync(creditId, repUser);
         Guid returnId = await driver.ApproveCreditAsync(creditId);
 
         await using var dbA = harness.OpenCompanyDb(harness.CompanyAId);
@@ -518,10 +517,10 @@ public sealed class FieldSalesApprovalTests(PostgresFixture fixture)
             return id;
         }
 
-        public async Task SubmitCreditAsync(Guid creditId)
+        public async Task SubmitCreditAsync(Guid creditId, Guid submitterUserId)
         {
             await using VumaRetailDbContext db = harness.OpenCompanyDb(harness.CompanyAId);
-            var engine = harness.CreateApprovalEngine(db, $"user:{harness.ManagerId}");
+            var engine = harness.CreateApprovalEngine(db, $"user:{submitterUserId}");
             var handler = new SubmitProFormaCreditNoteCommandHandler(
                 new ProFormaCreditNoteRepository(db), engine, harness.TenantContext, harness.Clock);
             await handler.HandleAsync(new SubmitProFormaCreditNoteCommand(creditId));

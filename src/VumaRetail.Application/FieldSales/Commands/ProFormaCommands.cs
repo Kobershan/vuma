@@ -29,6 +29,7 @@ public sealed record ProFormaLineInput(
     string Currency);
 
 /// <summary>Captures a pro forma order. Replays by idempotency key.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CaptureProFormaCommand(
     Guid RepId,
     Guid CompanyId,
@@ -162,6 +163,7 @@ public sealed class CaptureProFormaCommandHandler(
 // ---------------------------------------------------------------------------
 
 /// <summary>Submits a draft for approval. Raises the Stage 05 request.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record SubmitProFormaCommand(Guid ProFormaId) : ICommand;
 
 /// <summary>Validates <see cref="SubmitProFormaCommand"/>.</summary>
@@ -220,6 +222,7 @@ public sealed class SubmitProFormaCommandHandler(
 }
 
 /// <summary>Returns a submitted pro forma to draft for amendment, with the reason.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record AmendProFormaCommand(Guid ProFormaId, string Reason) : ICommand;
 
 /// <summary>Validates <see cref="AmendProFormaCommand"/>.</summary>
@@ -258,6 +261,7 @@ public sealed class AmendProFormaCommandHandler(
 }
 
 /// <summary>Withdraws a pro forma before a decision.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record WithdrawProFormaCommand(Guid ProFormaId, string Reason) : ICommand;
 
 /// <summary>Validates <see cref="WithdrawProFormaCommand"/>.</summary>
@@ -295,6 +299,7 @@ public sealed class WithdrawProFormaCommandHandler(
 }
 
 /// <summary>Expires every lapsed undecided pro forma. The hosted service's command.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ExpireProFormasCommand : ICommand<int>;
 
 /// <summary>Handler for <see cref="ExpireProFormasCommand"/>.</summary>
@@ -342,6 +347,7 @@ public sealed class ExpireProFormasCommandHandler(
 // ---------------------------------------------------------------------------
 
 /// <summary>Approves a submitted pro forma: decides in Stage 05, then converts via the saga.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ApproveProFormaCommand(Guid ProFormaId, string Comment) : ICommand<Guid>;
 
 /// <summary>Validates <see cref="ApproveProFormaCommand"/>.</summary>
@@ -417,6 +423,7 @@ public sealed class ApproveProFormaCommandHandler(
 }
 
 /// <summary>Rejects a submitted pro forma with a reason.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RejectProFormaCommand(Guid ProFormaId, string Reason) : ICommand;
 
 /// <summary>Validates <see cref="RejectProFormaCommand"/>.</summary>

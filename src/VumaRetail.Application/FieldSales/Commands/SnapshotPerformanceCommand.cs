@@ -12,6 +12,7 @@ using VumaRetail.Domain.FieldSales;
 namespace VumaRetail.Application.FieldSales.Commands;
 
 /// <summary>Snapshots one closed month for every rep in the acting company.</summary>
+[CommandSideEffect(SideEffect.Write)]
 public sealed record SnapshotPerformanceCommand(DateOnly PeriodStart) : ICommand<int>;
 
 /// <summary>Validates <see cref="SnapshotPerformanceCommand"/>.</summary>

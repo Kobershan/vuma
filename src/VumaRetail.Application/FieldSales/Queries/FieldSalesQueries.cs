@@ -52,7 +52,6 @@ public sealed record GetProFormaQuery(Guid ProFormaId, Guid CallerRepId) : IQuer
 /// <summary>Handler for <see cref="GetProFormaQuery"/>.</summary>
 public sealed class GetProFormaQueryHandler(
     IProFormaOrderRepository proFormas,
-    IRepRepository reps,
     ITenantContext tenant)
     : IQueryHandler<GetProFormaQuery, ProFormaView>
 {
@@ -70,11 +69,7 @@ public sealed class GetProFormaQueryHandler(
 
         if (order.RepId != query.CallerRepId)
         {
-            Rep? caller = await reps.FindAsync(query.CallerRepId, cancellationToken).ConfigureAwait(false);
-            if (caller is null || caller.TenantId != tenant.TenantId)
-            {
-                throw FieldSalesException.Forbidden("read another rep's document");
-            }
+            throw FieldSalesException.Forbidden("read another rep's document");
         }
 
         return Map(order);

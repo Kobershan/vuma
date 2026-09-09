@@ -26,7 +26,8 @@ public sealed record CountScheduleSummary(
 /// Lists count schedules.
 /// </summary>
 /// <param name="schedules">The schedule repository.</param>
-public sealed class ListCountSchedulesQueryHandler(ICountScheduleRepository schedules)
+/// <param name="clock">The only source of time.</param>
+public sealed class ListCountSchedulesQueryHandler(ICountScheduleRepository schedules, IClock clock)
     : IQueryHandler<ListCountSchedulesQuery, IReadOnlyList<CountScheduleSummary>>
 {
     /// <inheritdoc />
@@ -38,7 +39,7 @@ public sealed class ListCountSchedulesQueryHandler(ICountScheduleRepository sche
         IReadOnlyList<CountSchedule> all;
         if (query.ActiveOnly)
         {
-            all = await schedules.ListActiveDueAsync(DateTimeOffset.UtcNow, cancellationToken)
+            all = await schedules.ListActiveDueAsync(clock.UtcNow, cancellationToken)
                 .ConfigureAwait(false);
         }
         else
