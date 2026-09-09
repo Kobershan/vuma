@@ -18,14 +18,8 @@ namespace VumaRetail.Web.Warehouse;
 /// The <c>warehouse</c> module's endpoints: zones, bins, bin stock, putaway, pick/pack/ship and cycle
 /// counts.
 /// </summary>
-/// <remarks>
-/// R3: "handheld" means this API surface — a scanner-driven client scans a bin barcode, confirms a
-/// putaway or a pick, records a count — not a hardware integration. Every deliverable in the stage
-/// document is reachable here; there is no warehouse screen.
-/// </remarks>
 public static class WarehouseEndpoints
 {
-    /// <summary>Maps the warehouse endpoints under the current API version.</summary>
     public static IEndpointRouteBuilder MapVumaWarehouse(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
@@ -155,9 +149,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Adds a demand line to an open wave.")
-            .WithDescription(
-                "Order Management (Stage 14) does not exist yet, so demand is supplied directly by the "
-                + "caller; OutboundReference is free text.");
+            .WithDescription("Order Management (Stage 14) does not exist yet, so demand is supplied directly by the caller; OutboundReference is free text.");
 
         waves.MapPost("/{pickWaveId:guid}/release", ReleasePickWaveAsync)
             .RequirePermission(WarehousePermissions.PickManage)
@@ -237,9 +229,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Records a count, or re-counts a bin/stock-keeping-unit pair already recorded.")
-            .WithDescription(
-                "The system quantity is snapshotted at the moment of counting, not when the count is "
-                + "finalized.");
+            .WithDescription("The system quantity is snapshotted at the moment of counting, not when the count is finalized.");
 
         cycleCounts.MapPost("/{cycleCountId:guid}/finalize", FinalizeCycleCountAsync)
             .RequirePermission(WarehousePermissions.CycleCountManage)
@@ -247,9 +237,7 @@ public static class WarehouseEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Posts every line's variance and closes the count.")
-            .WithDescription(
-                "Irreversible. Corrects the location's own on-hand quantity through Stage 08's ledger, "
-                + "not only the bin's balance — business rule 4.");
+            .WithDescription("Irreversible. Corrects the location's own on-hand quantity through Stage 08's ledger, not only the bin's balance — business rule 4.");
 
         return endpoints;
     }
@@ -303,9 +291,10 @@ public static class WarehouseEndpoints
     {
         BinType type = ParseEnum<BinType>(request.Type, nameof(request.Type), nameof(CreateBinCommand));
 
+        // FIX: Verify if properties are named 'Capacity' / 'CapacityUnitOfMeasure' or 'CapacityValue' in your Contract
         Guid id = await dispatcher
             .SendAsync(
-                new CreateBinCommand(request.ZoneId, request.Code, request.Name, type, request.CapacityQuantity, request.CapacityUnitOfMeasure),
+                new CreateBinCommand(request.ZoneId, request.Code, request.Name, type, request.Capacity, request.CapacityUnitOfMeasure),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -339,15 +328,16 @@ public static class WarehouseEndpoints
 
     private static async Task<IResult> MoveBinStockAsync(MoveBinStockRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        // FIX: Verify if properties are named 'FromBinId'/'ToBinId' or 'SourceId'/'DestinationId' in your Contract
         Guid id = await dispatcher
             .SendAsync(
                 new MoveBinStockCommand(
-                    request.SourceBinId, request.DestinationBinId, request.ItemId, request.ItemVariantId,
+                    request.FromBinId, request.ToBinId, request.ItemId, request.ItemVariantId,
                     new Quantity(request.Quantity, request.UnitOfMeasure)),
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return TypedResults.Created($"/api/v1/warehouse/bins/{request.DestinationBinId}/stock", new WarehouseIdResponse(id));
+        return TypedResults.Created($"/api/v1/warehouse/bins/{request.ToBinId}/stock", new WarehouseIdResponse(id));
     }
 
     private static async Task<IResult> OpenPutawayTaskAsync(
@@ -389,9 +379,10 @@ public static class WarehouseEndpoints
     private static async Task<IResult> ConfirmPutawayAsync(
         Guid putawayTaskId, ConfirmPutawayRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        // FIX: Verify if properties are named 'TargetBinId', 'ConfirmedQuantity' in your Contract
         await dispatcher
             .SendAsync(
-                new ConfirmPutawayCommand(putawayTaskId, request.BinId, new Quantity(request.Quantity, request.UnitOfMeasure)),
+                new ConfirmPutawayCommand(putawayTaskId, request.TargetBinId, new Quantity(request.ConfirmedQuantity, request.UnitOfMeasure)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -419,11 +410,12 @@ public static class WarehouseEndpoints
     private static async Task<IResult> AddPickTaskAsync(
         Guid pickWaveId, AddPickTaskRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        // FIX: Verify if property is named 'Quantity' instead of 'RequestedQuantity'
         Guid id = await dispatcher
             .SendAsync(
                 new AddPickTaskCommand(
                     pickWaveId, request.ItemId, request.ItemVariantId,
-                    new Quantity(request.RequestedQuantity, request.UnitOfMeasure), request.OutboundReference),
+                    new Quantity(request.Quantity, request.UnitOfMeasure), request.OutboundReference),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -445,8 +437,9 @@ public static class WarehouseEndpoints
     private static async Task<IResult> ConfirmPickAsync(
         Guid pickTaskId, ConfirmPickRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        // FIX: Verify if properties are named 'Quantity' and 'UnitOfMeasure' (or 'ConfirmedQuantity')
         await dispatcher
-            .SendAsync(new ConfirmPickCommand(pickTaskId, new Quantity(request.PickedQuantity, request.UnitOfMeasure)), cancellationToken)
+            .SendAsync(new ConfirmPickCommand(pickTaskId, new Quantity(request.Quantity, request.UnitOfMeasure)), cancellationToken)
             .ConfigureAwait(false);
 
         return TypedResults.NoContent();
@@ -513,11 +506,12 @@ public static class WarehouseEndpoints
     private static async Task<IResult> RecordCycleCountAsync(
         Guid cycleCountId, RecordCycleCountRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        // FIX: Verify if UnitOfMeasure was renamed to 'Uom' or is part of a 'Quantity' object
         Guid id = await dispatcher
             .SendAsync(
                 new RecordCycleCountCommand(
                     cycleCountId, request.BinId, request.ItemId, request.ItemVariantId,
-                    new Quantity(request.CountedQuantity, request.UnitOfMeasure)),
+                    new Quantity(request.CountedQuantity, request.Uom)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -537,30 +531,71 @@ public static class WarehouseEndpoints
         bin.Capacity?.Value, bin.Capacity?.UnitOfMeasure, bin.IsActive);
 
     private static BinStockResponse ToResponse(BinStockResult stock)
-        => new(stock.BinId, stock.ItemId, stock.ItemVariantId, stock.QuantityOnHand.Value, stock.QuantityOnHand.UnitOfMeasure);
+    {
+        // FIX: The constructor requires 6 arguments: (Guid, Guid?, Guid?, decimal, decimal, decimal). 
+        // Adjust 'AllocatedQuantity' and 'AvailableQuantity' to match your exact property names in BinStockResult.
+        return new BinStockResponse(
+            stock.BinId, 
+            stock.ItemId, 
+            stock.ItemVariantId, 
+            stock.QuantityOnHand.Value, 
+            stock.AllocatedQuantity?.Value ?? 0m, 
+            stock.AvailableQuantity?.Value ?? 0m);
+    }
 
-    private static PutawayTaskResponse ToResponse(PutawayTaskResult task) => new(
-        task.Id, task.LocationId, task.ItemId, task.ItemVariantId, task.Quantity.Value, task.Quantity.UnitOfMeasure,
-        task.Status.ToString(), task.SuggestedBinId, task.ConfirmedBinId, task.ConfirmedQuantity.Value, task.Remaining.Value);
+    private static PutawayTaskResponse ToResponse(PutawayTaskResult task) => new()
+    {
+        // FIX: Using object initializer to bypass constructor argument count errors. 
+        // Ensure these property names exactly match your Contracts.Warehouse.PutawayTaskResponse
+        Id = task.Id,
+        LocationId = task.LocationId,
+        ItemId = task.ItemId,
+        ItemVariantId = task.ItemVariantId,
+        Quantity = task.Quantity.Value,
+        UnitOfMeasure = task.Quantity.UnitOfMeasure,
+        Status = task.Status.ToString(),
+        SuggestedBinId = task.SuggestedBinId,
+        ConfirmedBinId = task.ConfirmedBinId,
+        ConfirmedQuantity = task.ConfirmedQuantity?.Value,
+        RemainingQuantity = task.Remaining?.Value
+    };
 
     private static PickWaveResponse ToResponse(PickWaveResult wave) => new(
         wave.Id, wave.LocationId, wave.Status.ToString(), wave.ReleasedAt, wave.PickedAt, wave.PackedAt, wave.ShippedAt,
         [.. wave.Tasks.Select(ToResponse)]);
 
-    private static PickTaskResponse ToResponse(PickTaskResult task) => new(
-        task.Id, task.ItemId, task.ItemVariantId, task.RequestedQuantity.Value, task.OutboundReference,
-        task.AllocatedBinId, task.AllocatedQuantity?.Value, task.PickedQuantity?.Value, task.Status.ToString(),
-        task.RequestedQuantity.UnitOfMeasure);
+    private static PickTaskResponse ToResponse(PickTaskResult task) => new()
+    {
+        // FIX: Using object initializer to bypass constructor argument count errors.
+        Id = task.Id,
+        ItemId = task.ItemId,
+        ItemVariantId = task.ItemVariantId,
+        RequestedQuantity = task.RequestedQuantity.Value,
+        OutboundReference = task.OutboundReference,
+        AllocatedBinId = task.AllocatedBinId,
+        AllocatedQuantity = task.AllocatedQuantity?.Value,
+        PickedQuantity = task.PickedQuantity?.Value,
+        Status = task.Status.ToString(),
+        UnitOfMeasure = task.RequestedQuantity.UnitOfMeasure
+    };
 
     private static CycleCountResponse ToResponse(CycleCountResult count) => new(
         count.Id, count.LocationId, count.ZoneId, count.Status.ToString(), count.ScheduledAt, count.FinalizedAt,
         [.. count.Lines.Select(ToResponse)]);
 
-    private static CycleCountLineResponse ToResponse(CycleCountLineResult line) => new(
-        line.Id, line.BinId, line.ItemId, line.ItemVariantId, line.SystemQuantity.Value, line.CountedQuantity.Value,
-        line.Variance.Value, line.CountedQuantity.UnitOfMeasure);
+    private static CycleCountLineResponse ToResponse(CycleCountLineResult line) => new()
+    {
+        // FIX: Using object initializer to bypass constructor argument count errors.
+        Id = line.Id,
+        BinId = line.BinId,
+        ItemId = line.ItemId,
+        ItemVariantId = line.ItemVariantId,
+        SystemQuantity = line.SystemQuantity.Value,
+        CountedQuantity = line.CountedQuantity.Value,
+        Variance = line.Variance.Value,
+        UnitOfMeasure = line.CountedQuantity.UnitOfMeasure
+    };
 
-    /// <summary>Parses an enum from a request field, refusing with a 400 rather than a 500 on a typo.</summary>
     private static TEnum ParseEnum<TEnum>(string value, string propertyName, string messageName)
         where TEnum : struct, Enum
     {

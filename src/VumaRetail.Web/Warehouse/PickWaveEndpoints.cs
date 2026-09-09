@@ -8,6 +8,7 @@ using VumaRetail.Application.Warehouse.Permissions;
 using VumaRetail.Contracts.Warehouse;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Contracts.Warehouse;
 
 namespace VumaRetail.Web.Warehouse;
 
