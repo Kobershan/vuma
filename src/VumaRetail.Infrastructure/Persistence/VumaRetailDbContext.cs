@@ -253,6 +253,27 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Frozen hamper contents with substitution rules (Stage 10b).</summary>
     public DbSet<Domain.CustomerAccounts.HamperBasketLine> HamperBasketLines => Set<Domain.CustomerAccounts.HamperBasketLine>();
 
+    /// <summary>Field sales reps with territories and visibility profiles (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.Rep> Reps => Set<Domain.FieldSales.Rep>();
+
+    /// <summary>Rep pro forma orders: proposals, posting nothing (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.ProFormaOrder> ProFormaOrders => Set<Domain.FieldSales.ProFormaOrder>();
+
+    /// <summary>Snapshotted pro forma lines (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.ProFormaOrderLine> ProFormaOrderLines => Set<Domain.FieldSales.ProFormaOrderLine>();
+
+    /// <summary>Rep pro forma credit notes (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.ProFormaCreditNote> ProFormaCreditNotes => Set<Domain.FieldSales.ProFormaCreditNote>();
+
+    /// <summary>Snapshotted credit proposal lines (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.ProFormaCreditNoteLine> ProFormaCreditNoteLines => Set<Domain.FieldSales.ProFormaCreditNoteLine>();
+
+    /// <summary>Versioned rep targets (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.RepTarget> RepTargets => Set<Domain.FieldSales.RepTarget>();
+
+    /// <summary>Immutable closed-month rep performance (Stage 14b).</summary>
+    public DbSet<Domain.FieldSales.RepPerformanceSnapshot> RepPerformanceSnapshots => Set<Domain.FieldSales.RepPerformanceSnapshot>();
+
     /// <summary>One uploaded file and the whole life of what it became (Stage 11).</summary>
     public DbSet<Domain.Imports.ImportBatch> ImportBatches => Set<Domain.Imports.ImportBatch>();
 
@@ -346,6 +367,12 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     /// <summary>One counted bin/stock-keeping-unit pair within a cycle count. Stage 13.</summary>
     public DbSet<Domain.Warehouse.CycleCountLine> CycleCountLines => Set<Domain.Warehouse.CycleCountLine>();
+
+    /// <summary>Per-order split of a grouped wave line. Stage 13b.</summary>
+    public DbSet<Domain.Warehouse.PickWaveLineBreakdown> PickWaveLineBreakdowns => Set<Domain.Warehouse.PickWaveLineBreakdown>();
+
+    /// <summary>Scheduled count runs targeting slow movers. Stage 13b.</summary>
+    public DbSet<Domain.Warehouse.CountSchedule> CountSchedules => Set<Domain.Warehouse.CountSchedule>();
 
     /// <summary>A promise to fulfil what a customer wants, by delivery or click &amp; collect. Stage 14.</summary>
     public DbSet<Domain.Orders.SalesOrder> SalesOrders => Set<Domain.Orders.SalesOrder>();

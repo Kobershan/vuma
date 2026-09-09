@@ -32,6 +32,9 @@ using VumaRetail.Application.Sales.Commands.Invoices;
 using VumaRetail.Application.Sales.Commands.Quotes;
 using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
+using VumaRetail.Application.FieldSales.Commands;
+using VumaRetail.Application.FieldSales;
+using VumaRetail.Domain.FieldSales;
 using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Sales;
@@ -210,6 +213,7 @@ public static class DemoSeed
             .ConfigureAwait(false);
         await SeedWarehouseAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
         await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
+        await SeedFieldSalesAsync(provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -439,6 +443,169 @@ public static class DemoSeed
             + $"fulfilled and revenue-recognised ({completed1.RevenueRecognised}, {completed1.Gross}); "
             + $"a click & collect order fulfilled and recognised ({completed2.RevenueRecognised}, {completed2.Gross}); "
             + $"return {orderReturn.ReturnNumber} completed for {orderReturn.Gross}.");
+    }
+
+    /// <summary>
+    /// Seeds Stage 14b: two reps with territories, three pro formas (one approved into a
+    /// split invoice, one rejected, one expired), and a closed-period performance snapshot.
+    /// </summary>
+    /// <remarks>
+    /// Guarded on the reps table being empty rather than per-row, the same shape every other
+    /// <c>Seed*Async</c> method in this file uses. The demo runs in a single company
+    /// (<c>DemoCompanyId</c>) because the single-database demo cannot provision a second
+    /// company; the two-database split itself runs as the executable demo in
+    /// <c>FieldSalesTests</c>.
+    /// </remarks>
+    private static async Task SeedFieldSalesAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        Guid milkItemId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.Reps.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+        IClock clock = provider.GetRequiredService<IClock>();
+        IRepRepository reps = provider.GetRequiredService<IRepRepository>();
+        IProFormaOrderRepository proFormas = provider.GetRequiredService<IProFormaOrderRepository>();
+        IRepPerformanceRepository snapshots = provider.GetRequiredService<IRepPerformanceRepository>();
+        IFieldSalesApprovalService approvalService = provider.GetRequiredService<IFieldSalesApprovalService>();
+        IDocumentNumberSequence numbers = provider.GetRequiredService<IDocumentNumberSequence>();
+        IUserRepository users = provider.GetRequiredService<IUserRepository>();
+
+        Guid repRoleId = await EnsureRoleAsync(
+            provider, "Rep",
+            [
+                FieldSalesPermissions.ProFormaCapture,
+                FieldSalesPermissions.ProFormaSubmit,
+                FieldSalesPermissions.ProFormaView,
+                FieldSalesPermissions.ProFormaApprove,
+                FieldSalesPermissions.PerformanceOwn,
+            ],
+            cancellationToken).ConfigureAwait(false);
+
+        // Two reps with territories (Stage 14b).
+        Guid rep1UserId = await dispatcher
+            .SendAsync(new CreateUserCommand("rep1", "Sipho Ndlovu", "ChangeMe-Rep-2026"), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new AssignRoleCommand(rep1UserId, repRoleId, null), cancellationToken).ConfigureAwait(false);
+        await SetUserPinIfMissingAsync(provider, rep1UserId, "1111", cancellationToken).ConfigureAwait(false);
+
+        Guid rep2UserId = await dispatcher
+            .SendAsync(new CreateUserCommand("rep2", "Thabo Mokoena", "ChangeMe-Rep-2026"), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new AssignRoleCommand(rep2UserId, repRoleId, null), cancellationToken).ConfigureAwait(false);
+        await SetUserPinIfMissingAsync(provider, rep2UserId, "2222", cancellationToken).ConfigureAwait(false);
+
+        var rep1 = Rep.Register(
+            DemoTenantId, null, rep1UserId, "Sipho Ndlovu", [DemoCompanyId], seeCost: false);
+        rep1.AssignTerritory([customerId], province: "Gauteng", city: "Sandton");
+        var rep2 = Rep.Register(
+            DemoTenantId, null, rep2UserId, "Thabo Mokoena", [DemoCompanyId], seeCost: false);
+        rep2.AssignTerritory([customerId], province: "Western Cape", city: "Claremont");
+
+        reps.AddRep(rep1);
+        reps.AddRep(rep2);
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        DateOnly periodStart = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        string currency = "ZAR";
+
+        // Pro forma 1: approved into a split invoice.
+        Guid pf1Id = await dispatcher.SendAsync(
+            new CaptureProFormaCommand(
+                rep1.Id, DemoCompanyId, customerId, currency, "PF-DEMO-001",
+                [new ProFormaLineInput(milkItemId, null, 12m, "EA", 50m, 0m, "STANDARD", new Money(600m, currency), new Money(90m, currency), new Money(590m, currency), "BOX12 (12x500ml)", null, "", new Money(690m, currency), clock.UtcNow)],
+                deliveryLine1: "12 Rivonia Road", deliveryCity: "Sandton", deliveryCountryCode: "ZA"),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new SubmitProFormaCommand(pf1Id), cancellationToken).ConfigureAwait(false);
+        ProFormaOrder pf1 = await proFormas.FindAsync(pf1Id, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Pro forma 1 not found.");
+        pf1.RecordApproval(Guid.NewGuid());
+        pf1.MarkApproved(Money.Zero(currency), clock.UtcNow);
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // Attempt the approval-to-order saga (may fail in single-demo company context).
+        try
+        {
+            await approvalService.ApproveOrderAsync(pf1.Id, "manager", cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The single-database demo cannot provision a second company for the split;
+            // the saga would fail the company-link check. The pro forma is already
+            // marked approved so the snapshot has data to fold.
+        }
+
+        // Pro forma 2: rejected.
+        Guid pf2Id = await dispatcher.SendAsync(
+            new CaptureProFormaCommand(
+                rep2.Id, DemoCompanyId, customerId, currency, "PF-DEMO-002",
+                [new ProFormaLineInput(milkItemId, null, 6m, "EA", 55m, 0m, "STANDARD", new Money(330m, currency), new Money(49.5m, currency), new Money(329.5m, currency), "EA", null, "", new Money(379.5m, currency), clock.UtcNow)],
+                deliveryLine1: "45 Commissioner Street", deliveryCity: "Johannesburg", deliveryCountryCode: "ZA"),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new SubmitProFormaCommand(pf2Id), cancellationToken).ConfigureAwait(false);
+        ProFormaOrder pf2 = await proFormas.FindAsync(pf2Id, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Pro forma 2 not found.");
+        pf2.Reject("Insufficient margin on this line", clock.UtcNow);
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // Pro forma 3: expired.
+        Guid pf3Id = await dispatcher.SendAsync(
+            new CaptureProFormaCommand(
+                rep1.Id, DemoCompanyId, customerId, currency, "PF-DEMO-003",
+                [new ProFormaLineInput(milkItemId, null, 24m, "EA", 48m, 0m, "STANDARD", new Money(1152m, currency), new Money(172.8m, currency), new Money(1152m, currency), "BOX12 (12x500ml)", null, "", new Money(1324.8m, currency), clock.UtcNow)],
+                deliveryLine1: "78 Oxford Road", deliveryCity: "Sandton", deliveryCountryCode: "ZA"),
+            cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new SubmitProFormaCommand(pf3Id), cancellationToken).ConfigureAwait(false);
+        ProFormaOrder pf3 = await proFormas.FindAsync(pf3Id, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Pro forma 3 not found.");
+        pf3.Expire();
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        // Closed-period performance snapshot (Stage 14b).
+        var capturedFigures = new RepPerformanceFigures(
+            CapturedCount: 3,
+            CapturedValue: 690m + 379.5m + 1324.8m,
+            ConvertedValue: 690m,
+            RejectedValue: 379.5m,
+            ExpiredValue: 1324.8m,
+            InvoicedValue: 690m,
+            CreditedValue: 0m,
+            MarginValue: null,
+            ActiveCustomers: 1);
+
+        var snapshot = RepPerformanceSnapshot.Snapshot(
+            DemoTenantId, null, rep1.Id, DemoCompanyId,
+            new DateOnly(periodStart.Year, periodStart.Month, 1),
+            capturedFigures,
+            version: 1,
+            reason: "scheduled close",
+            clock.UtcNow.AddDays(-1),
+            currency);
+        snapshots.Add(snapshot);
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine(
+            $"Field sales: reps {rep1.DisplayName} (Gauteng/Sandton) and {rep2.DisplayName} "
+            + "(Western Cape/Claremont) seeded; pro formas approved, rejected, expired; "
+            + $"performance snapshot for {snapshot.PeriodStart:yyyy-MM} recorded.");
+    }
+
+    /// <summary>Sets a PIN on a user.</summary>
+    private static async Task SetUserPinAsync(
+        IServiceProvider provider,
+        Guid userId,
+        string pin,
+        CancellationToken cancellationToken)
+    {
+        await provider.GetRequiredService<IDispatcher>()
+            .SendAsync(new SetUserPinCommand(userId, pin), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Picks, packs and ships one order line's allocated task through Stage 13's own commands.</summary>

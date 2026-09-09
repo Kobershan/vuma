@@ -222,11 +222,74 @@ internal sealed class PickWaveConfiguration : EntityConfiguration<PickWave>
         builder.Property(wave => wave.PackedAt);
         builder.Property(wave => wave.ShippedAt);
 
+        builder.Property(wave => wave.GeographyLevel)
+            .HasMaxLength(16);
+        builder.Property(wave => wave.GeographyValue)
+            .HasMaxLength(128);
+        builder.Property(wave => wave.PeriodFrom);
+        builder.Property(wave => wave.PeriodTo);
+        builder.Property(wave => wave.CompanyScopeId);
+
         builder.HasIndex(wave => wave.LocationId).HasDatabaseName("ix_pick_waves_location_id");
+        builder.HasIndex(wave => new { wave.PeriodFrom, wave.PeriodTo, wave.GeographyLevel, wave.GeographyValue })
+            .HasDatabaseName("ix_pick_waves_consolidation");
     }
 }
 
-/// <summary><c>warehouse.pick_tasks</c>.</summary>
+/// <summary><c>warehouse.pick_wave_line_breakdowns</c>.</summary>
+internal sealed class PickWaveLineBreakdownConfiguration : EntityConfiguration<PickWaveLineBreakdown>
+{
+    protected override string Schema => Schemas.Warehouse;
+
+    protected override string TableName => "pick_wave_line_breakdowns";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<PickWaveLineBreakdown> builder)
+    {
+        builder.Property(breakdown => breakdown.PickWaveLineId).IsRequired();
+        builder.Property(breakdown => breakdown.OrderId).IsRequired();
+        builder.Property(breakdown => breakdown.OrderLineId).IsRequired();
+        builder.Property(breakdown => breakdown.Quantity)
+            .IsRequired()
+            .HasColumnType("numeric(18,6)");
+
+        builder.HasIndex(breakdown => breakdown.PickWaveLineId)
+            .HasDatabaseName("ix_pick_wave_breakdowns_wave_line_id");
+        builder.HasIndex(breakdown => new { breakdown.PickWaveLineId, breakdown.OrderId })
+            .IsUnique()
+            .HasDatabaseName("ux_pick_wave_breakdowns_wave_order");
+    }
+}
+
+/// <summary><c>warehouse.count_schedules</c>.</summary>
+internal sealed class CountScheduleConfiguration : EntityConfiguration<CountSchedule>
+{
+    protected override string Schema => Schemas.Warehouse;
+
+    protected override string TableName => "count_schedules";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<CountSchedule> builder)
+    {
+        builder.Property(schedule => schedule.Name).IsRequired().HasMaxLength(128);
+
+        builder.Property(schedule => schedule.Cadence)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(16);
+
+        builder.Property(schedule => schedule.Scope).IsRequired().HasMaxLength(64);
+        builder.Property(schedule => schedule.SlowMoverDays).IsRequired();
+        builder.Property(schedule => schedule.RandomSampleSize).IsRequired();
+        builder.Property(schedule => schedule.NextRunAt).IsRequired();
+        builder.Property(schedule => schedule.IsActive).IsRequired();
+
+        builder.HasIndex(schedule => schedule.NextRunAt)
+            .HasDatabaseName("ix_count_schedules_next_run");
+        builder.HasIndex(schedule => new { schedule.IsActive, schedule.NextRunAt })
+            .HasDatabaseName("ix_count_schedules_active_due");
+    }
+}
+
+/// <summary><c>warehouse.pack_tasks</c>.</summary>
 internal sealed class PickTaskConfiguration : EntityConfiguration<PickTask>
 {
     protected override string Schema => Schemas.Warehouse;

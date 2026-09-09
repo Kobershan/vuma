@@ -17,8 +17,8 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-14B-001 | Implement field-sales proposals and approval | Stages 14, 10c, 08c, 05 | NOT_STARTED |
-| TASK-14B-002 | Complete field-sales verification and performance | TASK-14B-001 | NOT_STARTED |
+| TASK-14B-001 | Implement field-sales proposals and approval | Stages 14, 10c, 08c, 05 | COMPLETE |
+| TASK-14B-002 | Complete field-sales verification and performance | TASK-14B-001 | COMPLETE |
 
 ## Objective
 

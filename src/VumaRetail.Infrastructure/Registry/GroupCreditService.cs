@@ -144,4 +144,19 @@ public sealed class GroupCreditService : IGroupCreditService
         await _registry.CommitAsync(cancellationToken);
         return expired.Count;
     }
+
+    /// <summary>Every group the company belongs to (Stage 14b: the approval saga holds here).</summary>
+    public async Task<IReadOnlyList<CreditGroupSummary>> ListGroupsForCompanyAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+    {
+        List<CreditGroup> groups = await _registry.CreditGroups
+            .AsNoTracking()
+            .Where(group => group.TenantId == tenantId
+                && group.Members.Any(member => member.CompanyId == companyId))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return [.. groups.Select(group => new CreditGroupSummary(
+            group.Id, group.Name, group.Direction, group.Limit, group.Currency,
+            group.Members.Count))];
+    }
 }

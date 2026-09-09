@@ -18,6 +18,7 @@ using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
 using VumaRetail.Application.CustomerAccounts.Hosting;
+using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Finance;
@@ -33,8 +34,9 @@ using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
 using VumaRetail.Web.TradingSessions;
-using VumaRetail.Web.Workflow;
+using VumaRetail.Web.FieldSales;
 using VumaRetail.Web.Warehouse;
+using VumaRetail.Web.Workflow;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -146,6 +148,12 @@ builder.Services.AddVumaCustomerAccountsScheduling(new CustomerAccountsHostTenan
 // engine per leg), AddVumaInventory (reservations) and the 06e/06d registry services (links,
 // routing index, saga intents).
 builder.Services.AddVumaTradingSessions();
+
+// Stage 14b. Field sales: rep pro formas, approval-to-order, performance. After AddVumaWorkflow
+// (the engine that decides), AddVumaFinance/Inventory/Orders/Sales (the saga's legs) and
+// AddVumaTradingSessions (company-scope gateway reuse).
+builder.Services.AddVumaFieldSales();
+builder.Services.AddVumaFieldSalesScheduling(new FieldSalesHostTenant(host.TenantId, host.StoreId));
 
 // Stage 12. After AddVumaInventory (a goods receipt posts stock), AddVumaPartners (every document
 // validates its supplier) and AddVumaFinance (an order line resolves its tax through ITaxCalculator).
@@ -284,8 +292,10 @@ app.MapVumaSales();
 app.MapVumaCustomerAccounts();
 app.MapVumaStokvels();
 app.MapTradingSessions();
+app.MapFieldSales();
 app.MapVumaProcurement();
 app.MapVumaWarehouse();
+app.MapPickWaves();
 app.MapVumaOrders();
 app.MapVumaImports();
 app.MapVumaRegistry();

@@ -39,6 +39,15 @@ public enum BinType
 
     /// <summary>A dock door or receiving/shipping apron position.</summary>
     Dock = 4,
+
+    /// <summary>A consolidation bin where picked stock is grouped before packing.</summary>
+    Consolidation = 5,
+
+    /// <summary>A packing bin where consolidated stock is packed for dispatch.</summary>
+    Packing = 6,
+
+    /// <summary>A dispatch bin where packed stock awaits shipment.</summary>
+    Dispatch = 7,
 }
 
 /// <summary>What kind of event a <see cref="BinStockMovement"/> records.</summary>
@@ -61,6 +70,24 @@ public enum BinStockMovementType
 
     /// <summary>Stock leaving a bin as the source side of an internal bin-to-bin move.</summary>
     InternalTransferOut = 5,
+
+    /// <summary>Stock moved into a consolidation bin from a shelf or pick task.</summary>
+    ConsolidationIn = 6,
+
+    /// <summary>Stock moved out of a consolidation bin to a packing bin.</summary>
+    ConsolidationOut = 7,
+
+    /// <summary>Stock moved into a packing bin from consolidation.</summary>
+    PackingIn = 8,
+
+    /// <summary>Stock moved out of a packing bin to a dispatch bin.</summary>
+    PackingOut = 9,
+
+    /// <summary>Stock moved into a dispatch bin from packing.</summary>
+    DispatchIn = 10,
+
+    /// <summary>Stock leaves the dispatch bin on shipment.</summary>
+    DispatchOut = 11,
 }
 
 /// <summary>What kind of document a <see cref="BinStockMovement"/> correlates to.</summary>
@@ -151,4 +178,23 @@ public enum CycleCountStatus
 
     /// <summary>Every line's variance has been posted. No further counts may be recorded.</summary>
     Finalized = 1,
+}
+
+/// <summary>Where stock physically sits in the staging pipeline.</summary>
+public enum StagingState
+{
+    /// <summary>Stock is on the shelf, available for picking.</summary>
+    Shelved = 0,
+
+    /// <summary>Stock is in a consolidation bin.</summary>
+    Consolidation = 1,
+
+    /// <summary>Stock is in a packing bin.</summary>
+    Packing = 2,
+
+    /// <summary>Stock is in a dispatch bin.</summary>
+    Dispatch = 3,
+
+    /// <summary>Stock has shipped.</summary>
+    Shipped = 4,
 }

@@ -1,3 +1,4 @@
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
 
@@ -148,6 +149,32 @@ public interface IShipmentConfirmationRepository
     void Add(ShipmentConfirmation shipment);
 }
 
+/// <summary>Reads qualifying open order lines for consolidated wave building.</summary>
+public interface IOrderLineReader
+{
+    /// <summary>
+    /// Returns every open order line that qualifies for a consolidated wave at the given
+    /// location, period, geography level and company scope.
+    /// </summary>
+    Task<IReadOnlyList<OrderLineSummary>> ReadOpenLinesAsync(
+        Guid locationId,
+        DateOnly periodFrom,
+        DateOnly periodTo,
+        Guid? companyScopeId,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>A single open order line, as read for wave building.</summary>
+public sealed record OrderLineSummary(
+    Guid OrderId,
+    Guid OrderLineId,
+    Guid ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string PackSize,
+    string GeographyValue);
+
 /// <summary>Reads and writes <see cref="CycleCount"/> and <see cref="CycleCountLine"/> rows.</summary>
 public interface ICycleCountRepository
 {
@@ -166,4 +193,36 @@ public interface ICycleCountRepository
 
     /// <summary>Adds a new line.</summary>
     void AddLine(CycleCountLine line);
+}
+
+/// <summary>Reads and writes <see cref="PickWaveLineBreakdown"/> rows (Stage 13b).</summary>
+public interface IPickWaveLineBreakdownRepository
+{
+    /// <summary>Finds a breakdown by id.</summary>
+    Task<PickWaveLineBreakdown?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists all breakdowns for a wave line.</summary>
+    Task<IReadOnlyList<PickWaveLineBreakdown>> ListForWaveLineAsync(Guid pickWaveLineId, CancellationToken cancellationToken = default);
+
+    /// <summary>Finds breakdowns by their wave line id (alias for ListForWaveLineAsync).</summary>
+    Task<IReadOnlyList<PickWaveLineBreakdown>> FindByWaveLineIdAsync(Guid pickWaveLineId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a new breakdown.</summary>
+    void Add(PickWaveLineBreakdown breakdown);
+}
+
+/// <summary>Reads and writes <see cref="CountSchedule"/> rows (Stage 13b).</summary>
+public interface ICountScheduleRepository
+{
+    /// <summary>Finds a schedule by id.</summary>
+    Task<CountSchedule?> FindAsync(Guid scheduleId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists active schedules due to run.</summary>
+    Task<IReadOnlyList<CountSchedule>> ListActiveDueAsync(DateTimeOffset asAt, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists all schedules.</summary>
+    Task<IReadOnlyList<CountSchedule>> ListAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a new schedule.</summary>
+    void Add(CountSchedule schedule);
 }

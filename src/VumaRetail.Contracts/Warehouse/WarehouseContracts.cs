@@ -1,84 +1,256 @@
+using System;
+
 namespace VumaRetail.Contracts.Warehouse;
 
-/// <summary>Creates a new zone at a Stage 08 location.</summary>
-public sealed record CreateZoneRequest(Guid LocationId, string Code, string Name, string Type);
+public sealed record BuildConsolidatedWaveRequest(
+    Guid LocationId,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    string GeographyLevel,
+    string GeographyValue,
+    Guid? CompanyScopeId = null);
 
-/// <summary>A zone, as returned by the API.</summary>
-public sealed record ZoneResponse(Guid Id, Guid LocationId, string Code, string Name, string Type, bool IsActive);
+public sealed record CreateCountScheduleRequest(
+    string Name,
+    string Cadence,
+    string Scope,
+    int SlowMoverDays,
+    int RandomSampleSize,
+    DateTimeOffset NextRunAt);
 
-/// <summary>Creates a new bin within a zone.</summary>
+public sealed record ConsolidatedWaveResponse(
+    Guid Id,
+    string Status,
+    string GeographyLevel,
+    string GeographyValue,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    IReadOnlyList<ConsolidatedWaveLineResponse> Lines,
+    IReadOnlyList<OrderBreakdownResponse> Breakdowns);
+
+public sealed record ConsolidatedWaveLineResponse(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    string UnitOfMeasure,
+    string PackSize,
+    decimal TotalQuantity,
+    int OrderCount);
+
+public sealed record OrderBreakdownResponse(
+    Guid OrderId,
+    Guid OrderLineId,
+    decimal Quantity);
+
+public sealed record CountScheduleResponse(
+    Guid Id,
+    string Name,
+    string Cadence,
+    string Scope,
+    int SlowMoverDays,
+    int RandomSampleSize,
+    DateTimeOffset NextRunAt,
+    bool IsActive);
+
+public sealed record CountScheduleSummary(
+    Guid Id,
+    string Name,
+    string Cadence,
+    string Scope,
+    int SlowMoverDays,
+    int RandomSampleSize,
+    DateTimeOffset NextRunAt,
+    bool IsActive);
+
+public sealed record CountSheetResponse(
+    Guid ScheduleId,
+    Guid LocationId,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<CycleCountSummary> Counts,
+    IReadOnlyList<InFlightWarning> InFlightWarnings);
+
+public sealed record CycleCountSummary(
+    Guid CycleCountId,
+    string Scope,
+    string Status,
+    DateTimeOffset ScheduledAt);
+
+public sealed record InFlightWarning(
+    Guid BinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal InFlightQuantity,
+    string WaveReference);
+
+// Stage 13 original warehouse types
+public sealed record CreateZoneRequest(
+    Guid LocationId,
+    string Code,
+    string Name,
+    string Type,
+    bool IsActive = true);
+
+public sealed record ZoneResponse(
+    Guid Id,
+    Guid LocationId,
+    string Code,
+    string Name,
+    string Type,
+    bool IsActive);
+
 public sealed record CreateBinRequest(
-    Guid ZoneId, string Code, string Name, string Type, decimal? CapacityQuantity = null, string? CapacityUnitOfMeasure = null);
+    Guid LocationId,
+    Guid ZoneId,
+    string Code,
+    string Name,
+    string Type,
+    decimal? CapacityValue = null,
+    string? CapacityUnitOfMeasure = null,
+    bool IsActive = true);
 
-/// <summary>A bin, as returned by the API.</summary>
 public sealed record BinResponse(
-    Guid Id, Guid LocationId, Guid ZoneId, string Code, string Name, string Type,
-    decimal? CapacityQuantity, string? CapacityUnitOfMeasure, bool IsActive);
+    Guid Id,
+    Guid LocationId,
+    Guid ZoneId,
+    string Code,
+    string Name,
+    string Type,
+    decimal? CapacityValue,
+    string? CapacityUnitOfMeasure,
+    bool IsActive);
 
-/// <summary>A bin's balance for one stock-keeping unit, as returned by the API.</summary>
-public sealed record BinStockResponse(Guid BinId, Guid? ItemId, Guid? ItemVariantId, decimal QuantityOnHand, string UnitOfMeasure);
+public sealed record MoveBinStockRequest(
+    Guid BinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string MovementType,
+    string ReferenceType,
+    Guid ReferenceId,
+    string? Note = null);
 
-/// <summary>Opens a putaway task for unbinned received stock.</summary>
 public sealed record OpenPutawayTaskRequest(
-    Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure,
-    string SourceReferenceType, Guid? SourceReferenceId = null);
+    Guid LocationId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string SourceReferenceType,
+    Guid SourceReferenceId,
+    Guid? SuggestedBinId = null);
 
-/// <summary>Confirms that some or all of a putaway task's remaining quantity was shelved into a bin.</summary>
-public sealed record ConfirmPutawayRequest(Guid BinId, decimal Quantity, string UnitOfMeasure);
+public sealed record ConfirmPutawayRequest(
+    Guid PutawayTaskId,
+    Guid ConfirmedBinId,
+    decimal ConfirmedQuantity);
 
-/// <summary>A putaway task, as returned by the API.</summary>
 public sealed record PutawayTaskResponse(
-    Guid Id, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure,
-    string Status, Guid? SuggestedBinId, Guid? ConfirmedBinId, decimal ConfirmedQuantity, decimal Remaining);
+    Guid Id,
+    Guid LocationId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string Status,
+    Guid? SuggestedBinId,
+    Guid? ConfirmedBinId,
+    decimal ConfirmedQuantity,
+    decimal Remaining);
 
-/// <summary>Adds a demand line to an open pick wave.</summary>
 public sealed record AddPickTaskRequest(
-    Guid? ItemId, Guid? ItemVariantId, decimal RequestedQuantity, string UnitOfMeasure, string OutboundReference);
+    Guid PickWaveId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string OutboundReference,
+    Guid? PickTaskId = null);
 
-/// <summary>Confirms a pick against its allocation.</summary>
-public sealed record ConfirmPickRequest(decimal PickedQuantity, string UnitOfMeasure);
+public sealed record ConfirmPickRequest(
+    Guid PickTaskId,
+    decimal Quantity);
 
-/// <summary>Packs a picked wave.</summary>
-public sealed record PackWaveRequest(int PackageCount, string? Note = null);
+public sealed record PackWaveRequest(
+    Guid PickWaveId,
+    int PackageCount,
+    string? Note = null);
 
-/// <summary>Confirms a packed wave's shipment.</summary>
-public sealed record ShipWaveRequest(string? Carrier = null, string? TrackingNumber = null);
+public sealed record ShipWaveRequest(
+    Guid PickWaveId,
+    string? Carrier = null,
+    string? TrackingNumber = null);
 
-/// <summary>One pick task within a wave, as returned by the API.</summary>
-public sealed record PickTaskResponse(
-    Guid Id, Guid? ItemId, Guid? ItemVariantId, decimal RequestedQuantity, string OutboundReference,
-    Guid? AllocatedBinId, decimal? AllocatedQuantity, decimal? PickedQuantity, string Status, string UnitOfMeasure);
+public sealed record OpenCycleCountRequest(
+    Guid LocationId,
+    Guid? ZoneId,
+    DateTimeOffset? ScheduledAt = null);
 
-/// <summary>A pick wave and its lines, as returned by the API.</summary>
+public sealed record RecordCycleCountRequest(
+    Guid CycleCountId,
+    Guid BinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal SystemQuantity,
+    decimal CountedQuantity);
+
+public sealed record BinStockResponse(
+    Guid BinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal QuantityOnHand,
+    decimal QuantityReserved,
+    decimal Available);
+
 public sealed record PickWaveResponse(
-    Guid Id, Guid LocationId, string Status, DateTimeOffset? ReleasedAt, DateTimeOffset? PickedAt,
-    DateTimeOffset? PackedAt, DateTimeOffset? ShippedAt, IReadOnlyList<PickTaskResponse> Tasks);
+    Guid Id,
+    Guid LocationId,
+    string Status,
+    DateTimeOffset? ReleasedAt,
+    DateTimeOffset? PickedAt,
+    DateTimeOffset? PackedAt,
+    DateTimeOffset? ShippedAt,
+    IReadOnlyList<PickTaskResponse> Tasks);
 
-/// <summary>A wave's pack record, as returned by the API.</summary>
-public sealed record PackTaskResponse(Guid Id, Guid PickWaveId, int PackageCount, string? Note, DateTimeOffset PackedAt);
+public sealed record PickTaskResponse(
+    Guid Id,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal RequestedQuantity,
+    string OutboundReference,
+    Guid? AllocatedBinId,
+    decimal? AllocatedQuantity,
+    decimal? PickedQuantity,
+    string Status);
 
-/// <summary>A wave's shipment confirmation, as returned by the API.</summary>
-public sealed record ShipmentConfirmationResponse(
-    Guid Id, Guid PickWaveId, string? Carrier, string? TrackingNumber, DateTimeOffset ShippedAt);
-
-/// <summary>Opens a new cycle count.</summary>
-public sealed record OpenCycleCountRequest(Guid LocationId, Guid? ZoneId = null, DateTimeOffset? ScheduledAt = null);
-
-/// <summary>Records a count for one bin/stock-keeping-unit pair.</summary>
-public sealed record RecordCycleCountRequest(Guid BinId, Guid? ItemId, Guid? ItemVariantId, decimal CountedQuantity, string UnitOfMeasure);
-
-/// <summary>One recorded cycle count line, as returned by the API.</summary>
-public sealed record CycleCountLineResponse(
-    Guid Id, Guid BinId, Guid? ItemId, Guid? ItemVariantId, decimal SystemQuantity, decimal CountedQuantity, decimal Variance, string UnitOfMeasure);
-
-/// <summary>A cycle count and its lines so far, as returned by the API.</summary>
 public sealed record CycleCountResponse(
-    Guid Id, Guid LocationId, Guid? ZoneId, string Status, DateTimeOffset? ScheduledAt, DateTimeOffset? FinalizedAt,
+    Guid Id,
+    Guid LocationId,
+    Guid? ZoneId,
+    string Status,
+    DateTimeOffset? ScheduledAt,
+    DateTimeOffset? FinalizedAt,
     IReadOnlyList<CycleCountLineResponse> Lines);
 
-/// <summary>Moves stock directly from one bin to another within the same location.</summary>
-public sealed record MoveBinStockRequest(
-    Guid SourceBinId, Guid DestinationBinId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure);
+public sealed record CycleCountLineResponse(
+    Guid Id,
+    Guid BinId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal SystemQuantity,
+    decimal CountedQuantity,
+    decimal Variance);
 
-/// <summary>A newly created row's id.</summary>
 public sealed record WarehouseIdResponse(Guid Id);
+
+public sealed record PackTaskResponse(
+    Guid Id,
+    Guid PickWaveId,
+    int PackageCount,
+    string? Note,
+    DateTimeOffset PackedAt);
+
+public sealed record ShipmentConfirmationResponse(
+    Guid Id,
+    Guid PickWaveId,
+    string? Carrier,
+    string? TrackingNumber,
+    DateTimeOffset ShippedAt);

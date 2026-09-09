@@ -20,6 +20,9 @@ public sealed class TestClock(DateTimeOffset? start = null) : IClock
     /// <param name="amount">How far forward.</param>
     public void Advance(TimeSpan amount) => UtcNow = UtcNow.Add(amount);
 
+    /// <summary>Moves the clock to an absolute instant (month-driven scenario tests).</summary>
+    public void Set(DateTimeOffset instant) => UtcNow = instant;
+
     /// <summary>Moves the clock to a specific instant, forwards or backwards.</summary>
     /// <param name="instant">Where to move it to.</param>
     public void MoveTo(DateTimeOffset instant) => UtcNow = instant;

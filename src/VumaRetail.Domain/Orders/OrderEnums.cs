@@ -19,6 +19,9 @@ public enum SalesChannel
 
     /// <summary>A future marketplace order. No real caller until Stage 21b.</summary>
     Marketplace = 3,
+
+    /// <summary>Captured by a field rep as a pro forma and converted on approval (Stage 14b).</summary>
+    Rep = 4,
 }
 
 /// <summary>How an order's goods reach the customer.</summary>
