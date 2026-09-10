@@ -33,8 +33,9 @@ public sealed class VerificationService : IVerificationService
     }
 }
 
-public sealed class DocumentDeliveryService : IDocumentDeliveryService
+public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store = null) : IDocumentDeliveryService
 {
+    private readonly IDocumentDeliveryTokenStore? _store = store;
     private readonly ConcurrentDictionary<string, DocumentDeliveryToken> tokens = new(StringComparer.Ordinal);
 
     public DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at)
@@ -46,6 +47,16 @@ public sealed class DocumentDeliveryService : IDocumentDeliveryService
         tokens[token.Token] = token;
         return token;
     }
+
+    public async Task<DocumentDeliveryToken> MintAsync(ContactBinding binding, string documentReference, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        DocumentDeliveryToken token = Mint(binding, documentReference, at);
+        if (_store is not null)
+        {
+            await _store.AddAsync(token, cancellationToken).ConfigureAwait(false);
+        }
+        return token;
+    }
     public bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -54,15 +65,22 @@ public sealed class DocumentDeliveryService : IDocumentDeliveryService
         return true;
     }
 
-    public Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default)
+    public async Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
-        if (!tokens.TryGetValue(token.Trim(), out DocumentDeliveryToken? delivery) || !TryFetch(delivery, at))
+        DocumentDeliveryToken? delivery = _store is null
+            ? tokens.GetValueOrDefault(token.Trim())
+            : await _store.FindAsync(token.Trim(), cancellationToken).ConfigureAwait(false);
+        if (delivery is null || !TryFetch(delivery, at))
         {
-            return Task.FromResult<string?>(null);
+            return null;
         }
 
-        return Task.FromResult<string?>(delivery.DocumentReference);
+        if (_store is not null)
+        {
+            await _store.SaveAsync(delivery, cancellationToken).ConfigureAwait(false);
+        }
+        return delivery.DocumentReference;
     }
 }
 

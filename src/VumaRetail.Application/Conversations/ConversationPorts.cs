@@ -35,8 +35,17 @@ public interface IVerificationService
 public interface IDocumentDeliveryService
 {
     DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at);
+    Task<DocumentDeliveryToken> MintAsync(ContactBinding binding, string documentReference, DateTimeOffset at, CancellationToken cancellationToken = default);
     bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at);
     Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Persistence boundary for one-time document delivery tokens.</summary>
+public interface IDocumentDeliveryTokenStore
+{
+    Task AddAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default);
+    Task<DocumentDeliveryToken?> FindAsync(string token, CancellationToken cancellationToken = default);
+    Task SaveAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Result returned by an intent handler; it contains API facts only.</summary>

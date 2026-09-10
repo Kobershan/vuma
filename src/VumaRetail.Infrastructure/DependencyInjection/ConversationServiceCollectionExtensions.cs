@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -17,7 +18,8 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<InMemoryContactResolver>();
         services.AddSingleton<IContactResolver>(sp => sp.GetRequiredService<InMemoryContactResolver>());
         services.AddSingleton<IVerificationService, VerificationService>();
-        services.AddSingleton<IDocumentDeliveryService, DocumentDeliveryService>();
+        services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
+        services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
         services.AddSingleton<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();

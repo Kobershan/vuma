@@ -89,6 +89,10 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
+            // Stage 22b document links are a deliberate edge-service write: fetching a one-time
+            // token must atomically consume it during an anonymous GET, which has no command
+            // envelope or tenant handler transaction. The repository owns that short transaction.
+            "src/VumaRetail.Infrastructure/Persistence/Repositories/ConversationRepositories.cs",
             // Stage 08c. Neither file is a handler. ReservationService owns the serialisable,
             // single-company transaction a hold requires (ADR-102): the pipeline transaction is
             // ReadCommitted on the ambient context, while a hold must lock its position row and
