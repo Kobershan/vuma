@@ -33,7 +33,16 @@ public sealed class ContactBinding : Entity
     public void GrantConsent() => ConsentState = ConversationConsentState.Granted;
     public void WithdrawConsent() => ConsentState = ConversationConsentState.Withdrawn;
     public void Lock(DateTimeOffset until) { VerificationState = BindingVerificationState.Locked; LockedUntil = until; }
-    public bool IsUsable(DateTimeOffset at) => VerificationState == BindingVerificationState.Verified && (LockedUntil is null || LockedUntil <= at);
+    /// <summary>Returns whether the binding is verified, unlocked, and freshly verified.</summary>
+    public bool IsUsable(DateTimeOffset at, TimeSpan? verificationFreshness = null)
+    {
+        TimeSpan freshness = verificationFreshness ?? TimeSpan.FromHours(24);
+        return VerificationState == BindingVerificationState.Verified
+            && VerifiedAt is not null
+            && at >= VerifiedAt.Value
+            && at - VerifiedAt.Value <= freshness
+            && (LockedUntil is null || LockedUntil <= at);
+    }
 }
 
 /// <summary>One-time challenge; only a hash of the OTP is retained.</summary>

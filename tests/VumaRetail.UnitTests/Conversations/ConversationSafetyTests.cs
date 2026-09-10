@@ -55,6 +55,15 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public void Sensitive_document_delivery_requires_verification_within_24_hours()
+    {
+        var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
+        binding.Verify(At.AddHours(-25));
+
+        Assert.Throws<InvalidOperationException>(() => new DocumentDeliveryService().Mint(binding, "statement/123", At));
+    }
+
+    [Fact]
     public async Task Universal_stop_escalates_the_conversation()
     {
         var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.Email, At);
