@@ -2,7 +2,7 @@
 
 ## Status
 
-IN_PROGRESS
+COMPLETE
 
 ## Stage
 
@@ -24,8 +24,8 @@ Retry-After) and neutral-503 read-only writes.
 
 ## Why
 
-Stage doc exists (`docs/stages/STAGE-20-loyalty-public-api.md`, NOT_STARTED); only Domain
-scaffolding + mocked unit tests exist. Stage 21 depends on member identity.
+Stage doc exists (`docs/stages/STAGE-20-loyalty-public-api.md`) and the complete vertical is
+implemented, including the Orbit boundary, local queue/retry path, public API, migration, and seed.
 
 ## Scope
 
@@ -158,5 +158,8 @@ CLAUDE.md §8 (same as 19-001) + `docs/API_LOYALTY.md` written; committed + push
 - Tier-threshold ownership (Vuma vs Orbit) open question per stage doc.
 
 ## Work Log
+
+- 2026-09-10: Loyalty domain, application, infrastructure, PublicApi contracts/endpoints, migration, permissions, manifest, retry/reconciliation, and seed verified on main.
+- 2026-09-10: Unit suite 52/52 and real PostgreSQL loyalty integration suite 12/12 passed; public API suite 7/7 passed.
 
 - 2026-09-10: task written; implementation starts.

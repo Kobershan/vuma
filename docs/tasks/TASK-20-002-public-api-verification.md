@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -101,5 +101,9 @@ Evidence in PROGRESS.md; stages 19+20 marked DONE; pushed.
 (none yet)
 
 ## Work Log
+
+- 2026-09-10: Loyalty integration tests passed 12/12; PublicApi tests passed 7/7; Stage 20 migration Up/Down passed 1/1 against disposable PostgreSQL.
+- 2026-09-10: Loyalty unit coverage passed 52/52. Union of unit and integration Cobertura line hits: Domain Loyalty 183/198 (92.42%), Application Loyalty 616/698 (88.25%).
+- 2026-09-10: Demo seed configures loyalty, enrolls the customer, earns points, and syncs the catalogue. `docs/API_LOYALTY.md` is present as the public contract.
 
 - 2026-09-10: task written.

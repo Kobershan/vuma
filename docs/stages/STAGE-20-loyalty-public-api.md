@@ -1,12 +1,14 @@
 # STAGE 20 — Loyalty Programme & Public API ★
 
-**Status:** NOT_STARTED · **Depends on:** 10, 19 · **Reference reading:** `docs/DATA_MODEL.md` §1–§3, `docs/CONVENTIONS.md` §1–§5, `docs/TESTING.md` §3, §4, `docs/API_STANDARDS.md` (all), `docs/SECURITY.md` §1, §4, `docs/LICENSING.md` §1–§4, `docs/DECISIONS.md` ADR-021, ADR-031, **ADR-112** (snapshot pricing), **ADR-129** (no LLM data access), `docs/API_LOYALTY.md` (the public loyalty API contract — the authoritative shape of every endpoint documented below), `docs/PROGRESS.md` §4.14.
+**Status:** COMPLETE (2026-09-10) · **Depends on:** 10, 19 · **Reference reading:** `docs/DATA_MODEL.md` §1–§3, `docs/CONVENTIONS.md` §1–§5, `docs/TESTING.md` §3, §4, `docs/API_STANDARDS.md` (all), `docs/SECURITY.md` §1, §4, `docs/LICENSING.md` §1–§4, `docs/DECISIONS.md` ADR-021, ADR-031, **ADR-112** (snapshot pricing), ADR-129 (no LLM data access), `docs/API_LOYALTY.md` (the public loyalty API contract — the authoritative shape of every endpoint documented below), `docs/PROGRESS.md` §4.14.
 
 ## Task index
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 20-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 20-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
+| [TASK-20-001](../tasks/TASK-20-001-loyalty-vertical.md) | DOMAIN / APPLICATION / INFRASTRUCTURE / API | Loyalty vertical | Stages 10, 19 | COMPLETE |
+| [TASK-20-002](../tasks/TASK-20-002-public-api-verification.md) | TEST / DOCUMENTATION | Public API verification | TASK-20-001 | COMPLETE |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in `docs/tasks/README.md`.
 
