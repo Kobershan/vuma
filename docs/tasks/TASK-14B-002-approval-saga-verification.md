@@ -1,6 +1,6 @@
 # TASK-14B-002 — Field-sales approval saga, API and verification
 
-**Status:** NOT_STARTED · **Stage:** 14b · **Type:** Build (infrastructure + API + verification)
+**Status:** IN_PROGRESS · **Stage:** 14b · **Type:** Build (infrastructure + API + verification)
 **Depends on:** TASK-14B-001. **Reference reading:** TASK-14B-001; FIELD_SALES.md §3–§5;
 ADR-101, ADR-102, ADR-108, ADR-116; `InvoiceIssuingService`/`MixedBasketCompletionService`
 leg patterns; `SupplierScorecard` snapshot pattern.
@@ -43,3 +43,10 @@ periods; the module is reachable over 10 permission-gated endpoints and proven o
 
 Till UI, Android app, commission (Stage 25/26), second pricing authority (Stage 10 owns),
 transport for sync batches (existing path).
+
+## Verification evidence
+
+- 2026-09-10: real PostgreSQL Field Sales integration slice passed 9/9 via
+  `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --filter FullyQualifiedName~FieldSales`.
+- Full stage closure still requires the documented seed, migration Down, OpenAPI, and complete
+  multi-company acceptance matrix to be executed and recorded.

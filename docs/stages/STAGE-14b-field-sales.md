@@ -1,6 +1,6 @@
 # STAGE 14b — Field sales: the rep module
 
-**Status:** NOT_STARTED · **Depends on:** 14, 10c, 08c, 05 · **Reference reading:** `docs/FIELD_SALES.md` in full, `docs/MULTI_COMPANY.md` §4, §6, `docs/DECISIONS.md` ADR-107, ADR-108, ADR-103, ADR-109, ADR-110, ADR-112, `CLAUDE.md` §7 rules 12, 13
+**Status:** IN_PROGRESS — implementation present; verification task remains open (2026-09-10) · **Depends on:** 14, 10c, 08c, 05 · **Reference reading:** `docs/FIELD_SALES.md` in full, `docs/MULTI_COMPANY.md` §4, §6, `docs/DECISIONS.md` ADR-107, ADR-108, ADR-103, ADR-109, ADR-110, ADR-112, `CLAUDE.md` §7 rules 12, 13
 
 ## Task index
 ## Second-pass architecture and task map
@@ -18,7 +18,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
 | TASK-14B-001 | Implement field-sales proposals and approval | Stages 14, 10c, 08c, 05 | COMPLETE |
-| TASK-14B-002 | Complete field-sales verification and performance | TASK-14B-001 | COMPLETE |
+| TASK-14B-002 | Complete field-sales verification and performance | TASK-14B-001 | IN_PROGRESS — 9/9 real-PG approval tests pass; full acceptance evidence remains |
 
 ## Objective
 

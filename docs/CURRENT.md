@@ -33,4 +33,6 @@ SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 L
 
 SIDE-QUEST (2026-09-10): Stage 06c implementation tasks are complete, but final acceptance/closure remains IN PROGRESS; focused multi-company PostgreSQL verification is 10/10, while seed, restore, failure-fanout, and OpenAPI evidence remain to be run.
 
+SIDE-QUEST (2026-09-10): Stage 14b implementation is present and its Field Sales approval integration slice is 9/9 on real PostgreSQL; canonical verification remains IN PROGRESS pending the full seed, migration, API, and multi-company acceptance matrix.
+
 SIDE-QUEST (2026-09-10, operator-tasked: "07c to 14"): TASK-07C-004 COMPLETE — leg-dispatch rework proven on real PG (unit 1249/1249, `GroupReceiptLegsTests` 8/8, arch 76/77 with one pre-existing wall-clock failure in Stage 19/20 scaffolding). ADRs 151 (clearing→allocation link) + 152 (outbound group payments deferred). Stage 07c needs `stage-verifier` + exit checklist before DONE; next in operator scope is Stage 08c.
