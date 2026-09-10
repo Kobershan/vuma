@@ -40,8 +40,8 @@ Focused handler/endpoint tests and a real API integration path remain required b
 
 ## Definition of Done
 
-Initial implementation compiles with 0 errors. Task remains `IN_PROGRESS` until focused API behavior,
-authorization, and tenant isolation are tested.
+Initial implementation compiles with 0 errors. Handler-focused tests pass 3/3; task remains `IN_PROGRESS`
+until API behavior, authorization, and tenant isolation are tested.
 
 ## Follow-up Findings
 
@@ -51,3 +51,4 @@ authorization, and tenant isolation are tested.
 ## Work Log
 
 - 2026-09-10: Added commands, repository, module manifest/permissions, contracts, routes, DI, and StoreServer wiring. StoreServer build passed with 0 errors.
+- 2026-09-10: Added handler tests for tenant draft creation, duplicate-version refusal, and publication; 3/3 passed.
