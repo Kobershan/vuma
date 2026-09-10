@@ -43,7 +43,7 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
-    public void Document_delivery_requires_verified_binding_and_is_one_time()
+    public async Task Document_delivery_requires_verified_binding_and_is_one_time()
     {
         var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
         var service = new DocumentDeliveryService();
@@ -52,6 +52,7 @@ public sealed class ConversationSafetyTests
         DocumentDeliveryToken token = service.Mint(binding, "invoice/123", At);
         Assert.True(service.TryFetch(token, At.AddMinutes(1)));
         Assert.False(service.TryFetch(token, At.AddMinutes(2)));
+        Assert.Null(await service.FetchAsync(token.Token, At.AddMinutes(3)));
     }
 
     [Fact]

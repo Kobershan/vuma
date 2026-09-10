@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -16,7 +17,19 @@ public static class ConversationEndpoints
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/conversations").WithTags("Conversations").RequireModule("conversations");
         group.MapPost("/inbound", InboundAsync).WithSummary("Accepts a normalised inbound conversation message.");
         group.MapPost("/{conversationId:guid}/escalate", (Guid conversationId) => Results.Accepted($"/api/v1/conversations/{conversationId}"));
+        endpoints.MapVumaApi().MapGet("/d/{token}", FetchDocumentAsync)
+            .WithTags("Conversations")
+            .WithSummary("Fetches a one-time, expiring document delivery reference.")
+            .RequireModule("conversations");
         return endpoints;
+    }
+
+    private static async Task<IResult> FetchDocumentAsync(string token, IDocumentDeliveryService delivery, IClock clock, CancellationToken cancellationToken)
+    {
+        string? documentReference = await delivery.FetchAsync(token, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+        return documentReference is null
+            ? Results.NotFound()
+            : Results.Ok(new { documentReference });
     }
 
     private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IIntentClassifier classifier, CancellationToken cancellationToken)

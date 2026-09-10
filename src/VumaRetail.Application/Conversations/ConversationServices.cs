@@ -35,12 +35,16 @@ public sealed class VerificationService : IVerificationService
 
 public sealed class DocumentDeliveryService : IDocumentDeliveryService
 {
+    private readonly ConcurrentDictionary<string, DocumentDeliveryToken> tokens = new(StringComparer.Ordinal);
+
     public DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!binding.IsUsable(at)) throw new InvalidOperationException("A verified binding is required.");
         ArgumentException.ThrowIfNullOrWhiteSpace(documentReference);
-        return new DocumentDeliveryToken(binding.TenantId, binding.Id, documentReference, at);
+        DocumentDeliveryToken token = new(binding.TenantId, binding.Id, documentReference, at);
+        tokens[token.Token] = token;
+        return token;
     }
     public bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at)
     {
@@ -48,6 +52,17 @@ public sealed class DocumentDeliveryService : IDocumentDeliveryService
         if (!token.IsAvailable(at)) { return false; }
         token.AuditFetch(at);
         return true;
+    }
+
+    public Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        if (!tokens.TryGetValue(token.Trim(), out DocumentDeliveryToken? delivery) || !TryFetch(delivery, at))
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        return Task.FromResult<string?>(delivery.DocumentReference);
     }
 }
 

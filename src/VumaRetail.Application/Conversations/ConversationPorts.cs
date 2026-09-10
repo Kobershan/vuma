@@ -34,6 +34,7 @@ public interface IDocumentDeliveryService
 {
     DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at);
     bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at);
+    Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Result returned by an intent handler; it contains API facts only.</summary>
