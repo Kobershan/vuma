@@ -53,4 +53,4 @@ until API behavior, authorization, and tenant isolation are tested.
 - 2026-09-10: Added commands, repository, module manifest/permissions, contracts, routes, DI, and StoreServer wiring. StoreServer build passed with 0 errors.
 - 2026-09-10: Added handler tests for tenant draft creation, duplicate-version refusal, and publication; 3/3 passed.
 - 2026-09-10: Real PostgreSQL migration verification passed 1/1 in `ManufacturingMigrationTests`; API behavior and authorization integration coverage remain open.
-- 2026-09-10: Real-host API tests now cover authorized create/read/publish and denied create; 2/2 passed. The documented 404/409/422 matrix and OpenAPI assertion remain open.
+- 2026-09-10: Real-host API tests now cover authorized create/read/publish, denied create, missing BOM handling, and OpenAPI route presence; 4/4 passed. Duplicate/conflict behavior still needs its explicit 409/422 matrix before closure.

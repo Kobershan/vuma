@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using VumaRetail.Application.Manufacturing;
 using VumaRetail.Contracts.Manufacturing;
 using VumaRetail.IntegrationTests.Harness;
@@ -57,5 +58,31 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
                 Guid.NewGuid(), Guid.NewGuid(), null, 1, "Denied", [new BillOfMaterialsLineRequest(Guid.NewGuid(), null, 1m, "EA")]));
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Missing_bom_is_reported_as_a_domain_error()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("bom-viewer", "CorrectHorseBattery1", ManufacturingPermissions.View);
+        using HttpClient client = await harness.SignInAsync("bom-viewer");
+
+        HttpResponseMessage response = await client.GetAsync($"/api/v1/manufacturing/boms/{Guid.NewGuid():D}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+    }
+
+    [Fact]
+    public async Task Openapi_describes_the_BOM_routes()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        using JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync("/openapi/v1.json"));
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        paths.TryGetProperty("/api/v1/manufacturing/boms", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/boms/{id}", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/boms/{id}/publish", out _).Should().BeTrue();
     }
 }
