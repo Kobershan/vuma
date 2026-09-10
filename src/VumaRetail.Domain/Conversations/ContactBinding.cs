@@ -65,7 +65,7 @@ public sealed class VerificationChallenge : Entity
     public bool Used { get; private set; }
     public bool Verify(string otp, DateTimeOffset at)
     {
-        if (Used || at > ExpiresAt || Attempts >= 3) { return false; }
+        if (Used || at >= ExpiresAt || Attempts >= 3) { return false; }
         Attempts++;
         if (!CryptographicOperations.FixedTimeEquals(Convert.FromHexString(Hash), Convert.FromHexString(HashOtp(otp)))) { return false; }
         Used = true;

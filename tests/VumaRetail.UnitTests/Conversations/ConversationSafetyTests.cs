@@ -42,6 +42,8 @@ public sealed class ConversationSafetyTests
         Assert.False(service.Verify(binding, challenge, "000000", At));
         Assert.False(service.Verify(binding, challenge, "123456", At));
         Assert.NotEqual("123456", challenge.Hash);
+        VerificationChallenge boundary = service.Issue(binding, "654321", At);
+        Assert.False(service.Verify(binding, boundary, "654321", boundary.ExpiresAt));
     }
 
     [Fact]
@@ -50,6 +52,7 @@ public sealed class ConversationSafetyTests
         var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
         var service = new DocumentDeliveryService();
         Assert.Throws<InvalidOperationException>(() => service.Mint(binding, "invoice/123", At));
+        Assert.Throws<ArgumentException>(() => new DocumentDeliveryToken(binding.TenantId, binding.Id, " ", At));
         binding.Verify(At);
         DocumentDeliveryToken token = service.Mint(binding, "invoice/123", At);
         Assert.True(service.TryFetch(token, At.AddMinutes(1)));

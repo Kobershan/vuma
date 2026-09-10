@@ -13,8 +13,10 @@ public sealed class DocumentDeliveryToken : Entity
     public DocumentDeliveryToken(Guid tenantId, Guid bindingId, string documentReference, DateTimeOffset issuedAt, TimeSpan? lifetime = null)
         : base(tenantId)
     {
+        if (bindingId == Guid.Empty) throw new ArgumentException("A binding is required.", nameof(bindingId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentReference);
         BindingId = bindingId;
-        DocumentReference = documentReference;
+        DocumentReference = documentReference.Trim();
         IssuedAt = issuedAt;
         ExpiresAt = issuedAt.Add(lifetime ?? TimeSpan.FromHours(24));
         Token = UuidV7.NewGuid().ToString("N");
