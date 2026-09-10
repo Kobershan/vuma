@@ -1,5 +1,7 @@
 #pragma warning disable CS1591
 #pragma warning disable IDE0011
+using System.Security.Cryptography;
+using System.Text;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;
@@ -56,6 +58,33 @@ public interface IConversationIntentRouter
 public interface IConversationStateMachine
 {
     Task<ConversationState> HandleAsync(Conversation conversation, string message, DateTimeOffset at, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Pure HMAC verification for transport adapters.</summary>
+public static class ConversationWebhookSecurity
+{
+    public static bool Verify(string body, string? presentedSignature, string secret)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(secret);
+        if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(presentedSignature)
+            || !presentedSignature.StartsWith("sha256=", StringComparison.Ordinal))
+        {
+            return string.IsNullOrWhiteSpace(secret);
+        }
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        byte[] expected = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
+        try
+        {
+            byte[] actual = Convert.FromHexString(presentedSignature["sha256=".Length..]);
+            return CryptographicOperations.FixedTimeEquals(expected, actual);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
 }
 
 /// <summary>Deterministic keyword fallback used when no model provider is configured.</summary>

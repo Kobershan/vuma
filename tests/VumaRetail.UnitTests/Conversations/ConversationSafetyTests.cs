@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 
@@ -62,6 +64,19 @@ public sealed class ConversationSafetyTests
         binding.Verify(At.AddHours(-25));
 
         Assert.Throws<InvalidOperationException>(() => new DocumentDeliveryService().Mint(binding, "statement/123", At));
+    }
+
+    [Fact]
+    public void WhatsApp_webhook_signature_rejects_tampering_and_missing_signatures()
+    {
+        const string body = "{\"text\":\"hello\"}";
+        const string secret = "test-webhook-secret";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        string signature = "sha256=" + Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(body))).ToLowerInvariant();
+
+        Assert.True(ConversationWebhookSecurity.Verify(body, signature, secret));
+        Assert.False(ConversationWebhookSecurity.Verify(body + " ", signature, secret));
+        Assert.False(ConversationWebhookSecurity.Verify(body, null, secret));
     }
 
     [Fact]

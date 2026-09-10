@@ -1,6 +1,10 @@
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Application.Abstractions;
@@ -16,6 +20,10 @@ public static class ConversationEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/conversations").WithTags("Conversations").RequireModule("conversations");
         group.MapPost("/inbound", InboundAsync).WithSummary("Accepts a normalised inbound conversation message.");
+        endpoints.MapVumaApi().MapPost("/conversations/webhook/whatsapp", WhatsAppWebhookAsync)
+            .WithTags("Conversations")
+            .WithSummary("Accepts a signature-verified WhatsApp webhook.")
+            .RequireModule("conversations");
         group.MapPost("/{conversationId:guid}/escalate", (Guid conversationId) => Results.Accepted($"/api/v1/conversations/{conversationId}"));
         endpoints.MapVumaApi().MapGet("/d/{token}", FetchDocumentAsync)
             .WithTags("Conversations")
@@ -30,6 +38,42 @@ public static class ConversationEndpoints
         return documentReference is null
             ? Results.NotFound()
             : Results.Ok(new { documentReference });
+    }
+
+    private static async Task<IResult> WhatsAppWebhookAsync(
+        HttpRequest request,
+        IConfiguration configuration,
+        ILoggerFactory loggers,
+        IContactResolver contacts,
+        IIntentClassifier classifier,
+        CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(request.Body, Encoding.UTF8);
+        string body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        string secret = configuration["Vuma:Conversations:WebhookSecret"] ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            loggers.CreateLogger("VumaRetail.Web.Conversations").LogWarning(
+                "WhatsApp webhook accepted without a signature: no secret is configured.");
+        }
+        else if (!ConversationWebhookSecurity.Verify(body, request.Headers["X-Vuma-Signature"].ToString(), secret))
+        {
+            return Results.Unauthorized();
+        }
+
+        InboundMessage? message;
+        try
+        {
+            message = JsonSerializer.Deserialize<InboundMessage>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest(new { error = "invalid webhook payload" });
+        }
+
+        return message is null
+            ? Results.BadRequest(new { error = "invalid webhook payload" })
+            : await InboundAsync(message, contacts, classifier, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IIntentClassifier classifier, CancellationToken cancellationToken)
