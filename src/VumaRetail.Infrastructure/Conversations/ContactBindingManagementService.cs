@@ -57,6 +57,15 @@ public sealed class ContactBindingManagementService(
         return true;
     }
 
+    public async Task<bool> SetConsentAsync(Guid bindingId, bool granted, CancellationToken cancellationToken = default)
+    {
+        ContactBinding? binding = await registry.ContactBindings.SingleOrDefaultAsync(x => x.Id == bindingId, cancellationToken);
+        if (binding is null) return false;
+        if (granted) binding.GrantConsent(); else binding.WithdrawConsent();
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
     private async Task<ContactBinding> RequireBindingAsync(Guid bindingId, CancellationToken cancellationToken)
         => await registry.ContactBindings.SingleOrDefaultAsync(x => x.Id == bindingId, cancellationToken)
             .ConfigureAwait(false) ?? throw new InvalidOperationException("Contact binding not found.");

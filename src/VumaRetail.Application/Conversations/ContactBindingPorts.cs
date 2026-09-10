@@ -13,6 +13,8 @@ public interface IContactBindingManagementService
     Task<VerificationChallenge> IssueChallengeAsync(Guid bindingId, string otp, CancellationToken cancellationToken = default);
     /// <summary>Consumes a challenge and verifies its binding.</summary>
     Task<bool> VerifyAsync(Guid bindingId, Guid challengeId, string otp, CancellationToken cancellationToken = default);
+    /// <summary>Grants or withdraws outbound conversation consent.</summary>
+    Task<bool> SetConsentAsync(Guid bindingId, bool granted, CancellationToken cancellationToken = default);
     /// <summary>Revokes a binding.</summary>
     Task<bool> RevokeAsync(Guid bindingId, CancellationToken cancellationToken = default);
 }

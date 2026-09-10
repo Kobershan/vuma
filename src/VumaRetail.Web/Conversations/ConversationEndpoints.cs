@@ -36,6 +36,7 @@ public static class ConversationEndpoints
         bindings.MapPost("", CreateBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapPost("/{bindingId:guid}/challenge", IssueChallengeAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapPost("/{bindingId:guid}/verify", VerifyBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapPost("/{bindingId:guid}/consent", SetConsentAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapDelete("/{bindingId:guid}", RevokeBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
         return endpoints;
     }
@@ -77,6 +78,11 @@ public static class ConversationEndpoints
 
     private static async Task<IResult> RevokeBindingAsync(Guid bindingId, IContactBindingManagementService service, CancellationToken cancellationToken)
         => await service.RevokeAsync(bindingId, cancellationToken).ConfigureAwait(false) ? Results.NoContent() : Results.NotFound();
+
+    private static async Task<IResult> SetConsentAsync(Guid bindingId, ConsentRequest request, IContactBindingManagementService service, CancellationToken cancellationToken)
+        => await service.SetConsentAsync(bindingId, request.Granted, cancellationToken).ConfigureAwait(false)
+            ? Results.NoContent()
+            : Results.NotFound();
 
     private static async Task<IResult> WhatsAppWebhookAsync(
         HttpRequest request,
@@ -127,6 +133,10 @@ public static class ConversationEndpoints
         {
             return Results.Accepted(value: new { state = "onboarding", message = "Ask your account manager to link this address." });
         }
+        if (binding.ConsentState == ConversationConsentState.Withdrawn)
+        {
+            return Results.Accepted(value: new { state = "stopped", message = "This address has opted out of conversation messages." });
+        }
         DateTimeOffset at = clock.UtcNow;
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
         await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
@@ -138,4 +148,5 @@ public static class ConversationEndpoints
     public sealed record CreateBindingRequest(ConversationChannel Channel, string Address, Guid ContactId);
     public sealed record ChallengeRequest(string Otp);
     public sealed record VerifyRequest(Guid ChallengeId, string Otp);
+    public sealed record ConsentRequest(bool Granted);
 }

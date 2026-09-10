@@ -41,7 +41,8 @@ public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store =
     public DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at)
     {
         ArgumentNullException.ThrowIfNull(binding);
-        if (!binding.IsUsable(at)) throw new InvalidOperationException("A verified binding is required.");
+        if (!binding.IsUsable(at) || binding.ConsentState != ConversationConsentState.Granted)
+            throw new InvalidOperationException("A verified binding with granted consent is required.");
         ArgumentException.ThrowIfNullOrWhiteSpace(documentReference);
         DocumentDeliveryToken token = new(binding.TenantId, binding.Id, documentReference, at);
         tokens[token.Token] = token;

@@ -54,6 +54,7 @@ public sealed class ConversationSafetyTests
         Assert.Throws<InvalidOperationException>(() => service.Mint(binding, "invoice/123", At));
         Assert.Throws<ArgumentException>(() => new DocumentDeliveryToken(binding.TenantId, binding.Id, " ", At));
         binding.Verify(At);
+        binding.GrantConsent();
         DocumentDeliveryToken token = service.Mint(binding, "invoice/123", At);
         Assert.True(service.TryFetch(token, At.AddMinutes(1)));
         Assert.False(service.TryFetch(token, At.AddMinutes(2)));
@@ -65,8 +66,25 @@ public sealed class ConversationSafetyTests
     {
         var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
         binding.Verify(At.AddHours(-25));
+        binding.GrantConsent();
 
         Assert.Throws<InvalidOperationException>(() => new DocumentDeliveryService().Mint(binding, "statement/123", At));
+    }
+
+    [Fact]
+    public void Document_delivery_requires_explicit_consent_and_stops_after_withdrawal()
+    {
+        var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
+        binding.Verify(At);
+        var service = new DocumentDeliveryService();
+
+        Assert.Throws<InvalidOperationException>(() => service.Mint(binding, "invoice/123", At));
+
+        binding.GrantConsent();
+        service.Mint(binding, "invoice/123", At);
+        binding.WithdrawConsent();
+
+        Assert.Throws<InvalidOperationException>(() => service.Mint(binding, "invoice/124", At.AddMinutes(1)));
     }
 
     [Fact]
