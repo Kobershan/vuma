@@ -1,6 +1,6 @@
 # STAGE 22b — Conversational commerce: the WhatsApp and email assistant
 
-**Status:** NOT_STARTED · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
+**Status:** IN_PROGRESS (2026-09-10) · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
 
 ## Task index
 ## Second-pass architecture and task map
@@ -11,16 +11,16 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 22b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 22b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | IN_PROGRESS |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-22B-001 | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | NOT_STARTED |
-| TASK-22B-002 | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | NOT_STARTED |
-| TASK-22B-003 | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | NOT_STARTED |
-| TASK-22B-004 | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | NOT_STARTED |
+| TASK-22B-001 | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, and persistence implemented; dependency closure remains |
+| TASK-22B-002 | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer implemented; six module-backed handlers remain |
+| TASK-22B-003 | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery and WhatsApp signature boundary implemented; Stage 22 sender integration remains |
+| TASK-22B-004 | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
 
 ## Objective
 

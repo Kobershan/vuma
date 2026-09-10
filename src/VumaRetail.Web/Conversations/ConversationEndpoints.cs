@@ -89,6 +89,7 @@ public static class ConversationEndpoints
         IConfiguration configuration,
         ILoggerFactory loggers,
         IContactResolver contacts,
+        IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
         IIntentClassifier classifier,
         IClock clock,
@@ -119,10 +120,10 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, conversationStore, classifier, clock, cancellationToken).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, clock, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IConversationStore conversationStore, IIntentClassifier classifier, IClock clock, CancellationToken cancellationToken)
+    private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IContactBindingManagementService bindingManagement, IConversationStore conversationStore, IIntentClassifier classifier, IClock clock, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(message.Address) || string.IsNullOrWhiteSpace(message.Text))
         {
@@ -132,6 +133,11 @@ public static class ConversationEndpoints
         if (binding is null)
         {
             return Results.Accepted(value: new { state = "onboarding", message = "Ask your account manager to link this address." });
+        }
+        if (message.Text.Trim().Equals("STOP", StringComparison.OrdinalIgnoreCase))
+        {
+            await bindingManagement.SetConsentAsync(binding.Id, granted: false, cancellationToken).ConfigureAwait(false);
+            return Results.Accepted(value: new { state = "stopped", message = "You have opted out of conversation messages." });
         }
         if (binding.ConsentState == ConversationConsentState.Withdrawn)
         {
