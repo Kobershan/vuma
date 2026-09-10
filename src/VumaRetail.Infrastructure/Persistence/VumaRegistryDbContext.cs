@@ -60,6 +60,15 @@ public sealed class VumaRegistryDbContext(
     public DbSet<TradingSessionSegment> TradingSessionSegments => Set<TradingSessionSegment>();
     public DbSet<TradingSessionLine> TradingSessionLines => Set<TradingSessionLine>();
 
+    // Stage 22: business relationships, owned stock projection and transfer coordination.
+    public DbSet<BusinessRegistration> BusinessRegistrations => Set<BusinessRegistration>();
+    public DbSet<BusinessCompanyMembership> BusinessCompanyMemberships => Set<BusinessCompanyMembership>();
+    public DbSet<GroupSettings> GroupSettings => Set<GroupSettings>();
+    public DbSet<GroupHierarchyNode> GroupHierarchyNodes => Set<GroupHierarchyNode>();
+    public DbSet<OwnedStockOnHandProjection> OwnedStockOnHandProjections => Set<OwnedStockOnHandProjection>();
+    public DbSet<StockTransferRequest> StockTransferRequests => Set<StockTransferRequest>();
+    public DbSet<PremisesSkuRouting> PremisesSkuRoutings => Set<PremisesSkuRouting>();
+
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
 
@@ -594,6 +603,77 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.VoidedAt);
             builder.HasIndex(x => new { x.TenantId, x.SegmentId });
             builder.HasIndex(x => new { x.TenantId, x.SessionId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+
+        // Stage 22 registry relationships. Company databases remain structurally unchanged.
+        modelBuilder.Entity<BusinessRegistration>(builder =>
+        {
+            builder.ToTable("business_registrations", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<BusinessCompanyMembership>(builder =>
+        {
+            builder.ToTable("business_company_memberships", "registry");
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => new { x.TenantId, x.BusinessId, x.CompanyId }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupSettings>(builder =>
+        {
+            builder.ToTable("group_settings", "registry");
+            builder.HasKey(x => new { x.TenantId, x.BusinessId });
+            builder.Property(x => x.TransferValueThreshold).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.TransferCostingMethod).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.Property(x => x.DiscrepancyDefaultOwner).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.Property(x => x.StoreCodePrefix).HasMaxLength(32).IsRequired();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupHierarchyNode>(builder =>
+        {
+            builder.ToTable("group_hierarchy_nodes", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.NodeType).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.Property(x => x.OwnershipType).HasConversion<string>().HasMaxLength(24).IsRequired();
+            builder.Property(x => x.StoreCode).HasMaxLength(64);
+            builder.HasIndex(x => new { x.TenantId, x.BusinessId, x.CompanyId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.BusinessId, x.ParentNodeId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<OwnedStockOnHandProjection>(builder =>
+        {
+            builder.ToTable("owned_stock_on_hand_projection", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.OnHand).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.Reserved).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.InStaging).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.Available).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.BusinessId, x.CompanyId, x.LocationId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<StockTransferRequest>(builder =>
+        {
+            builder.ToTable("stock_transfer_requests", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.Property(x => x.TotalValue).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.ReceivedQuantity).HasColumnType("numeric(18,6)");
+            builder.Property(x => x.DiscrepancyQuantity).HasColumnType("numeric(18,6)");
+            builder.HasIndex(x => new { x.TenantId, x.Status });
+            builder.HasIndex(x => new { x.TenantId, x.SenderCompanyId, x.ReceiverCompanyId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<PremisesSkuRouting>(builder =>
+        {
+            builder.ToTable("premises_sku_routing", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.SkuOrBarcode).HasMaxLength(128).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.PremisesId, x.SkuOrBarcode, x.IsBarcode }).IsUnique();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 

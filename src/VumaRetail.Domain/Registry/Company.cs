@@ -97,6 +97,29 @@ public sealed class Company
     /// <summary>The operator-supplied reason for deactivation.</summary>
     public string? DeactivationReason { get; private set; }
 
+    /// <summary>Creates a company from an identity already issued by the Control App.</summary>
+    public static Company CreateFromIssuedIdentity(
+        Guid companyId,
+        Guid tenantId,
+        string code,
+        string legalName,
+        string tradingName,
+        string baseCurrency,
+        string locale,
+        string documentPrefix)
+    {
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A Control-App-issued company identifier is required.", nameof(companyId));
+        }
+
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
+
+        return new Company(companyId, tenantId, code, legalName, tradingName, baseCurrency, locale, documentPrefix);
+    }
 /// <summary>Creates a company in the provisioning state.</summary>
      public static Company Create(
          Guid tenantId,
