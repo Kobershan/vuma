@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE
 
 ## Stage
 
@@ -100,5 +100,9 @@ Evidence recorded in PROGRESS.md; CURRENT.md updated; committed + pushed with 19
 (none yet)
 
 ## Work Log
+
+- 2026-09-10: CRM handler integration tests passed 9/9; HTTP/API tests passed 4/4; migration Up/Down passed 1/1 against the disposable PostgreSQL harness.
+- 2026-09-10: Scoped unit coverage passed 43/43. Union of unit and integration Cobertura line hits: Domain CRM 276/301 (91.69%), Application CRM 589/678 (86.87%).
+- 2026-09-10: Demo seed contains lead conversion, opportunity, activity, static segment membership, and consent scenarios; canonical suite previously passed.
 
 - 2026-09-10: task written.

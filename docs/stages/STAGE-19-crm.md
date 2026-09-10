@@ -1,12 +1,14 @@
 # STAGE 19 — CRM: 360° Customer View, Leads, Opportunities, Activities, Segments, Consent
 
-**Status:** NOT_STARTED · **Depends on:** 10 · **Reference reading:** `docs/DATA_MODEL.md` §1–§3 (mandatory columns, types, schema conventions), `docs/CONVENTIONS.md` §1–§5, `docs/TESTING.md` §3, `docs/SECURITY.md` §1 (principals), `docs/LICENSING.md` §1–§4 (enforcement ladder, read-only), `docs/DECISIONS.md` ADR-149, **ADR-015** (customer record ownership — see §Overview), **ADR-090** (POPIA data retention), **CLAUDE.md** §7 rule 3 (mandatory columns), §7 rule 8 (soft delete), §7 rule 9 (timestamptz), §7 rule 16 (telemetry whitelist).
+**Status:** COMPLETE (2026-09-10) · **Depends on:** 10 · **Reference reading:** `docs/DATA_MODEL.md` §1–§3 (mandatory columns, types, schema conventions), `docs/CONVENTIONS.md` §1–§5, `docs/TESTING.md` §3, `docs/SECURITY.md` §1 (principals), `docs/LICENSING.md` §1–§4 (enforcement ladder, read-only), `docs/DECISIONS.md` ADR-149, **ADR-015** (customer record ownership — see §Overview), **ADR-090** (POPIA data retention), **CLAUDE.md** §7 rule 3 (mandatory columns), §7 rule 8 (soft delete), §7 rule 9 (timestamptz), §7 rule 16 (telemetry whitelist).
 
 ## Task index
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 19-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 19-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
+| [TASK-19-001](../tasks/TASK-19-001-crm-vertical.md) | DOMAIN / APPLICATION / INFRASTRUCTURE / API | CRM vertical | Stage 10 | COMPLETE |
+| [TASK-19-002](../tasks/TASK-19-002-crm-verification.md) | TEST / DOCUMENTATION | CRM verification | TASK-19-001 | COMPLETE |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in `docs/tasks/README.md`.
 

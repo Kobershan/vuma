@@ -2,7 +2,7 @@
 
 ## Status
 
-IN_PROGRESS
+COMPLETE
 
 ## Stage
 
@@ -173,4 +173,5 @@ committed + pushed.
 
 ## Work Log
 
-- 2026-09-10: task written; implementation starts (operator-tasked 19+20 completion).
+- 2026-09-10: CRM domain, application, infrastructure, migration, API, permissions, manifest, seed, and tests verified on main.
+- 2026-09-10: Handler integration tests 9/9 and API tests 4/4 passed against real PostgreSQL.

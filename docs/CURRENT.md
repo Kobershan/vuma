@@ -29,6 +29,6 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
 BLOCKERS: None for compilation. Follow-ups before Stage 15 is DONE: broader Planning integration scenarios, coverage measurement, seed scenarios in DemoSeed, specialist review panel (money-and-tax, stock-availability-guard, architecture-guard, stage-verifier).
 ENVIRONMENT LIMITATION: None active.
 
-SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19/20 stage docs written (`docs/stages/STAGE-19-crm.md`, `docs/stages/STAGE-20-loyalty-public-api.md`, NOT_STARTED; numbering corrected per ROADMAP — brief asked for STAGE-10-crm, see ADR-150); `path/to/` scaffold duplicates deleted; Domain/Crm+Loyalty scaffolding + 44 unit tests, suite 1249/1249 green. Stage position unchanged: still Stage 16 next.
+SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM is COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 20 remains under verification.
 
 SIDE-QUEST (2026-09-10, operator-tasked: "07c to 14"): TASK-07C-004 COMPLETE — leg-dispatch rework proven on real PG (unit 1249/1249, `GroupReceiptLegsTests` 8/8, arch 76/77 with one pre-existing wall-clock failure in Stage 19/20 scaffolding). ADRs 151 (clearing→allocation link) + 152 (outbound group payments deferred). Stage 07c needs `stage-verifier` + exit checklist before DONE; next in operator scope is Stage 08c.
