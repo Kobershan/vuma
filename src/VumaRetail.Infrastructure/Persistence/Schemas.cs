@@ -179,4 +179,7 @@ public static class Schemas
     /// schema puts the module into the daily metering rollup (counts only, R10).
     /// </summary>
     public const string Loyalty = "loyalty";
+
+    /// <summary>Conversation state, append-only turns, and delivery tokens. Stage 22b.</summary>
+    public const string Conversations = "conversations";
 }

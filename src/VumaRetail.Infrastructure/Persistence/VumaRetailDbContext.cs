@@ -124,6 +124,15 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     /// <summary>The append-only document version history.</summary>
     public DbSet<Domain.Workflow.DocumentVersion> DocumentVersions => Set<Domain.Workflow.DocumentVersion>();
+
+    /// <summary>Tenant-scoped conversational commerce state and delivery tokens (Stage 22b).</summary>
+    public DbSet<Domain.Conversations.Conversation> Conversations => Set<Domain.Conversations.Conversation>();
+
+    /// <summary>Append-only conversational transcript entries (Stage 22b).</summary>
+    public DbSet<Domain.Conversations.ConversationTurn> ConversationTurns => Set<Domain.Conversations.ConversationTurn>();
+
+    /// <summary>Single-use, expiring references to documents delivered by conversations.</summary>
+    public DbSet<Domain.Conversations.DocumentDeliveryToken> DocumentDeliveryTokens => Set<Domain.Conversations.DocumentDeliveryToken>();
     /// <summary>Units an item can be counted, weighed or measured in (Stage 06).</summary>
     public DbSet<Domain.Catalog.UnitOfMeasure> UnitsOfMeasure => Set<Domain.Catalog.UnitOfMeasure>();
 
