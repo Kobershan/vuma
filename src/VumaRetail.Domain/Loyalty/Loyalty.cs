@@ -26,23 +26,26 @@ public sealed class Consent : Entity
     /// <summary>Expires at.</summary>
     public DateTimeOffset? ExpiresAt { get; }
     /// <summary>Gives consent.</summary>
-    public void Give()
+    /// <param name="now">The instant consent was given, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public void Give(DateTimeOffset now)
     {
         if (State == ConsentState.Given)
         {
             throw new DuplicateConsentException();
         }
 
-        State = ConsentState.Given; GrantedAt = DateTimeOffset.UtcNow;
+        State = ConsentState.Given; GrantedAt = now;
     }
     /// <summary>Withdraws.</summary>
-    public void Withdraw()
+    /// <param name="now">The instant consent was withdrawn, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public void Withdraw(DateTimeOffset now)
     {
         State = ConsentState.Withdrawn;
-        WithdrawnAt = DateTimeOffset.UtcNow;
+        WithdrawnAt = now;
     }
     /// <summary>Valid now.</summary>
-    public bool IsConsentValid() => State == ConsentState.Given && (ExpiresAt is null || ExpiresAt > DateTimeOffset.UtcNow);
+    /// <param name="now">The instant to evaluate against, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public bool IsConsentValid(DateTimeOffset now) => State == ConsentState.Given && (ExpiresAt is null || ExpiresAt > now);
 }
 
 /// <summary>Consent type.</summary>
@@ -76,7 +79,10 @@ public sealed class LoyaltyMember : Entity
 {
     private LoyaltyMember() { }
     /// <summary>Creates.</summary>
-    public LoyaltyMember(Guid tenantId, Guid customerId) : base(tenantId) { CustomerId = customerId; EnrolledAt = DateTimeOffset.UtcNow; }
+    /// <param name="tenantId">The owning tenant.</param>
+    /// <param name="customerId">The enrolled customer.</param>
+    /// <param name="enrolledAt">The instant of enrolment, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public LoyaltyMember(Guid tenantId, Guid customerId, DateTimeOffset enrolledAt) : base(tenantId) { CustomerId = customerId; EnrolledAt = enrolledAt; }
     /// <summary>Customer.</summary>
     public Guid CustomerId { get; }
     /// <summary>Orbit member id.</summary>

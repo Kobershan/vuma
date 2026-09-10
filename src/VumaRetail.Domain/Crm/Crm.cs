@@ -37,7 +37,8 @@ public sealed class Lead : Entity
     public DateTimeOffset? ConvertedAt { get; private set; }
 
     /// <summary>Converts the lead.</summary>
-    public ConvertLeadResult Convert()
+    /// <param name="now">The instant of conversion, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public ConvertLeadResult Convert(DateTimeOffset now)
     {
         if (Status == LeadStatus.Converted)
         {
@@ -45,7 +46,7 @@ public sealed class Lead : Entity
         }
 
         Status = LeadStatus.Converted;
-        ConvertedAt = DateTimeOffset.UtcNow;
+        ConvertedAt = now;
         return new ConvertLeadResult(UuidV7.NewGuid(), this);
     }
 
@@ -87,9 +88,14 @@ public sealed class Activity : Entity, IImmutableRecord
 {
     private Activity() { }
     /// <summary>Creates.</summary>
-    public Activity(Guid tenantId, ActivityType type, string subject, string? body) : base(tenantId)
+    /// <param name="tenantId">The owning tenant.</param>
+    /// <param name="type">The activity type.</param>
+    /// <param name="subject">The subject line.</param>
+    /// <param name="body">The optional body.</param>
+    /// <param name="happenedAt">The instant the activity happened, UTC, from <c>IClock</c> — never <c>DateTimeOffset.UtcNow</c>.</param>
+    public Activity(Guid tenantId, ActivityType type, string subject, string? body, DateTimeOffset happenedAt) : base(tenantId)
     {
-        ActivityType = type; Subject = subject; Body = body; HappenedAt = DateTimeOffset.UtcNow;
+        ActivityType = type; Subject = subject; Body = body; HappenedAt = happenedAt;
     }
     /// <summary>Type.</summary>
     public ActivityType ActivityType { get; }

@@ -414,7 +414,10 @@ public sealed class ThemeDesignRulesTests
         {
             foreach (var file in Directory.GetFiles(androidDir, $"*{extension}", SearchOption.AllDirectories))
             {
-                if (Path.GetFileName(file) is "VumaColorTokens.kt" or "VumaColorTokensDark.kt") continue;
+                if (Path.GetFileName(file) is "VumaColorTokens.kt" or "VumaColorTokensDark.kt")
+                {
+                    continue;
+                }
                 var text = File.ReadAllText(file);
                 var matches = HexColorPattern.Matches(text);
                 foreach (Match match in matches)
