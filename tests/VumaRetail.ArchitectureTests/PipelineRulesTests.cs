@@ -89,6 +89,10 @@ public sealed class PipelineRulesTests
             // Stage 22b registry binding administration is an explicit registry transaction boundary,
             // like other registry lifecycle services; it is not a company command handler.
             "src/VumaRetail.Infrastructure/Conversations/ContactBindingManagementService.cs",
+            // Scope grants are an authenticated registry edge-service operation, like contact
+            // binding management above; the endpoint has no command envelope, so this service
+            // owns the short registry transaction for the grant.
+            "src/VumaRetail.Infrastructure/Conversations/ConversationScopeManagementService.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
