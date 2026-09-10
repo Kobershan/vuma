@@ -20,4 +20,17 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
 
     /// <summary>An empty definition cannot become active.</summary>
     public static ManufacturingRuleException EmptyBomCannotBePublished() => new("BOM_EMPTY", "A BOM must contain at least one component before publication.");
+
+    /// <summary>The operation requires a published definition.</summary>
+    public static ManufacturingRuleException PublishedDefinitionRequired() => new("BOM_NOT_PUBLISHED", "Only a published BOM can be exploded.");
+
+    /// <summary>A recursive BOM graph contains a cycle.</summary>
+    public static ManufacturingRuleException CycleDetected(object key) => new("BOM_CYCLE", $"The BOM graph contains a cycle at {key}.");
+
+    /// <summary>A leaf has no costing input.</summary>
+    public static ManufacturingRuleException MissingCost(object key) => new("BOM_COST_MISSING", $"No unit cost was supplied for component {key}.");
+
+    /// <summary>All costs in one explosion must use one currency.</summary>
+    public static ManufacturingRuleException MixedCostCurrency(string expected, string actual)
+        => new("BOM_MIXED_CURRENCY", $"BOM costs must use {expected}; received {actual}.");
 }
