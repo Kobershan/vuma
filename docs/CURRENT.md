@@ -3,13 +3,13 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 15 — Merchandise Planning, Forecasting & Replenishment — IMPLEMENTED, PARTIALLY VERIFIED (2026-09-10). Core behavior and migration reversal are covered; seed, coverage measurement, and specialist review remain open.
-NEXT STAGE (roadmap order): Stage 16 (BOM Setup) — not started.
+CURRENT STAGE: Stage 16 — BOM Setup — IN PROGRESS (2026-09-10). The initial domain lifecycle slice is implemented and focused-tested; persistence, API, explosion/costing, seed, and stage exit verification remain open.
+NEXT STAGE (roadmap order): Stage 16 follow-up layers — persistence, API, explosion/costing, seed, and exit verification.
 
 STAGE 15: TASK-15-01 DONE — demand history rollup (weekly Mon–Sun, idempotent, gap zeros) + forecast engine (moving-average, exponential-smoothing, seasonal-naive behind IForecastEngine; MAPE/bias back-test; low-confidence flags) + weekly forecast run + read endpoints. TASK-15-02 DONE — safety stock (variance + 8-week fallback, horizon refusal), reorder via SafetyStockCalculation rows, ABC/XYZ snapshot runs, open-to-buy budgets with live commitments (warning only). TASK-15-03 DONE — replenishment run (ROP + forecast top-up, transfer-surplus preferred with SharedSourcing link checked at generation, 14-day expiry, backorder reattempt hook), accept/amend-accept (exactly-once)/reject through Stage 12 requisition + Stage 08 transfer commands. TASK-15-04 DONE — markdown plans (Draft→PendingApproval→Approved→Active, versioning amendments, cancel retires promotions) through IApprovalService + Stage 10 percentage-off promotions; activation sweep for missed dates. Domain (10 files) / Application (ports, 4 engines, 14 commands, 7 queries, 9 permissions, manifest, 4 hosted services) / Infrastructure (8 repos, EF configs, writers, DI) / Contracts / Web (19 endpoints) all new. Migration `20260909131616_Stage15_Planning` (9 tables, reversible, model/snapshot agree). ADR-149. Core projects (Domain/Application/Infrastructure/Contracts) build 0 errors.
 
-CURRENT TASK: —
-CURRENT TASK STATUS: —
+CURRENT TASK: TASK-16-01 — BOM domain lifecycle and invariants
+CURRENT TASK STATUS: IN PROGRESS — focused tests 4/4 passed; follow-up layers remain open.
 LAST COMPLETED TASK: Stage 15 core verification slice (2026-09-10) — unit coverage and migration Up/Down evidence.
 
 TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
