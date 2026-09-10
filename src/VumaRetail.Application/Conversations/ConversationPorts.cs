@@ -36,6 +36,22 @@ public interface IDocumentDeliveryService
     bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at);
 }
 
+/// <summary>Result returned by an intent handler; it contains API facts only.</summary>
+public sealed record IntentResult(Guid ResultId, IReadOnlyList<string> Facts, bool RequiresConfirmation = false, string? IdempotencyKey = null);
+
+/// <summary>One existing-module operation exposed to the deterministic conversation router.</summary>
+public interface IConversationIntentHandler
+{
+    ConversationIntent Intent { get; }
+    Task<IntentResult> HandleAsync(Conversation conversation, IReadOnlyDictionary<string, string> entities, string idempotencyKey, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Routes only the six allow-listed intents; unknown intents are never handled.</summary>
+public interface IConversationIntentRouter
+{
+    Task<IntentResult> RouteAsync(Conversation conversation, IntentClassification classification, string idempotencyKey, CancellationToken cancellationToken = default);
+}
+
 public interface IConversationStateMachine
 {
     Task<ConversationState> HandleAsync(Conversation conversation, string message, DateTimeOffset at, CancellationToken cancellationToken = default);

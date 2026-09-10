@@ -20,7 +20,7 @@ public sealed class VerificationService : IVerificationService
     {
         ArgumentNullException.ThrowIfNull(binding);
         ArgumentException.ThrowIfNullOrWhiteSpace(otp);
-        return new VerificationChallenge(Guid.Empty, binding.Id, otp, at);
+        return new VerificationChallenge(binding.TenantId, binding.Id, otp, at);
     }
 
     public bool Verify(ContactBinding binding, VerificationChallenge challenge, string otp, DateTimeOffset at)
@@ -40,7 +40,7 @@ public sealed class DocumentDeliveryService : IDocumentDeliveryService
         ArgumentNullException.ThrowIfNull(binding);
         if (!binding.IsUsable(at)) throw new InvalidOperationException("A verified binding is required.");
         ArgumentException.ThrowIfNullOrWhiteSpace(documentReference);
-        return new DocumentDeliveryToken(Guid.Empty, binding.Id, documentReference, at);
+        return new DocumentDeliveryToken(binding.TenantId, binding.Id, documentReference, at);
     }
     public bool TryFetch(DocumentDeliveryToken token, DateTimeOffset at)
     {
@@ -73,5 +73,27 @@ public sealed class ConversationStateMachine(IIntentClassifier classifier) : ICo
             conversation.BeginVerification(classification.Intent, at);
         }
         return conversation.State;
+    }
+}
+
+/// <summary>Default router that refuses unregistered intents and duplicate keys.</summary>
+public sealed class ConversationIntentRouter(IEnumerable<IConversationIntentHandler> handlers) : IConversationIntentRouter
+{
+    private readonly IReadOnlyDictionary<ConversationIntent, IConversationIntentHandler> handlers =
+        handlers.ToDictionary(x => x.Intent);
+    private readonly ConcurrentDictionary<string, IntentResult> submitted = new(StringComparer.Ordinal);
+
+    public async Task<IntentResult> RouteAsync(Conversation conversation, IntentClassification classification, string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        ArgumentNullException.ThrowIfNull(classification);
+        ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
+        if (classification.Intent == ConversationIntent.Unknown || classification.Confidence < 0.7m)
+            throw new InvalidOperationException("The conversation intent is not sufficiently certain.");
+        if (!handlers.TryGetValue(classification.Intent, out IConversationIntentHandler? handler))
+            throw new InvalidOperationException($"No handler is registered for {classification.Intent}.");
+        if (submitted.TryGetValue(idempotencyKey, out IntentResult? existing)) return existing;
+        IntentResult result = await handler.HandleAsync(conversation, classification.Entities, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        return submitted.GetOrAdd(idempotencyKey, result);
     }
 }

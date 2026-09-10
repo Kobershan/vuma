@@ -16,6 +16,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddSingleton<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
+        services.AddSingleton<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();
         return services;
     }

@@ -74,4 +74,32 @@ public sealed class ConversationSafetyTests
         Assert.False(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestInvoiceCopy, At.AddHours(1)));
         Assert.True(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestInvoiceCopy, At.AddDays(1)));
     }
+
+    [Fact]
+    public async Task Intent_router_rejects_unknown_intents_and_replays_idempotent_submissions()
+    {
+        var handler = new StubIntentHandler(ConversationIntent.OrderStatus);
+        var router = new ConversationIntentRouter([handler]);
+        var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, At);
+        var classification = new IntentClassification(ConversationIntent.OrderStatus, new Dictionary<string, string>(), 1m);
+        IntentResult first = await router.RouteAsync(conversation, classification, "same-key");
+        IntentResult second = await router.RouteAsync(conversation, classification, "same-key");
+        Assert.Equal(first, second);
+        Assert.Equal(1, handler.Calls);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => router.RouteAsync(
+            conversation,
+            new IntentClassification(ConversationIntent.RequestPod, new Dictionary<string, string>(), 1m),
+            "other-key"));
+    }
+
+    private sealed class StubIntentHandler(ConversationIntent intent) : IConversationIntentHandler
+    {
+        public ConversationIntent Intent { get; } = intent;
+        public int Calls { get; private set; }
+        public Task<IntentResult> HandleAsync(Conversation conversation, IReadOnlyDictionary<string, string> entities, string idempotencyKey, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new IntentResult(Guid.NewGuid(), ["API result"], IdempotencyKey: idempotencyKey));
+        }
+    }
 }
