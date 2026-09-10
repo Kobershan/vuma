@@ -41,4 +41,12 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     /// <summary>A requested definition does not exist in the tenant.</summary>
     public static ManufacturingRuleException NotFound(Guid id)
         => new("BOM_NOT_FOUND", $"BOM {id} was not found.");
+
+    /// <summary>A routing sequence is missing, duplicated, or not positive.</summary>
+    public static ManufacturingRuleException InvalidRoutingSequence(int sequence)
+        => new("BOM_ROUTING_SEQUENCE", $"Routing sequence {sequence} must be unique and positive.");
+
+    /// <summary>A routing duration cannot be negative.</summary>
+    public static ManufacturingRuleException InvalidRoutingTime()
+        => new("BOM_ROUTING_TIME", "Routing durations cannot be negative.");
 }
