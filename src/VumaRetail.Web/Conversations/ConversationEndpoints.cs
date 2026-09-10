@@ -29,6 +29,14 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Fetches a one-time, expiring document delivery reference.")
             .RequireModule("conversations");
+        RouteGroupBuilder bindings = endpoints.MapVumaApi().MapGroup("/contact-bindings")
+            .WithTags("Conversations")
+            .RequireModule("conversations");
+        bindings.MapGet("", ListBindingsAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapPost("", CreateBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapPost("/{bindingId:guid}/challenge", IssueChallengeAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapPost("/{bindingId:guid}/verify", VerifyBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapDelete("/{bindingId:guid}", RevokeBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
         return endpoints;
     }
 
@@ -39,6 +47,36 @@ public static class ConversationEndpoints
             ? Results.NotFound()
             : Results.Ok(new { documentReference });
     }
+
+    private static async Task<IResult> ListBindingsAsync(ConversationChannel? channel, Guid? contactId, IContactBindingManagementService service, CancellationToken cancellationToken)
+        => Results.Ok(await service.ListAsync(channel, contactId, cancellationToken).ConfigureAwait(false));
+
+    private static async Task<IResult> CreateBindingAsync(CreateBindingRequest request, IContactBindingManagementService service, ITenantContext tenant, CancellationToken cancellationToken)
+    {
+        if (tenant.TenantId == Guid.Empty || request.ContactId == Guid.Empty || string.IsNullOrWhiteSpace(request.Address))
+            return Results.BadRequest(new { error = "tenant, contactId and address are required" });
+        ContactBinding binding = new(tenant.TenantId, request.Address, request.ContactId, request.Channel);
+        await service.CreateAsync(binding, cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/contact-bindings/{binding.Id}", new { binding.Id, binding.Channel, binding.Address, binding.ContactId });
+    }
+
+    private static async Task<IResult> IssueChallengeAsync(Guid bindingId, ChallengeRequest request, IContactBindingManagementService service, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Otp)) return Results.BadRequest(new { error = "otp is required" });
+        VerificationChallenge challenge = await service.IssueChallengeAsync(bindingId, request.Otp, cancellationToken).ConfigureAwait(false);
+        return Results.Ok(new { challengeId = challenge.Id, challenge.ExpiresAt });
+    }
+
+    private static async Task<IResult> VerifyBindingAsync(Guid bindingId, VerifyRequest request, IContactBindingManagementService service, CancellationToken cancellationToken)
+    {
+        if (request.ChallengeId == Guid.Empty || string.IsNullOrWhiteSpace(request.Otp))
+            return Results.BadRequest(new { error = "challengeId and otp are required" });
+        bool verified = await service.VerifyAsync(bindingId, request.ChallengeId, request.Otp, cancellationToken).ConfigureAwait(false);
+        return verified ? Results.NoContent() : Results.UnprocessableEntity(new { error = "verification failed" });
+    }
+
+    private static async Task<IResult> RevokeBindingAsync(Guid bindingId, IContactBindingManagementService service, CancellationToken cancellationToken)
+        => await service.RevokeAsync(bindingId, cancellationToken).ConfigureAwait(false) ? Results.NoContent() : Results.NotFound();
 
     private static async Task<IResult> WhatsAppWebhookAsync(
         HttpRequest request,
@@ -92,4 +130,7 @@ public static class ConversationEndpoints
     }
 
     public sealed record InboundMessage(ConversationChannel Channel, string Address, string Text);
+    public sealed record CreateBindingRequest(ConversationChannel Channel, string Address, Guid ContactId);
+    public sealed record ChallengeRequest(string Otp);
+    public sealed record VerifyRequest(Guid ChallengeId, string Otp);
 }

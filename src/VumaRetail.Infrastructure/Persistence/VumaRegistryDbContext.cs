@@ -23,6 +23,8 @@ public sealed class VumaRegistryDbContext(
     public DbSet<RegistryOutboxMessage> RegistryOutboxMessages => Set<RegistryOutboxMessage>();
     /// <summary>Channel-to-contact bindings shared across company databases (Stage 22b).</summary>
     public DbSet<ContactBinding> ContactBindings => Set<ContactBinding>();
+    /// <summary>Hashed, expiring OTP challenges for contact bindings.</summary>
+    public DbSet<VerificationChallenge> VerificationChallenges => Set<VerificationChallenge>();
 
     // Stage 06d: Group services
     public DbSet<CreditGroup> CreditGroups => Set<CreditGroup>();
@@ -154,6 +156,22 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.LockedUntil);
             builder.HasIndex(x => new { x.TenantId, x.Channel, x.Address }).IsUnique();
             builder.HasIndex(x => new { x.TenantId, x.ContactId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+
+        modelBuilder.Entity<VerificationChallenge>(builder =>
+        {
+            builder.ToTable("verification_challenges", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.BindingId).IsRequired();
+            builder.Property(x => x.Hash).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.IssuedAt).IsRequired();
+            builder.Property(x => x.ExpiresAt).IsRequired();
+            builder.Property(x => x.Attempts).IsRequired();
+            builder.Property(x => x.Used).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.BindingId, x.ExpiresAt });
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 

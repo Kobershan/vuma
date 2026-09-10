@@ -5,6 +5,7 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Registry;
+using VumaRetail.Infrastructure.Conversations;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -17,6 +18,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IIntentClassifier, KeywordIntentClassifier>();
         services.AddSingleton<IReplyComposer, TemplateReplyComposer>();
         services.AddScoped<IContactResolver, EfContactResolver>();
+        services.AddScoped<IContactBindingManagementService, ContactBindingManagementService>();
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();

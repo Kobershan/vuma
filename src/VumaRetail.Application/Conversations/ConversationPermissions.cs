@@ -13,6 +13,9 @@ public sealed class ConversationPermissions : IModulePermissions
     /// <summary>Escalate a conversation to a human operator.</summary>
     public const string Escalate = "conversations.conversation.escalate";
 
+    /// <summary>Manage channel bindings and their verification lifecycle.</summary>
+    public const string BindingManage = "conversations.binding.manage";
+
     /// <inheritdoc />
     public string Module => "conversations";
 
@@ -21,5 +24,6 @@ public sealed class ConversationPermissions : IModulePermissions
     [
         new(PermissionKey.Parse(Receive), "Receive and process inbound conversation messages."),
         new(PermissionKey.Parse(Escalate), "Escalate conversations to a human operator."),
+        new(PermissionKey.Parse(BindingManage), "Manage and verify conversation channel bindings.", IsHighRisk: true),
     ];
 }
