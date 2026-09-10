@@ -61,4 +61,17 @@ public sealed class ConversationSafetyTests
         await new ConversationStateMachine(new KeywordIntentClassifier()).HandleAsync(conversation, "STOP", At);
         Assert.Equal(ConversationState.Escalated, conversation.State);
     }
+
+    [Fact]
+    public void Rate_limiter_separates_message_and_sensitive_document_budgets()
+    {
+        var limiter = new ConversationRateLimiter(messagesPerHour: 2, sensitiveRequestsPerDay: 1);
+        Guid tenant = Guid.NewGuid();
+        Assert.True(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.OrderStatus, At));
+        Assert.True(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestStatement, At));
+        Assert.False(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestInvoiceCopy, At));
+        Assert.True(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.OrderStatus, At.AddHours(1)));
+        Assert.False(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestInvoiceCopy, At.AddHours(1)));
+        Assert.True(limiter.TryConsume(tenant, "+27825550134", ConversationIntent.RequestInvoiceCopy, At.AddDays(1)));
+    }
 }

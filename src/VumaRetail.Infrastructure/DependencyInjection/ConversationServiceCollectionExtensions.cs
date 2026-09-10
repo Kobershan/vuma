@@ -15,6 +15,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IContactResolver>(sp => sp.GetRequiredService<InMemoryContactResolver>());
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddSingleton<IDocumentDeliveryService, DocumentDeliveryService>();
+        services.AddSingleton<ConversationRateLimiter>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();
         return services;
     }
