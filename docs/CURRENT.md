@@ -17,6 +17,7 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
   - Unit tests: 1,340/1,340 passed, including 9 Planning core tests
   - Architecture tests: 77/77 passed
   - Integration: Stage 15 migration Up/Down 1/1 passed against the local PostgreSQL harness
+  - Canonical full suite: 1,340 unit, 77 architecture, and 552 integration tests passed
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed
   - Coverage: NOT MEASURED (needs ≥80% on new Domain+Application)
 
