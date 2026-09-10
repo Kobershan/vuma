@@ -156,4 +156,32 @@ public sealed class ArInvoice : Entity
             Status = DocumentStatus.Settled;
         }
     }
+
+    /// <summary>
+    /// Restores the outstanding balance when a receipt allocated against this invoice is reversed
+    /// (Stage 07c reversing legs). The reversal is a new receipt document; this only re-opens the
+    /// invoice's balance, never edits a journal (§7 rule 6).
+    /// </summary>
+    /// <param name="amount">The amount to restore.</param>
+    /// <exception cref="ArgumentException">Restoring would push the balance above the invoice total.</exception>
+    public void Reinstate(Money amount)
+    {
+        if (amount.Amount <= 0)
+        {
+            throw new ArgumentException("A reinstatement must be positive.", nameof(amount));
+        }
+        if (OutstandingBalance + amount > Total)
+        {
+            throw new ArgumentException(
+                $"Reinstating {amount} would push the outstanding balance above the invoice total {Total}.",
+                nameof(amount));
+        }
+
+        OutstandingBalance += amount;
+
+        if (Status == DocumentStatus.Settled && !OutstandingBalance.IsZero)
+        {
+            Status = DocumentStatus.Posted;
+        }
+    }
 }

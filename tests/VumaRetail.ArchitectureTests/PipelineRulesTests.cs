@@ -122,6 +122,12 @@ public sealed class PipelineRulesTests
             // Stage 14b. Same standing again: the field-sales approval service owns the registry
             // intent plus each company leg's serialisable transaction (ADR-108, ADR-116).
             "src/VumaRetail.Infrastructure/FieldSales/FieldSalesApprovalService.cs",
+            // Stage 07c. Same standing again: GroupReceiptService owns the registry-side saga
+            // transaction and GroupReceiptLegDispatcher commits each company leg's own
+            // serialisable transaction in its own scope (ADR-116) — the pipeline's transaction
+            // stays empty because the group-receipt handlers only call IGroupReceiptService.
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegDispatcher.cs",
             // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
             // owns its own saga transaction; the handler's pipeline transaction stays empty.
             "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");

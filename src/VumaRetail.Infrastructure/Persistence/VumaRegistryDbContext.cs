@@ -430,11 +430,13 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.FromCompanyId).IsRequired();
             builder.Property(x => x.ToCompanyId).IsRequired();
             builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            builder.Property(x => x.AllocationId).IsRequired();
             builder.Property(x => x.State).HasConversion<string>().HasMaxLength(24).IsRequired();
             builder.HasMoney(x => x.Amount, "amount");
             builder.Property(x => x.CreatedAt).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.State });
             builder.HasIndex(x => new { x.TenantId, x.GroupDocumentId });
+            builder.HasIndex(x => new { x.TenantId, x.GroupDocumentId, x.AllocationId });
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<InterCompanyClearingLeg>(builder =>

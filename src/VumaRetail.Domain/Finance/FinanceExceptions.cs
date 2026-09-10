@@ -65,6 +65,23 @@ public sealed class PeriodCloseBlockedException(IReadOnlyList<ControlAccountVari
     public IReadOnlyList<ControlAccountVariance> Variances { get; } = variances;
 }
 
+/// <summary>
+/// Raised when a period close is refused because inter-company intents involving the company are
+/// still outstanding (Stage 07c, MULTI_COMPANY.md §7). Names the intents so the operator knows
+/// exactly what must settle first.
+/// </summary>
+/// <param name="intentIds">The outstanding intent ids blocking the close.</param>
+public sealed class PeriodCloseBlockedByIntentsException(IReadOnlyList<Guid> intentIds)
+    : DomainException(
+        "FINANCE_PERIOD_CLOSE_BLOCKED_BY_INTENTS",
+        "This period cannot close: inter-company intents are still outstanding: "
+        + string.Join(", ", intentIds) + ".",
+        DomainProblemKind.Rule)
+{
+    /// <summary>The outstanding intent ids blocking the close.</summary>
+    public IReadOnlyList<Guid> IntentIds { get; } = intentIds;
+}
+
 /// <summary>One control account's disagreement with its sub-ledger.</summary>
 /// <param name="AccountId">The GL control account.</param>
 /// <param name="ControlAccountType">Which sub-ledger it should reconcile to.</param>

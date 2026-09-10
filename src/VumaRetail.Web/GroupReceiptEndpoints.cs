@@ -86,6 +86,27 @@ public static class GroupReceiptEndpoints
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
         .RequirePermission(RegistryPermissions.GroupReceiptReverse);
 
+        group.MapPost("/{id:guid}/allocations/{allocationId:guid}/retry", async (
+            Guid id,
+            Guid allocationId,
+            RetryGroupReceiptAllocationRequest request,
+            [FromServices] RetryGroupReceiptAllocationCommandHandler handler,
+            CancellationToken ct) =>
+        {
+            var command = new RetryGroupReceiptAllocationCommand
+            {
+                TenantId = request.TenantId,
+                GroupReceiptId = id,
+                AllocationId = allocationId,
+            };
+
+            await handler.HandleAsync(command, ct);
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+        .RequirePermission(RegistryPermissions.GroupReceiptAllocate);
+
         group.MapGet("/unallocated", async (
             Guid tenantId,
             [FromServices] GetUnallocatedGroupReceiptsQueryHandler handler,
@@ -170,6 +191,11 @@ public sealed class AllocateGroupReceiptRequest
 }
 
 public sealed class ReverseGroupReceiptRequest
+{
+    public Guid TenantId { get; init; }
+}
+
+public sealed class RetryGroupReceiptAllocationRequest
 {
     public Guid TenantId { get; init; }
 }

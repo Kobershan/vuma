@@ -120,7 +120,9 @@ internal sealed class ArReceiptAllocationConfiguration : EntityConfiguration<ArR
     protected override void ConfigureEntity(EntityTypeBuilder<ArReceiptAllocation> builder)
     {
         builder.Property(allocation => allocation.ArReceiptId).IsRequired();
-        builder.Property(allocation => allocation.ArInvoiceId).IsRequired();
+        // Null is an on-account (unapplied) slice: money received but not yet applied to any
+        // invoice (Stage 07c group legs). The receipt-level full-allocation invariant is unchanged.
+        builder.Property(allocation => allocation.ArInvoiceId).IsRequired(false);
 
         builder.HasMoney(allocation => allocation.Amount, "amount");
 

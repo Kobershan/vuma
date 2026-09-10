@@ -297,16 +297,84 @@ public class InterCompanyClearingIntentTests
             TenantId, Guid.NewGuid(), "group-receipt",
             CompanyA, CompanyB, Amount, "ZAR");
 
-        // Leg 1: CompanyA debits clearing
+        // Leg 1: CompanyA is the bank owner. It holds the cash and owes CompanyB, so it
+        // books Dr Bank / Cr clearing — its clearing balance is a credit (TASK-07C-004: the
+        // original directions had the two sides swapped against the actual economics).
         InterCompanyClearingLeg leg1 = intent.Legs.First(l => l.CompanyId == CompanyA);
-        Assert.Equal("Debit", leg1.Direction);
+        Assert.Equal("Credit", leg1.Direction);
 
-        // Leg 2: CompanyB credits clearing
+        // Leg 2: CompanyB is owed the cash and owes its customer, so it books Dr clearing /
+        // Cr customer — its clearing balance is a debit.
         InterCompanyClearingLeg leg2 = intent.Legs.First(l => l.CompanyId == CompanyB);
-        Assert.Equal("Credit", leg2.Direction);
+        Assert.Equal("Debit", leg2.Direction);
 
         // Net-zero: debit = credit = 3000
         Assert.Equal(leg1.Amount.Amount, leg2.Amount.Amount);
         Assert.Equal(leg1.Amount.Amount, Amount.Amount);
+    }
+}
+
+public class ClearingIntentReverseTests
+{
+    private static readonly Guid TenantId = Guid.NewGuid();
+    private static readonly Guid CompanyA = Guid.NewGuid();
+    private static readonly Guid CompanyB = Guid.NewGuid();
+    private static readonly Money Amount = new(3000m, "ZAR");
+
+    [Fact]
+    public void Reverse_settles_into_reversed_and_compensates_open_legs()
+    {
+        var intent = InterCompanyClearingIntent.Create(
+            TenantId, Guid.NewGuid(), "group-receipt",
+            CompanyA, CompanyB, Amount, "ZAR");
+
+        intent.Reverse();
+
+        Assert.Equal(InterCompanyClearingIntentState.Reversed, intent.State);
+        Assert.All(intent.Legs, leg =>
+            Assert.Equal(InterCompanyClearingLegState.Compensated, leg.State));
+    }
+
+    [Fact]
+    public void Reverse_keeps_acknowledged_legs_as_history()
+    {
+        var intent = InterCompanyClearingIntent.Create(
+            TenantId, Guid.NewGuid(), "group-receipt",
+            CompanyA, CompanyB, Amount, "ZAR");
+        foreach (var leg in intent.Legs)
+        {
+            intent.AcknowledgeLeg(leg.Id);
+        }
+
+        intent.Reverse();
+
+        // Both legs acknowledged their postings; the mirrors stand beside them, not over them.
+        Assert.Equal(InterCompanyClearingIntentState.Reversed, intent.State);
+        Assert.All(intent.Legs, leg =>
+            Assert.Equal(InterCompanyClearingLegState.Acknowledged, leg.State));
+    }
+
+    [Fact]
+    public void Reverse_twice_throws()
+    {
+        var intent = InterCompanyClearingIntent.Create(
+            TenantId, Guid.NewGuid(), "group-receipt",
+            CompanyA, CompanyB, Amount, "ZAR");
+        intent.Reverse();
+
+        Assert.Throws<InvalidOperationException>(() => intent.Reverse());
+    }
+
+    [Fact]
+    public void CompensateAllocation_marks_one_slice_compensated()
+    {
+        var receipt = GroupReceipt.Capture(
+            TenantId, CompanyA, Guid.NewGuid(), new Money(9000m, "ZAR"),
+            "EFT", "MKHIZE 22/08", DateTimeOffset.UtcNow);
+        var allocation = receipt.Allocate(CompanyB, null, Amount);
+
+        receipt.CompensateAllocation(allocation.Id);
+
+        Assert.Equal(GroupReceiptAllocationLegState.Compensated, allocation.LegState);
     }
 }

@@ -191,7 +191,7 @@ public sealed class RecordAccountPaymentCommandHandler(
         var money = new Money(command.Amount, command.Currency);
         DateTimeOffset now = clock.UtcNow;
 
-        var allocations = new List<(Guid ArInvoiceId, Money Amount)>();
+        var allocations = new List<(Guid? ArInvoiceId, Money Amount)>();
         foreach (var allocation in command.Allocations)
         {
             var invoice = await arInvoices.FindByIdAsync(allocation.ArInvoiceId, cancellationToken).ConfigureAwait(false)

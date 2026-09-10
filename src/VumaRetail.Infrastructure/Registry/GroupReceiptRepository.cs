@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -18,13 +19,18 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
 
     public async Task<GroupReceipt?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _registry.GroupReceipts.FindAsync([id], cancellationToken);
+        // Eagerly load allocations: nothing lazy-loads, and the allocate/reverse paths must see
+        // every slice to enforce Σ ≤ captured and to compensate each one (TASK-07C-004).
+        return await _registry.GroupReceipts
+            .Include(r => r.Allocations)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
     public async Task<IReadOnlyList<GroupReceipt>> GetUnallocatedAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await Task.FromResult(
             _registry.GroupReceipts
+                .Include(r => r.Allocations)
                 .Where(r => r.TenantId == tenantId &&
                     (r.Status == GroupReceiptStatus.Draft || r.Status == GroupReceiptStatus.PartiallyAllocated))
                 .OrderByDescending(r => r.CapturedAt)
@@ -58,7 +64,9 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
 
     public async Task<InterCompanyClearingIntent?> GetClearingIntentByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _registry.InterCompanyClearingIntents.FindAsync([id], cancellationToken);
+        return await _registry.InterCompanyClearingIntents
+            .Include(i => i.Legs)
+            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
     }
 
     public async Task AddAsync(InterCompanyClearingIntent intent, CancellationToken cancellationToken = default)
@@ -75,7 +83,17 @@ public sealed class GroupReceiptRepository : IGroupReceiptRepository
     {
         return await Task.FromResult(
             _registry.InterCompanyClearingIntents
-                .Where(i => i.TenantId == tenantId && i.State != InterCompanyClearingIntentState.Settled && i.State != InterCompanyClearingIntentState.Compensated)
+                .Include(i => i.Legs)
+                .Where(i => i.TenantId == tenantId && i.State != InterCompanyClearingIntentState.Settled && i.State != InterCompanyClearingIntentState.Compensated && i.State != InterCompanyClearingIntentState.Reversed)
+                .ToList());
+    }
+
+    public async Task<IReadOnlyList<InterCompanyClearingIntent>> GetClearingIntentsForDocumentAsync(Guid groupDocumentId, CancellationToken cancellationToken = default)
+    {
+        return await Task.FromResult(
+            _registry.InterCompanyClearingIntents
+                .Include(i => i.Legs)
+                .Where(i => i.GroupDocumentId == groupDocumentId && i.State != InterCompanyClearingIntentState.Compensated)
                 .ToList());
     }
 

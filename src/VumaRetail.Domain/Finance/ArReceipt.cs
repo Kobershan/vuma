@@ -71,7 +71,7 @@ public sealed class ArReceipt : Entity, IImmutableRecord
     /// <param name="receivedAt">When the receipt was recorded, UTC.</param>
     /// <param name="amount">The total amount received.</param>
     /// <param name="journalId">The GL journal this receipt posted.</param>
-    /// <param name="allocations">Which invoices the amount is allocated to, and how much each.</param>
+    /// <param name="allocations">Which invoices the amount is allocated to, and how much each. A null invoice id is an on-account slice.</param>
     /// <param name="bankAccountId">The bank account the funds landed in, if known.</param>
     /// <exception cref="ArgumentException">The allocations do not sum to the amount received.</exception>
     public static ArReceipt Record(
@@ -82,7 +82,7 @@ public sealed class ArReceipt : Entity, IImmutableRecord
         DateTimeOffset receivedAt,
         Money amount,
         Guid journalId,
-        IReadOnlyList<(Guid ArInvoiceId, Money Amount)> allocations,
+        IReadOnlyList<(Guid? ArInvoiceId, Money Amount)> allocations,
         Guid? bankAccountId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(receiptNumber);
@@ -107,7 +107,7 @@ public sealed class ArReceipt : Entity, IImmutableRecord
             BankAccountId = bankAccountId,
         };
 
-        foreach ((Guid arInvoiceId, Money allocatedAmount) in allocations)
+        foreach ((Guid? arInvoiceId, Money allocatedAmount) in allocations)
         {
             receipt._allocations.Add(ArReceiptAllocation.Create(
                 tenantId, receipt.Id, arInvoiceId, allocatedAmount));
@@ -128,7 +128,7 @@ public sealed class ArReceipt : Entity, IImmutableRecord
         DateTimeOffset receivedAt,
         Money amount,
         Guid journalId,
-        IReadOnlyList<(Guid ArInvoiceId, Money Amount)> allocations,
+        IReadOnlyList<(Guid? ArInvoiceId, Money Amount)> allocations,
         Guid groupDocumentId,
         Guid? intentId,
         Guid? bankAccountId = null)

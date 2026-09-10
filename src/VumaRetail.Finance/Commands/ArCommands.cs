@@ -200,7 +200,7 @@ public sealed class RecordArReceiptCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        List<(Guid ArInvoiceId, Money Amount)> allocationTuples = [];
+        List<(Guid? ArInvoiceId, Money Amount)> allocationTuples = [];
         Money total = Money.Zero(command.Currency);
 
         foreach (ArReceiptAllocationInput allocation in command.Allocations)

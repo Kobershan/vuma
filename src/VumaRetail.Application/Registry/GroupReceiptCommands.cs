@@ -36,6 +36,16 @@ public sealed class ReverseGroupReceiptCommand
     public Guid GroupReceiptId { get; init; }
 }
 
+/// <summary>
+/// Retries one pending or failed allocation leg (recovery is retry, never re-key, ADR-104).
+/// </summary>
+public sealed class RetryGroupReceiptAllocationCommand
+{
+    public Guid TenantId { get; init; }
+    public Guid GroupReceiptId { get; init; }
+    public Guid AllocationId { get; init; }
+}
+
 /// <summary>Handler for <see cref="CaptureGroupReceiptCommand"/>.</summary>
 public sealed class CaptureGroupReceiptCommandHandler
 {
@@ -87,6 +97,23 @@ public sealed class ReverseGroupReceiptCommandHandler
     public Task HandleAsync(ReverseGroupReceiptCommand command, CancellationToken cancellationToken = default)
     {
         return _service.ReverseAsync(command.TenantId, command.GroupReceiptId, cancellationToken);
+    }
+}
+
+/// <summary>Handler for <see cref="RetryGroupReceiptAllocationCommand"/>.</summary>
+public sealed class RetryGroupReceiptAllocationCommandHandler
+{
+    private readonly IGroupReceiptService _service;
+
+    public RetryGroupReceiptAllocationCommandHandler(IGroupReceiptService service)
+    {
+        _service = service;
+    }
+
+    public Task HandleAsync(RetryGroupReceiptAllocationCommand command, CancellationToken cancellationToken = default)
+    {
+        return _service.RetryAllocationAsync(
+            command.TenantId, command.GroupReceiptId, command.AllocationId, cancellationToken);
     }
 }
 

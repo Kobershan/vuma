@@ -1,6 +1,7 @@
 using NSubstitute;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Primitives;
@@ -242,4 +243,75 @@ public sealed class PeriodCloseTests
     private void _bankStatementReconciledBalanceIs(Guid bankAccountId, decimal balance)
         => _statementLines.GetReconciledBalanceAsync(bankAccountId, Arg.Any<CancellationToken>())
             .Returns(balance);
+}
+
+/// <summary>
+/// A period cannot close while inter-company intents involving the company are outstanding
+/// (Stage 07c, MULTI_COMPANY.md §7) — and the refusal names the blocking intents.
+/// </summary>
+public sealed class PeriodCloseIntentGuardTests
+{
+    private readonly IAccountingPeriodRepository _periods = Substitute.For<IAccountingPeriodRepository>();
+    private readonly FixedClock _clock = new(Now);
+    private readonly AccountingPeriod _period = OpenPeriod();
+    private readonly Guid _companyId = UuidV7.NewGuid();
+
+    private void PeriodExists()
+        => _periods.FindByIdAsync(_period.Id, Arg.Any<CancellationToken>()).Returns(_period);
+
+    private static PeriodVarianceChecker CleanChecker()
+    {
+        var accounts = Substitute.For<IAccountRepository>();
+        accounts.ListControlAccountsAsync(Arg.Any<CancellationToken>()).Returns([]);
+        return new PeriodVarianceChecker(
+            accounts,
+            Substitute.For<IJournalRepository>(),
+            Substitute.For<IArInvoiceRepository>(),
+            Substitute.For<IApInvoiceRepository>(),
+            Substitute.For<IBankAccountRepository>(),
+            Substitute.For<IBankStatementLineRepository>(),
+            Substitute.For<ILayByAgreementRepository>());
+    }
+
+    private static ICompanyContext BoundCompany(Guid companyId)
+    {
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        return company;
+    }
+
+    [Fact]
+    public async Task A_period_will_not_close_while_an_inter_company_intent_is_outstanding()
+    {
+        PeriodExists();
+        Guid intentId = UuidV7.NewGuid();
+        var guard = Substitute.For<IPeriodCloseGuard>();
+        guard.CheckAsync(_period.TenantId, _companyId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(
+                new PeriodCloseBlockedByIntentsException([intentId])));
+        var handler = new ClosePeriodCommandHandler(
+            _periods, CleanChecker(), new FixedPrincipal(), _clock,
+            guard, BoundCompany(_companyId));
+
+        Func<Task> closing = () => handler.HandleAsync(new ClosePeriodCommand(_period.Id));
+
+        (await closing.Should().ThrowAsync<PeriodCloseBlockedByIntentsException>())
+            .Which.IntentIds.Should().ContainSingle().Which.Should().Be(intentId);
+        _period.Status.Should().Be(PeriodStatus.Open);
+    }
+
+    [Fact]
+    public async Task A_period_closes_when_the_guard_finds_nothing_outstanding()
+    {
+        PeriodExists();
+        var guard = Substitute.For<IPeriodCloseGuard>();
+        var handler = new ClosePeriodCommandHandler(
+            _periods, CleanChecker(), new FixedPrincipal(), _clock,
+            guard, BoundCompany(_companyId));
+
+        await handler.HandleAsync(new ClosePeriodCommand(_period.Id));
+
+        _period.Status.Should().Be(PeriodStatus.Closed);
+        await guard.Received(1).CheckAsync(_period.TenantId, _companyId, Arg.Any<CancellationToken>());
+    }
 }

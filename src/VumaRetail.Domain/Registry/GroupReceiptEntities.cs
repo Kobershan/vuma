@@ -10,7 +10,7 @@ public enum GroupReceiptStatus { Draft, PartiallyAllocated, Allocated, Reversed 
 public enum GroupReceiptAllocationLegState { Pending, Applied, Compensated }
 public enum GroupPaymentRunStatus { Draft, PartiallyAllocated, Allocated, Reversed }
 public enum GroupPaymentAllocationLegState { Pending, Applied, Compensated }
-public enum InterCompanyClearingIntentState { Pending, Settled, PartiallySettled, Compensated }
+public enum InterCompanyClearingIntentState { Pending, Settled, PartiallySettled, Compensated, Reversed }
 public enum InterCompanyClearingLegState { Pending, Acknowledged, Failed, Compensated }
 
 /// <summary>
@@ -112,6 +112,17 @@ public sealed class GroupReceipt
         GroupReceiptAllocation allocation = _allocations.FirstOrDefault(a => a.Id == allocationId)
             ?? throw new InvalidOperationException($"Allocation {allocationId} not found.");
         allocation.MarkApplied();
+        UpdateStatus();
+    }
+
+    /// <summary>
+    /// Compensates one allocation after its reversing legs posted (Stage 07c reversals).
+    /// </summary>
+    public void CompensateAllocation(Guid allocationId)
+    {
+        GroupReceiptAllocation allocation = _allocations.FirstOrDefault(a => a.Id == allocationId)
+            ?? throw new InvalidOperationException($"Allocation {allocationId} not found.");
+        allocation.Compensate();
         UpdateStatus();
     }
 
@@ -352,7 +363,8 @@ public sealed class InterCompanyClearingIntent
 
     private InterCompanyClearingIntent(
         Guid tenantId, Guid groupDocumentId, string groupDocumentType,
-        Guid fromCompanyId, Guid toCompanyId, Money amount, string currency)
+        Guid fromCompanyId, Guid toCompanyId, Money amount, string currency,
+        Guid allocationId)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
         if (fromCompanyId == Guid.Empty) throw new ArgumentException("A source company is required.", nameof(fromCompanyId));
@@ -366,6 +378,7 @@ public sealed class InterCompanyClearingIntent
         ToCompanyId = toCompanyId;
         Amount = amount;
         Currency = currency.Trim();
+        AllocationId = allocationId;
         State = InterCompanyClearingIntentState.Pending;
         CreatedAt = DateTimeOffset.UtcNow;
     }
@@ -378,6 +391,13 @@ public sealed class InterCompanyClearingIntent
     public Guid ToCompanyId { get; private set; }
     public Money Amount { get; private set; }
     public string Currency { get; private set; } = string.Empty;
+    /// <summary>
+    /// The group-receipt allocation this clearing settles. One receipt may carry several
+    /// same-company, same-amount slices, so company-plus-amount cannot identify the clearing —
+    /// the allocation id is the exact link (<c>Guid.Empty</c> only on intents created before
+    /// the link existed).
+    /// </summary>
+    public Guid AllocationId { get; private set; }
     public InterCompanyClearingIntentState State { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? SettledAt { get; private set; }
@@ -386,36 +406,50 @@ public sealed class InterCompanyClearingIntent
     /// <summary>
     /// Creates an immutable clearing intent with two legs (one per company).
     /// </summary>
+    /// <param name="tenantId">The owning tenant.</param>
+    /// <param name="groupDocumentId">The group document being settled.</param>
+    /// <param name="groupDocumentType">The group document type.</param>
+    /// <param name="fromCompanyId">The bank-owning company holding the cash.</param>
+    /// <param name="toCompanyId">The sister company being settled for.</param>
+    /// <param name="amount">The clearing amount.</param>
+    /// <param name="currency">The ISO 4217 currency.</param>
+    /// <param name="allocationId">The allocation this clearing settles. Pass it wherever the
+    /// caller has one: company-plus-amount is ambiguous when a receipt carries several
+    /// same-company, same-amount slices.</param>
     public static InterCompanyClearingIntent Create(
         Guid tenantId, Guid groupDocumentId, string groupDocumentType,
-        Guid fromCompanyId, Guid toCompanyId, Money amount, string currency)
+        Guid fromCompanyId, Guid toCompanyId, Money amount, string currency,
+        Guid? allocationId = null)
     {
         if (amount.Amount <= 0) throw new ArgumentException("Amount must be positive.", nameof(amount));
         ArgumentException.ThrowIfNullOrWhiteSpace(groupDocumentType);
         ArgumentException.ThrowIfNullOrWhiteSpace(currency);
-        var intent = new InterCompanyClearingIntent(tenantId, groupDocumentId, groupDocumentType, fromCompanyId, toCompanyId, amount, currency);
+        var intent = new InterCompanyClearingIntent(tenantId, groupDocumentId, groupDocumentType, fromCompanyId, toCompanyId, amount, currency, allocationId ?? Guid.Empty);
 
-        // Leg 1: From company — debits inter-company clearing, credits bank (the receiving side)
+        // Leg 1: the bank-owning (from) company holds the cash and owes the sister company:
+        // Dr Bank / Cr inter-company clearing, so its clearing balance is a credit.
         intent._legs.Add(new InterCompanyClearingLeg
         {
             Id = UuidV7.NewGuid(),
             IntentId = intent.Id,
             TenantId = tenantId,
             CompanyId = fromCompanyId,
-            Direction = "Debit",
+            Direction = "Credit",
             Amount = amount,
             Currency = currency,
             State = InterCompanyClearingLegState.Pending,
         });
 
-        // Leg 2: To company — debits clearing and credits its customer (the benefiting side)
+        // Leg 2: the sister (to) company is owed the cash and owes its customer:
+        // Dr inter-company clearing / Cr customer, so its clearing balance is a debit.
+        // Together the pair nets to zero across the group (ADR-105).
         intent._legs.Add(new InterCompanyClearingLeg
         {
             Id = UuidV7.NewGuid(),
             IntentId = intent.Id,
             TenantId = tenantId,
             CompanyId = toCompanyId,
-            Direction = "Credit",
+            Direction = "Debit",
             Amount = amount,
             Currency = currency,
             State = InterCompanyClearingLegState.Pending,
@@ -455,6 +489,23 @@ public sealed class InterCompanyClearingIntent
             leg.Compensate();
         }
         State = InterCompanyClearingIntentState.Compensated;
+    }
+
+    /// <summary>
+    /// Marks the intent reversed after every involved company posted its reversing leg
+    /// (Stage 07c reversals). The settled legs stand as history with their mirrors; any leg
+    /// that never applied is compensated so it can never be redriven.
+    /// </summary>
+    public void Reverse()
+    {
+        if (State is InterCompanyClearingIntentState.Compensated or InterCompanyClearingIntentState.Reversed)
+            throw new InvalidOperationException("A compensated or already-reversed intent cannot be reversed.");
+        foreach (InterCompanyClearingLeg leg in _legs.Where(l =>
+            l.State is InterCompanyClearingLegState.Pending or InterCompanyClearingLegState.Failed))
+        {
+            leg.Compensate();
+        }
+        State = InterCompanyClearingIntentState.Reversed;
     }
 }
 

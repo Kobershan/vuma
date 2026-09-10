@@ -9,7 +9,7 @@
 | TASK-07C-001 | Implement group receipting and allocation | Stages 06c, 06d, 06e, 07 | COMPLETE (code on main; task file status corrected 2026-09-06) |
 | TASK-07C-002 | Implement inter-company clearing and consolidated reporting | TASK-07C-001 | COMPLETE (code on main; task file status corrected 2026-09-06) |
 | TASK-07C-003 | Complete Stage 07c verification | TASK-07C-001, TASK-07C-002 | COMPLETE — verdict FAIL, see Work Log; rework in 004 |
-| TASK-07C-004 | Leg-dispatch rework: execute legs, clearing intents, reversing legs, close guard, DB proof | TASK-07C-003 | NOT_STARTED |
+| TASK-07C-004 | Leg-dispatch rework: execute legs, clearing intents, reversing legs, close guard, DB proof | TASK-07C-003 | COMPLETE (2026-09-10; 8/8 integration green on real PG; ADRs 151–152) |
 
 ## 07c-MAP-01 — Architecture decomposition and implementation task map
 

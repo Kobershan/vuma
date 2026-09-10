@@ -52,15 +52,20 @@ public sealed record ClosePeriodCommand(Guid AccountingPeriodId) : ICommand;
 /// <param name="checker">The control-account variance check.</param>
 /// <param name="principal">Who is acting.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="closeGuard">Refuses the close while inter-company intents are outstanding (Stage 07c). Optional so callers without a registry stay working; always wired in production.</param>
+/// <param name="company">The closing company, for the outstanding-intent check.</param>
 public sealed class ClosePeriodCommandHandler(
     IAccountingPeriodRepository periods,
     PeriodVarianceChecker checker,
     IPrincipalAccessor principal,
-    IClock clock) : ICommandHandler<ClosePeriodCommand, Unit>
+    IClock clock,
+    VumaRetail.Application.Abstractions.Registry.IPeriodCloseGuard? closeGuard = null,
+    VumaRetail.Application.Abstractions.Registry.ICompanyContext? company = null) : ICommandHandler<ClosePeriodCommand, Unit>
 {
     /// <inheritdoc />
     /// <exception cref="FinanceDocumentNotFoundException">The period does not exist.</exception>
     /// <exception cref="PeriodCloseBlockedException">A control account disagrees with its sub-ledger.</exception>
+    /// <exception cref="PeriodCloseBlockedByIntentsException">Inter-company intents are still outstanding.</exception>
     public async Task<Unit> HandleAsync(ClosePeriodCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -68,6 +73,11 @@ public sealed class ClosePeriodCommandHandler(
         AccountingPeriod period = await periods.FindByIdAsync(command.AccountingPeriodId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new FinanceDocumentNotFoundException(nameof(AccountingPeriod), command.AccountingPeriodId);
+
+        if (closeGuard is not null && company?.CompanyId is { } companyId && companyId != Guid.Empty)
+        {
+            await closeGuard.CheckAsync(period.TenantId, companyId, cancellationToken).ConfigureAwait(false);
+        }
 
         IReadOnlyList<ControlAccountVariance> variances = await checker
             .CheckAsync(period, cancellationToken).ConfigureAwait(false);

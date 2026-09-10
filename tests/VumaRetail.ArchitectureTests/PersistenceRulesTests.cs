@@ -134,7 +134,13 @@ public sealed class PersistenceRulesTests
             // Stage 14b: FieldSalesApprovalService owns the registry intent plus each company
             // leg's serialisable transaction (ADR-108, ADR-116) — the pipeline's transaction
             // stays empty because ApproveProFormaCommandHandler only calls the service.
-            "src/VumaRetail.Infrastructure/FieldSales/FieldSalesApprovalService.cs");
+            "src/VumaRetail.Infrastructure/FieldSales/FieldSalesApprovalService.cs",
+            // Stage 07c: GroupReceiptService commits the registry intent (a separate database
+            // boundary) and GroupReceiptLegDispatcher saves each company leg inside its own
+            // scope and commits that scope's own serialisable transaction — one human action,
+            // N databases, no two-phase commit (ADR-116).
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegDispatcher.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

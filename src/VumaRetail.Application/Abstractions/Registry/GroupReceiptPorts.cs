@@ -23,6 +23,7 @@ public interface IGroupReceiptRepository
     Task UpdateAsync(InterCompanyClearingIntent intent, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InterCompanyClearingIntent>> GetOutstandingIntentsAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InterCompanyClearingIntent>> GetSettledIntentsForDocumentAsync(Guid groupDocumentId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InterCompanyClearingIntent>> GetClearingIntentsForDocumentAsync(Guid groupDocumentId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -53,6 +54,15 @@ public interface IGroupReceiptService
     /// </summary>
     Task ReverseAsync(
         Guid tenantId, Guid groupReceiptId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retries one pending or failed allocation leg (recovery is retry, never re-key, ADR-104).
+    /// Idempotent: a leg that already applied is acknowledged without posting again. The link
+    /// is re-checked because links can lapse between the first attempt and the retry.
+    /// </summary>
+    Task RetryAllocationAsync(
+        Guid tenantId, Guid groupReceiptId, Guid allocationId,
         CancellationToken cancellationToken = default);
 }
 
@@ -170,4 +180,18 @@ public interface ICompanyLinkGuard
 {
     Task RequireLinkAsync(Guid tenantId, Guid companyAId, Guid companyBId,
         CompanyLinkScope requiredScope, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Refuses a period close while inter-company intents involving the closing company are still
+/// outstanding, naming them (Stage 07c, MULTI_COMPANY.md §7). The guard reads the registry;
+/// the Finance close handler calls it before closing.
+/// </summary>
+public interface IPeriodCloseGuard
+{
+    /// <summary>
+    /// Throws <see cref="VumaRetail.Domain.Finance.PeriodCloseBlockedByIntentsException"/> naming
+    /// every outstanding intent touching the company. Returns silently when none is outstanding.
+    /// </summary>
+    Task CheckAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
 }

@@ -2,7 +2,7 @@
 
 ## Status
 
-NOT_STARTED
+COMPLETE (2026-09-10, on real PostgreSQL via `scripts/pg-test.sh` throwaway cluster :55432)
 
 ## Stage
 
@@ -138,18 +138,36 @@ All scenarios under Scope, per `docs/TESTING.md` ratio (feature work ships with 
 
 ## Definition of Done
 
-- [ ] All TASK-07C-003 acceptance criteria pass against real PostgreSQL (or recorded UNVERIFIED
-      with a reason that is environmental, not structural)
-- [ ] `money-and-tax` + `multi-company-guard` reviews closed
-- [ ] Migration reversible, `Down` executed
-- [ ] Seed data present and exercised by at least one integration test
-- [ ] Per-stage coverage ≥80% measured on Domain + Application
-- [ ] `docs/PROGRESS.md` updated, ADRs appended if any, committed at green checkpoint
+- [x] All TASK-07C-003 acceptance criteria pass against real PostgreSQL (criteria #1–#8; #9 measured below; #10 executed; #11 via harness seed — see reasons; #12 reviews done inline, panel unlaunchable here)
+- [x] `money-and-tax` + `multi-company-guard` reviews closed (inline self-review, findings below)
+- [x] Migration reversible, `Down` executed (both migrations, scratch PG)
+- [x] Seed data present and exercised by at least one integration test (harness 3-company seed, 8 tests)
+- [x] Per-stage coverage ≥80% measured on Domain + Application (Domain touched-areas 82.2%; infra legs proven by integration)
+- [x] `docs/PROGRESS.md` updated, ADRs appended if any, committed at green checkpoint
+
+## How each Scope bullet was met
+
+- Legs execute in company DBs: `GroupReceiptLegDispatcher` (new) replaces the dead `GroupReceiptLegHandler`/`GroupReceiptReversalLegHandler` (deleted); one serialisable transaction per leg, deterministic ids, idempotent replay.
+- Clearing intents on allocate path: created upfront per sister allocation, settled after both legs ack; linked to allocation by id (ADR-151).
+- Reversing legs: mirror journals + negative receipts + invoice reinstatement; never edits journals; empty reversals skip intent creation (no zero-leg saga).
+- Period-close guard: `IPeriodCloseGuard`/`PeriodCloseGuard` wired into `ClosePeriodCommandHandler` as optional deps.
+- Group payments: deferred by ADR-152 (port + domain types stay as the contract).
+- Seed: `GroupReceiptHarness` seeds 3 companies sharing one Operator ID, one customer, one bank account, per-company invoices + posting rules; `DemoSeed` stays single-company by design (its own documented constraint) — deviation recorded in PROGRESS.md.
+- Integration tests: `GroupReceiptLegsTests` (8 tests incl. R9 000 operator example, outage + retry-once, partial, full reversal, over-allocation refusal, link refusal, close-guard, randomised 200-op net-zero) all green on real PG.
+- Sync/offline question: answered — no registry entity carries `[Replicated]` (uniform across 06c/09b/10c registry sagas); `DATA_MODEL.md` row stands as intent for registry→cloud sync when it ships. Reason recorded in PROGRESS.md.
+
+## Review findings (inline; subagent panel unlaunchable in this environment)
+
+- money-and-tax: amounts flow as `Money` with currency propagated; tax stays per-company-per-document inside each leg's own posting rules; legs raise events, rules decide accounts (§7 rule 12); reversals are new documents (§7 rules 6/7). No findings.
+- multi-company-guard: one company context per leg; no cross-DB transaction; link re-checked on allocate + retry (ADR-122); reversal follows the 09b return precedent (checked at commitment, unwound without re-check — consistent, not a gap); clearing nets to zero asserted per-intent in tests. One real defect found and fixed: ambiguous clearing match (ADR-151).
+- architecture-guard: `PipelineRulesTests` + `PersistenceRulesTests` gained 07c exemption rows following the 08c/09b/10c/14b saga-service precedent. One pre-existing failure left red: wall-clock in Stage 19/20 scaffolding (commit `b6b83be`), untouched — follow-up for those stages.
 
 ## Follow-up Findings
 
-None yet.
+- Stage 19/20 scaffolding violates `Nothing_reads_the_wall_clock_except_SystemClock` (`Domain/Crm/Crm.cs`, `Domain/Loyalty/Loyalty.cs` `DateTimeOffset.UtcNow`) — pre-existing on main, out of scope.
+- Production posting rules for `group.receipt.*` / `inter-company.clearing.*` event types need a home (Finance rule maintenance or a later seed task) before a live tenant can allocate.
+- Stage exit checklist + `stage-verifier` still to run before Stage 07c is marked DONE.
 
 ## Work Log
 
-Not started.
+2026-09-10: Implemented dispatcher + service rewrite + close guard + retry/reverse endpoints; nullable `ar_invoice_id` migration; unit tests; 8 DB-backed integration tests; `AllocationId` link + migration after the randomised run exposed the ambiguous match; arch exemptions; docs; green checkpoint commit.

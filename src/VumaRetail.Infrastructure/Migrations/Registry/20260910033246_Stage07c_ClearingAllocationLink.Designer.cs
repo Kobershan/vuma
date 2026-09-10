@@ -3,18 +3,21 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VumaRetail.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace VumaRetail.Infrastructure.RegistryMigrations
+namespace VumaRetail.Infrastructure.Migrations.Registry
 {
     [DbContext(typeof(VumaRegistryDbContext))]
-    partial class VumaRegistryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910033246_Stage07c_ClearingAllocationLink")]
+    partial class Stage07c_ClearingAllocationLink
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
