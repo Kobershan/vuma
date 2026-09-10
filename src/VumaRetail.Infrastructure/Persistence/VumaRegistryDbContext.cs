@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Registry.Trading;
 using VumaRetail.Infrastructure.Persistence.Configurations;
@@ -20,6 +21,8 @@ public sealed class VumaRegistryDbContext(
     public DbSet<SagaIntent> SagaIntents => Set<SagaIntent>();
     public DbSet<SagaLeg> SagaLegs => Set<SagaLeg>();
     public DbSet<RegistryOutboxMessage> RegistryOutboxMessages => Set<RegistryOutboxMessage>();
+    /// <summary>Channel-to-contact bindings shared across company databases (Stage 22b).</summary>
+    public DbSet<ContactBinding> ContactBindings => Set<ContactBinding>();
 
     // Stage 06d: Group services
     public DbSet<CreditGroup> CreditGroups => Set<CreditGroup>();
@@ -134,6 +137,24 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.FromState).HasConversion<string>().HasMaxLength(32).IsRequired();
             builder.Property(x => x.ToState).HasConversion<string>().HasMaxLength(32).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.OccurredAt });
+        });
+
+        modelBuilder.Entity<ContactBinding>(builder =>
+        {
+            builder.ToTable("contact_bindings", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Id).ValueGeneratedNever();
+            builder.Property(x => x.TenantId).IsRequired();
+            builder.Property(x => x.Address).HasMaxLength(320).IsRequired();
+            builder.Property(x => x.ContactId).IsRequired();
+            builder.Property(x => x.Channel).HasConversion<string>().HasMaxLength(16).IsRequired();
+            builder.Property(x => x.VerificationState).HasConversion<string>().HasMaxLength(16).IsRequired();
+            builder.Property(x => x.VerifiedAt);
+            builder.Property(x => x.ConsentState).HasConversion<string>().HasMaxLength(16).IsRequired();
+            builder.Property(x => x.LockedUntil);
+            builder.HasIndex(x => new { x.TenantId, x.Channel, x.Address }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.ContactId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
         modelBuilder.Entity<CompanyGroup>(builder =>

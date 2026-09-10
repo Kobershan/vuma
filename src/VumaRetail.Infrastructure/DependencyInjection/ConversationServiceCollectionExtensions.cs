@@ -4,6 +4,7 @@ using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -15,8 +16,7 @@ public static class ConversationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<IIntentClassifier, KeywordIntentClassifier>();
         services.AddSingleton<IReplyComposer, TemplateReplyComposer>();
-        services.AddSingleton<InMemoryContactResolver>();
-        services.AddSingleton<IContactResolver>(sp => sp.GetRequiredService<InMemoryContactResolver>());
+        services.AddScoped<IContactResolver, EfContactResolver>();
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
