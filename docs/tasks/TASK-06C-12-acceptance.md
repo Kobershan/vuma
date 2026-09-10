@@ -115,4 +115,4 @@ Convert failures into scoped tasks; do not fix unrelated defects here.
   - Unit tests: 895 passed
   - Architecture tests: 41 passed (including new MultiCompanyGuardTests)
   - Integration tests: **UNVERIFIED** — no PostgreSQL available on this build machine. Must be re-run on a machine with `scripts/pg-test.sh` or Docker before marking DONE.
-
+- 2026-09-10: Revalidated against the disposable local PostgreSQL server: Stage-tagged unit/integration tests passed 7/7 and 2/2; dedicated migration-fan-out and backup/restore tests passed 9/9; company lifecycle read/permission API tests passed 2/2. The full-suite rerun and a three-company production-style seed command remain required for final stage closure.

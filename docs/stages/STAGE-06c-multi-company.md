@@ -117,19 +117,19 @@ active company count.
 
 ## Task dependency graph
 
-- [ ] **06c.1 Registry foundation** — canonical [TASK-06C-01](../tasks/TASK-06C-01-registry-foundation.md).
-- [ ] **06c.2 Registry groups and saga records** — canonical [TASK-06C-02](../tasks/TASK-06C-02-registry-saga-records.md).
-- [ ] **06c.3 Company connection routing** — canonical [TASK-06C-03](../tasks/TASK-06C-03-company-routing.md).
-- [ ] **06c.4 Company context and one-company factory** — canonical [TASK-06C-04](../tasks/TASK-06C-04-company-context.md).
-- [ ] **06c.5 Fan-out reads** — canonical [TASK-06C-05](../tasks/TASK-06C-05-fanout-reads.md).
-- [ ] **06c.6 Provisioning lifecycle** — canonical [TASK-06C-06](../tasks/TASK-06C-06-provisioning.md).
-- [ ] **06c.7 Deactivation** — canonical [TASK-06C-07](../tasks/TASK-06C-07-deactivation.md).
-- [ ] **06c.8 Migration fan-out and serving guard** — canonical [TASK-06C-08](../tasks/TASK-06C-08-migration-fanout.md).
-- [ ] **06c.9 `company_id` retrofit** — canonical [TASK-06C-09](../tasks/TASK-06C-09-company-id-retrofit.md).
-- [ ] **06c.10 Backup and sync boundaries** — canonical [TASK-06C-10](../tasks/TASK-06C-10-backup-sync.md).
-- [ ] **06c.11 Companies API and permissions** — canonical [TASK-06C-11](../tasks/TASK-06C-11-companies-api.md).
+- [x] **06c.1 Registry foundation** — canonical [TASK-06C-01](../tasks/TASK-06C-01-registry-foundation.md).
+- [x] **06c.2 Registry groups and saga records** — canonical [TASK-06C-02](../tasks/TASK-06C-02-registry-saga-records.md).
+- [x] **06c.3 Company connection routing** — canonical [TASK-06C-03](../tasks/TASK-06C-03-company-routing.md).
+- [x] **06c.4 Company context and one-company factory** — canonical [TASK-06C-04](../tasks/TASK-06C-04-company-context.md).
+- [x] **06c.5 Fan-out reads** — canonical [TASK-06C-05](../tasks/TASK-06C-05-fanout-reads.md).
+- [x] **06c.6 Provisioning lifecycle** — canonical [TASK-06C-06](../tasks/TASK-06C-06-provisioning.md).
+- [x] **06c.7 Deactivation** — canonical [TASK-06C-07](../tasks/TASK-06C-07-deactivation.md).
+- [x] **06c.8 Migration fan-out and serving guard** — canonical [TASK-06C-08](../tasks/TASK-06C-08-migration-fanout.md).
+- [x] **06c.9 `company_id` retrofit** — canonical [TASK-06C-09](../tasks/TASK-06C-09-company-id-retrofit.md).
+- [x] **06c.10 Backup and sync boundaries** — canonical [TASK-06C-10](../tasks/TASK-06C-10-backup-sync.md).
+- [x] **06c.11 Companies API and permissions** — canonical [TASK-06C-11](../tasks/TASK-06C-11-companies-api.md).
 - [ ] **06c.12 Seed and acceptance verification** — canonical [TASK-06C-12](../tasks/TASK-06C-12-acceptance.md).
-- [ ] **06c.13 Specialist review** — canonical [TASK-06C-13](../tasks/TASK-06C-13-specialist-review.md).
+- [x] **06c.13 Specialist review** — canonical [TASK-06C-13](../tasks/TASK-06C-13-specialist-review.md); re-run after final acceptance.
 - [ ] **06c.14 Final verification and documentation** — canonical [TASK-06C-14](../tasks/TASK-06C-14-stage-closure.md).
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
