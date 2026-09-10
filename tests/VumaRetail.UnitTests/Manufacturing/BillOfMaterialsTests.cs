@@ -50,4 +50,29 @@ public sealed class BillOfMaterialsTests
 
         bom.Lines.Select(line => line.AlternateGroup).Should().AllBe("FASTENER");
     }
+
+    [Fact]
+    public void Routing_steps_are_sorted_and_immutable_after_publication()
+    {
+        BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), Guid.NewGuid(), 1, "Assembly");
+        bom.AddRoutingStep(20, "Pack", runMinutes: 1m);
+        bom.AddRoutingStep(10, "Assemble", setupMinutes: 5m);
+        bom.AddLine(Guid.NewGuid(), new Quantity(1m, "EA"));
+        bom.Publish();
+
+        bom.RoutingSteps.Select(step => step.Sequence).Should().Equal(10, 20);
+        Action action = () => bom.AddRoutingStep(30, "Ship");
+        action.Should().Throw<ManufacturingRuleException>().Which.Code.Should().Be("BOM_INVALID_TRANSITION");
+    }
+
+    [Fact]
+    public void Duplicate_routing_sequences_are_rejected()
+    {
+        BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), Guid.NewGuid(), 1, "Assembly");
+        bom.AddRoutingStep(10, "Assemble");
+
+        Action action = () => bom.AddRoutingStep(10, "Pack");
+
+        action.Should().Throw<ManufacturingRuleException>().Which.Code.Should().Be("BOM_ROUTING_SEQUENCE");
+    }
 }

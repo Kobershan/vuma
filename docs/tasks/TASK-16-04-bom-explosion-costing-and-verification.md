@@ -68,3 +68,4 @@ Implementation and focused tests pass. API, seed, and full stage verification re
 ## Work Log
 
 - 2026-09-10: Added `BomExplosionEngine` and four focused tests; all 4 passed.
+- 2026-09-10: Routing additions brought the focused manufacturing unit total to 10/10 passed.

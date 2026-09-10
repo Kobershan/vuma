@@ -16,6 +16,11 @@ internal sealed class BillOfMaterialsConfiguration : EntityConfiguration<BillOfM
         lines => lines.Aggregate(0, (hash, line) => HashCode.Combine(hash, line.GetHashCode())),
         lines => lines.ToList());
 
+    private static readonly ValueComparer<IReadOnlyList<RoutingStep>> RoutingComparer = new(
+        (left, right) => (left ?? Array.Empty<RoutingStep>()).SequenceEqual(right ?? Array.Empty<RoutingStep>()),
+        steps => steps.Aggregate(0, (hash, step) => HashCode.Combine(hash, step.GetHashCode())),
+        steps => steps.ToList());
+
     protected override string Schema => Schemas.Manufacturing;
 
     protected override string TableName => "bills_of_materials";
@@ -36,6 +41,15 @@ internal sealed class BillOfMaterialsConfiguration : EntityConfiguration<BillOfM
                 value => JsonSerializer.Serialize(value, SerializerOptions),
                 json => JsonSerializer.Deserialize<List<BillOfMaterialsLine>>(json, SerializerOptions) ?? new List<BillOfMaterialsLine>());
         lines.Metadata.SetValueComparer(LinesComparer);
+
+        PropertyBuilder<IReadOnlyList<RoutingStep>> routing = builder.Property(bom => bom.RoutingSteps)
+            .HasColumnName("routing_steps")
+            .HasColumnType("jsonb")
+            .IsRequired()
+            .HasConversion(
+                value => JsonSerializer.Serialize(value, SerializerOptions),
+                json => JsonSerializer.Deserialize<List<RoutingStep>>(json, SerializerOptions) ?? new List<RoutingStep>());
+        routing.Metadata.SetValueComparer(RoutingComparer);
 
         builder.HasIndex(bom => new { bom.TenantId, bom.FinishedItemId, bom.FinishedVariantId, bom.Version })
             .IsUnique()

@@ -8,6 +8,7 @@ namespace VumaRetail.Domain.Manufacturing;
 public sealed class BillOfMaterials : Entity
 {
     private readonly List<BillOfMaterialsLine> _lines = [];
+    private readonly List<RoutingStep> _routingSteps = [];
 
     private BillOfMaterials(Guid tenantId, Guid finishedItemId, int version, string name)
         : base(tenantId)
@@ -39,6 +40,9 @@ public sealed class BillOfMaterials : Entity
 
     /// <summary>The ordered component lines.</summary>
     public IReadOnlyList<BillOfMaterialsLine> Lines => _lines;
+
+    /// <summary>The ordered operations required to make the finished item.</summary>
+    public IReadOnlyList<RoutingStep> RoutingSteps => _routingSteps;
 
     /// <summary>Creates a draft BOM.</summary>
     public static BillOfMaterials Create(Guid tenantId, Guid finishedItemId, int version, string name, Guid? finishedVariantId = null)
@@ -108,6 +112,27 @@ public sealed class BillOfMaterials : Entity
         Status = BillOfMaterialsStatus.Published;
     }
 
+    /// <summary>Adds an operation to the draft routing.</summary>
+    /// <param name="sequence">The unique positive operation sequence.</param>
+    /// <param name="operationName">The operation name.</param>
+    /// <param name="setupMinutes">Optional setup time, non-negative.</param>
+    /// <param name="runMinutes">Optional run time per finished unit, non-negative.</param>
+    public void AddRoutingStep(int sequence, string operationName, decimal? setupMinutes = null, decimal? runMinutes = null)
+    {
+        EnsureDraft();
+        if (sequence <= 0 || _routingSteps.Any(step => step.Sequence == sequence))
+        {
+            throw ManufacturingRuleException.InvalidRoutingSequence(sequence);
+        }
+        if (setupMinutes is < 0m || runMinutes is < 0m)
+        {
+            throw ManufacturingRuleException.InvalidRoutingTime();
+        }
+
+        _routingSteps.Add(new RoutingStep(sequence, Require(operationName, nameof(operationName)), setupMinutes, runMinutes));
+        _routingSteps.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
+    }
+
     /// <summary>Retires a published definition without deleting its history.</summary>
     public void Retire()
     {
@@ -139,6 +164,9 @@ public sealed record BillOfMaterialsLine(
     Quantity Quantity,
     decimal ScrapPercent,
     string? AlternateGroup);
+
+/// <summary>One ordered manufacturing operation attached to a BOM version.</summary>
+public sealed record RoutingStep(int Sequence, string OperationName, decimal? SetupMinutes, decimal? RunMinutes);
 
 /// <summary>Lifecycle of a BOM definition.</summary>
 public enum BillOfMaterialsStatus

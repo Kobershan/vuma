@@ -19,6 +19,7 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
   - Integration: Stage 15 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - Integration: Stage 16 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - BOM explosion/costing unit tests: 4/4 passed
+  - Manufacturing focused unit tests (BOM lifecycle, routing, explosion/costing): 10/10 passed
   - StoreServer build after manufacturing API wiring: PASSED — 0 errors
   - Canonical full suite: 1,340 unit, 77 architecture, and 552 integration tests passed
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed

@@ -13,7 +13,7 @@ public sealed class ManufacturingMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260910170012_Stage16_BomSetup").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260910170958_Stage16_RoutingSteps").ConfigureAwait(false);
 
         IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -22,6 +22,13 @@ public sealed class ManufacturingMigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
 
         tables.Should().ContainSingle().Which.Should().Be("bills_of_materials");
+
+        IReadOnlyList<string> columns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'manufacturing' AND table_name = 'bills_of_materials'
+            """).ToListAsync().ConfigureAwait(false);
+        columns.Should().Contain(["lines", "routing_steps"]);
 
         await context.Database.MigrateAsync("20260909032943_Stage13b_PickingWavesStaging").ConfigureAwait(false);
 
