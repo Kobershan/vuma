@@ -10,7 +10,7 @@ costing inputs. It does not execute production, consume stock, or post accountin
 
 - `TASK-16-01` — BOM domain lifecycle and invariants — COMPLETE
 - `TASK-16-02` — BOM persistence and migration — NOT_STARTED
-- `TASK-16-03` — BOM application commands, queries, permissions, and API — NOT_STARTED
+- `TASK-16-03` — BOM application commands, queries, permissions, and API — IN_PROGRESS
 - `TASK-16-04` — BOM explosion, rolled-up costing, seed, and exit verification — IN_PROGRESS
 
 ## Exit criteria

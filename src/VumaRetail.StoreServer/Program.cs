@@ -43,6 +43,7 @@ using VumaRetail.Web.TradingSessions;
 using VumaRetail.Web.FieldSales;
 using VumaRetail.Web.Warehouse;
 using VumaRetail.Web.Workflow;
+using VumaRetail.Web.Manufacturing;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -202,6 +203,9 @@ builder.Services.AddVumaImports(
 
 builder.Services.AddVumaPlanning();
 
+// Stage 16. Versioned BOM definitions and costing inputs. Production execution remains Stage 17.
+builder.Services.AddVumaManufacturing();
+
 // Stage 19. CRM: leads, opportunities, activities, segments and consent. After AddVumaPartners
 // (conversion verifies the partner link through the partners read port — a Guid reference,
 // never a cross-schema foreign key). No scheduled passes.
@@ -331,6 +335,7 @@ app.MapPickWaves();
 app.MapVumaOrders();
 app.MapVumaImports();
 app.MapVumaPlanning();
+app.MapVumaManufacturing();
 app.MapVumaCrm();
 app.MapVumaConversations();
 app.MapVumaLoyaltyPublic(app.Services.GetRequiredService<LoyaltyPublicOptions>());

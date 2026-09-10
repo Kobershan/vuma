@@ -33,4 +33,12 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     /// <summary>All costs in one explosion must use one currency.</summary>
     public static ManufacturingRuleException MixedCostCurrency(string expected, string actual)
         => new("BOM_MIXED_CURRENCY", $"BOM costs must use {expected}; received {actual}.");
+
+    /// <summary>A definition version already exists.</summary>
+    public static ManufacturingRuleException DuplicateVersion(Guid itemId, int version)
+        => new("BOM_DUPLICATE_VERSION", $"BOM version {version} already exists for item {itemId}.");
+
+    /// <summary>A requested definition does not exist in the tenant.</summary>
+    public static ManufacturingRuleException NotFound(Guid id)
+        => new("BOM_NOT_FOUND", $"BOM {id} was not found.");
 }

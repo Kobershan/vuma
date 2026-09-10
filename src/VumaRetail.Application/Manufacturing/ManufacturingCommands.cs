@@ -1,0 +1,99 @@
+using FluentValidation;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Primitives;
+
+namespace VumaRetail.Application.Manufacturing;
+
+/// <summary>One component submitted while authoring a BOM.</summary>
+public sealed record BillOfMaterialsLineInput(Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal ScrapPercent = 0m, string? AlternateGroup = null);
+
+/// <summary>Creates a draft BOM definition.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateBillOfMaterialsCommand(Guid CompanyId, Guid FinishedItemId, Guid? FinishedVariantId, int Version, string Name, IReadOnlyList<BillOfMaterialsLineInput> Lines) : ICommand<Guid>;
+
+/// <summary>Validates a BOM creation request.</summary>
+public sealed class CreateBillOfMaterialsCommandValidator : AbstractValidator<CreateBillOfMaterialsCommand>
+{
+    /// <summary>Builds validation rules.</summary>
+    public CreateBillOfMaterialsCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.FinishedItemId).NotEmpty();
+        RuleFor(command => command.Version).GreaterThan(0);
+        RuleFor(command => command.Name).NotEmpty().MaximumLength(256);
+        RuleFor(command => command.Lines).NotEmpty();
+        RuleForEach(command => command.Lines).ChildRules(line =>
+        {
+            line.RuleFor(input => input.ComponentItemId).NotEmpty();
+            line.RuleFor(input => input.Quantity).GreaterThan(0m);
+            line.RuleFor(input => input.UnitOfMeasure).NotEmpty().MaximumLength(16);
+            line.RuleFor(input => input.ScrapPercent).GreaterThanOrEqualTo(0m).LessThan(100m);
+        });
+    }
+}
+
+/// <summary>Creates a draft BOM and rejects a duplicate live version.</summary>
+public sealed class CreateBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms, ITenantContext tenant)
+    : ICommandHandler<CreateBillOfMaterialsCommand, Guid>
+{
+    /// <inheritdoc />
+    public async Task<Guid> HandleAsync(CreateBillOfMaterialsCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (await boms.FindVersionAsync(command.FinishedItemId, command.FinishedVariantId, command.Version, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw ManufacturingRuleException.DuplicateVersion(command.FinishedItemId, command.Version);
+        }
+
+        BillOfMaterials bom = BillOfMaterials.Create(tenant.TenantId, command.FinishedItemId, command.Version, command.Name, command.FinishedVariantId);
+        foreach (BillOfMaterialsLineInput line in command.Lines)
+        {
+            bom.AddLine(line.ComponentItemId, new Quantity(line.Quantity, line.UnitOfMeasure), line.ScrapPercent, line.AlternateGroup, line.ComponentVariantId);
+        }
+        boms.Add(bom);
+        return bom.Id;
+    }
+}
+
+/// <summary>Publishes a draft BOM definition.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record PublishBillOfMaterialsCommand(Guid BillOfMaterialsId) : ICommand;
+
+/// <summary>Validates a publication request.</summary>
+public sealed class PublishBillOfMaterialsCommandValidator : AbstractValidator<PublishBillOfMaterialsCommand>
+{
+    /// <summary>Builds validation rules.</summary>
+    public PublishBillOfMaterialsCommandValidator() => RuleFor(command => command.BillOfMaterialsId).NotEmpty();
+}
+
+/// <summary>Publishes one tenant-scoped BOM.</summary>
+public sealed class PublishBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms)
+    : ICommandHandler<PublishBillOfMaterialsCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(PublishBillOfMaterialsCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        BillOfMaterials bom = await boms.FindAsync(command.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.BillOfMaterialsId);
+        bom.Publish();
+        return Unit.Value;
+    }
+}
+
+/// <summary>Reads one BOM definition.</summary>
+public sealed record GetBillOfMaterialsQuery(Guid BillOfMaterialsId) : IQuery<BillOfMaterials>;
+
+/// <summary>Handles a tenant-scoped BOM read.</summary>
+public sealed class GetBillOfMaterialsQueryHandler(IBillOfMaterialsRepository boms)
+    : IQueryHandler<GetBillOfMaterialsQuery, BillOfMaterials>
+{
+    /// <inheritdoc />
+    public async Task<BillOfMaterials> HandleAsync(GetBillOfMaterialsQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return await boms.FindAsync(query.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(query.BillOfMaterialsId);
+    }
+}

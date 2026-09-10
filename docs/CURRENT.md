@@ -3,8 +3,8 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 16 — BOM Setup — IN PROGRESS (2026-09-10). Domain lifecycle, EF persistence, and pure explosion/costing are implemented and verified; API, seed, and stage exit verification remain open.
-NEXT STAGE (roadmap order): Stage 16 follow-up layers — API, seed, and exit verification.
+CURRENT STAGE: Stage 16 — BOM Setup — IN PROGRESS (2026-09-10). Domain lifecycle, EF persistence, pure explosion/costing, and initial API routes are implemented; graph-loading/cost API behavior, seed, and stage exit verification remain open.
+NEXT STAGE (roadmap order): Stage 16 follow-up layers — graph-loading/cost API behavior, seed, and exit verification.
 
 STAGE 15: TASK-15-01 DONE — demand history rollup (weekly Mon–Sun, idempotent, gap zeros) + forecast engine (moving-average, exponential-smoothing, seasonal-naive behind IForecastEngine; MAPE/bias back-test; low-confidence flags) + weekly forecast run + read endpoints. TASK-15-02 DONE — safety stock (variance + 8-week fallback, horizon refusal), reorder via SafetyStockCalculation rows, ABC/XYZ snapshot runs, open-to-buy budgets with live commitments (warning only). TASK-15-03 DONE — replenishment run (ROP + forecast top-up, transfer-surplus preferred with SharedSourcing link checked at generation, 14-day expiry, backorder reattempt hook), accept/amend-accept (exactly-once)/reject through Stage 12 requisition + Stage 08 transfer commands. TASK-15-04 DONE — markdown plans (Draft→PendingApproval→Approved→Active, versioning amendments, cancel retires promotions) through IApprovalService + Stage 10 percentage-off promotions; activation sweep for missed dates. Domain (10 files) / Application (ports, 4 engines, 14 commands, 7 queries, 9 permissions, manifest, 4 hosted services) / Infrastructure (8 repos, EF configs, writers, DI) / Contracts / Web (19 endpoints) all new. Migration `20260909131616_Stage15_Planning` (9 tables, reversible, model/snapshot agree). ADR-149. Core projects (Domain/Application/Infrastructure/Contracts) build 0 errors.
 
@@ -19,6 +19,7 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
   - Integration: Stage 15 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - Integration: Stage 16 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - BOM explosion/costing unit tests: 4/4 passed
+  - StoreServer build after manufacturing API wiring: PASSED — 0 errors
   - Canonical full suite: 1,340 unit, 77 architecture, and 552 integration tests passed
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed
   - Coverage: NOT MEASURED (needs ≥80% on new Domain+Application)
