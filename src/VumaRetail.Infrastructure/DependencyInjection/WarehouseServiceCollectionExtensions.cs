@@ -49,6 +49,7 @@ public static class WarehouseServiceCollectionExtensions
 
         // Stage 14 seam: no order module exists yet, so consolidated-wave reads see no demand.
         services.AddScoped<IOrderLineReader, EmptyOrderLineReader>();
+        services.TryAddScoped<IOrderDispatchGate, NoOrderDispatchGate>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, WarehousePermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, WarehouseModuleManifest>());

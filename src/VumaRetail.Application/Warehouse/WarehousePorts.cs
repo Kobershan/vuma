@@ -267,3 +267,20 @@ public interface IOrderDispatchGate
         DateTimeOffset releasedAt,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Default gate used when the warehouse is hosted without the Orders module. It permits non-order
+/// warehouse work; the Orders module replaces it with the COD-aware implementation when registered.
+/// </summary>
+public sealed class NoOrderDispatchGate : IOrderDispatchGate
+{
+    /// <inheritdoc />
+    public Task EnsureDispatchAllowedAsync(
+        IReadOnlyCollection<string> outboundReferences,
+        DateTimeOffset releasedAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(outboundReferences);
+        return Task.CompletedTask;
+    }
+}

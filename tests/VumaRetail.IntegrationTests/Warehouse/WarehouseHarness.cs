@@ -86,6 +86,7 @@ public sealed class WarehouseHarness : IAsyncDisposable
         services.AddSingleton(CycleCounts);
         services.AddSingleton<IBinStockMover, BinStockMover>();
         services.AddSingleton<IPickAllocationStrategy, LargestBinFirstAllocationStrategy>();
+        services.AddSingleton<IOrderDispatchGate, NoOrderDispatchGate>();
 
         services.AddVumaMessaging();
 
