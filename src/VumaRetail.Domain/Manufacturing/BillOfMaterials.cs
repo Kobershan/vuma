@@ -5,6 +5,7 @@ namespace VumaRetail.Domain.Manufacturing;
 
 /// <summary>A versioned bill of materials for one manufactured or assembled sellable.</summary>
 /// <remarks>Stage 16 owns definition and costing inputs; production execution belongs to Stage 17.</remarks>
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class BillOfMaterials : Entity
 {
     private readonly List<BillOfMaterialsLine> _lines = [];
