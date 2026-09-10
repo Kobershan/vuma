@@ -33,6 +33,23 @@ public sealed class SalesOrderRepository(VumaRetailDbContext context) : ISalesOr
             .FirstOrDefaultAsync(order => order.OrderNumber.ToUpper() == normalized, cancellationToken);
     }
 
+    public Task<SalesOrder?> FindByOrderNumberForPartnersAsync(string orderNumber, IReadOnlySet<Guid> partnerIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(orderNumber);
+        ArgumentNullException.ThrowIfNull(partnerIds);
+        if (partnerIds.Count == 0)
+        {
+            return Task.FromResult<SalesOrder?>(null);
+        }
+
+        string normalized = orderNumber.Trim().ToUpperInvariant();
+        return context.SalesOrders
+            .Include(order => order.Lines)
+            .FirstOrDefaultAsync(order => order.OrderNumber.ToUpper() == normalized
+                && order.PartnerId.HasValue
+                && partnerIds.Contains(order.PartnerId.Value), cancellationToken);
+    }
+
     /// <inheritdoc />
     public Task<Guid?> FindOrderIdByLineAsync(Guid salesOrderLineId, CancellationToken cancellationToken = default)
         => context.SalesOrderLines

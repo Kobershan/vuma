@@ -1,5 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using NSubstitute;
+using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Orders;
+using VumaRetail.Domain.CustomerAccounts;
+using VumaRetail.Domain.Orders;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 
@@ -136,6 +143,56 @@ public sealed class ConversationSafetyTests
             conversation,
             new IntentClassification(ConversationIntent.RequestPod, new Dictionary<string, string>(), 1m),
             "other-key"));
+    }
+
+    [Fact]
+    public async Task Order_status_handler_does_not_query_without_a_granted_scope()
+    {
+        var scopes = Substitute.For<IConversationScopeReader>();
+        scopes.ListAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<ConversationAccountScope>>([]));
+        var accounts = Substitute.For<ICustomerAccountRepository>();
+        var orders = Substitute.For<ISalesOrderRepository>();
+        var company = Substitute.For<ICompanyContext>();
+        var handler = new OrderStatusIntentHandler(scopes, accounts, orders, company);
+        var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, At);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+            conversation,
+            new Dictionary<string, string> { ["orderNumber"] = "ORD-1" },
+            "status-key"));
+
+        Assert.Empty(orders.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task Order_status_handler_queries_only_the_granted_partner_scope()
+    {
+        Guid tenant = Guid.NewGuid();
+        Guid binding = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid accountId = Guid.NewGuid();
+        Guid partnerId = Guid.NewGuid();
+        var scope = new ConversationAccountScope(tenant, binding, companyId, accountId);
+        var scopes = Substitute.For<IConversationScopeReader>();
+        scopes.ListAsync(binding, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<ConversationAccountScope>>([scope]));
+        var account = CustomerAccount.Open(tenant, null, "ACT-1", partnerId, new Money(1000m, "ZAR"), 30, companyId);
+        var accounts = Substitute.For<ICustomerAccountRepository>();
+        accounts.FindAsync(accountId, Arg.Any<CancellationToken>()).Returns(account);
+        var orders = Substitute.For<ISalesOrderRepository>();
+        var order = SalesOrder.Create(tenant, null, "ORD-1", partnerId, SalesChannel.Phone,
+            OrderFulfilmentType.ClickAndCollect, Guid.NewGuid(), null, "ZAR", At, null);
+        orders.FindByOrderNumberForPartnersAsync("ORD-1", Arg.Is<IReadOnlySet<Guid>>(ids => ids.SetEquals(new HashSet<Guid> { partnerId })), Arg.Any<CancellationToken>())
+            .Returns(order);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        IntentResult result = await new OrderStatusIntentHandler(scopes, accounts, orders, company)
+            .HandleAsync(new Conversation(tenant, binding, ConversationChannel.WhatsApp, At),
+                new Dictionary<string, string> { ["orderNumber"] = "ORD-1" }, "status-key");
+
+        result.Facts.Should().ContainSingle().Which.Should().Contain("ORD-1").And.Contain("Draft");
     }
 
     private sealed class StubIntentHandler(ConversationIntent intent) : IConversationIntentHandler

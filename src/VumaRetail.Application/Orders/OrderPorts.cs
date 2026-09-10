@@ -12,6 +12,9 @@ public interface ISalesOrderRepository
     /// <summary>Finds an order, with its lines loaded, by its order number, case-insensitively.</summary>
     Task<SalesOrder?> FindByOrderNumberAsync(string orderNumber, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds an order by number only within the supplied customer partners.</summary>
+    Task<SalesOrder?> FindByOrderNumberForPartnersAsync(string orderNumber, IReadOnlySet<Guid> partnerIds, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// The order holding one line, by the line's id — what the dispatch gate uses to resolve a
     /// wave task's outbound reference back to its order without loading every order.

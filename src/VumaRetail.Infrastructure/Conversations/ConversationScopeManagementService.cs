@@ -6,7 +6,7 @@ using VumaRetail.Infrastructure.Persistence;
 namespace VumaRetail.Infrastructure.Conversations;
 
 /// <summary>Persists explicit account/company boundaries for conversation bindings.</summary>
-public sealed class ConversationScopeManagementService(VumaRegistryDbContext registry) : IConversationScopeManagementService
+public sealed class ConversationScopeManagementService(VumaRegistryDbContext registry) : IConversationScopeManagementService, IConversationScopeReader
 {
     public async Task<ConversationAccountScope> AddAsync(ConversationAccountScope scope, CancellationToken cancellationToken = default)
     {

@@ -12,11 +12,14 @@ model data access and no unscoped customer lookup.
 - `KeywordIntentClassifier` and `TemplateReplyComposer` are deterministic and data-free.
 - `ConversationIntentRouter` rejects unknown/low-confidence intents and deduplicates idempotency keys.
 - The six intent enum values and safety tests exist.
+- `OrderStatusIntentHandler` is now registered and queries orders only through the persisted
+  binding scope; the repository exposes a partner-constrained query rather than an in-memory
+  post-filter.
 
 ## Remaining work
 
-- Add the structural contact-account/company scope port.
-- Implement and register `PlaceOrderHandler`, `OrderStatusHandler`, `StatementHandler`,
+- Connect the structural contact-account/company scope reader to the remaining handlers.
+- Implement and register `PlaceOrderHandler`, `StatementHandler`,
   `InvoiceCopyHandler`, `PodHandler`, and `CreditNoteRequestHandler` against existing module ports.
 - Add result-number/date post-checking and tests for prompt-injection text.
 
