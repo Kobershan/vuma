@@ -1,62 +1,109 @@
+using VumaRetail.Application.Loyalty.Commands;
 using VumaRetail.Domain.Loyalty;
+using VumaRetail.Application.Loyalty;
 using VumaRetail.Domain.Primitives;
-using NSubstitute;
 
 namespace VumaRetail.UnitTests.Loyalty.FailureModes;
 
 /// <summary>
-/// Orbit unreachable / retry behaviour: queue-and-retry, never silent drop.
-/// Scaffolding failure-mode tests for Stage 20.
+/// Orbit unreachable / retry behaviour: queue-and-retry, never silent drop, never double-apply.
 /// </summary>
 public sealed class OrbitUnreachableEarnTests
 {
     [Fact]
-    public void Orbit_unreachable_during_earn_queues_for_retry()
+    public async Task Orbit_unreachable_during_earn_queues_for_retry()
     {
-        var orbitClient = Substitute.For<IOrbitClient>();
-        orbitClient.When(x => x.EarnAsync(Arg.Any<EarnRequest>()))
-            .Do(_ => throw new TimeoutException("Orbit unreachable"));
+        var driver = new LoyaltyDriver();
+        driver.Orbit.MakeUnavailable();
 
-        var handler = new LoyaltyEarnHandler(orbitClient);
-        var result = handler.HandleEarnAsync(new EarnRequest { CustomerId = Guid.NewGuid(), Amount = 150m });
+        EarnOutcome outcome = await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 150m, "ZAR", "sale-1", Guid.NewGuid()));
 
-        result.Status.Should().Be(TransactionStatus.QueuedForRetry);
-        result.PointsEarned.Should().Be(0m);
+        outcome.Queued.Should().BeTrue();
+        driver.Member.BalanceCache.Should().Be(0m, "nothing is credited until Orbit confirms");
+    }
+
+    [Fact]
+    public async Task Orbit_unreachable_during_burn_queues_without_deducting_cache()
+    {
+        var driver = new LoyaltyDriver();
+        await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 500m, "ZAR", "sale-1", Guid.NewGuid()));
+        driver.Orbit.MakeUnavailable();
+
+        RedeemOutcome outcome = await driver.Redeems.HandleAsync(
+            new RedeemPointsCommand(
+                driver.CompanyId, driver.CustomerId, 200m, "reward-1", Guid.NewGuid()));
+
+        outcome.Queued.Should().BeTrue();
+        driver.Member.BalanceCache.Should().Be(500m, "the provisional check never deducts");
     }
 }
 
-/// <summary>Retry eventually succeeds.</summary>
+/// <summary>Retry eventually succeeds, exactly once.</summary>
 public sealed class RetrySuccessTests
 {
     [Fact]
-    public void Queued_earn_retry_succeeds_after_orbit_comes_back()
+    public async Task Queued_earn_retry_succeeds_after_orbit_comes_back()
     {
-        var orbitClient = Substitute.For<IOrbitClient>();
-        orbitClient.EarnAsync(Arg.Any<EarnRequest>())
-            .Returns(new OrbitEarnResponse { Success = true, PointsEarned = 150m, NewBalance = 150m });
+        var driver = new LoyaltyDriver();
+        driver.Orbit.MakeUnavailable();
+        EarnOutcome queued = await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 150m, "ZAR", "sale-1", Guid.NewGuid()));
+        queued.Queued.Should().BeTrue();
 
-        var handler = new LoyaltyEarnHandler(orbitClient);
-        var result = handler.HandleEarnAsync(new EarnRequest { CustomerId = Guid.NewGuid(), Amount = 150m });
+        driver.Orbit.MakeAvailable();
+        RetryDisposition disposition = await driver.Retries.HandleAsync(
+            new RetryLoyaltyTransactionCommand(queued.TransactionId));
 
-        result.Status.Should().Be(TransactionStatus.Confirmed);
+        disposition.Should().Be(RetryDisposition.Confirmed);
+        driver.Member.BalanceCache.Should().Be(150m);
+
+        OrbitBalanceResult balance = await driver.Orbit.GetBalanceAsync(driver.Member.OrbitMemberId);
+        balance.Balance.Should().Be(150m, "the earn applied exactly once across outage and retry");
+    }
+
+    [Fact]
+    public async Task Retry_after_24_hours_fails_terminally()
+    {
+        var driver = new LoyaltyDriver();
+        driver.Orbit.MakeUnavailable();
+        EarnOutcome queued = await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 150m, "ZAR", "sale-1", Guid.NewGuid()));
+
+        driver.Advance(TimeSpan.FromHours(25));
+        RetryDisposition disposition = await driver.Retries.HandleAsync(
+            new RetryLoyaltyTransactionCommand(queued.TransactionId));
+
+        disposition.Should().Be(RetryDisposition.Expired);
     }
 }
 
-/// <summary>Duplicate retry workers: only one Orbit call (idempotency).</summary>
+/// <summary>Duplicate retry workers: only one Orbit application (idempotency).</summary>
 public sealed class DuplicateRetryTests
 {
     [Fact]
-    public void Two_retry_workers_picking_same_queued_request_only_one_succeeds()
+    public async Task Two_retry_workers_picking_same_queued_request_apply_once()
     {
-        var orbitClient = Substitute.For<IOrbitClient>();
-        orbitClient.EarnAsync(Arg.Any<EarnRequest>())
-            .Returns(new OrbitEarnResponse { Success = true, PointsEarned = 100m, NewBalance = 100m });
+        var driver = new LoyaltyDriver();
+        driver.Orbit.MakeUnavailable();
+        EarnOutcome queued = await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 100m, "ZAR", "sale-1", Guid.NewGuid()));
+        driver.Orbit.MakeAvailable();
 
-        var handler = new LoyaltyEarnHandler(orbitClient);
-        var key = Guid.NewGuid();
-        handler.HandleEarnAsync(new EarnRequest { CustomerId = Guid.NewGuid(), Amount = 100m, IdempotencyKey = key });
-        handler.HandleEarnAsync(new EarnRequest { CustomerId = Guid.NewGuid(), Amount = 100m, IdempotencyKey = key });
+        RetryDisposition[] outcomes = await Task.WhenAll(
+            driver.Retries.HandleAsync(new RetryLoyaltyTransactionCommand(queued.TransactionId)),
+            driver.Retries.HandleAsync(new RetryLoyaltyTransactionCommand(queued.TransactionId)));
 
-        orbitClient.Received(1).EarnAsync(Arg.Any<EarnRequest>());
+        // The second worker either confirms an already-confirmed row or still-queues; what must
+        // never happen is a double credit.
+        outcomes.Should().Contain(RetryDisposition.Confirmed);
+        OrbitBalanceResult balance = await driver.Orbit.GetBalanceAsync(driver.Member.OrbitMemberId);
+        balance.Balance.Should().Be(100m, "the same idempotency key credits exactly once");
     }
 }

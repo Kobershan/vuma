@@ -79,30 +79,35 @@ public interface IOrderFulfilmentReader
 /// <param name="waves">Stage 13's pick wave/task port.</param>
 /// <param name="shipments">Stage 13's shipment confirmation port.</param>
 /// <param name="ledger">Stage 08's ledger port — where a shipment's unit cost was actually recorded.</param>
-/// <param name="balances">Stage 08's balance port — a location's current on-hand.</param>
+/// <param name="availability">Stage 08c's authoritative availability — on-hand less live holds less staging (ADR-103).</param>
 public sealed class OrderFulfilmentReader(
     IPickWaveRepository waves,
     IShipmentConfirmationRepository shipments,
     IStockLedgerRepository ledger,
-    IStockBalanceRepository balances) : IOrderFulfilmentReader
+    IAvailabilityService availability) : IOrderFulfilmentReader
 {
     /// <inheritdoc />
+    /// <remarks>
+    /// ADR-103: <c>Available</c>, not on-hand, answers "can I sell this". 08c's figure nets live
+    /// reservations (this stage's own holds, pro-forma approvals, transfers) and staging bins, so
+    /// two orders confirming concurrently cannot promise the same unit — the reservation ledger,
+    /// not this read, is the serialization point, and it never drives available negative.
+    /// </remarks>
     public async Task<Quantity> GetAvailableToPromiseAsync(
         Guid locationId, Guid? itemId, Guid? itemVariantId, string unitOfMeasure, CancellationToken cancellationToken = default)
     {
-        StockBalance? balance = await balances
-            .FindAsync(locationId, itemId, itemVariantId, cancellationToken)
+        LocalAvailability local = await availability
+            .GetLocalAsync(locationId, itemId, itemVariantId, cancellationToken)
             .ConfigureAwait(false);
 
-        Quantity onHand = balance?.QuantityOnHand ?? Quantity.Zero(unitOfMeasure);
+        Quantity promise = local.Promise.Available;
 
-        Quantity openAllocated = await waves
-            .SumOpenAllocatedQuantityAsync(locationId, itemId, itemVariantId, unitOfMeasure, cancellationToken)
-            .ConfigureAwait(false);
+        if (promise.IsNegative)
+        {
+            return Quantity.Zero(unitOfMeasure);
+        }
 
-        Quantity availableToPromise = onHand - openAllocated;
-
-        return availableToPromise.IsNegative ? Quantity.Zero(unitOfMeasure) : availableToPromise;
+        return promise;
     }
 
     /// <inheritdoc />

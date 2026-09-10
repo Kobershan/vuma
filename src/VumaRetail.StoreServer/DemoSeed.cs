@@ -36,6 +36,9 @@ using VumaRetail.Application.Abstractions.FieldSales;
 using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Application.FieldSales;
 using VumaRetail.Application.FieldSales.Permissions;
+using VumaRetail.Application.Crm.Commands;
+using VumaRetail.Application.Loyalty.Commands;
+using VumaRetail.Domain.Crm;
 using VumaRetail.Domain.FieldSales;
 using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Pos;
@@ -216,6 +219,7 @@ public static class DemoSeed
         await SeedWarehouseAsync(provider, context, milk, cancellationToken).ConfigureAwait(false);
         await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedFieldSalesAsync(provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
+        await SeedCrmLoyaltyAsync(provider, context, corpClient, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1065,6 +1069,69 @@ public static class DemoSeed
         Console.WriteLine(
             $"Quote converted and invoice posted with pack size '{pack.Description}' "
             + "under group reference SO-DEMO-0001; analytics rebuilt.");
+    }
+
+    /// <summary>
+    /// Seeds Stages 19–20: a converted lead, an open opportunity, an activity, a static segment
+    /// with the demo customer in it, marketing consent, an enabled loyalty programme with the
+    /// demo customer enrolled, one earn and a synced catalogue.
+    /// </summary>
+    private static async Task SeedCrmLoyaltyAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.CrmLeads.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        Guid leadId = await dispatcher.SendAsync(new CreateLeadCommand(
+            DemoCompanyId, "Thandi", "Khumalo", "thandi.khumalo@example.co.za",
+            "0825550147", "Khumalo Catering", LeadSource.Referral), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new ConvertLeadCommand(leadId, customerId), cancellationToken)
+            .ConfigureAwait(false);
+
+        Guid dealId = await dispatcher.SendAsync(new CreateOpportunityCommand(
+            DemoCompanyId, "National catering rollout", 500000m, "ZAR", 60,
+            LeadId: leadId, CustomerId: customerId,
+            Description: "Monthly dry-goods supply for twelve kitchens."), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(
+            new MoveOpportunityStageCommand(dealId, OpportunityStage.Proposal, 70),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new LogActivityCommand(
+            DemoCompanyId, ActivityType.Call, "Intro call with Thandi",
+            "Twelve kitchens, monthly cadence, decision in March.",
+            CustomerId: customerId), cancellationToken).ConfigureAwait(false);
+
+        Guid segmentId = await dispatcher.SendAsync(new CreateSegmentCommand(
+            DemoCompanyId, "High value", SegmentKind.Static,
+            Description: "Customers over R100k annual spend."), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(
+            new AddStaticMemberCommand(segmentId, MemberType.Customer, customerId),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new GiveConsentCommand(
+            DemoCompanyId, customerId, ConsentType.MarketingEmail, "demo-seed"),
+            cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new ConfigureLoyaltyCommand(
+            DemoCompanyId, "ZAR", 1m, 365, true), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new EnrollMemberCommand(DemoCompanyId, customerId), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new EarnPointsCommand(
+            DemoCompanyId, customerId, 500m, "ZAR", "SEED-SALE-001",
+            Guid.Parse("01900000-0000-7000-8000-00000000c191")), cancellationToken)
+            .ConfigureAwait(false);
+        await dispatcher.SendAsync(new SyncCatalogueCommand(DemoCompanyId), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

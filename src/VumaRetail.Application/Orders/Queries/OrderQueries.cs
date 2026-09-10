@@ -18,7 +18,8 @@ public sealed record SalesOrderLineResult(
     Quantity BackorderedQuantity,
     SalesOrderLineStatus LineStatus,
     Quantity AllocatedQuantity,
-    Quantity FulfilledQuantity);
+    Quantity FulfilledQuantity,
+    Guid? ReservationId);
 
 /// <summary>An order and every line on it, as read back out.</summary>
 public sealed record SalesOrderResult(
@@ -29,6 +30,8 @@ public sealed record SalesOrderResult(
     OrderFulfilmentType FulfilmentType,
     Guid FulfillingLocationId,
     Address? DeliveryAddress,
+    DeliveryGeography? DeliveryGeography,
+    SettlementTerms SettlementTerms,
     SalesOrderStatus Status,
     OrderPaymentStatus PaymentStatus,
     Guid? SettlingSaleId,
@@ -74,15 +77,15 @@ public sealed class GetOrderQueryHandler(ISalesOrderRepository orders, IOrderFul
                 .GetLineFulfilmentAsync(line.Id, line.RequestedQuantity.UnitOfMeasure, cancellationToken)
                 .ConfigureAwait(false);
 
-            lines.Add(new SalesOrderLineResult(
-                line.Id, line.ItemId, line.ItemVariantId, line.RequestedQuantity, line.UnitPrice, line.DiscountAmount,
-                line.TaxAmount, line.PriceListId, line.PromotionsSummary, line.BackorderedQuantity, line.LineStatus,
-                snapshot.AllocatedQuantity, snapshot.FulfilledQuantity));
+        lines.Add(new SalesOrderLineResult(
+            line.Id, line.ItemId, line.ItemVariantId, line.RequestedQuantity, line.UnitPrice, line.DiscountAmount,
+            line.TaxAmount, line.PriceListId, line.PromotionsSummary, line.BackorderedQuantity, line.LineStatus,
+            snapshot.AllocatedQuantity, snapshot.FulfilledQuantity, line.ReservationId));
         }
 
         return new SalesOrderResult(
             order.Id, order.OrderNumber, order.PartnerId, order.Channel, order.FulfilmentType, order.FulfillingLocationId,
-            order.DeliveryAddress, order.Status, order.PaymentStatus, order.SettlingSaleId, order.SettlingCustomerAccountId,
+            order.DeliveryAddress, order.DeliveryGeography, order.SettlementTerms, order.Status, order.PaymentStatus, order.SettlingSaleId, order.SettlingCustomerAccountId,
             order.Currency, order.OrderDate, order.RequestedFulfilmentDate, order.IsRevenueRecognised, order.Net, order.Tax,
             order.Gross, lines);
     }

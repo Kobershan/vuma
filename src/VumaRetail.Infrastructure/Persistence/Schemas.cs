@@ -165,4 +165,18 @@ public static class Schemas
     /// safety-stock calculations, open-to-buy budgets, suggestions and markdown plans. Stage 15.
     /// </summary>
     public const string Planning = "planning";
+
+    /// <summary>
+    /// Customer relationships: leads, opportunities, activities, segments, memberships and
+    /// consent. Stage 19. Declaring the schema puts the module into the daily metering rollup
+    /// the same way every schema since <see cref="Pos"/> does (counts only, R10).
+    /// </summary>
+    public const string Crm = "crm";
+
+    /// <summary>
+    /// Loyalty programme: members, the Vuma-side transaction log, cached tiers and rewards, and
+    /// per-company settings. The points ledger itself lives in Orbit (Stage 20). Declaring the
+    /// schema puts the module into the daily metering rollup (counts only, R10).
+    /// </summary>
+    public const string Loyalty = "loyalty";
 }

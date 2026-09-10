@@ -13,6 +13,15 @@ public interface ISalesOrderRepository
     Task<SalesOrder?> FindByOrderNumberAsync(string orderNumber, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The order holding one line, by the line's id — what the dispatch gate uses to resolve a
+    /// wave task's outbound reference back to its order without loading every order.
+    /// </summary>
+    /// <param name="salesOrderLineId">The line.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The owning order's id, or <c>null</c> when no order line carries it.</returns>
+    Task<Guid?> FindOrderIdByLineAsync(Guid salesOrderLineId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// A keyset page of orders, newest-created first, optionally narrowed by status, channel, partner or
     /// order-date range. See <c>docs/API_STANDARDS.md</c> §8.
     /// </summary>

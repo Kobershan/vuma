@@ -214,7 +214,8 @@ public sealed class InvoiceIssuingService : IInvoiceIssuingService
                 request.SourceType,
                 request.CustomerId,
                 request.Currency,
-                request.GroupDocumentRef);
+                request.GroupDocumentRef,
+                request.SettlementTerms);
 
             foreach (InvoiceLineInput input in segment.Lines)
             {

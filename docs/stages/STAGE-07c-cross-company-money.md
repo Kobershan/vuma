@@ -1,6 +1,8 @@
 # STAGE 07c — Cross-company money: group receipting, allocation, inter-company clearing, consolidated reporting
 
-**Status:** CODE_COMPLETE · **Depends on:** 07, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §2, §7, §8, `docs/DECISIONS.md` ADR-104, ADR-105, ADR-106, ADR-116, ADR-016, `CLAUDE.md` §7 rules 7, 12
+**Status:** DONE (2026-09-10) · **Depends on:** 07, 06c, 06d · **Reference reading:** `docs/MULTI_COMPANY.md` §2, §7, §8, `docs/DECISIONS.md` ADR-104, ADR-105, ADR-106, ADR-116, ADR-016, `CLAUDE.md` §7 rules 7, 12
+
+Exit evidence: all four tasks COMPLETE; Release 0 errors (Domain/Application 0 warnings); unit 1249/1249; `GroupReceiptLegsTests` 8/8 on real PostgreSQL; arch 76/77 (one pre-existing Stage 19/20 wall-clock failure, out of scope); both 07c migrations reversible with `Down` executed on scratch PG; `has-pending-model-changes` clean both contexts; endpoints carry `Produces` annotations; legs fail to Pending with retry (outage-proven); metering automatic via audit-trail schema counts. `stage-verifier` subagent unlaunchable in this environment — checklist executed inline, recorded in TASK-07C-004. Open follow-ups: production posting-rule data for the new event types; outbound group payments deferred (ADR-152).
 
 ## Task index
 

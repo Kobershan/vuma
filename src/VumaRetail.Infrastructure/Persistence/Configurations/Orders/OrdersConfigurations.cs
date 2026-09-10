@@ -31,6 +31,32 @@ internal sealed class SalesOrderConfiguration : EntityConfiguration<SalesOrder>
         // Optional — present only for Delivery (business rule: DeliveryAddress is null for click & collect).
         builder.HasAddress(order => order.DeliveryAddress, "delivery_address", isRequired: false);
 
+        // ADR-113: the delivery geography as captured, for 13b's waves. An owned snapshot beside
+        // the address, never rewritten by a later edit — null every column for click & collect.
+        builder.OwnsOne(order => order.DeliveryGeography, geography =>
+        {
+            geography.Property(value => value.Province)
+                .HasColumnName("delivery_province")
+                .HasMaxLength(128);
+            geography.Property(value => value.City)
+                .HasColumnName("delivery_city")
+                .HasMaxLength(128);
+            geography.Property(value => value.Suburb)
+                .HasColumnName("delivery_suburb")
+                .HasMaxLength(128);
+            geography.Property(value => value.PostalCode)
+                .HasColumnName("delivery_postal_code")
+                .HasMaxLength(16);
+        });
+
+        // ADR-111: cash-on-delivery terms gate dispatch.
+        builder.Property(order => order.SettlementTerms)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(16);
+        builder.Property(order => order.DriverCollectAuthorisedBy).HasMaxLength(256);
+        builder.Property(order => order.DriverCollectAuthorisedAt);
+
         builder.Property(order => order.Status)
             .IsRequired()
             .HasConversion<string>()
@@ -95,6 +121,10 @@ internal sealed class SalesOrderLineConfiguration : EntityConfiguration<SalesOrd
         builder.Property(line => line.PriceListId);
         builder.Property(line => line.PromotionsSummary).IsRequired().HasMaxLength(1000);
         builder.HasQuantity(line => line.BackorderedQuantity, "backordered_quantity");
+
+        // ADR-103: the Stage 08c hold covering this line's promise. A reference, not a figure —
+        // quantities still come from PickTask state; null when nothing is held.
+        builder.Property(line => line.ReservationId);
 
         builder.Property(line => line.LineStatus)
             .IsRequired()

@@ -230,6 +230,7 @@ public sealed class CancelInvoiceCommandHandler(
 /// <param name="GroupDocumentRef">The shared reference, when there is more than one segment.</param>
 /// <param name="IdempotencyKey">Stable across retries of the same generation.</param>
 /// <param name="InitiatedBy">Who asked, in audit-principal form.</param>
+/// <param name="SettlementTerms">How the source order settles, inherited onto every segment (ADR-111).</param>
 /// <remarks>
 /// Thin by design, like the sourcing commit: the issuing service owns the cross-company saga,
 /// and this handler resolves no company database at all — which is exactly what
@@ -246,7 +247,8 @@ public sealed record GenerateInvoicesFromOrderCommand(
     IReadOnlyList<InvoiceCompanySegment> Segments,
     string? GroupDocumentRef,
     string IdempotencyKey,
-    string InitiatedBy) : ICommand<IReadOnlyList<Guid>>;
+    string InitiatedBy,
+    string SettlementTerms = "Standard") : ICommand<IReadOnlyList<Guid>>;
 
 /// <summary>Rejects a malformed generation command before it reaches the handler.</summary>
 public sealed class GenerateInvoicesFromOrderCommandValidator : AbstractValidator<GenerateInvoicesFromOrderCommand>
@@ -264,6 +266,7 @@ public sealed class GenerateInvoicesFromOrderCommandValidator : AbstractValidato
         RuleFor(command => command.GroupDocumentRef).MaximumLength(64);
         RuleFor(command => command.IdempotencyKey).NotEmpty().MaximumLength(256);
         RuleFor(command => command.InitiatedBy).NotEmpty().MaximumLength(128);
+        RuleFor(command => command.SettlementTerms).NotEmpty().MaximumLength(16);
     }
 }
 
@@ -297,7 +300,8 @@ public sealed class GenerateInvoicesFromOrderCommandHandler(
                 command.Segments,
                 command.GroupDocumentRef,
                 command.IdempotencyKey,
-                command.InitiatedBy),
+                command.InitiatedBy,
+                command.SettlementTerms),
             cancellationToken).ConfigureAwait(false);
 
         return issued.Select(invoice => invoice.InvoiceId).ToList();

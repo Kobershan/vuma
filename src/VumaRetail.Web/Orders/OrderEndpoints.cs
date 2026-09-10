@@ -107,6 +107,14 @@ public static class OrderEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Records which mechanism paid for the order.");
 
+        orders.MapPost("/{salesOrderId:guid}/release-for-dispatch", ReleaseOrderForDispatchAsync)
+            .RequirePermission(OrdersPermissions.Allocate)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Releases an order for dispatch.")
+            .WithDescription("Standard terms always pass; cash on delivery passes only paid or against the named driver-collect authorisation (ADR-111).");
+
         RouteGroupBuilder returns = api.MapGroup("/orders/returns").WithTags("Orders");
 
         returns.MapPost("/", CreateOrderReturnAsync)
@@ -150,13 +158,16 @@ public static class OrderEndpoints
         SalesChannel channel = ParseEnum<SalesChannel>(request.Channel, nameof(request.Channel), nameof(CreateOrderCommand));
         OrderFulfilmentType fulfilmentType = ParseEnum<OrderFulfilmentType>(
             request.FulfilmentType, nameof(request.FulfilmentType), nameof(CreateOrderCommand));
+        SettlementTerms settlementTerms = ParseEnum<SettlementTerms>(
+            request.SettlementTerms, nameof(request.SettlementTerms), nameof(CreateOrderCommand));
 
         Guid id = await dispatcher
             .SendAsync(
                 new CreateOrderCommand(
                     request.PartnerId, channel, fulfilmentType, request.FulfillingLocationId, request.DeliveryLine1,
                     request.DeliveryLine2, request.DeliveryCity, request.DeliveryRegion, request.DeliveryPostalCode,
-                    request.DeliveryCountryCode, request.Currency, request.RequestedFulfilmentDate),
+                    request.DeliveryCountryCode, request.Currency, request.RequestedFulfilmentDate,
+                    request.DeliverySuburb, settlementTerms, request.CompanyId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -277,6 +288,16 @@ public static class OrderEndpoints
         return TypedResults.NoContent();
     }
 
+    private static async Task<IResult> ReleaseOrderForDispatchAsync(
+        Guid salesOrderId, ReleaseOrderForDispatchRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher
+            .SendAsync(new ReleaseOrderForDispatchCommand(salesOrderId, request.DriverCollectName), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.NoContent();
+    }
+
     private static async Task<IResult> CreateOrderReturnAsync(
         CreateOrderReturnRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -335,11 +356,17 @@ public static class OrderEndpoints
     private static SalesOrderLineResponse ToResponse(SalesOrderLineResult line) => new(
         line.Id, line.ItemId, line.ItemVariantId, line.RequestedQuantity.Value, line.RequestedQuantity.UnitOfMeasure,
         line.UnitPrice.Amount, line.DiscountAmount.Amount, line.TaxAmount.Amount, line.PriceListId, line.PromotionsSummary,
-        line.BackorderedQuantity.Value, line.LineStatus.ToString(), line.AllocatedQuantity.Value, line.FulfilledQuantity.Value);
+        line.BackorderedQuantity.Value, line.LineStatus.ToString(), line.AllocatedQuantity.Value, line.FulfilledQuantity.Value,
+        line.ReservationId);
+
+    private static OrderGeographyResponse? ToResponse(DeliveryGeography? geography) => geography is null
+        ? null
+        : new OrderGeographyResponse(geography.Province, geography.City, geography.Suburb, geography.PostalCode);
 
     private static SalesOrderResponse ToResponse(SalesOrderResult order) => new(
         order.Id, order.OrderNumber, order.PartnerId, order.Channel.ToString(), order.FulfilmentType.ToString(),
-        order.FulfillingLocationId, ToResponse(order.DeliveryAddress), order.Status.ToString(), order.PaymentStatus.ToString(),
+        order.FulfillingLocationId, ToResponse(order.DeliveryAddress), ToResponse(order.DeliveryGeography),
+        order.SettlementTerms.ToString(), order.Status.ToString(), order.PaymentStatus.ToString(),
         order.SettlingSaleId, order.SettlingCustomerAccountId, order.Currency, order.OrderDate, order.RequestedFulfilmentDate,
         order.IsRevenueRecognised, order.Net.Amount, order.Tax.Amount, order.Gross.Amount, [.. order.Lines.Select(ToResponse)]);
 

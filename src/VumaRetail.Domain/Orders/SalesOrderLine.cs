@@ -83,6 +83,14 @@ public sealed class SalesOrderLine : Entity
     /// <summary>How much of this line has no allocation and none is being attempted right now.</summary>
     public Quantity BackorderedQuantity { get; private set; }
 
+    /// <summary>
+    /// The Stage 08c reservation holding this line's promise, when one is live. A reference, not a
+    /// figure: quantities still come from Stage 13's <c>PickTask</c> state (ADR-092), while this id
+    /// is what the line's cancel and fulfil paths hand to <c>IReservationService</c> to release or
+    /// consume the hold. Null when nothing is held.
+    /// </summary>
+    public Guid? ReservationId { get; private set; }
+
     /// <summary>Where this line stands.</summary>
     public SalesOrderLineStatus LineStatus { get; private set; }
 
@@ -220,5 +228,29 @@ public sealed class SalesOrderLine : Entity
 
         LineStatus = SalesOrderLineStatus.Cancelled;
         BackorderedQuantity = Quantity.Zero(RequestedQuantity.UnitOfMeasure);
+        ReservationId = null;
     }
+
+    /// <summary>
+    /// Attaches the Stage 08c hold covering this line's current promise.
+    /// </summary>
+    /// <param name="reservationId">The live reservation.</param>
+    /// <exception cref="OrdersRuleException">The line already holds a live reservation — release it first.</exception>
+    public void AttachReservation(Guid reservationId)
+    {
+        if (reservationId == Guid.Empty)
+        {
+            throw new ArgumentException("A reservation is required.", nameof(reservationId));
+        }
+
+        if (ReservationId.HasValue)
+        {
+            throw OrdersRuleException.ReservationAlreadyAttached();
+        }
+
+        ReservationId = reservationId;
+    }
+
+    /// <summary>Clears the hold pointer after the hold was released or consumed. The ledger row, not this pointer, is the history.</summary>
+    public void DetachReservation() => ReservationId = null;
 }

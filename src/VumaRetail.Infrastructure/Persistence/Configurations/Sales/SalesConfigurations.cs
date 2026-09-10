@@ -561,6 +561,8 @@ internal sealed class InvoiceConfiguration : EntityConfiguration<Invoice>
         builder.Property(invoice => invoice.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
         builder.Property(invoice => invoice.PostedAt);
         builder.Property(invoice => invoice.GroupDocumentRef);
+        // ADR-111: settlement terms inherited from the source order; "Standard" unless set.
+        builder.Property(invoice => invoice.SettlementTerms).IsRequired().HasMaxLength(16);
         builder.HasMoney(invoice => invoice.Net, "net");
         builder.HasMoney(invoice => invoice.Tax, "tax");
         builder.HasMoney(invoice => invoice.Gross, "gross");

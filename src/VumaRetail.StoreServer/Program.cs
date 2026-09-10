@@ -17,8 +17,12 @@ using VumaRetail.Sync.Dispatch;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
+using VumaRetail.Web.Crm;
+using VumaRetail.Web.Conversations;
+using VumaRetail.PublicApi.Loyalty;
 using VumaRetail.Application.CustomerAccounts.Hosting;
 using VumaRetail.Application.Planning.Hosting;
+using VumaRetail.Application.Loyalty.Hosting;
 using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
@@ -198,6 +202,22 @@ builder.Services.AddVumaImports(
 
 builder.Services.AddVumaPlanning();
 
+// Stage 19. CRM: leads, opportunities, activities, segments and consent. After AddVumaPartners
+// (conversion verifies the partner link through the partners read port — a Guid reference,
+// never a cross-schema foreign key). No scheduled passes.
+builder.Services.AddVumaCrm();
+builder.Services.AddVumaConversationalCommerce();
+
+// Stage 20. Loyalty: earn/burn through Orbit, caches and retry. After AddVumaCrm (marketing
+// bonuses gate on Stage 19 consent). The public surface (own DTOs, rate limits, neutral
+// read-only) maps below via MapVumaLoyaltyPublic; the standalone API-key host follows with
+// Stage 30b's auth (ADR-151).
+builder.Services.AddVumaLoyalty();
+builder.Services.AddVumaLoyaltyScheduling(new LoyaltyHostTenant(host.TenantId, host.StoreId));
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection("Vuma:Loyalty:Public").Get<LoyaltyPublicOptions>()
+        ?? new LoyaltyPublicOptions());
+
 // Stage 04. AddVumaSync goes after persistence: the outbox behaviour reads the DbContext's change
 // tracker and the replication registry is built from its model.
 builder.Services.AddVumaSync(node);
@@ -311,6 +331,9 @@ app.MapPickWaves();
 app.MapVumaOrders();
 app.MapVumaImports();
 app.MapVumaPlanning();
+app.MapVumaCrm();
+app.MapVumaConversations();
+app.MapVumaLoyaltyPublic(app.Services.GetRequiredService<LoyaltyPublicOptions>());
 app.MapVumaRegistry();
 app.MapGroupReceiptEndpoints();
 app.MapConsolidationEndpoints();

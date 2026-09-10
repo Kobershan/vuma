@@ -112,7 +112,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<NetZeroReconciliationJob>();
         services.AddScoped<IAlarmService, AlarmService>();
         services.AddScoped<ICompanyLinkGuard, CompanyLinkGuard>();
-        services.AddScoped<IGroupCreditService, GroupCreditService>();
+        services.AddScoped<ICompanyDirectory, CompanyDirectory>();        services.AddScoped<IGroupCreditService, GroupCreditService>();
         services.AddScoped<IBarcodeResolver, BarcodeResolver>();
         services.AddScoped<IGroupReadStore, GroupReadStore>();
 

@@ -1,61 +1,79 @@
+using VumaRetail.Application.Loyalty.Commands;
 using VumaRetail.Domain.Loyalty;
+using VumaRetail.Application.Loyalty;
 using VumaRetail.Domain.Primitives;
-using NSubstitute;
 
 namespace VumaRetail.UnitTests.Loyalty.Concurrency;
 
 /// <summary>
-/// Two simultaneous burns against a balance that can only satisfy one.
-/// Gate enforced by Orbit's ledger; Vuma defers to Orbit. Scaffolding for Stage 20.
+/// Two simultaneous burns against a balance that can only satisfy one. The gate is Orbit's
+/// ledger — Vuma's cache never decides alone.
 /// </summary>
 public sealed class SimultaneousBurnTests
 {
     [Fact]
-    public void Two_simultaneous_burns_of_60_against_balance_of_100_only_one_succeeds()
+    public async Task Two_simultaneous_burns_of_60_against_balance_of_100_only_one_succeeds()
     {
-        var orbitClient = Substitute.For<IOrbitClient>();
-        int calls = 0;
-        orbitClient.RedeemAsync(Arg.Any<RedeemRequest>()).Returns(_ =>
+        var driver = new LoyaltyDriver();
+        await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 100m, "ZAR", "sale-1", Guid.NewGuid()));
+
+        Task<RedeemOutcome> first = driver.Redeems.HandleAsync(
+            new RedeemPointsCommand(
+                driver.CompanyId, driver.CustomerId, 60m, "reward-1", Guid.NewGuid()));
+        Task<RedeemOutcome> second = driver.Redeems.HandleAsync(
+            new RedeemPointsCommand(
+                driver.CompanyId, driver.CustomerId, 60m, "reward-2", Guid.NewGuid()));
+
+        int wins = 0;
+        foreach (Task<RedeemOutcome> attempt in new[] { first, second })
         {
-            if (System.Threading.Interlocked.Increment(ref calls) == 1)
+            try
             {
-                return new OrbitRedeemResponse { Success = true, PointsBurned = 60m, NewBalance = 40m };
+                await attempt;
+                wins++;
             }
+            catch (InsufficientPointsException)
+            {
+                // Expected for exactly one of the two.
+            }
+        }
 
-            return new OrbitRedeemResponse { Success = false, PointsBurned = 0m, NewBalance = 100m };
-        });
-
-        var handler = new LoyaltyRedeemHandler(orbitClient);
-        var memberId = Guid.NewGuid();
-        var first = handler.HandleRedeemAsync(new RedeemRequest { CustomerId = memberId, Points = 60m });
-        var second = handler.HandleRedeemAsync(new RedeemRequest { CustomerId = memberId, Points = 60m });
-
-        // Exactly one of the two burns succeeded on Orbit's ledger; the other was refused.
-        (first.Success ^ second.Success).Should().BeTrue("exactly one of the two concurrent burns must succeed");
+        wins.Should().Be(1, "exactly one of the two concurrent burns must succeed");
     }
 
     [Fact]
-    public void No_over_redemption_occurs_under_concurrent_requests()
+    public async Task No_over_redemption_occurs_under_concurrent_requests()
     {
-        var orbitClient = Substitute.For<IOrbitClient>();
-        int successfulRedemptions = 0;
-        orbitClient.RedeemAsync(Arg.Any<RedeemRequest>()).Returns(_ =>
+        var driver = new LoyaltyDriver();
+        await driver.Earns.HandleAsync(
+            new EarnPointsCommand(
+                driver.CompanyId, driver.CustomerId, 100m, "ZAR", "sale-1", Guid.NewGuid()));
+
+        var attempts = new List<Task>();
+        for (int index = 0; index < 5; index++)
         {
-            if (System.Threading.Interlocked.Increment(ref successfulRedemptions) == 1)
+            int captured = index;
+            attempts.Add(Task.Run(async () =>
             {
-                return new OrbitRedeemResponse { Success = true, PointsBurned = 60m, NewBalance = 40m };
-            }
+                try
+                {
+                    await driver.Redeems.HandleAsync(
+                        new RedeemPointsCommand(
+                            driver.CompanyId, driver.CustomerId, 60m, $"reward-{captured}",
+                            Guid.NewGuid()));
+                }
+                catch (InsufficientPointsException)
+                {
+                }
+            }));
+        }
 
-            System.Threading.Interlocked.Decrement(ref successfulRedemptions);
-            return new OrbitRedeemResponse { Success = false, PointsBurned = 0m, NewBalance = 100m };
-        });
+        await Task.WhenAll(attempts);
 
-        var handler = new LoyaltyRedeemHandler(orbitClient);
-        var memberId = Guid.NewGuid();
-        var first = handler.HandleRedeemAsync(new RedeemRequest { CustomerId = memberId, Points = 60m });
-        var second = handler.HandleRedeemAsync(new RedeemRequest { CustomerId = memberId, Points = 60m });
-
-        successfulRedemptions.Should().Be(1);
-        (first.Success ^ second.Success).Should().BeTrue("exactly one of the two concurrent burns must succeed");
+        OrbitBalanceResult balance = await driver.Orbit.GetBalanceAsync(driver.Member.OrbitMemberId);
+        balance.Balance.Should().BeGreaterThanOrEqualTo(0m);
+        balance.Balance.Should().Be(40m, "exactly one 60-point burn applied to the 100-point ledger");
     }
 }

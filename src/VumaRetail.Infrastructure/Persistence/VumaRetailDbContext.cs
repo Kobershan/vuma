@@ -478,6 +478,40 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Planning.MarkdownPlanLine> MarkdownPlanLines
         => Set<Domain.Planning.MarkdownPlanLine>();
 
+    /// <summary>CRM leads. Stage 19.</summary>
+    public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
+
+    /// <summary>CRM opportunities. Stage 19.</summary>
+    public DbSet<Domain.Crm.Opportunity> CrmOpportunities => Set<Domain.Crm.Opportunity>();
+
+    /// <summary>CRM activities. Stage 19.</summary>
+    public DbSet<Domain.Crm.Activity> CrmActivities => Set<Domain.Crm.Activity>();
+
+    /// <summary>CRM segments. Stage 19.</summary>
+    public DbSet<Domain.Crm.Segment> CrmSegments => Set<Domain.Crm.Segment>();
+
+    /// <summary>CRM static segment memberships. Stage 19.</summary>
+    public DbSet<Domain.Crm.SegmentMember> CrmSegmentMembers => Set<Domain.Crm.SegmentMember>();
+
+    /// <summary>CRM consent records. Stage 19.</summary>
+    public DbSet<Domain.Crm.Consent> CrmConsents => Set<Domain.Crm.Consent>();
+
+    /// <summary>Loyalty members. Stage 20.</summary>
+    public DbSet<Domain.Loyalty.LoyaltyMember> LoyaltyMembers => Set<Domain.Loyalty.LoyaltyMember>();
+
+    /// <summary>Loyalty transactions (Vuma-side event log). Stage 20.</summary>
+    public DbSet<Domain.Loyalty.LoyaltyTransaction> LoyaltyTransactions
+        => Set<Domain.Loyalty.LoyaltyTransaction>();
+
+    /// <summary>Cached loyalty tiers. Stage 20.</summary>
+    public DbSet<Domain.Loyalty.LoyaltyTier> LoyaltyTiers => Set<Domain.Loyalty.LoyaltyTier>();
+
+    /// <summary>Cached loyalty rewards. Stage 20.</summary>
+    public DbSet<Domain.Loyalty.LoyaltyReward> LoyaltyRewards => Set<Domain.Loyalty.LoyaltyReward>();
+
+    /// <summary>Per-company loyalty settings. Stage 20.</summary>
+    public DbSet<Domain.Loyalty.LoyaltySettings> LoyaltySettings => Set<Domain.Loyalty.LoyaltySettings>();
+
     /// <summary>
     /// The tenant the global query filter scopes to. Read through a context property rather than
     /// through the injected service directly, because that is the form EF Core recognises as a

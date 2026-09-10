@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Loyalty;
 using VumaRetail.Contracts;
 using VumaRetail.Domain.Primitives;
 
@@ -57,6 +58,11 @@ public sealed class VumaExceptionHandler(
         {
             ValidationFailedException validation => Validation(validation),
             DomainException domain => Domain(domain),
+            OrbitUnavailableException => Build(
+                StatusCodes.Status503ServiceUnavailable,
+                "Loyalty engine unavailable",
+                "The loyalty engine is unreachable. Earn and burn requests are queued and retry automatically.",
+                "LOYALTY_ORBIT_UNAVAILABLE"),
             InvalidOperationException { Message: "COMPANY_NOT_FOUND" } => Build(StatusCodes.Status404NotFound, "Not found", "The company was not found.", "COMPANY_NOT_FOUND"),
             InvalidOperationException { Message: "COMPANY_NOT_READY" } => Build(StatusCodes.Status422UnprocessableEntity, "Rule violation", "The company is not ready to activate.", "COMPANY_NOT_READY"),
             InvalidOperationException { Message: "COMPANY_SELECTION_REQUIRED" } => Build(StatusCodes.Status400BadRequest, "Bad request", "A valid company selection header is required.", "COMPANY_SELECTION_REQUIRED"),

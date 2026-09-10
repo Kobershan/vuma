@@ -5,6 +5,7 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Orders.Permissions;
+using VumaRetail.Application.Warehouse;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -48,6 +49,10 @@ public static class OrdersServiceCollectionExtensions
 
         services.AddScoped<IOrderFulfilmentReader, OrderFulfilmentReader>();
         services.AddScoped<IOrderReturnCompletionService, OrderReturnCompletionService>();
+
+        // ADR-111: the dispatch gate's Warehouse-declared port, implemented where the orders live
+        // (Stage 13 never depends on Stage 14 — OrdersRulesTests enforces the direction).
+        services.AddScoped<IOrderDispatchGate, OrderDispatchGate>();
 
         services.TryAddScoped<IOrderFulfilmentEventPublisher>(provider
             => provider.GetService<IFinancialEventPoster>() is null

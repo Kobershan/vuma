@@ -100,4 +100,12 @@ public sealed class WarehouseRuleException(string code, string message) : Domain
             "WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE",
             $"{requested} was requested but only {available} is held across candidate bins for this "
             + "stock-keeping unit at this location.");
+
+    /// <summary>A wave carrying a cash-on-delivery order was shipped with no payment and no authorisation.</summary>
+    /// <param name="orderNumber">The order that blocks the wave.</param>
+    public static WarehouseRuleException CashOnDeliveryDispatchBlocked(string orderNumber)
+        => new(
+            "WAREHOUSE_COD_DISPATCH_BLOCKED",
+            $"Order {orderNumber} is cash on delivery with no recorded payment and no driver-collect "
+            + "authorisation. Record the till settlement first, or authorise who collects.");
 }

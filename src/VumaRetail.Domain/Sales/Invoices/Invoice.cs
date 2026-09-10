@@ -86,6 +86,12 @@ public sealed class Invoice : Entity
     /// </summary>
     public string? GroupDocumentRef { get; private set; }
 
+    /// <summary>
+    /// How the source order settles, inherited at generation (ADR-111). A cash-on-delivery invoice
+    /// prints the terms; the dispatch gate itself lives on the order, not here.
+    /// </summary>
+    public string SettlementTerms { get; private set; } = "Standard";
+
     /// <summary>The frozen lines.</summary>
     public IReadOnlyList<InvoiceLine> Lines => _lines;
 
@@ -99,6 +105,7 @@ public sealed class Invoice : Entity
     /// <param name="customerId">The customer who owes.</param>
     /// <param name="currency">The ISO 4217 currency.</param>
     /// <param name="groupDocumentRef">The split's shared reference, when this is one segment of N.</param>
+    /// <param name="settlementTerms">How the source order settles (ADR-111); "Standard" unless set.</param>
     public static Invoice Create(
         Guid tenantId,
         Guid? storeId,
@@ -108,7 +115,8 @@ public sealed class Invoice : Entity
         InvoiceSourceType sourceType,
         Guid customerId,
         string currency,
-        string? groupDocumentRef = null)
+        string? groupDocumentRef = null,
+        string settlementTerms = "Standard")
     {
         if (tenantId == Guid.Empty)
         {
@@ -126,6 +134,7 @@ public sealed class Invoice : Entity
             tenantId, storeId, invoiceNumber.Trim(),
             sourceDocumentRef, sourceType, customerId, currency, InvoiceStatus.Draft, groupDocumentRef);
         invoice.AssignCompany(companyId);
+        invoice.SettlementTerms = string.IsNullOrWhiteSpace(settlementTerms) ? "Standard" : settlementTerms.Trim();
 
         return invoice;
     }

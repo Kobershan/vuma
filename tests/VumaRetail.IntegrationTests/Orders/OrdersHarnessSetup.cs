@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Catalog.Commands;
 using VumaRetail.Application.Inventory.Commands;
 using VumaRetail.Application.Sales.Commands;
@@ -8,11 +12,14 @@ using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Sales;
 using VumaRetail.Domain.Warehouse;
 using VumaRetail.Finance.Commands;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Api;
+using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Orders;
 
@@ -30,6 +37,100 @@ internal sealed record OrdersScenario(
 /// <summary>Builds the reference data every orders integration test needs, through the real dispatcher.</summary>
 internal static class OrdersHarnessSetup
 {
+    /// <summary>
+    /// A harness whose company rig works end to end: one provisioned company, the secret store
+    /// resolving to the test database, and an open serving guard — the AvailabilityApiTests shape.
+    /// Order holds run in company-bound child scopes, so the rig must exist before confirming.
+    /// </summary>
+    public static async Task<(ApiHarness Harness, OrdersScenario Scenario, Guid CompanyId)> CreateHarnessAsync(
+        PostgresFixture fixture)
+    {
+        ApiHarness harness = await ApiHarness.CreateAsync(
+            fixture,
+            configureServices: services =>
+            {
+                services.RemoveAll<ICompanyConnectionSecretStore>();
+                services.AddSingleton<ICompanyConnectionSecretStore, TestSecretStore>();
+                services.RemoveAll<ICompanyServingGuard>();
+                services.AddSingleton<ICompanyServingGuard, OpenServingGuard>();
+            }).ConfigureAwait(false);
+
+        Guid companyId = await harness.InScopeAsync(async provider =>
+        {
+            ITenantContext tenant = provider.GetRequiredService<ITenantContext>();
+            var registry = provider.GetRequiredService<VumaRegistryDbContext>();
+
+            Company company = Company.Create(
+                tenant.TenantId, "ORD", "Orders Test Co", "Orders Test Co", "ZAR", "en-ZA", "ORD");
+            company.SetConnectionSecretRef("test://company");
+            company.SetMigration(1, "Current");
+            company.SetLifecycle(CompanyLifecycleState.Seeding);
+            company.SetLifecycle(CompanyLifecycleState.Registered);
+            company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+            registry.Companies.Add(company);
+            await registry.SaveChangesAsync().ConfigureAwait(false);
+
+            return company.Id;
+        }).ConfigureAwait(false);
+
+        OrdersScenario scenario = await BuildAsync(harness).ConfigureAwait(false);
+        await StampCompanyAsync(harness, companyId).ConfigureAwait(false);
+
+        return (harness, scenario, companyId);
+    }
+
+    /// <summary>
+    /// Stamps the seeded reference rows with the provisioned company, the way a provisioned
+    /// company database holds them: the child scopes order holds run in are company-bound, and
+    /// the bound filter hides anything unstamped. Harmless to company-unbound readers.
+    /// </summary>
+    public static async Task StampCompanyAsync(ApiHarness harness, Guid companyId)
+    {
+        await harness.InScopeAsync(async provider =>
+        {
+            VumaRetailDbContext db = provider.GetRequiredService<VumaRetailDbContext>();
+
+            foreach (StockLocation location in await db.StockLocations.ToListAsync().ConfigureAwait(false))
+            {
+                location.AssignCompany(companyId);
+            }
+
+            foreach (Item item in await db.Items.ToListAsync().ConfigureAwait(false))
+            {
+                item.AssignCompany(companyId);
+            }
+
+            foreach (UnitOfMeasure uom in await db.UnitsOfMeasure.ToListAsync().ConfigureAwait(false))
+            {
+                uom.AssignCompany(companyId);
+            }
+
+            foreach (StockBalance balance in await db.StockBalances.ToListAsync().ConfigureAwait(false))
+            {
+                balance.AssignCompany(companyId);
+            }
+
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            return 0;
+        }).ConfigureAwait(false);
+    }
+
+    private sealed class TestSecretStore(IConfiguration configuration) : ICompanyConnectionSecretStore
+    {
+        public Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default)
+            => Task.FromResult(configuration.GetConnectionString("Vuma")
+                ?? throw new InvalidOperationException("The test host has no company database."));
+    }
+
+    private sealed class OpenServingGuard : ICompanyServingGuard
+    {
+        public Task EnsureServableAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task EnsureAccessibleAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
     public static async Task<OrdersScenario> BuildAsync(ApiHarness harness)
     {
         ArgumentNullException.ThrowIfNull(harness);

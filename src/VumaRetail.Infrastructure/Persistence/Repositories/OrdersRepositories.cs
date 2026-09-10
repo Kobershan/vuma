@@ -34,6 +34,14 @@ public sealed class SalesOrderRepository(VumaRetailDbContext context) : ISalesOr
     }
 
     /// <inheritdoc />
+    public Task<Guid?> FindOrderIdByLineAsync(Guid salesOrderLineId, CancellationToken cancellationToken = default)
+        => context.SalesOrderLines
+            .AsNoTracking()
+            .Where(line => line.Id == salesOrderLineId)
+            .Select(line => (Guid?)line.SalesOrderId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<(IReadOnlyList<SalesOrder> Orders, bool HasMore)> ListPageAsync(
         SalesOrderStatus? status,
         SalesChannel? channel,

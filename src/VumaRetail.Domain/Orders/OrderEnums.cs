@@ -130,3 +130,13 @@ public enum OrderStockReturnStatus
     /// <summary>The ledger refused it (ADR-070/073's precedent). The refund still stands.</summary>
     Refused = 2,
 }
+
+/// <summary>How an order settles (ADR-111).</summary>
+public enum SettlementTerms
+{
+    /// <summary>Standard terms — till, account, or whatever the tenant's process says.</summary>
+    Standard = 0,
+
+    /// <summary>Cash on delivery — consumes no credit-group exposure and gates dispatch.</summary>
+    CashOnDelivery = 1,
+}

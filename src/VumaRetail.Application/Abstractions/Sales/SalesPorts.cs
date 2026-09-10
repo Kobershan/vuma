@@ -418,6 +418,7 @@ public sealed record InvoiceCompanySegment(
 /// <param name="GroupDocumentRef">The shared reference every segment carries, when there is more than one.</param>
 /// <param name="IdempotencyKey">Stable across retries of the same issue.</param>
 /// <param name="InitiatedBy">Who asked, in audit-principal form.</param>
+/// <param name="SettlementTerms">How the source order settles, inherited onto every segment (ADR-111).</param>
 public sealed record InvoiceIssuingRequest(
     Guid TenantId,
     Guid OrderingCompanyId,
@@ -429,7 +430,8 @@ public sealed record InvoiceIssuingRequest(
     IReadOnlyList<InvoiceCompanySegment> Segments,
     string? GroupDocumentRef,
     string IdempotencyKey,
-    string InitiatedBy);
+    string InitiatedBy,
+    string SettlementTerms = "Standard");
 
 /// <summary>One issued invoice: which company, which invoice.</summary>
 /// <param name="CompanyId">The company whose books hold it.</param>

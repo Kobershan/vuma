@@ -1,6 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Orders.Commands;
 using VumaRetail.Application.Orders.Queries;
@@ -48,11 +51,13 @@ public sealed class CancelOrderCommandHandlerTests
 
     private readonly ISalesOrderRepository _orders = Substitute.For<ISalesOrderRepository>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
     private readonly IPickWaveRepository _waves = Substitute.For<IPickWaveRepository>();
     private readonly IPrincipalAccessor _principal = Substitute.For<IPrincipalAccessor>();
     private readonly IClock _clock = Substitute.For<IClock>();
 
-    private CancelOrderCommandHandler Handler => new(_orders, _fulfilment, _waves, _principal, _clock);
+    private CancelOrderCommandHandler Handler => new(_orders, _fulfilment, _waves, _scopes, _directory, _principal, _clock);
 
     [Fact]
     public async Task Cancelling_an_order_with_an_open_line_cancels_the_task_and_the_order()

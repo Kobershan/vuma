@@ -12,11 +12,19 @@
     reference Domain entities directly. The architecture tests fail the build if
     it does. Reaching data goes through the Application layer and gets mapped
     into a public DTO defined in this project.
+
+    ADR-151 (Stage 20): this assembly holds the public DTOs, endpoint mappings and
+    surface middleware (rate limiting, neutral read-only). The routes are served by a
+    host with persistence — today the store server via MapVumaLoyaltyPublic — while the
+    standalone API-key/member-token deployable follows with Stage 30b's auth. There is
+    deliberately no Program.cs: this project is not runnable on its own yet.
   -->
 
   <PropertyGroup>
     <RootNamespace>VumaRetail.PublicApi</RootNamespace>
     <UserSecretsId>vuma-publicapi</UserSecretsId>
+    <!-- ADR-151: contract + mapping assembly in Stage 20, not yet a runnable host. -->
+    <OutputType>Library</OutputType>
   </PropertyGroup>
 
   <ItemGroup>

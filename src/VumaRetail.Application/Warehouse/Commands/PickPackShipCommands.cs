@@ -437,18 +437,20 @@ public sealed class ShipWaveCommandValidator : AbstractValidator<ShipWaveCommand
 /// <summary>
 /// Ships a wave: sums picked quantity per stock-keeping unit across every picked or short-picked line,
 /// posts one <see cref="IStockLedgerPoster.IssueForShipmentAsync"/> call per distinct SKU, and records
-/// the shipment.
+/// the shipment. Cash-on-delivery order lines behind the wave must pass the dispatch gate first (ADR-111).
 /// </summary>
 /// <param name="waves">Wave and task lookup.</param>
 /// <param name="locations">Stage 08 location lookup.</param>
 /// <param name="poster">Posts the location-level issue.</param>
 /// <param name="shipments">Shipment insertion.</param>
+/// <param name="dispatchGate">Refuses the ship while a COD order behind the wave is unpaid and unauthorised.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class ShipWaveCommandHandler(
     IPickWaveRepository waves,
     IStockLocationRepository locations,
     IStockLedgerPoster poster,
     IShipmentConfirmationRepository shipments,
+    IOrderDispatchGate dispatchGate,
     IClock clock) : ICommandHandler<ShipWaveCommand, Guid>
 {
     /// <inheritdoc />
@@ -469,10 +471,17 @@ public sealed class ShipWaveCommandHandler(
             throw WarehouseRuleException.NothingPicked();
         }
 
+        DateTimeOffset now = clock.UtcNow;
+
+        await dispatchGate.EnsureDispatchAllowedAsync(
+                [.. pickedTasks.Select(task => task.OutboundReference)],
+                now,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         StockLocation location = await locations.FindAsync(wave.LocationId, cancellationToken).ConfigureAwait(false)
             ?? throw new InventoryNotFoundException("stock location", wave.LocationId);
 
-        DateTimeOffset now = clock.UtcNow;
         Guid shipmentId = UuidV7.NewGuid();
 
         foreach (var group in pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)))

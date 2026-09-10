@@ -81,6 +81,22 @@ public sealed class SalesOrder : Entity
     /// <summary>Where the goods are delivered, present only when <see cref="FulfilmentType"/> is <see cref="OrderFulfilmentType.Delivery"/>.</summary>
     public Address? DeliveryAddress { get; private set; }
 
+    /// <summary>
+    /// The delivery geography as captured, for Stage 13b's consolidated waves (ADR-113). Snapshotted
+    /// from <see cref="DeliveryAddress"/> plus the separately captured suburb at creation; a later
+    /// address edit never rewrites it, so a built wave stays reproducible. Null for click &amp; collect.
+    /// </summary>
+    public DeliveryGeography? DeliveryGeography { get; private set; }
+
+    /// <summary>How this order settles: standard terms, or cash on delivery (ADR-111).</summary>
+    public SettlementTerms SettlementTerms { get; private set; }
+
+    /// <summary>Who is authorised to collect cash on delivery, when the driver collects (ADR-111).</summary>
+    public string? DriverCollectAuthorisedBy { get; private set; }
+
+    /// <summary>When the driver-collect authorisation was recorded, UTC.</summary>
+    public DateTimeOffset? DriverCollectAuthorisedAt { get; private set; }
+
     /// <summary>Where the order stands, recomputed by <see cref="RecomputeStatus"/> from its lines.</summary>
     public SalesOrderStatus Status { get; private set; }
 
@@ -148,6 +164,8 @@ public sealed class SalesOrder : Entity
     /// <param name="currency">The order's currency.</param>
     /// <param name="orderDate">When the order was placed, UTC.</param>
     /// <param name="requestedFulfilmentDate">When the customer asked to have it, if they gave a date.</param>
+    /// <param name="settlementTerms">How the order settles; cash on delivery gates dispatch (ADR-111).</param>
+    /// <param name="deliverySuburb">The suburb for the geography snapshot, when the address does not carry one (ADR-113).</param>
     /// <exception cref="OrdersRuleException">Delivery was named with no address.</exception>
     public static SalesOrder Create(
         Guid tenantId,
@@ -160,7 +178,9 @@ public sealed class SalesOrder : Entity
         Address? deliveryAddress,
         string currency,
         DateTimeOffset orderDate,
-        DateTimeOffset? requestedFulfilmentDate)
+        DateTimeOffset? requestedFulfilmentDate,
+        SettlementTerms settlementTerms = SettlementTerms.Standard,
+        string? deliverySuburb = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -179,10 +199,22 @@ public sealed class SalesOrder : Entity
             throw OrdersRuleException.DeliveryRequiresAddress();
         }
 
-        return new SalesOrder(
+        if (!Enum.IsDefined(settlementTerms))
+        {
+            throw OrdersRuleException.UnknownSettlementTerms();
+        }
+
+        Address? address = fulfilmentType == OrderFulfilmentType.Delivery ? deliveryAddress : null;
+
+        var order = new SalesOrder(
             tenantId, storeId, orderNumber.Trim(), partnerId, channel, fulfilmentType, fulfillingLocationId,
-            fulfilmentType == OrderFulfilmentType.Delivery ? deliveryAddress : null, currency, orderDate,
+            address, currency, orderDate,
             requestedFulfilmentDate);
+        order.SettlementTerms = settlementTerms;
+        order.DeliveryGeography = address is null
+            ? null
+            : DeliveryGeography.Snapshot(address, deliverySuburb);
+        return order;
     }
 
     /// <summary>Adds a new demand line while the order is still a draft.</summary>
@@ -311,6 +343,51 @@ public sealed class SalesOrder : Entity
         SettlingCustomerAccountId = settlingCustomerAccountId;
     }
 
+    /// <summary>
+    /// Names who may collect cash on delivery (ADR-111). A cash-on-delivery order ships either paid
+    /// or against this authorisation — see <see cref="ReleaseForDispatch"/>.
+    /// </summary>
+    /// <param name="collectorName">Who collects, in the operator's words.</param>
+    /// <param name="authorisedBy">The principal recording the authorisation.</param>
+    /// <param name="authorisedAt">When, UTC.</param>
+    /// <exception cref="OrdersRuleException">Nobody was named.</exception>
+    public void AuthoriseDriverCollect(string collectorName, string authorisedBy, DateTimeOffset authorisedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authorisedBy);
+
+        if (string.IsNullOrWhiteSpace(collectorName))
+        {
+            throw OrdersRuleException.DriverCollectRequiresName();
+        }
+
+        DriverCollectAuthorisedBy = collectorName.Trim();
+        DriverCollectAuthorisedAt = authorisedAt;
+    }
+
+    /// <summary>
+    /// Releases the order for dispatch. Standard terms always pass; a cash-on-delivery order passes
+    /// only paid or against a recorded driver-collect authorisation (ADR-111). Call it before the
+    /// wave ships — goods must never leave with no money expected.
+    /// </summary>
+    /// <param name="releasedAt">When, UTC.</param>
+    /// <exception cref="OrdersRuleException">A COD order with neither payment nor authorisation, or a terminal order.</exception>
+    public void ReleaseForDispatch(DateTimeOffset releasedAt)
+    {
+        if (Status is SalesOrderStatus.Cancelled or SalesOrderStatus.Closed)
+        {
+            throw OrdersRuleException.UnexpectedOrderStatus(Status);
+        }
+
+        if (SettlementTerms == SettlementTerms.CashOnDelivery
+            && PaymentStatus != OrderPaymentStatus.Paid
+            && string.IsNullOrWhiteSpace(DriverCollectAuthorisedBy))
+        {
+            throw OrdersRuleException.CashOnDeliveryDispatchBlocked();
+        }
+
+        _ = releasedAt;
+    }
+
     /// <summary>Refuses a whole-order cancel unless the order is still cancellable.</summary>
     /// <exception cref="OrdersRuleException">The order is already terminal, or some line has already shipped.</exception>
     public void EnsureCancellable()
@@ -352,13 +429,36 @@ public sealed class SalesOrder : Entity
             ?? throw new OrdersNotFoundException("sales order line", lineId);
 
     /// <summary>
+    /// Assigns the fulfilling company, once, while still a draft. Stage 08c's ledger writes run
+    /// against this company's database; an order that never names one resolves the tenant's single
+    /// active company instead, and refuses outright when there are several.
+    /// </summary>
+    /// <param name="companyId">The fulfilling company.</param>
+    /// <exception cref="OrdersRuleException">The order is not a draft, or it already names a different company.</exception>
+    public void AssignOrderingCompany(Guid companyId)
+    {
+        EnsureDraft();
+
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A company is required.", nameof(companyId));
+        }
+
+        if (CompanyId.HasValue && CompanyId.Value != companyId)
+        {
+            throw OrdersRuleException.OrderCompanyMismatch();
+        }
+
+        AssignCompany(companyId);
+    }
+
+    /// <summary>
     /// Ties this order to the cross-company source it was split from (Stage 08c). Set once, while
     /// still a draft, before the order is confirmed — history, once written, is never re-pointed.
     /// </summary>
     /// <param name="groupDocumentRef">The source order number every sibling segment shares.</param>
     /// <exception cref="OrdersRuleException">The order is not a draft, or the reference is blank.</exception>
-    public void AssignGroupDocument(string groupDocumentRef)
-    {
+    public void AssignGroupDocument(string groupDocumentRef)    {
         EnsureDraft();
 
         if (string.IsNullOrWhiteSpace(groupDocumentRef))

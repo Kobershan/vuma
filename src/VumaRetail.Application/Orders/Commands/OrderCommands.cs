@@ -1,6 +1,8 @@
 using FluentValidation;
+using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Pos;
@@ -25,6 +27,9 @@ namespace VumaRetail.Application.Orders.Commands;
 /// <param name="DeliveryCountryCode">ISO 3166-1 alpha-2, when delivering.</param>
 /// <param name="Currency">The order's currency.</param>
 /// <param name="RequestedFulfilmentDate">When the customer asked to have it, if they gave a date.</param>
+/// <param name="DeliverySuburb">The suburb, when the address lines do not carry one — snapshotted for 13b's waves (ADR-113).</param>
+/// <param name="SettlementTerms">How the order settles; cash on delivery gates dispatch (ADR-111).</param>
+/// <param name="CompanyId">The fulfilling company, when the caller names one — assigned to the order for 08c's ledger.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateOrderCommand(
     Guid? PartnerId,
@@ -38,7 +43,10 @@ public sealed record CreateOrderCommand(
     string? DeliveryPostalCode,
     string? DeliveryCountryCode,
     string Currency,
-    DateTimeOffset? RequestedFulfilmentDate) : ICommand<Guid>;
+    DateTimeOffset? RequestedFulfilmentDate,
+    string? DeliverySuburb = null,
+    SettlementTerms SettlementTerms = SettlementTerms.Standard,
+    Guid? CompanyId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed create-order command before it reaches the handler.</summary>
 public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
@@ -57,6 +65,8 @@ public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderC
             .When(command => command.FulfilmentType == OrderFulfilmentType.Delivery);
         RuleFor(command => command.DeliveryCountryCode).NotEmpty().Length(2)
             .When(command => command.FulfilmentType == OrderFulfilmentType.Delivery);
+        RuleFor(command => command.DeliverySuburb).MaximumLength(128);
+        RuleFor(command => command.SettlementTerms).IsInEnum();
     }
 }
 
@@ -107,7 +117,14 @@ public sealed class CreateOrderCommandHandler(
             deliveryAddress,
             command.Currency,
             clock.UtcNow,
-            command.RequestedFulfilmentDate);
+            command.RequestedFulfilmentDate,
+            command.SettlementTerms,
+            command.DeliverySuburb);
+
+        if (command.CompanyId.HasValue && command.CompanyId.Value != Guid.Empty)
+        {
+            order.AssignOrderingCompany(command.CompanyId.Value);
+        }
 
         orders.Add(order);
 
@@ -192,7 +209,7 @@ public sealed class ConfirmOrderCommandValidator : AbstractValidator<ConfirmOrde
 /// <see cref="ITaxCalculator"/>, confirms the order, then attempts allocation per line through
 /// <see cref="IOrderFulfilmentReader"/> and <see cref="OrderAllocation"/> — the unchanged
 /// <c>AddPickTaskCommand</c>/<c>ReleasePickWaveCommand</c> seam, called in-process rather than nested
-/// through the dispatcher.
+/// through the dispatcher — holding every bin promise in Stage 08c's reservation ledger (ADR-103).
 /// </summary>
 /// <param name="orders">Order lookup.</param>
 /// <param name="locations">Stage 08 location lookup.</param>
@@ -200,6 +217,8 @@ public sealed class ConfirmOrderCommandValidator : AbstractValidator<ConfirmOrde
 /// <param name="binStocks">The allocator's candidate pool.</param>
 /// <param name="allocator">Decides which bin(s) satisfy a line's demand.</param>
 /// <param name="fulfilment">Reads available-to-promise.</param>
+/// <param name="scopes">Opens the company-bound scope every hold is written in — the pipeline scope stays unbound.</param>
+/// <param name="directory">Resolves the acting company.</param>
 /// <param name="catalog">Resolves an item's tax class.</param>
 /// <param name="priceResolver">Stage 10's price resolution.</param>
 /// <param name="tax">Stage 07's tax rules engine.</param>
@@ -211,6 +230,8 @@ public sealed class ConfirmOrderCommandHandler(
     IBinStockRepository binStocks,
     IPickAllocationStrategy allocator,
     IOrderFulfilmentReader fulfilment,
+    IServiceScopeFactory scopes,
+    ICompanyDirectory directory,
     ISellableItemResolver catalog,
     IPriceResolver priceResolver,
     ITaxCalculator tax,
@@ -291,6 +312,13 @@ public sealed class ConfirmOrderCommandHandler(
                 .AttemptAsync(waves, binStocks, allocator, line, location, attempt, wave, cancellationToken)
                 .ConfigureAwait(false);
 
+            // Hold exactly what the bins promised (ADR-103). A concurrent confirm that took the
+            // stock first surfaces here as a shortfall, never as negative availability.
+            await OrderReservationMaintenance.ReholdAsync(
+                    scopes, directory, null, order, line, location.Id, allocated,
+                    $"order {order.OrderNumber} confirm", cancellationToken)
+                .ConfigureAwait(false);
+
             Quantity backordered = line.RequestedQuantity - allocated;
             line.RecordAllocationOutcome(backordered.IsNegative ? Quantity.Zero(line.RequestedQuantity.UnitOfMeasure) : backordered);
         }
@@ -321,6 +349,8 @@ public sealed record ReattemptBackorderedAllocationsCommand : ICommand<Reattempt
 /// <param name="binStocks">The allocator's candidate pool.</param>
 /// <param name="allocator">Decides which bin(s) satisfy a line's demand.</param>
 /// <param name="fulfilment">Reads available-to-promise.</param>
+/// <param name="scopes">Opens the company-bound scope every hold is written in — the pipeline scope stays unbound.</param>
+/// <param name="directory">Resolves the acting company.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class ReattemptBackorderedAllocationsCommandHandler(
     ISalesOrderRepository orders,
@@ -329,6 +359,8 @@ public sealed class ReattemptBackorderedAllocationsCommandHandler(
     IBinStockRepository binStocks,
     IPickAllocationStrategy allocator,
     IOrderFulfilmentReader fulfilment,
+    IServiceScopeFactory scopes,
+    ICompanyDirectory directory,
     IClock clock) : ICommandHandler<ReattemptBackorderedAllocationsCommand, ReattemptBackorderedAllocationsResult>
 {
     /// <inheritdoc />
@@ -396,6 +428,14 @@ public sealed class ReattemptBackorderedAllocationsCommandHandler(
                 line.RecordAllocationOutcome(
                     newBackordered.IsNegative ? Quantity.Zero(line.BackorderedQuantity.UnitOfMeasure) : newBackordered);
 
+                // Re-hold the line's whole new promise, releasing the old hold first (ADR-103).
+                Quantity promised = line.RequestedQuantity - line.BackorderedQuantity;
+                await OrderReservationMaintenance.ReholdAsync(
+                        scopes, directory, null, order, line, location.Id,
+                        promised.IsNegative ? Quantity.Zero(line.BackorderedQuantity.UnitOfMeasure) : promised,
+                        $"order {order.OrderNumber} reattempt", cancellationToken)
+                    .ConfigureAwait(false);
+
                 touchedOrder = true;
                 linesReallocated++;
             }
@@ -432,13 +472,16 @@ public sealed class CancelOrderLineCommandValidator : AbstractValidator<CancelOr
 
 /// <summary>
 /// Cancels a line with an open task by cancelling the task first (Stage 13's own <c>PickTask.Cancel</c>);
-/// a line with none is simply zeroed.
+/// a line with none is simply zeroed. Any live 08c hold is released first (ADR-103).
 /// </summary>
 /// <param name="orders">Order lookup.</param>
 /// <param name="fulfilment">Finds the line's open tasks.</param>
 /// <param name="waves">Task lookup and cancellation.</param>
+/// <param name="scopes">Opens the company-bound scope the release is written in.</param>
+/// <param name="directory">Resolves the acting company.</param>
 public sealed class CancelOrderLineCommandHandler(
-    ISalesOrderRepository orders, IOrderFulfilmentReader fulfilment, IPickWaveRepository waves)
+    ISalesOrderRepository orders, IOrderFulfilmentReader fulfilment, IPickWaveRepository waves,
+    IServiceScopeFactory scopes, ICompanyDirectory directory)
     : ICommandHandler<CancelOrderLineCommand, Unit>
 {
     /// <inheritdoc />
@@ -452,6 +495,10 @@ public sealed class CancelOrderLineCommandHandler(
         SalesOrderLine line = order.RequireLine(command.SalesOrderLineId);
 
         await CancelOpenTasksAsync(line, fulfilment, waves, cancellationToken).ConfigureAwait(false);
+
+        await OrderReservationMaintenance.ReleaseAsync(
+                scopes, directory, null, order, line, $"order {order.OrderNumber} line cancelled", cancellationToken)
+            .ConfigureAwait(false);
 
         line.Cancel();
         order.RecomputeStatus();
@@ -496,12 +543,16 @@ public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderC
 /// <param name="orders">Order lookup.</param>
 /// <param name="fulfilment">Finds each line's open tasks.</param>
 /// <param name="waves">Task lookup and cancellation.</param>
+/// <param name="scopes">Opens the company-bound scope every release is written in.</param>
+/// <param name="directory">Resolves the acting company.</param>
 /// <param name="principal">Who is cancelling.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class CancelOrderCommandHandler(
     ISalesOrderRepository orders,
     IOrderFulfilmentReader fulfilment,
     IPickWaveRepository waves,
+    IServiceScopeFactory scopes,
+    ICompanyDirectory directory,
     IPrincipalAccessor principal,
     IClock clock) : ICommandHandler<CancelOrderCommand, Unit>
 {
@@ -519,6 +570,9 @@ public sealed class CancelOrderCommandHandler(
             is not SalesOrderLineStatus.Fulfilled and not SalesOrderLineStatus.PartiallyFulfilled and not SalesOrderLineStatus.Cancelled))
         {
             await CancelOrderLineCommandHandler.CancelOpenTasksAsync(line, fulfilment, waves, cancellationToken).ConfigureAwait(false);
+            await OrderReservationMaintenance.ReleaseAsync(
+                    scopes, directory, null, order, line, $"order {order.OrderNumber} cancelled", cancellationToken)
+                .ConfigureAwait(false);
             line.Cancel();
         }
 
@@ -540,10 +594,16 @@ public sealed class RefreshOrderFulfilmentCommandValidator : AbstractValidator<R
     public RefreshOrderFulfilmentCommandValidator() => RuleFor(command => command.SalesOrderId).NotEmpty();
 }
 
-/// <summary>Refreshes an order's lines and its own status.</summary>
+/// <summary>Refreshes an order's lines and its own status, consuming holds that shipped.</summary>
 /// <param name="orders">Order lookup.</param>
 /// <param name="fulfilment">Stage 14's one read seam into Stage 13's state.</param>
-public sealed class RefreshOrderFulfilmentCommandHandler(ISalesOrderRepository orders, IOrderFulfilmentReader fulfilment)
+/// <param name="scopes">Opens the company-bound scope consumptions are written in.</param>
+/// <param name="directory">Resolves the acting company.</param>
+public sealed class RefreshOrderFulfilmentCommandHandler(
+    ISalesOrderRepository orders,
+    IOrderFulfilmentReader fulfilment,
+    IServiceScopeFactory scopes,
+    ICompanyDirectory directory)
     : ICommandHandler<RefreshOrderFulfilmentCommand, Unit>
 {
     /// <inheritdoc />
@@ -554,7 +614,15 @@ public sealed class RefreshOrderFulfilmentCommandHandler(ISalesOrderRepository o
         SalesOrder order = await orders.FindAsync(command.SalesOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw new OrdersNotFoundException("sales order", command.SalesOrderId);
 
+        HashSet<Guid> fulfilledBefore = [.. order.Lines
+            .Where(line => line.LineStatus == SalesOrderLineStatus.Fulfilled)
+            .Select(line => line.Id)];
+
         await OrderFulfilmentRefresh.ApplyAsync(order, fulfilment, cancellationToken).ConfigureAwait(false);
+
+        await OrderReservationMaintenance.ConsumeNewlyFulfilledAsync(
+                scopes, directory, null, order, fulfilledBefore, cancellationToken)
+            .ConfigureAwait(false);
 
         return Unit.Value;
     }
@@ -588,11 +656,15 @@ public sealed class CompleteOrderCommandValidator : AbstractValidator<CompleteOr
 /// <summary>Completes the order and reports what happened.</summary>
 /// <param name="orders">Order lookup.</param>
 /// <param name="fulfilment">Stage 14's one read seam into Stage 13's state.</param>
+/// <param name="scopes">Opens the company-bound scope consumptions are written in.</param>
+/// <param name="directory">Resolves the acting company.</param>
 /// <param name="financialEvents">Where the recognised-revenue event is raised.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class CompleteOrderCommandHandler(
     ISalesOrderRepository orders,
     IOrderFulfilmentReader fulfilment,
+    IServiceScopeFactory scopes,
+    ICompanyDirectory directory,
     IOrderFulfilmentEventPublisher financialEvents,
     IClock clock) : ICommandHandler<CompleteOrderCommand, CompleteOrderResult>
 {
@@ -604,7 +676,15 @@ public sealed class CompleteOrderCommandHandler(
         SalesOrder order = await orders.FindAsync(command.SalesOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw new OrdersNotFoundException("sales order", command.SalesOrderId);
 
+        HashSet<Guid> fulfilledBefore = [.. order.Lines
+            .Where(line => line.LineStatus == SalesOrderLineStatus.Fulfilled)
+            .Select(line => line.Id)];
+
         await OrderFulfilmentRefresh.ApplyAsync(order, fulfilment, cancellationToken).ConfigureAwait(false);
+
+        await OrderReservationMaintenance.ConsumeNewlyFulfilledAsync(
+                scopes, directory, null, order, fulfilledBefore, cancellationToken)
+            .ConfigureAwait(false);
 
         DateTimeOffset now = clock.UtcNow;
         bool recognised = order.RecogniseRevenueIfDue(now);
@@ -655,6 +735,56 @@ public sealed class RecordOrderSettlementCommandHandler(ISalesOrderRepository or
             ?? throw new OrdersNotFoundException("sales order", command.SalesOrderId);
 
         order.RecordSettlement(command.PaymentStatus, command.SettlingSaleId, command.SettlingCustomerAccountId);
+
+        return Unit.Value;
+    }
+}
+
+/// <summary>
+/// Releases an order for dispatch. Standard terms always pass; a cash-on-delivery order passes
+/// only paid or against a named driver-collect authorisation recorded here (ADR-111).
+/// </summary>
+/// <param name="SalesOrderId">The order.</param>
+/// <param name="DriverCollectName">Who collects, when the driver collects — recorded before the gate runs.</param>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ReleaseOrderForDispatchCommand(Guid SalesOrderId, string? DriverCollectName) : ICommand;
+
+/// <summary>Rejects a malformed release command before it reaches the handler.</summary>
+public sealed class ReleaseOrderForDispatchCommandValidator : AbstractValidator<ReleaseOrderForDispatchCommand>
+{
+    /// <summary>Builds the rules.</summary>
+    public ReleaseOrderForDispatchCommandValidator()
+    {
+        RuleFor(command => command.SalesOrderId).NotEmpty();
+        RuleFor(command => command.DriverCollectName).MaximumLength(256);
+    }
+}
+
+/// <summary>Authorises the collector when named, then runs the dispatch gate.</summary>
+/// <param name="orders">Order lookup.</param>
+/// <param name="principal">Who is releasing.</param>
+/// <param name="clock">The only source of time.</param>
+public sealed class ReleaseOrderForDispatchCommandHandler(
+    ISalesOrderRepository orders,
+    IPrincipalAccessor principal,
+    IClock clock) : ICommandHandler<ReleaseOrderForDispatchCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(ReleaseOrderForDispatchCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        SalesOrder order = await orders.FindAsync(command.SalesOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw new OrdersNotFoundException("sales order", command.SalesOrderId);
+
+        DateTimeOffset now = clock.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(command.DriverCollectName))
+        {
+            order.AuthoriseDriverCollect(command.DriverCollectName, principal.Principal, now);
+        }
+
+        order.ReleaseForDispatch(now);
 
         return Unit.Value;
     }

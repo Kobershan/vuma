@@ -30,8 +30,10 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
     [Fact]
     public async Task An_order_allocates_backorders_reallocates_ships_and_recognises_revenue_once()
     {
-        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
-        OrdersScenario scenario = await OrdersHarnessSetup.BuildAsync(harness);
+        (ApiHarness harness, OrdersScenario scenario, _) =
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
+        await using (harness.ConfigureAwait(false))
+        {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
             PartnerId: null, SalesChannel.Phone, OrderFulfilmentType.Delivery, scenario.LocationId,
@@ -83,13 +85,16 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
         journals.Should().ContainSingle(journal => journal.SourceReference == afterConfirm.OrderNumber);
         Journal posted = journals.Single(journal => journal.SourceReference == afterConfirm.OrderNumber);
         posted.Lines.Sum(line => line.SignedAmount).Should().Be(0m);
+        }
     }
 
     [Fact]
     public async Task A_click_and_collect_order_is_collected_end_to_end()
     {
-        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
-        OrdersScenario scenario = await OrdersHarnessSetup.BuildAsync(harness);
+        (ApiHarness harness, OrdersScenario scenario, _) =
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
+        await using (harness.ConfigureAwait(false))
+        {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
             PartnerId: null, SalesChannel.InStore, OrderFulfilmentType.ClickAndCollect, scenario.LocationId,
@@ -113,13 +118,16 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
 
         CompleteOrderResult completed = await harness.SendAsync(new CompleteOrderCommand(orderId));
         completed.RevenueRecognised.Should().BeTrue();
+        }
     }
 
     [Fact]
     public async Task A_return_of_a_shipped_line_puts_stock_back_and_reaches_the_gl()
     {
-        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
-        OrdersScenario scenario = await OrdersHarnessSetup.BuildAsync(harness);
+        (ApiHarness harness, OrdersScenario scenario, _) =
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
+        await using (harness.ConfigureAwait(false))
+        {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
             PartnerId: null, SalesChannel.InStore, OrderFulfilmentType.ClickAndCollect, scenario.LocationId,
@@ -170,6 +178,7 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
 
         List<Journal> journals = await OrdersHarnessSetup.JournalsForEventTypeAsync(harness, "orders.return.completed");
         journals.Should().ContainSingle(journal => journal.SourceReference == returnNumber);
+        }
     }
 
     private static async Task<PickTask> FindOpenTaskAsync(ApiHarness harness, Guid orderLineId)

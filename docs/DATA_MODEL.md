@@ -1488,6 +1488,59 @@ Predefined baskets at a frozen group price with a season and a stock location. L
 scalar quantities and nullable substitution references; substitution fires only when the line
 item's available is zero at settle time, priced at the group price.
 
+## 4q. Tables in `crm` (Stage 19)
+
+Relationship data around a customer identity owned by Stage 06 (`partners.partners`), which
+CRM references by id and never creates. Conversion links a lead to its partner and logs a
+system activity in the same transaction.
+
+### `crm.leads`
+Names, email (lower-cased; unique live key on `(tenant, store, email)`), phone, company,
+source, status (`New → Contacted → Qualified → Converted`, with `Disqualified`/`Dead`
+terminal), assignee, converted-partner link and timestamp.
+
+### `crm.opportunities`
+Title, description, `Money` expected value (snapshot at capture), stage, probability 0–100,
+close date, loss reason (required on `Lost`), lead/customer links (plain ids, no cross-schema
+FKs), assignee. Won requires a customer.
+
+### `crm.activities`
+Append-only interaction log (call/email/meeting/note/visit/SMS/system) with direction,
+subject, body, happened-at, duration and lead/opportunity/customer links. No update path in
+the repository — by construction, asserted in test.
+
+### `crm.segments` / `crm.segment_members`
+Static segments hold explicit members (unique on `(segment, type, member)`); dynamic segments
+carry a query expression and refuse member rows at the domain layer.
+
+### `crm.consents`
+One row per (purpose, customer): state (`Given`/`Withdrawn`/`Expired`/`NotAsked`),
+grant/withdraw timestamps, expiry, withdrawal reason and capture source. The POPIA
+specificity rule as a unique index.
+
+## 4r. Tables in `loyalty` (Stage 20)
+
+Vuma's side of the programme. The points ledger, tier evaluation and fulfilment live in
+Proxima Orbit; these rows are the join, the event log and the cache — every cached figure
+carries its age, and burns validate against Orbit live.
+
+### `loyalty.members`
+Customer → Orbit member id join, enrolment stamp, cached tier, cached balance with
+`BalanceCacheAsAt`. Unique on `(tenant, company, customer)` and on the Orbit id.
+
+### `loyalty.transactions`
+The earn/burn event log: customer, type, scale-4 amount, currency, reference, occurred-at,
+Orbit transaction id, resulting balance and status
+(`Pending → Confirmed | QueuedForRetry → Confirmed | Failed`). Unique idempotency key per
+company — a replayed key reads this row instead of writing a second one.
+
+### `loyalty.tiers` / `loyalty.rewards`
+Tier definitions and the rewards catalogue cached from Orbit, refreshed by sync and
+webhooks. Cost and availability re-verify at redemption; these rows are display.
+
+### `loyalty.settings`
+One row per company: currency, enabled flag, earn rate, point expiry days.
+
 ---
 
 ## 5. Replication registry
@@ -1612,6 +1665,17 @@ will lose somebody's data quietly. `ReplicationScope.NodeLocal` is a valid answe
 | `TradingSession` / `_Segment` / `_Line` / `_Tender` | StoreToCloud | AppendOnly | A basket happens at one till. Immutable once completed; a correction is a return. The session id is the replay idempotency key (ADR-125). Registry. |
 | `ContactBinding` | Bidirectional | CloudWins | Created tenant-side, usable at any node; revocation must propagate promptly, so the cloud wins. Registry. |
 | `Conversation` / `ConversationTurn` | StoreToCloud | AppendOnly | Append-only transcript, retained per the tenant's policy. Company database. |
+| `Lead` | StoreToCloud | CloudWins | Captured where the shop trades; mutable until terminal. Company database (Stage 19). |
+| `Opportunity` | StoreToCloud | CloudWins | The deal pipeline; mutable until won or lost. Company database (Stage 19). |
+| `Activity` | StoreToCloud | AppendOnly | Interaction log, immutable once written. Company database (Stage 19). |
+| `Segment` | StoreToCloud | CloudWins | Marketer-maintained groupings. Company database (Stage 19). |
+| `SegmentMember` | StoreToCloud | CloudWins | Static rows only; dynamic segments never persist here. Company database (Stage 19). |
+| `Consent` | StoreToCloud | CloudWins | Per-purpose consent state; withdrawal is a new state, never a delete. Company database (Stage 19). |
+| `LoyaltyMember` | StoreToCloud | CloudWins | The Vuma-side member join with an explicitly aged balance cache. Company database (Stage 20). |
+| `LoyaltyTransaction` | StoreToCloud | CloudWins | The earn/burn event log; a small state machine with full audit history, not an immutable record (Stage 20). |
+| `LoyaltyTier` | StoreToCloud | CloudWins | Tier definitions cached from Orbit. Company database (Stage 20). |
+| `LoyaltyReward` | StoreToCloud | CloudWins | Rewards catalogue cached from Orbit. Company database (Stage 20). |
+| `LoyaltySettings` | StoreToCloud | CloudWins | Per-company programme configuration. Company database (Stage 20). |
 
 Stage 04 turns this registry into the sync protocol and extends `docs/SYNC_AND_BACKUP.md`. Stage 06
 adds the five rows above; see `docs/SYNC_AND_BACKUP.md` §3 for the same registry with schema and

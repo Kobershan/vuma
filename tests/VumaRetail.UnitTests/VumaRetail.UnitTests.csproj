@@ -49,6 +49,11 @@
       editing the test that describes it.
     -->
     <ProjectReference Include="..\..\src\VumaRetail.Imports\VumaRetail.Imports.csproj" />
+    <!--
+      Stage 20. The public surface's pure pieces — the rate limiter and display rounding — carry
+      no host, database or domain dependency, so they are asserted here.
+    -->
+    <ProjectReference Include="..\..\src\VumaRetail.PublicApi\VumaRetail.PublicApi.csproj" />
   </ItemGroup>
 
   <ItemGroup>

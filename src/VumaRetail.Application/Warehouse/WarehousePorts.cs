@@ -243,3 +243,27 @@ public interface ICountScheduleRepository
     /// <summary>Adds a new schedule.</summary>
     void Add(CountSchedule schedule);
 }
+/// <summary>
+/// The cash-on-delivery dispatch gate (ADR-111), from the warehouse side. A wave ships goods out of
+/// the building; when its tasks carry Stage 14 order lines, this gate refuses the ship while a
+/// cash-on-delivery order behind them has neither payment nor driver-collect authorisation.
+/// </summary>
+/// <remarks>
+/// Declared here so Stage 13 never depends on Stage 14 (<c>OrdersRulesTests</c> enforces the
+/// direction): the implementation lives on the Orders side and is wired in DI. Non-order demand
+/// (transfers, unreferenced tasks) passes through untouched.
+/// </remarks>
+public interface IOrderDispatchGate
+{
+    /// <summary>
+    /// Refuses the dispatch when any referenced cash-on-delivery order may not ship.
+    /// </summary>
+    /// <param name="outboundReferences">The wave tasks' outbound references.</param>
+    /// <param name="releasedAt">When the dispatch was requested, UTC.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <exception cref="WarehouseRuleException">A COD order behind the wave is unpaid and unauthorised.</exception>
+    Task EnsureDispatchAllowedAsync(
+        IReadOnlyCollection<string> outboundReferences,
+        DateTimeOffset releasedAt,
+        CancellationToken cancellationToken = default);
+}

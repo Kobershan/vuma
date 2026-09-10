@@ -244,6 +244,17 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `ReplenishmentSuggestion` | `planning` | `StoreToCloud` | `CloudWins` | Raised where the need is; decided where the stock is |
 | `MarkdownPlan` | `planning` | `StoreToCloud` | `CloudWins` | Mutable through its lifecycle, frozen once completed or amended |
 | `MarkdownPlanLine` | `planning` | `StoreToCloud` | `CloudWins` | Follows its plan; decision inputs snapshotted, never re-resolved |
+| `Lead` | `crm` | `StoreToCloud` | `CloudWins` | Captured where the shop trades; mutable until terminal (Stage 19) |
+| `Opportunity` | `crm` | `StoreToCloud` | `CloudWins` | The deal pipeline; mutable until won or lost (Stage 19) |
+| `Activity` | `crm` | `StoreToCloud` | `AppendOnly` | Interaction log; immutable once written, like `StockLedgerEntry` (Stage 19) |
+| `Segment` | `crm` | `StoreToCloud` | `CloudWins` | Marketer-maintained groupings (Stage 19) |
+| `SegmentMember` | `crm` | `StoreToCloud` | `CloudWins` | Static membership rows; dynamic segments never persist here (Stage 19) |
+| `Consent` | `crm` | `StoreToCloud` | `CloudWins` | Per-purpose consent state; withdrawal is a new state, never a delete (Stage 19) |
+| `LoyaltyMember` | `loyalty` | `StoreToCloud` | `CloudWins` | The Vuma-side member join; balance cache explicitly aged (Stage 20) |
+| `LoyaltyTransaction` | `loyalty` | `StoreToCloud` | `CloudWins` | The earn/burn event log; status moves Pending → Confirmed/Queued/Failed with full audit history (Stage 20) |
+| `LoyaltyTier` | `loyalty` | `StoreToCloud` | `CloudWins` | Tier definitions cached from Orbit (Stage 20) |
+| `LoyaltyReward` | `loyalty` | `StoreToCloud` | `CloudWins` | Rewards catalogue cached from Orbit (Stage 20) |
+| `LoyaltySettings` | `loyalty` | `StoreToCloud` | `CloudWins` | Per-company programme configuration (Stage 20) |
 
 **The `finance` and `inventory` rows above were both added retrospectively, and the second correction
 found the first one incomplete.** Stage 09 added the six `inventory` rows, which Stage 08 had declared

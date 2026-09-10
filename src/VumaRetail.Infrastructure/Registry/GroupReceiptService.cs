@@ -532,3 +532,32 @@ public sealed class CompanyLinkGuard : ICompanyLinkGuard
         await _linkService.RequireLink(companyAId, companyBId, requiredScope, cancellationToken);
     }
 }
+
+/// <summary>
+/// Reads the tenant's company register for single-company callers (Stage 14 orders): exactly one
+/// active company resolves silently, anything else refuses with a message that names the fix.
+/// </summary>
+public sealed class CompanyDirectory(VumaRegistryDbContext registry) : ICompanyDirectory
+{
+    /// <inheritdoc />
+    public async Task<Guid> RequireSingleActiveAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        List<Guid> active = await registry.Companies
+            .AsNoTracking()
+            .Where(company => company.TenantId == tenantId
+                && company.IsActive
+                && company.LifecycleState == CompanyLifecycleState.Active)
+            .Select(company => company.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return active.Count switch
+        {
+            0 => throw new InvalidOperationException(
+                "No active company is provisioned for this tenant. Provision one before confirming orders."),
+            1 => active[0],
+            _ => throw new InvalidOperationException(
+                "Several companies are active for this tenant. Name the fulfilling company explicitly."),
+        };
+    }
+}

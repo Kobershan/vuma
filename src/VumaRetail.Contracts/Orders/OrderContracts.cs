@@ -13,7 +13,10 @@ public sealed record CreateOrderRequest(
     string? DeliveryRegion = null,
     string? DeliveryPostalCode = null,
     string? DeliveryCountryCode = null,
-    DateTimeOffset? RequestedFulfilmentDate = null);
+    DateTimeOffset? RequestedFulfilmentDate = null,
+    string? DeliverySuburb = null,
+    string SettlementTerms = "Standard",
+    Guid? CompanyId = null);
 
 /// <summary>Adds a demand line to a draft order.</summary>
 public sealed record AddOrderLineRequest(Guid? ItemId, Guid? ItemVariantId, decimal RequestedQuantity, string UnitOfMeasure);
@@ -23,6 +26,9 @@ public sealed record CancelOrderRequest(string? Reason = null);
 
 /// <summary>Records which mechanism paid for an order.</summary>
 public sealed record RecordOrderSettlementRequest(string PaymentStatus, Guid? SettlingSaleId = null, Guid? SettlingCustomerAccountId = null);
+
+/// <summary>Releases an order for dispatch, optionally naming who collects cash on delivery.</summary>
+public sealed record ReleaseOrderForDispatchRequest(string? DriverCollectName = null);
 
 /// <summary>A delivery address, as returned by the API.</summary>
 public sealed record OrderAddressResponse(
@@ -43,7 +49,11 @@ public sealed record SalesOrderLineResponse(
     decimal BackorderedQuantity,
     string LineStatus,
     decimal AllocatedQuantity,
-    decimal FulfilledQuantity);
+    decimal FulfilledQuantity,
+    Guid? ReservationId);
+
+/// <summary>A delivery's geography snapshot, as captured on the order (ADR-113).</summary>
+public sealed record OrderGeographyResponse(string Province, string City, string Suburb, string PostalCode);
 
 /// <summary>An order and every line on it, as returned by the API.</summary>
 public sealed record SalesOrderResponse(
@@ -54,6 +64,8 @@ public sealed record SalesOrderResponse(
     string FulfilmentType,
     Guid FulfillingLocationId,
     OrderAddressResponse? DeliveryAddress,
+    OrderGeographyResponse? DeliveryGeography,
+    string SettlementTerms,
     string Status,
     string PaymentStatus,
     Guid? SettlingSaleId,

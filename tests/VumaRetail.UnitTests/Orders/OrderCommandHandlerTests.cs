@@ -1,5 +1,7 @@
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Orders;
@@ -36,6 +38,8 @@ public sealed class ConfirmOrderCommandHandlerTests
     private readonly IBinStockRepository _binStocks = Substitute.For<IBinStockRepository>();
     private readonly IPickAllocationStrategy _allocator = Substitute.For<IPickAllocationStrategy>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
     private readonly ISellableItemResolver _catalog = Substitute.For<ISellableItemResolver>();
     private readonly IPriceResolver _priceResolver = Substitute.For<IPriceResolver>();
     private readonly ITaxCalculator _tax = Substitute.For<ITaxCalculator>();
@@ -74,7 +78,7 @@ public sealed class ConfirmOrderCommandHandlerTests
     }
 
     private ConfirmOrderCommandHandler Handler => new(
-        _orders, _locations, _waves, _binStocks, _allocator, _fulfilment, _catalog, _priceResolver, _tax, _clock);
+        _orders, _locations, _waves, _binStocks, _allocator, _fulfilment, _scopes, _directory, _catalog, _priceResolver, _tax, _clock);
 
     private SalesOrder NewOrderWithOneLine(decimal requestedQuantity, out SalesOrderLine line)
     {
@@ -172,9 +176,11 @@ public sealed class ReattemptBackorderedAllocationsCommandHandlerTests
     private readonly IBinStockRepository _binStocks = Substitute.For<IBinStockRepository>();
     private readonly IPickAllocationStrategy _allocator = Substitute.For<IPickAllocationStrategy>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
     private readonly IClock _clock = Substitute.For<IClock>();
 
-    private ReattemptBackorderedAllocationsCommandHandler Handler => new(_orders, _locations, _waves, _binStocks, _allocator, _fulfilment, _clock);
+    private ReattemptBackorderedAllocationsCommandHandler Handler => new(_orders, _locations, _waves, _binStocks, _allocator, _fulfilment, _scopes, _directory, _clock);
 
     private SalesOrder BackorderedOrder(string number, DateTimeOffset orderDate, decimal backordered, out SalesOrderLine line)
     {
@@ -254,8 +260,10 @@ public sealed class RefreshOrderFulfilmentCommandHandlerTests
 
     private readonly ISalesOrderRepository _orders = Substitute.For<ISalesOrderRepository>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
 
-    private RefreshOrderFulfilmentCommandHandler Handler => new(_orders, _fulfilment);
+    private RefreshOrderFulfilmentCommandHandler Handler => new(_orders, _fulfilment, _scopes, _directory);
 
     private SalesOrder ConfirmedOrderWithOneLine(decimal requested, out SalesOrderLine line)
     {
@@ -325,10 +333,12 @@ public sealed class CompleteOrderCommandHandlerTests
 
     private readonly ISalesOrderRepository _orders = Substitute.For<ISalesOrderRepository>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
     private readonly IOrderFulfilmentEventPublisher _financialEvents = Substitute.For<IOrderFulfilmentEventPublisher>();
     private readonly IClock _clock = Substitute.For<IClock>();
 
-    private CompleteOrderCommandHandler Handler => new(_orders, _fulfilment, _financialEvents, _clock);
+    private CompleteOrderCommandHandler Handler => new(_orders, _fulfilment, _scopes, _directory, _financialEvents, _clock);
 
     [Fact]
     public async Task Completing_a_fully_shipped_order_twice_raises_the_event_exactly_once()
@@ -392,9 +402,11 @@ public sealed class CancelOrderLineCommandHandlerTests
 
     private readonly ISalesOrderRepository _orders = Substitute.For<ISalesOrderRepository>();
     private readonly IOrderFulfilmentReader _fulfilment = Substitute.For<IOrderFulfilmentReader>();
+    private readonly IServiceScopeFactory _scopes = ReservationTestDoubles.BoundScopes(ReservationTestDoubles.EchoHold());
+    private readonly ICompanyDirectory _directory = ReservationTestDoubles.SingleCompany(Guid.NewGuid());
     private readonly IPickWaveRepository _waves = Substitute.For<IPickWaveRepository>();
 
-    private CancelOrderLineCommandHandler Handler => new(_orders, _fulfilment, _waves);
+    private CancelOrderLineCommandHandler Handler => new(_orders, _fulfilment, _waves, _scopes, _directory);
 
     private SalesOrder OrderWithOneLine(out SalesOrderLine line)
     {

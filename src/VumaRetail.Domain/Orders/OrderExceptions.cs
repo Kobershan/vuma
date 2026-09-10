@@ -88,4 +88,35 @@ public sealed class OrdersRuleException(string code, string message) : DomainExc
             "ORDERS_NOT_FULLY_ACCOUNTED_FOR",
             "This order cannot complete: at least one active line has neither shipped in full nor been "
             + "cancelled. Refresh fulfilment first, or wait for the remaining stock to ship.");
+
+    /// <summary>A settlement-terms value outside the <see cref="SettlementTerms"/> enum.</summary>
+    public static OrdersRuleException UnknownSettlementTerms()
+        => new(
+            "ORDERS_UNKNOWN_SETTLEMENT_TERMS",
+            "The settlement terms are not a known value.");
+
+    /// <summary>A driver-collect authorisation with nobody named.</summary>
+    public static OrdersRuleException DriverCollectRequiresName()
+        => new(
+            "ORDERS_DRIVER_COLLECT_REQUIRES_NAME",
+            "Authorising driver collection must name who is collecting.");
+
+    /// <summary>A cash-on-delivery order was released for dispatch with no payment and no authorisation.</summary>
+    public static OrdersRuleException CashOnDeliveryDispatchBlocked()
+        => new(
+            "ORDERS_COD_DISPATCH_BLOCKED",
+            "This is a cash-on-delivery order with no recorded payment and no driver-collect "
+            + "authorisation. Record the till settlement first, or authorise who collects.");
+
+    /// <summary>A second live hold was attached to a line that already holds one.</summary>
+    public static OrdersRuleException ReservationAlreadyAttached()
+        => new(
+            "ORDERS_RESERVATION_ALREADY_ATTACHED",
+            "This line already holds a live reservation. Release it before holding again.");
+
+    /// <summary>An order was assigned a different fulfilling company than the one it already names.</summary>
+    public static OrdersRuleException OrderCompanyMismatch()
+        => new(
+            "ORDERS_COMPANY_MISMATCH",
+            "This order already names a different fulfilling company.");
 }
