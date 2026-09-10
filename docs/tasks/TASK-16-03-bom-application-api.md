@@ -52,3 +52,4 @@ until API behavior, authorization, and tenant isolation are tested.
 
 - 2026-09-10: Added commands, repository, module manifest/permissions, contracts, routes, DI, and StoreServer wiring. StoreServer build passed with 0 errors.
 - 2026-09-10: Added handler tests for tenant draft creation, duplicate-version refusal, and publication; 3/3 passed.
+- 2026-09-10: Real PostgreSQL migration verification passed 1/1 in `ManufacturingMigrationTests`; API behavior and authorization integration coverage remain open.

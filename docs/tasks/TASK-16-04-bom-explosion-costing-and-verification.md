@@ -69,3 +69,4 @@ Implementation and focused tests pass. API, seed, and full stage verification re
 
 - 2026-09-10: Added `BomExplosionEngine` and four focused tests; all 4 passed.
 - 2026-09-10: Routing additions brought the focused manufacturing unit total to 10/10 passed.
+- 2026-09-10: Focused manufacturing unit suite passes 13/13; migration Up/Down passes 1/1 against real PostgreSQL. Seed and final exit verification remain open.

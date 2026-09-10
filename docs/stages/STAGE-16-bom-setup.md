@@ -16,9 +16,13 @@ costing inputs. It does not execute production, consume stock, or post accountin
 ## Exit criteria
 
 - [x] Domain lifecycle and invariant tests pass.
-- [ ] Real PostgreSQL migration Up/Down is verified.
+- [x] Real PostgreSQL migration Up/Down is verified (`ManufacturingMigrationTests`, 1/1, 2026-09-10).
 - [ ] Commands, queries, API, permissions, tenant/company isolation, sync, and metering are complete.
 - [x] Multi-level explosion handles cycles, alternates, scrap, and quantity precision.
 - [x] Rolled-up costing uses `Money` and rejects mixed currencies.
 - [ ] Demo seed, architecture checks, full suite, specialist review, and stage verification pass.
 - [ ] Stage is documented as `DONE` only after every checklist item is evidenced.
+
+Verification note (2026-09-10): the focused manufacturing unit suite passes 13/13 and the real
+PostgreSQL migration Up/Down test passes 1/1. API behavior/authorization integration coverage,
+demo seed, architecture/full-suite rerun, and specialist review remain outstanding.
