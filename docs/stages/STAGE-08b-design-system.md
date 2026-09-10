@@ -11,7 +11,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
-**Status:** NOT_STARTED · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
+**Status:** COMPLETE (2026-09-10) · **Depends on:** 08 · **Reference reading:** `docs/DESIGN_SYSTEM.md` (all of it), `docs/CONVENTIONS.md`
 
 ## Task index
 
