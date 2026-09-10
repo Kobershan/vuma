@@ -83,7 +83,9 @@ public static class ConversationEndpoints
         IConfiguration configuration,
         ILoggerFactory loggers,
         IContactResolver contacts,
+        IConversationStore conversationStore,
         IIntentClassifier classifier,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         using var reader = new StreamReader(request.Body, Encoding.UTF8);
@@ -111,10 +113,10 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, classifier, cancellationToken).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, conversationStore, classifier, clock, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IIntentClassifier classifier, CancellationToken cancellationToken)
+    private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IConversationStore conversationStore, IIntentClassifier classifier, IClock clock, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(message.Address) || string.IsNullOrWhiteSpace(message.Text))
         {
@@ -125,6 +127,9 @@ public static class ConversationEndpoints
         {
             return Results.Accepted(value: new { state = "onboarding", message = "Ask your account manager to link this address." });
         }
+        DateTimeOffset at = clock.UtcNow;
+        Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
+        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
         IntentClassification classification = await classifier.ClassifyAsync(message.Text, cancellationToken).ConfigureAwait(false);
         return Results.Accepted(value: new { bindingId = binding.Id, classification.Intent, classification.Confidence });
     }

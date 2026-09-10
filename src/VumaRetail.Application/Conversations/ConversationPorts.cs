@@ -48,6 +48,13 @@ public interface IDocumentDeliveryTokenStore
     Task SaveAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Persistence boundary for conversation state and append-only transcript entries.</summary>
+public interface IConversationStore
+{
+    Task<Conversation> GetOrCreateAsync(ContactBinding binding, ConversationChannel channel, DateTimeOffset at, CancellationToken cancellationToken = default);
+    Task AddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Result returned by an intent handler; it contains API facts only.</summary>
 public sealed record IntentResult(Guid ResultId, IReadOnlyList<string> Facts, bool RequiresConfirmation = false, string? IdempotencyKey = null);
 

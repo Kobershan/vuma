@@ -21,6 +21,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddScoped<IContactBindingManagementService, ContactBindingManagementService>();
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
+        services.AddScoped<IConversationStore, EfConversationStore>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
         services.AddSingleton<IConversationIntentRouter, ConversationIntentRouter>();
