@@ -25,7 +25,7 @@ public static class CompanyEndpoints
             .RequirePermission(PlatformPermissions.CompanyView).Produces<IReadOnlyList<CompanyResponse>>().WithSummary("Lists active companies available to this tenant.");
 
         companies.MapPost("/", async (ProvisionCompanyRequest request, IDispatcher dispatcher, CancellationToken ct) =>
-            Results.Created("/api/v1/companies", new { id = await dispatcher.SendAsync(new ProvisionCompanyCommand(request.Code, request.LegalName, request.TradingName, request.BaseCurrency, request.Locale, request.DocumentPrefix), ct) }))
+            Results.Created("/api/v1/companies", new { id = await dispatcher.SendAsync(new ProvisionIssuedCompanyCommand(request.CompanyId, request.Code, request.LegalName, request.TradingName, request.BaseCurrency, request.Locale, request.DocumentPrefix), ct) }))
             .RequirePermission(PlatformPermissions.CompanyManage).Produces(StatusCodes.Status201Created).WithSummary("Provisions an isolated company database and registers the company.");
 
         companies.MapPost("/{companyId:guid}/activate", async (Guid companyId, IDispatcher dispatcher, CancellationToken ct) => { await dispatcher.SendAsync(new ActivateCompanyCommand(companyId), ct); return Results.NoContent(); })

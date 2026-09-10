@@ -28,6 +28,34 @@ public sealed class ProvisionCompanyCommandHandler(ICompanyProvisioner provision
 }
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record ProvisionIssuedCompanyCommand(Guid CompanyId, string Code, string LegalName, string TradingName, string BaseCurrency, string Locale, string DocumentPrefix) : ICommand<Guid>;
+
+public sealed class ProvisionIssuedCompanyCommandValidator : AbstractValidator<ProvisionIssuedCompanyCommand>
+{
+    public ProvisionIssuedCompanyCommandValidator()
+    {
+        RuleFor(x => x.CompanyId).NotEmpty();
+        RuleFor(x => x.Code).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.LegalName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.TradingName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseCurrency).NotEmpty().Length(3);
+        RuleFor(x => x.Locale).NotEmpty().MaximumLength(35);
+        RuleFor(x => x.DocumentPrefix).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class ProvisionIssuedCompanyCommandHandler(ICompanyProvisioner provisioner, ITenantContext tenant, IOperatorContext operatorContext) : ICommandHandler<ProvisionIssuedCompanyCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(ProvisionIssuedCompanyCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        Company company = Company.CreateFromIssuedIdentity(command.CompanyId, tenant.TenantId, command.Code, command.LegalName, command.TradingName, command.BaseCurrency, command.Locale, command.DocumentPrefix);
+        company.AssignOperator(operatorContext.RequireOperatorId());
+        await provisioner.ProvisionAsync(company, cancellationToken).ConfigureAwait(false);
+        return company.Id;
+    }
+}
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ActivateCompanyCommand(Guid CompanyId) : ICommand;
 public sealed class ActivateCompanyCommandValidator : AbstractValidator<ActivateCompanyCommand>
 {

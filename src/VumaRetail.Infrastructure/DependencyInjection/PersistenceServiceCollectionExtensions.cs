@@ -120,6 +120,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ICompanyLinkService, CompanyLinkService>();
         services.AddScoped<IOperatorContext, OperatorContext>();
         services.AddScoped<IPremisesService, PremisesService>();
+        services.AddScoped<IStage22RegistryService, Stage22RegistryService>();
         services.AddScoped<IRegistryUserService, RegistryUserService>();
         services.AddScoped<ITerminalService, TerminalService>();
         services.AddScoped<IEntitlementCounters, EntitlementCounters>();
