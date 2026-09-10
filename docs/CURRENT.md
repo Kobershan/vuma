@@ -23,3 +23,5 @@ TEST STATUS (Stage 15 — NOT RUN, operator to test later):
 
 BLOCKERS: None for compilation. Follow-ups before Stage 15 is DONE: Planning unit+integration tests, migration Up/Down on real PG, seed scenarios in DemoSeed, specialist review panel (money-and-tax, stock-availability-guard, architecture-guard, stage-verifier).
 ENVIRONMENT LIMITATION: None active.
+
+SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19/20 stage docs written (`docs/stages/STAGE-19-crm.md`, `docs/stages/STAGE-20-loyalty-public-api.md`, NOT_STARTED; numbering corrected per ROADMAP — brief asked for STAGE-10-crm, see ADR-150); `path/to/` scaffold duplicates deleted; Domain/Crm+Loyalty scaffolding + 44 unit tests, suite 1249/1249 green. Stage position unchanged: still Stage 16 next.
