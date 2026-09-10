@@ -19,13 +19,15 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IReplyComposer, TemplateReplyComposer>();
         services.AddScoped<IContactResolver, EfContactResolver>();
         services.AddScoped<IContactBindingManagementService, ContactBindingManagementService>();
-        services.AddScoped<IConversationScopeManagementService, ConversationScopeManagementService>();
+        services.AddScoped<ConversationScopeManagementService>();
+        services.AddScoped<IConversationScopeManagementService>(sp => sp.GetRequiredService<ConversationScopeManagementService>());
+        services.AddScoped<IConversationScopeReader>(sp => sp.GetRequiredService<ConversationScopeManagementService>());
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
         services.AddScoped<IConversationStore, EfConversationStore>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
-        services.AddSingleton<IConversationIntentRouter, ConversationIntentRouter>();
+        services.AddScoped<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationIntentHandler, OrderStatusIntentHandler>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ConversationPermissions>());
