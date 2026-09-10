@@ -1,5 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Conversations;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity.Permissions;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -18,6 +21,8 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<ConversationRateLimiter>();
         services.AddSingleton<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ConversationPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ConversationModuleManifest>());
         return services;
     }
 }
