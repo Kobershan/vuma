@@ -17,10 +17,10 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-22B-001 | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, and persistence implemented; dependency closure remains |
-| TASK-22B-002 | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer implemented; six module-backed handlers remain |
-| TASK-22B-003 | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery and WhatsApp signature boundary implemented; Stage 22 sender integration remains |
-| TASK-22B-004 | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
+| [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, and persistence implemented; dependency closure remains |
+| [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer implemented; six module-backed handlers remain |
+| [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery and WhatsApp signature boundary implemented; Stage 22 sender integration remains |
+| [TASK-22B-004](../tasks/TASK-22B-004-conversational-verification.md) | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
 
 ## Objective
 
