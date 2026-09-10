@@ -37,6 +37,8 @@ public static class ConversationEndpoints
         bindings.MapPost("/{bindingId:guid}/challenge", IssueChallengeAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapPost("/{bindingId:guid}/verify", VerifyBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapPost("/{bindingId:guid}/consent", SetConsentAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapPost("/{bindingId:guid}/scopes", AddScopeAsync).RequirePermission(ConversationPermissions.BindingManage);
+        bindings.MapGet("/{bindingId:guid}/scopes", ListScopesAsync).RequirePermission(ConversationPermissions.BindingManage);
         bindings.MapDelete("/{bindingId:guid}", RevokeBindingAsync).RequirePermission(ConversationPermissions.BindingManage);
         return endpoints;
     }
@@ -83,6 +85,21 @@ public static class ConversationEndpoints
         => await service.SetConsentAsync(bindingId, request.Granted, cancellationToken).ConfigureAwait(false)
             ? Results.NoContent()
             : Results.NotFound();
+
+    private static async Task<IResult> AddScopeAsync(Guid bindingId, ScopeRequest request, IConversationScopeManagementService service, ITenantContext tenant, CancellationToken cancellationToken)
+    {
+        if (bindingId == Guid.Empty || request.CompanyId == Guid.Empty || request.CustomerAccountId == Guid.Empty)
+        {
+            return Results.BadRequest(new { error = "bindingId, companyId and customerAccountId are required" });
+        }
+
+        ConversationAccountScope scope = new(tenant.TenantId, bindingId, request.CompanyId, request.CustomerAccountId);
+        await service.AddAsync(scope, cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/contact-bindings/{bindingId}/scopes", new { scope.Id, scope.BindingId, scope.OperatingCompanyId, scope.CustomerAccountId });
+    }
+
+    private static async Task<IResult> ListScopesAsync(Guid bindingId, IConversationScopeManagementService service, CancellationToken cancellationToken)
+        => Results.Ok(await service.ListAsync(bindingId, cancellationToken).ConfigureAwait(false));
 
     private static async Task<IResult> WhatsAppWebhookAsync(
         HttpRequest request,
@@ -155,4 +172,5 @@ public static class ConversationEndpoints
     public sealed record ChallengeRequest(string Otp);
     public sealed record VerifyRequest(Guid ChallengeId, string Otp);
     public sealed record ConsentRequest(bool Granted);
+    public sealed record ScopeRequest(Guid CompanyId, Guid CustomerAccountId);
 }

@@ -29,7 +29,7 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
 BLOCKERS: None for compilation. Follow-ups before Stage 15 is DONE: broader Planning integration scenarios, coverage measurement, seed scenarios in DemoSeed, specialist review panel (money-and-tax, stock-availability-guard, architecture-guard, stage-verifier).
 ENVIRONMENT LIMITATION: None active.
 
-SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, deterministic classification, signed delivery, webhook boundary, and conversation migration are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.
+SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, explicit persisted account/company scopes, deterministic classification, signed delivery, webhook boundary, and conversation migrations are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.
 
 SIDE-QUEST (2026-09-10): Stage 06c implementation tasks are complete, but final acceptance/closure remains IN PROGRESS; focused multi-company PostgreSQL verification is 10/10, while seed, restore, failure-fanout, and OpenAPI evidence remain to be run.
 

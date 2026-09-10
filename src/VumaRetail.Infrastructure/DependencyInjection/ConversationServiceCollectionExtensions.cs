@@ -19,6 +19,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IReplyComposer, TemplateReplyComposer>();
         services.AddScoped<IContactResolver, EfContactResolver>();
         services.AddScoped<IContactBindingManagementService, ContactBindingManagementService>();
+        services.AddScoped<IConversationScopeManagementService, ConversationScopeManagementService>();
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
         services.AddScoped<IConversationStore, EfConversationStore>();

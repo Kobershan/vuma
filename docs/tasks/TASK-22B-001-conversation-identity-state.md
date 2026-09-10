@@ -15,10 +15,14 @@ conversation work, and persist an explicit conversation state machine.
   primitives are covered by conversation unit tests.
 - Inbound `STOP` now withdraws consent through the registry service before any transcript is written.
 - Stage 22b conversation migration Up/Down passes on real PostgreSQL.
+- `ConversationAccountScope` now persists an explicit binding/company/customer-account boundary in
+  the registry, with permission-gated add/list endpoints and a reversible registry migration.
+- Scope migration Up/Down passes on real PostgreSQL; the conversation unit slice is 17/17 green.
 
 ## Remaining work
 
-- Complete the contact-to-account/company scope port required by every intent handler.
+- Connect the new persisted scope to the contact-to-account/company resolver consumed by every intent
+  handler.
 - Add end-to-end inbound webhook tests proving tenant and account isolation.
 - Record transcript retention and CRM visibility evidence.
 
