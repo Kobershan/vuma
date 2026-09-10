@@ -1,6 +1,6 @@
 # TASK-16-01 — BOM domain lifecycle and invariants
 
-Status: IN_PROGRESS  
+Status: COMPLETE  
 Stage: 16 — BOM Setup  
 Type: Domain
 
@@ -65,4 +65,5 @@ Stage 16 work stays open in the stage index.
 
 ## Work Log
 
-- 2026-09-10: Added aggregate, stable rule codes, and four unit tests. Focused verification pending.
+- 2026-09-10: Added aggregate, stable rule codes, and four unit tests. Focused tests passed 4/4.
+- 2026-09-10: Added EF model registration and reversible `20260910170012_Stage16_BomSetup` migration. Real PostgreSQL Up/Down integration test passed 1/1.

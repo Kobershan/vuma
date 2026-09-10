@@ -8,14 +8,14 @@ costing inputs. It does not execute production, consume stock, or post accountin
 
 ## Task index
 
-- `TASK-16-01` — BOM domain lifecycle and invariants — IN_PROGRESS
+- `TASK-16-01` — BOM domain lifecycle and invariants — COMPLETE
 - `TASK-16-02` — BOM persistence and migration — NOT_STARTED
 - `TASK-16-03` — BOM application commands, queries, permissions, and API — NOT_STARTED
 - `TASK-16-04` — BOM explosion, rolled-up costing, seed, and exit verification — NOT_STARTED
 
 ## Exit criteria
 
-- [ ] Domain lifecycle and invariant tests pass.
+- [x] Domain lifecycle and invariant tests pass.
 - [ ] Real PostgreSQL migration Up/Down is verified.
 - [ ] Commands, queries, API, permissions, tenant/company isolation, sync, and metering are complete.
 - [ ] Multi-level explosion handles cycles, alternates, scrap, and quantity precision.

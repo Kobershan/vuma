@@ -487,6 +487,10 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Planning.MarkdownPlanLine> MarkdownPlanLines
         => Set<Domain.Planning.MarkdownPlanLine>();
 
+    /// <summary>Versioned bills of materials for manufactured and assembled items (Stage 16).</summary>
+    public DbSet<Domain.Manufacturing.BillOfMaterials> BillOfMaterials
+        => Set<Domain.Manufacturing.BillOfMaterials>();
+
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
 
