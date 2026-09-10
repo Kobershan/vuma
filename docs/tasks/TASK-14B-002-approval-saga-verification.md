@@ -48,5 +48,6 @@ transport for sync batches (existing path).
 
 - 2026-09-10: real PostgreSQL Field Sales integration slice passed 9/9 via
   `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --filter FullyQualifiedName~FieldSales`.
+- 2026-09-10: Re-run of `FieldSalesApprovalTests` against the disposable local PostgreSQL server passed 9/9. This confirms the approval/replay, availability delta, credit refusal, crash-resume, cross-company, rejection, territory, performance, and credit-note scenarios remain green.
 - Full stage closure still requires the documented seed, migration Down, OpenAPI, and complete
   multi-company acceptance matrix to be executed and recorded.
