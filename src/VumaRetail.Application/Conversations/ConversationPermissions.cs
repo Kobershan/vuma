@@ -8,10 +8,10 @@ namespace VumaRetail.Application.Conversations;
 public sealed class ConversationPermissions : IModulePermissions
 {
     /// <summary>Receive and process inbound messages.</summary>
-    public const string Receive = "conversations.receive";
+    public const string Receive = "conversations.message.receive";
 
     /// <summary>Escalate a conversation to a human operator.</summary>
-    public const string Escalate = "conversations.escalate";
+    public const string Escalate = "conversations.conversation.escalate";
 
     /// <inheritdoc />
     public string Module => "conversations";
