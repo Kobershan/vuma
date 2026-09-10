@@ -1,6 +1,6 @@
 # STAGE 06c — Multi-company foundation: the registry, database-per-company, routing and migration fan-out
 
-**Status:** NOT_STARTED · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
+**Status:** IN_PROGRESS — implementation complete; exit evidence still partial (2026-09-10) · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
 
 ## Stage architecture
 
@@ -134,22 +134,24 @@ active company count.
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 06C-01 | DOMAIN/INFRASTRUCTURE/DATABASE | Registry foundation | — | READY |
-| 06C-02 | DOMAIN/INFRASTRUCTURE/DATABASE | Registry saga records | 06C-01 | NOT_STARTED |
-| 06C-03 | APPLICATION/INFRASTRUCTURE/SECURITY | Company routing | 06C-01 | NOT_STARTED |
-| 06C-04 | APPLICATION/INFRASTRUCTURE/SECURITY/TEST | Company context | 06C-03 | NOT_STARTED |
-| 06C-05 | APPLICATION/INTEGRATION/TEST | Bounded fan-out reads | 06C-04 | NOT_STARTED |
-| 06C-06 | APPLICATION/INFRASTRUCTURE/DATABASE/SECURITY | Resumable provisioning | 06C-02, 06C-04 | NOT_STARTED |
-| 06C-07 | APPLICATION/API/SECURITY/TEST | Deactivation | 06C-06 | NOT_STARTED |
-| 06C-08 | INFRASTRUCTURE/DATABASE/APPLICATION/TEST | Migration fan-out | 06C-01, 06C-03, 06C-06 | NOT_STARTED |
-| 06C-09 | DOMAIN/INFRASTRUCTURE/DATABASE/TEST | Company identity retrofit | 06C-04, 06C-08 | NOT_STARTED |
-| 06C-10 | INFRASTRUCTURE/INTEGRATION/SECURITY/TEST | Per-database backup/sync | 06C-02, 06C-04, 06C-09 | NOT_STARTED |
-| 06C-11 | API/APPLICATION/SECURITY/TEST | Companies API | 06C-06, 06C-07, 06C-08 | NOT_STARTED |
-| 06C-12 | TEST/DOCUMENTATION | Acceptance evidence | 06C-01…06C-11 | NOT_STARTED |
-| 06C-13 | REVIEW | Specialist review | 06C-12 | NOT_STARTED |
-| 06C-14 | STAGE-CLOSURE/DOCUMENTATION/REVIEW | Stage closure | 06C-13 | NOT_STARTED |
+| 06C-01 | DOMAIN/INFRASTRUCTURE/DATABASE | Registry foundation | — | COMPLETE |
+| 06C-02 | DOMAIN/INFRASTRUCTURE/DATABASE | Registry saga records | 06C-01 | COMPLETE |
+| 06C-03 | APPLICATION/INFRASTRUCTURE/SECURITY | Company routing | 06C-01 | COMPLETE |
+| 06C-04 | APPLICATION/INFRASTRUCTURE/SECURITY/TEST | Company context | 06C-03 | COMPLETE |
+| 06C-05 | APPLICATION/INTEGRATION/TEST | Bounded fan-out reads | 06C-04 | COMPLETE |
+| 06C-06 | APPLICATION/INFRASTRUCTURE/DATABASE/SECURITY | Resumable provisioning | 06C-02, 06C-04 | COMPLETE |
+| 06C-07 | APPLICATION/API/SECURITY/TEST | Deactivation | 06C-06 | COMPLETE |
+| 06C-08 | INFRASTRUCTURE/DATABASE/APPLICATION/TEST | Migration fan-out | 06C-01, 06C-03, 06C-06 | COMPLETE |
+| 06C-09 | DOMAIN/INFRASTRUCTURE/DATABASE/TEST | Company identity retrofit | 06C-04, 06C-08 | COMPLETE |
+| 06C-10 | INFRASTRUCTURE/INTEGRATION/SECURITY/TEST | Per-database backup/sync | 06C-02, 06C-04, 06C-09 | COMPLETE |
+| 06C-11 | API/APPLICATION/SECURITY/TEST | Companies API | 06C-06, 06C-07, 06C-08 | COMPLETE |
+| 06C-12 | TEST/DOCUMENTATION | Acceptance evidence | 06C-01…06C-11 | IN_PROGRESS — focused PG evidence added; full acceptance matrix remains |
+| 06C-13 | REVIEW | Specialist review | 06C-12 | COMPLETE — see canonical task file; re-run on final acceptance |
+| 06C-14 | STAGE-CLOSURE/DOCUMENTATION/REVIEW | Stage closure | 06C-13 | IN_PROGRESS — final checklist remains |
 
-Only 06C-01 is READY; parallel execution is not authorized.
+The implementation tasks are complete. Acceptance and closure remain open because the full stage
+matrix includes seed, restore, migration-fan-out failure, and OpenAPI evidence beyond the focused
+10-test PostgreSQL slice run on 2026-09-10.
 
 ## Tests / acceptance
 
