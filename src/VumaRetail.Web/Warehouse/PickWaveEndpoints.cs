@@ -36,6 +36,12 @@ public static class PickWaveEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithSummary("Builds a consolidated pick wave from open order lines.");
 
+        waves.MapPost("/cross-company/build", BuildCrossCompanyConsolidatedWaveAsync)
+            .RequirePermission(WarehousePermissions.WaveBuild)
+            .Produces<WarehouseIdResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .WithSummary("Builds a cross-company consolidated wave through the registry saga.");
+
         waves.MapPost("/{id:guid}/release", ReleaseConsolidatedWaveAsync)
             .RequirePermission(WarehousePermissions.WaveRelease)
             .Produces(StatusCodes.Status204NoContent)
@@ -105,6 +111,25 @@ public static class PickWaveEndpoints
         await dispatcher.SendAsync(new ReleaseConsolidatedWaveCommand(id), cancellationToken)
             .ConfigureAwait(false);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> BuildCrossCompanyConsolidatedWaveAsync(
+        BuildCrossCompanyConsolidatedWaveRequest request,
+        ITenantContext tenant,
+        IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        CrossCompanyWaveLine[] lines = request.Lines.Select(line => new CrossCompanyWaveLine(
+            line.CompanyId, line.LocationId, line.OrderId, line.OrderLineId,
+            line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure,
+            line.PackSize, line.GeographyValue)).ToArray();
+
+        Guid id = await dispatcher.SendAsync(new BuildCrossCompanyConsolidatedWaveCommand(
+            tenant.TenantId, request.StoreId, request.PeriodFrom, request.PeriodTo,
+            request.GeographyLevel, request.GeographyValue, lines, request.IdempotencyKey), cancellationToken)
+            .ConfigureAwait(false);
+
+        return TypedResults.Created($"/api/v1/pick-waves/consolidated/{id}", new WarehouseIdResponse(id));
     }
 
     private static async Task<IResult> PreviewConsolidatedWaveAsync(

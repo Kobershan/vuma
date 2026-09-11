@@ -10,6 +10,27 @@ public sealed record BuildConsolidatedWaveRequest(
     string GeographyValue,
     Guid? CompanyScopeId = null);
 
+public sealed record BuildCrossCompanyConsolidatedWaveRequest(
+    Guid? StoreId,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    string GeographyLevel,
+    string GeographyValue,
+    IReadOnlyList<CrossCompanyWaveLineRequest> Lines,
+    string IdempotencyKey);
+
+public sealed record CrossCompanyWaveLineRequest(
+    Guid CompanyId,
+    Guid LocationId,
+    Guid OrderId,
+    Guid OrderLineId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string PackSize,
+    string GeographyValue);
+
 public sealed record CreateCountScheduleRequest(
     string Name,
     string Cadence,
