@@ -49,6 +49,15 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public async Task Keyword_classifier_extracts_order_number_for_status_queries()
+    {
+        IntentClassification result = await new KeywordIntentClassifier().ClassifyAsync("where is order ORD-123/4?");
+
+        Assert.Equal(ConversationIntent.OrderStatus, result.Intent);
+        Assert.Equal("ORD-123/4", result.Entities["orderNumber"]);
+    }
+
+    [Fact]
     public async Task Unknown_message_escalates_without_guessing()
     {
         var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, At);

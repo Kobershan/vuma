@@ -2,6 +2,7 @@
 #pragma warning disable IDE0011
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;
@@ -122,7 +123,17 @@ public sealed class KeywordIntentClassifier : IIntentClassifier
             var x when x.Contains("order") || x.Contains("buy") || x.Contains("please send") => ConversationIntent.PlaceOrder,
             _ => ConversationIntent.Unknown
         };
-        return Task.FromResult(new IntentClassification(intent, new Dictionary<string, string>(), intent == ConversationIntent.Unknown ? 0m : 1m));
+        Dictionary<string, string> entities = new(StringComparer.OrdinalIgnoreCase);
+        if (intent == ConversationIntent.OrderStatus)
+        {
+            Match orderNumber = Regex.Match(message, @"(?:order|#)\s*([A-Za-z0-9][A-Za-z0-9/-]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (orderNumber.Success)
+            {
+                entities["orderNumber"] = orderNumber.Groups[1].Value;
+            }
+        }
+
+        return Task.FromResult(new IntentClassification(intent, entities, intent == ConversationIntent.Unknown ? 0m : 1m));
     }
 }
 
