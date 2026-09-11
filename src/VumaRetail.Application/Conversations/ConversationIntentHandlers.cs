@@ -102,20 +102,20 @@ public abstract class ScopedDocumentIntentHandler(
             ?? throw new InvalidOperationException("The conversation binding no longer exists.");
         IReadOnlyList<ConversationAccountScope> granted = await scopes
             .ListAsync(conversation.ContactBindingId, cancellationToken).ConfigureAwait(false);
-        int existingAccounts = 0;
+        List<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts = [];
         foreach (ConversationAccountScope scope in granted)
         {
-            if (await accounts.FindAsync(scope.CustomerAccountId, cancellationToken).ConfigureAwait(false) is not null)
+            if (await accounts.FindAsync(scope.CustomerAccountId, cancellationToken).ConfigureAwait(false) is { } account)
             {
-                existingAccounts++;
+                authorizedAccounts.Add(account);
             }
         }
-        if (existingAccounts == 0)
+        if (authorizedAccounts.Count == 0)
         {
             throw new InvalidOperationException("No customer account is authorized for this binding.");
         }
 
-        string reference = ResolveReference(entities, granted);
+        string reference = ResolveReference(entities, authorizedAccounts);
         DocumentDeliveryToken token = await delivery
             .MintAsync(binding, $"{ReferencePrefix}:{reference}", clock.UtcNow, cancellationToken)
             .ConfigureAwait(false);
@@ -128,19 +128,21 @@ public abstract class ScopedDocumentIntentHandler(
 
     private string ResolveReference(
         IReadOnlyDictionary<string, string> entities,
-        IReadOnlyList<ConversationAccountScope> granted)
+        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts)
     {
         if (entities.TryGetValue("reference", out string? reference)
             || entities.TryGetValue("documentReference", out reference))
         {
-            if (!string.IsNullOrWhiteSpace(reference))
+            if (!string.IsNullOrWhiteSpace(reference)
+                && authorizedAccounts.Any(account => string.Equals(account.AccountNumber, reference.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(account.Id.ToString("D"), reference.Trim(), StringComparison.OrdinalIgnoreCase)))
             {
                 return reference.Trim();
             }
+            throw new InvalidOperationException("The requested document is outside the authorized account scope.");
         }
 
-        Guid accountId = granted[0].CustomerAccountId;
-        return accountId.ToString("D");
+        return authorizedAccounts[0].AccountNumber;
     }
 }
 

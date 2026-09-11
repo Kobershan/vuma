@@ -76,7 +76,7 @@ public sealed class ConversationIntentHandlerTests
         {
             IntentResult result = await handler.HandleAsync(
                 conversation,
-                new Dictionary<string, string> { ["reference"] = "DOC-1" },
+                new Dictionary<string, string> { ["reference"] = "ACT-2" },
                 $"idem-{handler.Intent}");
 
             result.Facts.Single().Should().Contain("one-time delivery");
