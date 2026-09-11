@@ -175,11 +175,12 @@ public sealed class Stage22EntitiesTests
     }
 
     [Fact]
-    public void Transfer_factory_rejects_a_line_for_another_transfer()
+    public void Transfer_factory_rebinds_lines_to_the_new_transfer()
     {
         var line = StockTransferLine.Create(Tenant, Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA", Guid.NewGuid());
-        FluentActions.Invoking(() => StockTransferRequest.Create(
-                Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m, false, [line]))
-            .Should().Throw<InvalidOperationException>();
+        var transfer = StockTransferRequest.Create(
+            Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m, false, [line]);
+        transfer.Lines.Should().ContainSingle();
+        transfer.Lines[0].TransferId.Should().Be(transfer.Id);
     }
 }

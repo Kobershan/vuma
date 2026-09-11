@@ -198,11 +198,16 @@ public sealed class StockTransferRequest
         ArgumentNullException.ThrowIfNull(lines);
         StockTransferRequest transfer = Create(tenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
         if (lines.Count == 0) throw new ArgumentException("A transfer must contain at least one line.", nameof(lines));
-        if (lines.Any(line => line.TenantId != tenantId || line.TransferId != transfer.Id))
+        if (lines.Any(line => line.TenantId != tenantId))
         {
-            throw new InvalidOperationException("Transfer lines must belong to this transfer and tenant.");
+            throw new InvalidOperationException("Transfer lines must belong to the transfer tenant.");
         }
-        transfer.Lines.AddRange(lines);
+        foreach (StockTransferLine line in lines)
+        {
+            transfer.Lines.Add(StockTransferLine.Create(
+                tenantId, transfer.Id, line.ItemId, line.ItemVariantId,
+                line.Quantity, line.UnitOfMeasure, line.SenderLocationId));
+        }
         return transfer;
     }
     public void Check(GroupSettings settings, bool receiverIsDirectChildOfHolding)
