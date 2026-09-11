@@ -10843,6 +10843,11 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("BatchReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("batch_reference");
+
                     b.Property<Guid?>("BinId")
                         .HasColumnType("uuid")
                         .HasColumnName("bin_id");
@@ -10869,6 +10874,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("deleted_by");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expiry_date");
 
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("uuid")
@@ -10913,6 +10922,11 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("serial_number");
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uuid")
@@ -11004,6 +11018,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.HasIndex("LocationId", "CreatedAt", "Id")
                         .IsDescending(false, true, true)
                         .HasDatabaseName("ix_stock_ledger_entries_location_id_created_at_id");
+
+                    b.HasIndex("LocationId", "ItemId", "BatchReference", "ExpiryDate", "SerialNumber")
+                        .HasDatabaseName("ix_stock_ledger_entries_tracking_item")
+                        .HasFilter("batch_reference IS NOT NULL OR expiry_date IS NOT NULL OR serial_number IS NOT NULL");
 
                     b.ToTable("stock_ledger_entries", "inventory", t =>
                         {
@@ -11130,6 +11148,11 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("BatchReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("batch_reference");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
@@ -11160,6 +11183,10 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expiry_date");
 
                     b.Property<string>("GroupDocumentRef")
                         .HasMaxLength(64)
@@ -11204,6 +11231,11 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<int>("SequenceNumber")
                         .HasColumnType("integer")
                         .HasColumnName("sequence_number");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("serial_number");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -11307,6 +11339,9 @@ namespace VumaRetail.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_stock_reservations_intent_leg_variant")
                         .HasFilter("intent_id IS NOT NULL AND item_variant_id IS NOT NULL AND state = 'Held'");
+
+                    b.HasIndex("LocationId", "ItemId", "ItemVariantId", "BatchReference", "ExpiryDate", "SerialNumber", "State")
+                        .HasDatabaseName("ix_stock_reservations_tracking_state");
 
                     b.ToTable("stock_reservations", "inventory", t =>
                         {
