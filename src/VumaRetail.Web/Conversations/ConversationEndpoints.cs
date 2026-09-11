@@ -205,13 +205,13 @@ public static class ConversationEndpoints
             return Results.Accepted(value: new { state = "stopped", message = "This address has opted out of conversation messages." });
         }
         DateTimeOffset at = clock.UtcNow;
+        IntentClassification classification = await classifier.ClassifyAsync(message.Text, cancellationToken).ConfigureAwait(false);
         if (!rateLimiter.TryConsume(binding.TenantId, binding.Address, classification.Intent, at))
         {
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
         await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
-        IntentClassification classification = await classifier.ClassifyAsync(message.Text, cancellationToken).ConfigureAwait(false);
         ConversationState state = await stateMachine.HandleAsync(conversation, message.Text, at, cancellationToken).ConfigureAwait(false);
 
         // A fresh, consented binding is the transport-level proof of identity. Promote the explicit
