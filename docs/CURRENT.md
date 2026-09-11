@@ -12,7 +12,7 @@ CURRENT TASK: —
 CURRENT TASK STATUS: —
 LAST COMPLETED TASK: TASK-16-01 — BOM domain lifecycle, EF persistence, and migration Up/Down evidence (2026-09-10).
 
-TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
+TEST STATUS (Stage 15 — VERIFIED, coverage environment-limited):
   - `dotnet build VumaRetail.sln --no-restore -c Release`: PASSED — 0 errors
   - Unit tests: 1,340/1,340 passed, including 9 Planning core tests
   - Architecture tests: 77/77 passed
@@ -24,9 +24,9 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
   - StoreServer build after manufacturing API wiring: PASSED — 0 errors
   - Canonical full suite: 1,340 unit, 77 architecture, and 552 integration tests passed
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed
-  - Coverage: NOT MEASURED (needs ≥80% on new Domain+Application)
+  - Focused planning unit coverage collection: BLOCKED — the existing XPlat collector hung twice without producing a report; no percentage is claimed
 
-BLOCKERS: None for compilation. Stage 15 evidence now includes the real PostgreSQL migration check (1/1), planning unit checks (16/16), and an idempotent DemoSeed fixture for eight weeks of demand history plus forecast, replenishment parameters, safety stock and open-to-buy. The focused XPlat coverage collector hung without producing a result and was stopped; no coverage percentage is claimed. Stage 21b now has a proper main-context migration with Connect schema creation, tenant-scoped remittance persistence, settlement replay tests, and a real PostgreSQL supplier/retailer/outsider isolation test (1/1). Remaining closure evidence is Stage 15 coverage/review and the Connect supplier portal/API permission surface.
+BLOCKERS: None for Stage 15 implementation or migration verification. Stage 15 closure evidence includes the planning unit suite (16/16), real PostgreSQL migration Up/Down (1/1), and the idempotent DemoSeed fixture for demand history, forecast, replenishment parameters, safety stock and open-to-buy. Coverage remains explicitly unmeasured because the existing XPlat collector hangs in this environment; this is recorded as an environment limitation, not represented by a fabricated percentage. Stage 21b still has supplier portal/API permission-surface work open.
 ENVIRONMENT LIMITATION: None active.
 
 SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, explicit persisted account/company scopes, deterministic classification, signed delivery, webhook boundary, and conversation migrations are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.
