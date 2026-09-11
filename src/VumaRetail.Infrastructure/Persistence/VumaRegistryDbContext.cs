@@ -73,6 +73,7 @@ public sealed class VumaRegistryDbContext(
     public DbSet<GroupHierarchyNode> GroupHierarchyNodes => Set<GroupHierarchyNode>();
     public DbSet<OwnedStockOnHandProjection> OwnedStockOnHandProjections => Set<OwnedStockOnHandProjection>();
     public DbSet<StockTransferRequest> StockTransferRequests => Set<StockTransferRequest>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<PremisesSkuRouting> PremisesSkuRoutings => Set<PremisesSkuRouting>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
@@ -724,6 +725,21 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.DiscrepancyQuantity).HasColumnType("numeric(18,6)");
             builder.HasIndex(x => new { x.TenantId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.SenderCompanyId, x.ReceiverCompanyId });
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<StockTransferLine>(builder =>
+        {
+            builder.ToTable("stock_transfer_lines", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Quantity).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.ReceivedQuantity).HasColumnType("numeric(18,6)");
+            builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.TransferId });
+            builder.HasIndex(x => new { x.TenantId, x.TransferId, x.ItemId, x.ItemVariantId }).IsUnique();
+            builder.HasOne<StockTransferRequest>()
+                .WithMany(x => x.Lines)
+                .HasForeignKey(x => x.TransferId)
+                .OnDelete(DeleteBehavior.Restrict);
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<PremisesSkuRouting>(builder =>

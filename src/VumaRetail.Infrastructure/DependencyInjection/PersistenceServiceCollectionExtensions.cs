@@ -98,6 +98,7 @@ public static class PersistenceServiceCollectionExtensions
         // Stage 06d: Group services
         services.AddScoped<ISagaCoordinator, SagaCoordinator>();
         services.AddScoped<ISagaLegDispatcher, ConsolidatedWaveSagaLegDispatcher>();
+        services.AddScoped<ISagaLegDispatcher, TransferReservationSagaLegDispatcher>();
 
          // Stage 07c: Cross-company money
          services.AddScoped<IGroupReceiptRepository, GroupReceiptRepository>();

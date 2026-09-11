@@ -59,8 +59,14 @@ public sealed class Stage22RegistryTests(PostgresFixture fixture)
             transfer.Status.Should().Be(TransferStatus.Reconciled);
             transfer.DiscrepancyQuantity.Should().Be(-2m);
 
+            StockTransferRequest linedTransfer = await service.CreateTransferAsync(
+                holdingCompanyId, holdingCompanyId, storeCompanyId, holdingCompanyId, 50m, false,
+                [new Stage22TransferLine(null, UuidV7.NewGuid(), 4m, "EA", UuidV7.NewGuid())]);
+            linedTransfer.Lines.Should().ContainSingle();
+            (await registry.StockTransferLines.CountAsync(line => line.TransferId == linedTransfer.Id)).Should().Be(1);
+
             (await registry.BusinessRegistrations.CountAsync()).Should().Be(1);
-            (await registry.StockTransferRequests.CountAsync()).Should().Be(1);
+            (await registry.StockTransferRequests.CountAsync()).Should().Be(2);
         }
 
         await using (VumaRegistryDbContext otherTenantRegistry = TestDbContextFactory.ForRegistry(

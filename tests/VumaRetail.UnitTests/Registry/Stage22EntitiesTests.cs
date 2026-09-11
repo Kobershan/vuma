@@ -110,4 +110,42 @@ public sealed class Stage22EntitiesTests
         string[] propertyNames = typeof(OwnedStockOnHandProjection).GetProperties().Select(x => x.Name.ToLowerInvariant()).ToArray();
         propertyNames.Should().OnlyContain(name => forbidden.All(token => !name.Contains(token, StringComparison.Ordinal)));
     }
+
+    [Fact]
+    public void Transfer_line_requires_one_sku_identity_and_bounds_received_quantity()
+    {
+        Guid transferId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        StockTransferLine line = StockTransferLine.Create(Tenant, transferId, itemId, null, 10m, "EA", locationId);
+
+        FluentActions.Invoking(() => StockTransferLine.Create(Tenant, transferId, itemId, itemId, 1m, "EA", locationId))
+            .Should().Throw<ArgumentException>();
+        FluentActions.Invoking(() => line.RecordReceived(11m))
+            .Should().Throw<ArgumentOutOfRangeException>();
+
+        line.RecordReceived(8m);
+        line.ReceivedQuantity.Should().Be(8m);
+    }
+
+    [Fact]
+    public void Lined_transfer_rejects_over_receipt_and_requires_line_total_at_reconciliation()
+    {
+        var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");
+        var transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m);
+        transfer.Lines.Add(StockTransferLine.Create(Tenant, transfer.Id, Guid.NewGuid(), null, 10m, "EA", Guid.NewGuid()));
+        transfer.Check(settings, false);
+        transfer.Accept();
+        transfer.Reserve();
+        transfer.Pick();
+        transfer.Ship();
+        transfer.MoveInTransit();
+
+        FluentActions.Invoking(() => transfer.Receive(11m)).Should().Throw<ArgumentOutOfRangeException>();
+        transfer.Receive(8m);
+        FluentActions.Invoking(() => transfer.Reconcile(9m, "Mismatch"))
+            .Should().Throw<InvalidOperationException>();
+        transfer.Reconcile(10m, "Two units damaged");
+        transfer.DiscrepancyQuantity.Should().Be(-2m);
+    }
 }

@@ -94,6 +94,73 @@ public sealed record OwnedStockOnHandProjection(Guid TenantId, Guid BusinessId, 
 
 public enum TransferStatus { Requested, RegionalApprovalPending, Checked, Accepted, Declined, Reserved, Picked, Shipped, InTransit, Received, Reconciled, Cancelled }
 
+/// <summary>A requested SKU quantity in a registry transfer; stock itself remains company-local.</summary>
+public sealed class StockTransferLine
+{
+    private StockTransferLine() { }
+
+    private StockTransferLine(
+        Guid tenantId,
+        Guid transferId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        decimal quantity,
+        string unitOfMeasure,
+        Guid senderLocationId)
+    {
+        if (tenantId == Guid.Empty || transferId == Guid.Empty || senderLocationId == Guid.Empty)
+        {
+            throw new ArgumentException("Transfer line tenant, transfer and location are required.");
+        }
+
+        if ((itemId is null) == (itemVariantId is null))
+        {
+            throw new ArgumentException("A transfer line must identify either an item or an item variant.");
+        }
+        if (quantity <= 0m) throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (string.IsNullOrWhiteSpace(unitOfMeasure)) throw new ArgumentException("A unit of measure is required.", nameof(unitOfMeasure));
+
+        Id = UuidV7.NewGuid();
+        TenantId = tenantId;
+        TransferId = transferId;
+        ItemId = itemId;
+        ItemVariantId = itemVariantId;
+        Quantity = quantity;
+        UnitOfMeasure = unitOfMeasure.Trim();
+        SenderLocationId = senderLocationId;
+    }
+
+    public Guid Id { get; private set; }
+    public Guid TenantId { get; private set; }
+    public Guid TransferId { get; private set; }
+    public Guid? ItemId { get; private set; }
+    public Guid? ItemVariantId { get; private set; }
+    public decimal Quantity { get; private set; }
+    public string UnitOfMeasure { get; private set; } = string.Empty;
+    public Guid SenderLocationId { get; private set; }
+    public decimal? ReceivedQuantity { get; private set; }
+
+    public static StockTransferLine Create(
+        Guid tenantId,
+        Guid transferId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        decimal quantity,
+        string unitOfMeasure,
+        Guid senderLocationId)
+        => new(tenantId, transferId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId);
+
+    public void RecordReceived(decimal quantity)
+    {
+        if (quantity < 0m || quantity > Quantity)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Received quantity must be between zero and requested quantity.");
+        }
+
+        ReceivedQuantity = quantity;
+    }
+}
+
 /// <summary>Append-only registry-side transfer request state machine.</summary>
 public sealed class StockTransferRequest
 {
@@ -114,9 +181,27 @@ public sealed class StockTransferRequest
     public decimal TotalValue { get; private set; }
     public bool CentralBuying { get; private set; }
     public TransferStatus Status { get; private set; }
+    public List<StockTransferLine> Lines { get; private set; } = [];
     public decimal? ReceivedQuantity { get; private set; }
     public decimal? DiscrepancyQuantity { get; private set; }
     public static StockTransferRequest Create(Guid tenantId, Guid requesterCompanyId, Guid senderCompanyId, Guid receiverCompanyId, Guid holdingCompanyId, decimal totalValue, bool centralBuying = false) => new(tenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
+    public static StockTransferRequest Create(
+        Guid tenantId,
+        Guid requesterCompanyId,
+        Guid senderCompanyId,
+        Guid receiverCompanyId,
+        Guid holdingCompanyId,
+        decimal totalValue,
+        bool centralBuying,
+        IReadOnlyCollection<StockTransferLine> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        StockTransferRequest transfer = Create(tenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
+        if (lines.Count == 0) throw new ArgumentException("A transfer must contain at least one line.", nameof(lines));
+        if (lines.Any(line => line.TenantId != tenantId)) throw new InvalidOperationException("Transfer lines must belong to the transfer tenant.");
+        transfer.Lines.AddRange(lines);
+        return transfer;
+    }
     public void Check(GroupSettings settings, bool receiverIsDirectChildOfHolding)
     {
         Require(TransferStatus.Requested);
@@ -139,8 +224,39 @@ public sealed class StockTransferRequest
     public void Pick() { Require(TransferStatus.Reserved); Status = TransferStatus.Picked; }
     public void Ship() { Require(TransferStatus.Picked); Status = TransferStatus.Shipped; }
     public void MoveInTransit() { Require(TransferStatus.Shipped); Status = TransferStatus.InTransit; }
-    public void Receive(decimal quantity) { Require(TransferStatus.InTransit); if (quantity < 0) throw new ArgumentOutOfRangeException(nameof(quantity)); ReceivedQuantity = quantity; Status = TransferStatus.Received; }
-    public void Reconcile(decimal requestedQuantity, string? reason = null) { Require(TransferStatus.Received); DiscrepancyQuantity = ReceivedQuantity!.Value - requestedQuantity; if (DiscrepancyQuantity != 0 && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("A discrepancy requires a reason."); Status = TransferStatus.Reconciled; }
+    public void Receive(decimal quantity)
+    {
+        Require(TransferStatus.InTransit);
+        if (quantity < 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (Lines.Count > 0 && quantity > Lines.Sum(line => line.Quantity))
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Received quantity cannot exceed requested transfer lines.");
+        }
+
+        decimal remaining = quantity;
+        foreach (StockTransferLine line in Lines)
+        {
+            decimal received = Math.Min(line.Quantity, remaining);
+            line.RecordReceived(received);
+            remaining -= received;
+        }
+
+        ReceivedQuantity = quantity;
+        Status = TransferStatus.Received;
+    }
+
+    public void Reconcile(decimal requestedQuantity, string? reason = null)
+    {
+        Require(TransferStatus.Received);
+        if (Lines.Count > 0 && requestedQuantity != Lines.Sum(line => line.Quantity))
+        {
+            throw new InvalidOperationException("Reconciliation must use the transfer's requested line quantity.");
+        }
+
+        DiscrepancyQuantity = ReceivedQuantity!.Value - requestedQuantity;
+        if (DiscrepancyQuantity != 0 && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("A discrepancy requires a reason.");
+        Status = TransferStatus.Reconciled;
+    }
     public void Cancel() { if (Status is TransferStatus.Reconciled or TransferStatus.Declined or TransferStatus.Cancelled) throw Invalid(); Status = TransferStatus.Cancelled; }
     private void Require(TransferStatus expected) { if (Status != expected) throw Invalid(); }
     private InvalidOperationException Invalid() => new($"Transfer {Id} cannot transition from {Status}.");

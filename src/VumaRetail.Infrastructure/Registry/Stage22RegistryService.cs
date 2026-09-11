@@ -1,12 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Sync;
+using System.Text.Json;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
-public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITenantContext tenant, IClock clock) : IStage22RegistryService
+public sealed class Stage22RegistryService(
+    VumaRegistryDbContext registry,
+    ITenantContext tenant,
+    IClock clock,
+    ISagaCoordinator? sagaCoordinator = null,
+    IOperatorContext? operatorContext = null,
+    IHybridClock? hybridClock = null,
+    IPrincipalAccessor? principal = null) : IStage22RegistryService
 {
     public async Task<(BusinessRegistration Business, GroupSettings Settings)> CreateBusinessAsync(Guid businessId, string name, BusinessType type, decimal threshold, TransferCostingMethod costing, DiscrepancyOwner owner, string storeCodePrefix, CancellationToken cancellationToken = default)
     {
@@ -67,7 +76,7 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
         return node;
     }
 
-    public async Task<StockTransferRequest> CreateTransferAsync(Guid requesterCompanyId, Guid senderCompanyId, Guid receiverCompanyId, Guid holdingCompanyId, decimal totalValue, bool centralBuying, CancellationToken cancellationToken = default)
+    public async Task<StockTransferRequest> CreateTransferAsync(Guid requesterCompanyId, Guid senderCompanyId, Guid receiverCompanyId, Guid holdingCompanyId, decimal totalValue, bool centralBuying, IReadOnlyCollection<Stage22TransferLine>? lines = null, CancellationToken cancellationToken = default)
     {
         GroupHierarchyNode sender = await registry.GroupHierarchyNodes.SingleOrDefaultAsync(
             x => x.TenantId == tenant.TenantId && x.CompanyId == senderCompanyId, cancellationToken)
@@ -95,13 +104,27 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
         GroupSettings settings = await registry.GroupSettings.SingleAsync(
             x => x.TenantId == tenant.TenantId && x.BusinessId == sender.BusinessId, cancellationToken)
             .ConfigureAwait(false);
-        var transfer = StockTransferRequest.Create(tenant.TenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
+        StockTransferRequest transfer = StockTransferRequest.Create(tenant.TenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
+        if (lines is { Count: > 0 })
+        {
+            foreach (Stage22TransferLine line in lines)
+            {
+                StockTransferLine transferLine = StockTransferLine.Create(
+                    tenant.TenantId, transfer.Id, line.ItemId, line.ItemVariantId,
+                    line.Quantity, line.UnitOfMeasure, line.SenderLocationId);
+                transfer.Lines.Add(transferLine);
+            }
+        }
         GroupHierarchyNode? holdingNode = await registry.GroupHierarchyNodes.SingleOrDefaultAsync(
             x => x.TenantId == tenant.TenantId && x.BusinessId == sender.BusinessId && x.CompanyId == holdingCompanyId,
             cancellationToken).ConfigureAwait(false);
         bool receiverIsDirectChildOfHolding = holdingNode is not null && receiver.ParentNodeId == holdingNode.Id;
         transfer.Check(settings, receiverIsDirectChildOfHolding);
         registry.StockTransferRequests.Add(transfer);
+        foreach (StockTransferLine line in transfer.Lines)
+        {
+            registry.StockTransferLines.Add(line);
+        }
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
         return transfer;
     }
@@ -112,8 +135,71 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
             .SingleOrDefaultAsync(x => x.Id == transferId && x.TenantId == tenant.TenantId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Transfer was not found.");
-        switch (action.Trim().ToLowerInvariant()) { case "approve": transfer.ApproveRegional(); break; case "accept": transfer.Accept(); break; case "decline": transfer.Decline(); break; case "reserve": transfer.Reserve(); break; case "pick": transfer.Pick(); break; case "ship": transfer.Ship(); break; case "in-transit": transfer.MoveInTransit(); break; case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break; case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break; case "cancel": transfer.Cancel(); break; default: throw new ArgumentException("Unknown transfer action.", nameof(action)); }
+        List<StockTransferLine> persistedLines = await registry.StockTransferLines
+            .Where(x => x.TenantId == tenant.TenantId && x.TransferId == transfer.Id)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        transfer.Lines.AddRange(persistedLines);
+        switch (action.Trim().ToLowerInvariant())
+        {
+            case "approve": transfer.ApproveRegional(); break;
+            case "accept": transfer.Accept(); break;
+            case "decline": transfer.Decline(); break;
+            case "reserve": await ReserveTransferAsync(transfer, persistedLines, cancellationToken).ConfigureAwait(false); break;
+            case "pick": transfer.Pick(); break;
+            case "ship": transfer.Ship(); break;
+            case "in-transit": transfer.MoveInTransit(); break;
+            case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break;
+            case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break;
+            case "cancel": transfer.Cancel(); break;
+            default: throw new ArgumentException("Unknown transfer action.", nameof(action));
+        }
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return transfer;
+    }
+
+    private async Task ReserveTransferAsync(
+        StockTransferRequest transfer,
+        IReadOnlyList<StockTransferLine> lines,
+        CancellationToken cancellationToken)
+    {
+        if (transfer.Status == TransferStatus.Reserved)
+        {
+            return;
+        }
+
+        if (lines.Count == 0)
+        {
+            transfer.Reserve();
+            return;
+        }
+
+        if (sagaCoordinator is null || operatorContext is null || hybridClock is null || principal is null)
+        {
+            throw new InvalidOperationException("Transfer reservation saga services are not configured.");
+        }
+
+        TransferReservationPayload payload = new(
+            transfer.TenantId,
+            transfer.Id,
+            transfer.SenderCompanyId,
+            lines.Select(line => new TransferReservationLinePayload(
+                line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
+                line.Quantity, line.UnitOfMeasure)).ToArray());
+        SagaIntent intent = SagaIntent.Create(
+            transfer.TenantId,
+            TransferReservationSaga.IntentType,
+            $"transfer-reservation:{transfer.Id:N}",
+            clock.UtcNow,
+            JsonSerializer.Serialize(payload));
+        intent.Authorize(operatorContext.RequireOperatorId(), principal.Principal, hybridClock.Next().ToString());
+        intent.AddLeg(transfer.SenderCompanyId);
+
+        SagaResult result = await sagaCoordinator.ExecuteAsync(intent, cancellationToken).ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException("Transfer source reservation is still pending or failed; retry the reservation leg.");
+        }
+
+        transfer.Reserve();
     }
 
     public async Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default)
