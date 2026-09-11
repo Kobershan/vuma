@@ -249,8 +249,13 @@ public static class ConversationEndpoints
             return Results.Accepted(value: new { bindingId = binding.Id, classification.Intent, classification.Confidence, state });
         }
 
-        string idempotencyKey = message.MessageId ?? Convert.ToHexString(SHA256.HashData(
-            Encoding.UTF8.GetBytes($"{conversation.Id:N}:{message.Text.Trim()}")));
+        // The transport message id is only unique within a conversation/provider boundary. Scope it
+        // before handing it to the router so a reused provider id can never replay another tenant's
+        // IntentResult from the process-local idempotency cache.
+        string idempotencyKey = $"{binding.TenantId:N}:{conversation.Id:N}:" +
+            (message.MessageId is { Length: > 0 } externalId
+                ? $"message:{externalId.Trim()}"
+                : $"text:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.Text.Trim())))}");
         IntentResult result = await router.RouteAsync(conversation, classification, idempotencyKey, cancellationToken).ConfigureAwait(false);
         string reply = await composer.ComposeAsync(
             new ReplyFacts(result.Facts, "I could not complete that request."), cancellationToken).ConfigureAwait(false);
