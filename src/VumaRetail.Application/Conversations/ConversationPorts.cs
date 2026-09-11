@@ -58,6 +58,7 @@ public interface IConversationStore
     Task<ConversationTurn?> FindTurnByExternalMessageIdAsync(Guid conversationId, string externalMessageId, CancellationToken cancellationToken = default);
     Task<ConversationTurn?> FindTurnByIdempotencyKeyAsync(Guid conversationId, string idempotencyKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    Task<bool> EscalateAsync(Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default);
     Task AddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
 }
 

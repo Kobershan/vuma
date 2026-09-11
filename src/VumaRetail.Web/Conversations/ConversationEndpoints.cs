@@ -27,7 +27,10 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Accepts a signature-verified WhatsApp webhook.")
             .RequireModule("conversations");
-        group.MapPost("/{conversationId:guid}/escalate", (Guid conversationId) => Results.Accepted($"/api/v1/conversations/{conversationId}"))
+        group.MapPost("/{conversationId:guid}/escalate", async (Guid conversationId, IConversationStore store, IClock clock, CancellationToken cancellationToken) =>
+            await store.EscalateAsync(conversationId, clock.UtcNow, cancellationToken).ConfigureAwait(false)
+                ? Results.Accepted($"/api/v1/conversations/{conversationId}")
+                : Results.NotFound())
             .RequirePermission(ConversationPermissions.Escalate);
         endpoints.MapVumaApi().MapGet("/d/{token}", FetchDocumentAsync)
             .WithTags("Conversations")

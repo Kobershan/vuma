@@ -29,6 +29,16 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
         await db.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<bool> EscalateAsync(Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        Conversation? conversation = await db.Conversations
+            .SingleOrDefaultAsync(x => x.Id == conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is null) return false;
+        conversation.Escalate(at);
+        await db.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
     public Task<ConversationTurn?> FindTurnByExternalMessageIdAsync(Guid conversationId, string externalMessageId, CancellationToken cancellationToken = default)
         => db.ConversationTurns.FirstOrDefaultAsync(x => x.ConversationId == conversationId && x.ExternalMessageId == externalMessageId.Trim(), cancellationToken);
 
