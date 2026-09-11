@@ -11,7 +11,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
-**Status:** NOT_STARTED · **Depends on:** 12, 14, 21, 07 · **Reference reading:** `docs/API_CONNECT.md`, `docs/DATA_MODEL.md` (connect), `docs/DECISIONS.md` ADR-056
+**Status:** IN_PROGRESS · **Depends on:** 12, 14, 21, 07 · **Reference reading:** `docs/API_CONNECT.md`, `docs/DATA_MODEL.md` (connect), `docs/DECISIONS.md` ADR-056
 
 ## Task index
 

@@ -1,6 +1,6 @@
 # STAGE 13b — Consolidated picking waves, staging states and interval counts
 
-**Status:** IN_PROGRESS (2026-09-12) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
+**Status:** COMPLETE (2026-09-12) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
 
 ## Task index
 ## Second-pass architecture and task map
