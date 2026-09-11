@@ -129,4 +129,48 @@ public sealed class Stage22RegistryTests(PostgresFixture fixture)
                 holdingCompanyId, holdingCompanyId, franchiseCompanyId, holdingCompanyId, 1m, false))
             .Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task Shared_premises_routing_is_occupancy_scoped_and_stock_projection_excludes_franchises()
+    {
+        string connectionString = await fixture.CreateDatabaseAsync();
+        Guid tenantId = UuidV7.NewGuid();
+        Guid businessId = UuidV7.NewGuid();
+
+        await using VumaRegistryDbContext registry = TestDbContextFactory.ForRegistry(
+            connectionString, TestTenantContext.For(tenantId));
+        Company owned = Company.Create(tenantId, "OWN", "Owned", "Owned", "ZAR", "en-ZA", "OW-");
+        Company franchise = Company.Create(tenantId, "FRN", "Franchise", "Franchise", "ZAR", "en-ZA", "FR-");
+        registry.Companies.AddRange(owned, franchise);
+        Premises premises = Premises.Create(tenantId, "MALL", "Mall", "1 Main Road", "-29.8,31.0");
+        registry.Premises.Add(premises);
+        await registry.SaveChangesAsync();
+
+        registry.PremisesOccupancies.AddRange(
+            PremisesOccupancy.Create(tenantId, premises.Id, owned.Id, UuidV7.NewGuid(), TestClock.DefaultStart),
+            PremisesOccupancy.Create(tenantId, premises.Id, franchise.Id, UuidV7.NewGuid(), TestClock.DefaultStart));
+        await registry.SaveChangesAsync();
+
+        var service = new Stage22RegistryService(registry, TestTenantContext.For(tenantId), new TestClock());
+        await service.AddPremisesSkuRoutingAsync(premises.Id, "600123", owned.Id, true);
+        await FluentActions.Invoking(() => service.AddPremisesSkuRoutingAsync(premises.Id, "600123", franchise.Id, true))
+            .Should().ThrowAsync<InvalidOperationException>();
+
+        await service.CreateBusinessAsync(businessId, "Retail Group", BusinessType.GroupBusiness, 0m,
+            TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "OW-");
+        await service.AddCompanyAsync(businessId, owned.Id);
+        await service.AddCompanyAsync(businessId, franchise.Id);
+        await service.AddHierarchyNodeAsync(businessId, owned.Id, HierarchyNodeType.Store, OwnershipType.Owned, null, "OW-01", true);
+        await service.AddHierarchyNodeAsync(businessId, franchise.Id, HierarchyNodeType.Store, OwnershipType.Franchised, null, "OW-02", true);
+
+        OwnedStockOnHandProjection projection = new(
+            tenantId, businessId, owned.Id, UuidV7.NewGuid(), UuidV7.NewGuid(), null,
+            10m, 1m, 1m, 8m, "EA", TestClock.DefaultStart);
+        await service.PublishOwnedStockProjectionAsync(projection);
+        (await service.ListOwnedStockAsync(businessId)).Should().ContainSingle().Which.CompanyId.Should().Be(owned.Id);
+
+        OwnedStockOnHandProjection franchiseProjection = projection with { Id = UuidV7.NewGuid(), CompanyId = franchise.Id };
+        await FluentActions.Invoking(() => service.PublishOwnedStockProjectionAsync(franchiseProjection))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
 }

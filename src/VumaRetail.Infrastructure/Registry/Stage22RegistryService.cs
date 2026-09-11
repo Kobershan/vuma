@@ -111,4 +111,75 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
         switch (action.Trim().ToLowerInvariant()) { case "approve": transfer.ApproveRegional(); break; case "accept": transfer.Accept(); break; case "decline": transfer.Decline(); break; case "reserve": transfer.Reserve(); break; case "pick": transfer.Pick(); break; case "ship": transfer.Ship(); transfer.MoveInTransit(); break; case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break; case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break; case "cancel": transfer.Cancel(); break; default: throw new ArgumentException("Unknown transfer action.", nameof(action)); }
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return transfer;
     }
+
+    public async Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default)
+    {
+        bool premisesExists = await registry.Premises.AnyAsync(
+            x => x.Id == premisesId && x.TenantId == tenant.TenantId && x.IsActive, cancellationToken).ConfigureAwait(false);
+        bool companyExists = await registry.Companies.AnyAsync(
+            x => x.Id == companyId && x.TenantId == tenant.TenantId, cancellationToken).ConfigureAwait(false);
+        bool occupant = await registry.PremisesOccupancies.AnyAsync(
+            x => x.TenantId == tenant.TenantId && x.PremisesId == premisesId && x.CompanyId == companyId && x.OccupiesTo == null,
+            cancellationToken).ConfigureAwait(false);
+        if (!premisesExists || !companyExists || !occupant)
+        {
+            throw new KeyNotFoundException("The active premises occupancy was not found.");
+        }
+
+        PremisesSkuRouting route = PremisesSkuRouting.Create(tenant.TenantId, premisesId, skuOrBarcode, companyId, isBarcode);
+        List<PremisesSkuRouting> existing = await registry.PremisesSkuRoutings
+            .Where(x => x.TenantId == tenant.TenantId && x.PremisesId == premisesId && x.IsBarcode == isBarcode)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        PremisesSkuRouting.EnsureUnique(existing, route);
+        if (existing.Any(x => string.Equals(x.SkuOrBarcode, route.SkuOrBarcode, StringComparison.OrdinalIgnoreCase) && x.CompanyId == companyId))
+        {
+            return existing.First(x => string.Equals(x.SkuOrBarcode, route.SkuOrBarcode, StringComparison.OrdinalIgnoreCase) && x.CompanyId == companyId);
+        }
+
+        registry.PremisesSkuRoutings.Add(route);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return route;
+    }
+
+    public async Task<OwnedStockOnHandProjection> PublishOwnedStockProjectionAsync(OwnedStockOnHandProjection projection, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(projection);
+        if (projection.TenantId != tenant.TenantId)
+        {
+            throw new KeyNotFoundException("The stock projection was not found.");
+        }
+        GroupHierarchyNode node = await registry.GroupHierarchyNodes.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.BusinessId == projection.BusinessId && x.CompanyId == projection.CompanyId,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("The owned hierarchy node was not found.");
+        if (!node.IsVisibilityEligible)
+        {
+            throw new InvalidOperationException("Franchised stock cannot enter the owned-stock projection.");
+        }
+        if (projection.OnHand < 0m || projection.Reserved < 0m || projection.InStaging < 0m || projection.Available < 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(projection), "Stock quantities cannot be negative.");
+        }
+
+        OwnedStockOnHandProjection? existing = await registry.OwnedStockOnHandProjections.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.BusinessId == projection.BusinessId && x.CompanyId == projection.CompanyId
+                && x.LocationId == projection.LocationId && x.ItemId == projection.ItemId && x.ItemVariantId == projection.ItemVariantId,
+            cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            throw new InvalidOperationException("A stock projection already exists for this company location and SKU.");
+        }
+
+        registry.OwnedStockOnHandProjections.Add(projection);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return projection;
+    }
+
+    public async Task<IReadOnlyList<OwnedStockOnHandProjection>> ListOwnedStockAsync(Guid businessId, Guid? companyId = null, CancellationToken cancellationToken = default)
+    {
+        return await registry.OwnedStockOnHandProjections.AsNoTracking()
+            .Where(x => x.TenantId == tenant.TenantId && x.BusinessId == businessId && (companyId == null || x.CompanyId == companyId))
+            .OrderBy(x => x.CompanyId).ThenBy(x => x.LocationId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 }
