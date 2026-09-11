@@ -33,9 +33,12 @@ public sealed class VerificationService : IVerificationService
     }
 }
 
-public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store = null) : IDocumentDeliveryService
+public sealed class DocumentDeliveryService(
+    IDocumentDeliveryTokenStore? store = null,
+    VumaRetail.Application.Abstractions.ITenantContext? tenant = null) : IDocumentDeliveryService
 {
     private readonly IDocumentDeliveryTokenStore? _store = store;
+    private readonly VumaRetail.Application.Abstractions.ITenantContext? _tenant = tenant;
     private readonly ConcurrentDictionary<string, DocumentDeliveryToken> tokens = new(StringComparer.Ordinal);
 
     public DocumentDeliveryToken Mint(ContactBinding binding, string documentReference, DateTimeOffset at)
@@ -76,7 +79,16 @@ public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store =
             return consumed?.DocumentReference;
         }
 
-        if (!tokens.TryRemove(token.Trim(), out DocumentDeliveryToken? delivery)
+        string normalized = token.Trim();
+        if (tokens.TryGetValue(normalized, out DocumentDeliveryToken? candidate)
+            && _tenant?.TenantId is { } tenantId
+            && tenantId != Guid.Empty
+            && candidate.TenantId != tenantId)
+        {
+            return null;
+        }
+
+        if (!tokens.TryRemove(normalized, out DocumentDeliveryToken? delivery)
             || !TryFetch(delivery, at))
         {
             return null;

@@ -112,6 +112,24 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public async Task In_memory_document_delivery_rejects_a_token_from_another_tenant()
+    {
+        Guid ownerTenant = Guid.NewGuid();
+        var owner = new ContactBinding(ownerTenant, "owner@example.test", Guid.NewGuid(), ConversationChannel.Email);
+        owner.Verify(At);
+        owner.GrantConsent();
+        DocumentDeliveryToken token = new(ownerTenant, owner.Id, "invoice/tenant", At);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        DocumentDeliveryService service = new(tenant: tenant);
+        service.Mint(owner, token.DocumentReference, At);
+
+        Assert.Null(await service.FetchAsync(token.Token, At.AddMinutes(1)));
+        tenant.TenantId.Returns(ownerTenant);
+        Assert.Null(await service.FetchAsync(token.Token, At.AddMinutes(1)));
+    }
+
+    [Fact]
     public void Sensitive_document_delivery_requires_verification_within_24_hours()
     {
         var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
