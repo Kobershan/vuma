@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -111,6 +112,9 @@ public static class ConversationEndpoints
         IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
         IIntentClassifier classifier,
+        IConversationStateMachine stateMachine,
+        IConversationIntentRouter router,
+        IReplyComposer composer,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -139,7 +143,7 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, clock, cancellationToken).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, clock, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
@@ -148,6 +152,9 @@ public static class ConversationEndpoints
         IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
         IIntentClassifier classifier,
+        IConversationStateMachine stateMachine,
+        IConversationIntentRouter router,
+        IReplyComposer composer,
         IClock clock,
         CancellationToken cancellationToken)
         => await InboundAsync(
@@ -156,10 +163,23 @@ public static class ConversationEndpoints
             bindingManagement,
             conversationStore,
             classifier,
+            stateMachine,
+            router,
+            composer,
             clock,
             cancellationToken).ConfigureAwait(false);
 
-    private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IContactBindingManagementService bindingManagement, IConversationStore conversationStore, IIntentClassifier classifier, IClock clock, CancellationToken cancellationToken)
+    private static async Task<IResult> InboundAsync(
+        InboundMessage message,
+        IContactResolver contacts,
+        IContactBindingManagementService bindingManagement,
+        IConversationStore conversationStore,
+        IIntentClassifier classifier,
+        IConversationStateMachine stateMachine,
+        IConversationIntentRouter router,
+        IReplyComposer composer,
+        IClock clock,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(message.Address) || string.IsNullOrWhiteSpace(message.Text))
         {
@@ -183,10 +203,48 @@ public static class ConversationEndpoints
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
         await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
         IntentClassification classification = await classifier.ClassifyAsync(message.Text, cancellationToken).ConfigureAwait(false);
-        return Results.Accepted(value: new { bindingId = binding.Id, classification.Intent, classification.Confidence });
+        ConversationState state = await stateMachine.HandleAsync(conversation, message.Text, at, cancellationToken).ConfigureAwait(false);
+
+        // A fresh, consented binding is the transport-level proof of identity. Promote the explicit
+        // state-machine verification step before allowing an intent handler to run; unverified and
+        // withdrawn contacts are classified for onboarding/audit only.
+        if (!binding.IsUsable(at) || binding.ConsentState != ConversationConsentState.Granted)
+        {
+            return Results.Accepted(value: new { bindingId = binding.Id, classification.Intent, classification.Confidence, state });
+        }
+
+        if (state == ConversationState.Verifying)
+        {
+            conversation.VerificationPassed(at);
+            state = conversation.State;
+        }
+
+        if (state is not ConversationState.Collecting and not ConversationState.Confirming)
+        {
+            return Results.Accepted(value: new { bindingId = binding.Id, classification.Intent, classification.Confidence, state });
+        }
+
+        string idempotencyKey = message.MessageId ?? Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes($"{conversation.Id:N}:{message.Text.Trim()}")));
+        IntentResult result = await router.RouteAsync(conversation, classification, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        string reply = await composer.ComposeAsync(
+            new ReplyFacts(result.Facts, "I could not complete that request."), cancellationToken).ConfigureAwait(false);
+        await conversationStore.AddTurnAsync(
+            new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Outbound, reply, clock.UtcNow),
+            cancellationToken).ConfigureAwait(false);
+        return Results.Accepted(value: new
+        {
+            bindingId = binding.Id,
+            classification.Intent,
+            classification.Confidence,
+            state = conversation.State,
+            result.ResultId,
+            result.RequiresConfirmation,
+            reply
+        });
     }
 
-    public sealed record InboundMessage(ConversationChannel Channel, string Address, string Text);
+    public sealed record InboundMessage(ConversationChannel Channel, string Address, string Text, string? MessageId = null);
     public sealed record CreateBindingRequest(ConversationChannel Channel, string Address, Guid ContactId);
     public sealed record ChallengeRequest(string Otp);
     public sealed record VerifyRequest(Guid ChallengeId, string Otp);

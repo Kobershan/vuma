@@ -32,7 +32,7 @@ public sealed class SalesOrderLineReader(VumaRetailDbContext context) : IOrderLi
             .ConfigureAwait(false);
 
         return orders
-            .Where(order => (companyScopeId is null || order.TenantId == companyScopeId.Value)
+            .Where(order => (companyScopeId is null || order.CompanyId == companyScopeId.Value)
                 && MatchesGeography(order.DeliveryGeography, geographyLevel, geographyValue))
             .SelectMany(order => order.Lines
                 .Where(line => line.LineStatus is not (SalesOrderLineStatus.Fulfilled or SalesOrderLineStatus.Cancelled))
