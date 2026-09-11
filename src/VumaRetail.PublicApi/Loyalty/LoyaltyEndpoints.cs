@@ -611,17 +611,18 @@ public static class LoyaltyEndpoints
     /// <summary>Verifies an Orbit webhook HMAC-SHA256 signature. Test seam: pure function.</summary>
     /// <param name="http">The request (headers + services for the dev-mode warning).</param>
     /// <param name="body">The raw body.</param>
-    /// <param name="secret">The configured secret. Empty means accept-and-warn (dev only).</param>
-    /// <param name="loggers">Logger factory for the dev-mode warning.</param>
+    /// <param name="secret">The configured secret. Missing configuration rejects the request.</param>
+    /// <param name="loggers">Logger factory for the configuration error.</param>
     public static bool VerifySignature(
         HttpContext http, string body, string secret, ILoggerFactory loggers)
     {
         if (string.IsNullOrEmpty(secret))
         {
-            // Dev only: no secret configured means accept-and-warn, never accept-and-silent.
+            // A missing verification secret must never turn an anonymous webhook into an
+            // unauthenticated write surface. Operators must configure the integration explicitly.
             loggers.CreateLogger("VumaRetail.PublicApi.Loyalty").LogWarning(
-                "Orbit webhook accepted without a signature: no secret is configured.");
-            return true;
+                "Orbit webhook rejected: no verification secret is configured.");
+            return false;
         }
 
         if (!http.Request.Headers.TryGetValue(SignatureHeader, out var presented)

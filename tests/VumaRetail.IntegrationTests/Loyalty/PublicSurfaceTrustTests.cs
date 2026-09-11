@@ -70,10 +70,10 @@ public sealed class PublicSurfaceTrustTests
     }
 
     [Fact]
-    public void Empty_secret_accepts_for_dev()
+    public void Empty_secret_fails_closed()
     {
         var http = new DefaultHttpContext();
         LoyaltyEndpoints.VerifySignature(http, "{}", string.Empty, NullLoggerFactory.Instance)
-            .Should().BeTrue("dev hosts configure no secret; acceptance is logged, not silent");
+            .Should().BeFalse("missing webhook configuration must not create an anonymous write surface");
     }
 }
