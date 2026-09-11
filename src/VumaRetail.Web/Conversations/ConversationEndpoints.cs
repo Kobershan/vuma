@@ -27,8 +27,8 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Accepts a signature-verified WhatsApp webhook.")
             .RequireModule("conversations");
-        group.MapPost("/{conversationId:guid}/escalate", async (Guid conversationId, IConversationStore store, IClock clock, CancellationToken cancellationToken) =>
-            await store.EscalateAsync(conversationId, clock.UtcNow, cancellationToken).ConfigureAwait(false)
+        group.MapPost("/{conversationId:guid}/escalate", async (Guid conversationId, IConversationStore store, IClock clock, ITenantContext tenant, CancellationToken cancellationToken) =>
+            await store.EscalateAsync(tenant.TenantId, conversationId, clock.UtcNow, cancellationToken).ConfigureAwait(false)
                 ? Results.Accepted($"/api/v1/conversations/{conversationId}")
                 : Results.NotFound())
             .RequirePermission(ConversationPermissions.Escalate);
@@ -36,8 +36,8 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Fetches a one-time, expiring document delivery reference.")
             .RequireModule("conversations");
-        endpoints.MapVumaApi().MapGet("/conversations/{conversationId:guid}/transcript", async (Guid conversationId, IConversationStore store, CancellationToken ct) =>
-            Results.Ok(await store.ListTurnsAsync(conversationId, ct))).RequireModule("conversations").RequirePermission(ConversationPermissions.TranscriptView);
+        endpoints.MapVumaApi().MapGet("/conversations/{conversationId:guid}/transcript", async (Guid conversationId, IConversationStore store, ITenantContext tenant, CancellationToken ct) =>
+            Results.Ok(await store.ListTurnsAsync(tenant.TenantId, conversationId, ct))).RequireModule("conversations").RequirePermission(ConversationPermissions.TranscriptView);
         RouteGroupBuilder bindings = endpoints.MapVumaApi().MapGroup("/contact-bindings")
             .WithTags("Conversations")
             .RequireModule("conversations");
@@ -233,7 +233,11 @@ public static class ConversationEndpoints
         {
             return Results.Accepted(value: new { bindingId = binding.Id, state = "duplicate" });
         }
-        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at, message.MessageId, idempotencyKey), cancellationToken).ConfigureAwait(false);
+        bool added = await conversationStore.TryAddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at, message.MessageId, idempotencyKey), cancellationToken).ConfigureAwait(false);
+        if (!added)
+        {
+            return Results.Accepted(value: new { bindingId = binding.Id, state = "duplicate" });
+        }
         ConversationState state = await stateMachine.HandleAsync(conversation, message.Text, at, cancellationToken).ConfigureAwait(false);
 
         // A fresh, consented binding is the transport-level proof of identity. Promote the explicit

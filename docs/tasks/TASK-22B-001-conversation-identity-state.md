@@ -10,7 +10,9 @@ conversation work, and persist an explicit conversation state machine.
 ## Current evidence
 
 - Durable conversation-turn idempotency keys are tenant/conversation scoped and protected by a unique
-  database index; replay survives process restart. Escalation now persists the conversation state.
+  database index; replay survives process restart. Concurrent duplicate inserts are converted to a
+  durable no-op by `TryAddTurnAsync`, rather than surfacing a provider unique-key error. Escalation
+  and transcript reads now require the tenant explicitly as well as relying on EF filters.
 
 - `ContactBinding`, `VerificationChallenge`, `Conversation`, and `ConversationTurn` exist.
 - Registry binding/challenge persistence and company conversation persistence are wired.

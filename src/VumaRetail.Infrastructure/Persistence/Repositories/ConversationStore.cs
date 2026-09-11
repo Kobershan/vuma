@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 
@@ -29,10 +30,10 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
         await db.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<bool> EscalateAsync(Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default)
+    public async Task<bool> EscalateAsync(Guid tenantId, Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default)
     {
         Conversation? conversation = await db.Conversations
-            .SingleOrDefaultAsync(x => x.Id == conversationId, cancellationToken).ConfigureAwait(false);
+            .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.Id == conversationId, cancellationToken).ConfigureAwait(false);
         if (conversation is null) return false;
         conversation.Escalate(at);
         await db.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -45,7 +46,28 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
     public Task<ConversationTurn?> FindTurnByIdempotencyKeyAsync(Guid conversationId, string idempotencyKey, CancellationToken cancellationToken = default)
         => db.ConversationTurns.FirstOrDefaultAsync(x => x.ConversationId == conversationId && x.IdempotencyKey == idempotencyKey.Trim(), cancellationToken);
 
-    public async Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default)
-        => await db.ConversationTurns.AsNoTracking().Where(x => x.ConversationId == conversationId)
+    public async Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid tenantId, Guid conversationId, CancellationToken cancellationToken = default)
+        => await db.ConversationTurns.AsNoTracking().Where(x => x.TenantId == tenantId && x.ConversationId == conversationId)
             .OrderBy(x => x.HappenedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<bool> TryAddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(turn);
+        db.ConversationTurns.Add(turn);
+        try
+        {
+            await db.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (DbUpdateException exception) when (IsIdempotencyConflict(exception))
+        {
+            db.Entry(turn).State = EntityState.Detached;
+            return false;
+        }
+    }
+
+    private static bool IsIdempotencyConflict(DbUpdateException exception)
+        => exception.InnerException is PostgresException postgres
+            && postgres.SqlState == PostgresErrorCodes.UniqueViolation
+            && (postgres.ConstraintName?.Contains("conversation", StringComparison.OrdinalIgnoreCase) ?? false);
 }

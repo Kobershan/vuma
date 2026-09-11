@@ -57,9 +57,11 @@ public interface IConversationStore
     Task<Conversation> GetOrCreateAsync(ContactBinding binding, ConversationChannel channel, DateTimeOffset at, CancellationToken cancellationToken = default);
     Task<ConversationTurn?> FindTurnByExternalMessageIdAsync(Guid conversationId, string externalMessageId, CancellationToken cancellationToken = default);
     Task<ConversationTurn?> FindTurnByIdempotencyKeyAsync(Guid conversationId, string idempotencyKey, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default);
-    Task<bool> EscalateAsync(Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid tenantId, Guid conversationId, CancellationToken cancellationToken = default);
+    Task<bool> EscalateAsync(Guid tenantId, Guid conversationId, DateTimeOffset at, CancellationToken cancellationToken = default);
     Task AddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
+    /// <summary>Atomically appends a turn; false means its durable idempotency key already exists.</summary>
+    Task<bool> TryAddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Result returned by an intent handler; it contains API facts only.</summary>
