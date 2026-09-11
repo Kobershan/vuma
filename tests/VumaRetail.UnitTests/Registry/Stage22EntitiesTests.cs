@@ -148,4 +148,38 @@ public sealed class Stage22EntitiesTests
         transfer.Reconcile(10m, "Two units damaged");
         transfer.DiscrepancyQuantity.Should().Be(-2m);
     }
+
+    [Fact]
+    public void Lined_transfer_receipt_is_monotonic_and_reallocates_cumulative_quantity()
+    {
+        var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");
+        var transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m);
+        var first = StockTransferLine.Create(Tenant, transfer.Id, Guid.NewGuid(), null, 2m, "EA", Guid.NewGuid());
+        var second = StockTransferLine.Create(Tenant, transfer.Id, null, Guid.NewGuid(), 3m, "EA", Guid.NewGuid());
+        transfer.Lines.Add(first);
+        transfer.Lines.Add(second);
+        transfer.Check(settings, false);
+        transfer.Accept();
+        transfer.Reserve();
+        transfer.Pick();
+        transfer.Ship();
+        transfer.MoveInTransit();
+
+        transfer.Receive(1m);
+        first.ReceivedQuantity.Should().Be(1m);
+        second.ReceivedQuantity.Should().Be(0m);
+        transfer.Receive(4m);
+        first.ReceivedQuantity.Should().Be(2m);
+        second.ReceivedQuantity.Should().Be(2m);
+        FluentActions.Invoking(() => transfer.Receive(3m)).Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Transfer_factory_rejects_a_line_for_another_transfer()
+    {
+        var line = StockTransferLine.Create(Tenant, Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA", Guid.NewGuid());
+        FluentActions.Invoking(() => StockTransferRequest.Create(
+                Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m, false, [line]))
+            .Should().Throw<InvalidOperationException>();
+    }
 }

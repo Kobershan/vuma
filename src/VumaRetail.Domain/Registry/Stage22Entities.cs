@@ -198,7 +198,10 @@ public sealed class StockTransferRequest
         ArgumentNullException.ThrowIfNull(lines);
         StockTransferRequest transfer = Create(tenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
         if (lines.Count == 0) throw new ArgumentException("A transfer must contain at least one line.", nameof(lines));
-        if (lines.Any(line => line.TenantId != tenantId)) throw new InvalidOperationException("Transfer lines must belong to the transfer tenant.");
+        if (lines.Any(line => line.TenantId != tenantId || line.TransferId != transfer.Id))
+        {
+            throw new InvalidOperationException("Transfer lines must belong to this transfer and tenant.");
+        }
         transfer.Lines.AddRange(lines);
         return transfer;
     }
@@ -226,8 +229,15 @@ public sealed class StockTransferRequest
     public void MoveInTransit() { Require(TransferStatus.Shipped); Status = TransferStatus.InTransit; }
     public void Receive(decimal quantity)
     {
-        Require(TransferStatus.InTransit);
+        if (Status is not (TransferStatus.InTransit or TransferStatus.Received))
+        {
+            throw Invalid();
+        }
         if (quantity < 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (ReceivedQuantity is decimal alreadyReceived && quantity < alreadyReceived)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "A subsequent receipt cannot reduce the quantity already received.");
+        }
         if (Lines.Count > 0 && quantity > Lines.Sum(line => line.Quantity))
         {
             throw new ArgumentOutOfRangeException(nameof(quantity), "Received quantity cannot exceed requested transfer lines.");
