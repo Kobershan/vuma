@@ -2,6 +2,7 @@ using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Orders;
+using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;
@@ -115,7 +116,7 @@ public abstract class ScopedDocumentIntentHandler(
             throw new InvalidOperationException("No customer account is authorized for this binding.");
         }
 
-        string reference = ResolveReference(entities, authorizedAccounts);
+        string reference = await ResolveReferenceAsync(entities, authorizedAccounts, cancellationToken).ConfigureAwait(false);
         DocumentDeliveryToken token = await delivery
             .MintAsync(binding, $"{ReferencePrefix}:{reference}", clock.UtcNow, cancellationToken)
             .ConfigureAwait(false);
@@ -126,10 +127,14 @@ public abstract class ScopedDocumentIntentHandler(
             IdempotencyKey: idempotencyKey);
     }
 
-    private string ResolveReference(
+    /// <summary>Resolves and structurally validates the requested document against authorized accounts.</summary>
+    protected virtual Task<string> ResolveReferenceAsync(
         IReadOnlyDictionary<string, string> entities,
-        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts)
+        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(entities);
+        ArgumentNullException.ThrowIfNull(authorizedAccounts);
         if (entities.TryGetValue("reference", out string? reference)
             || entities.TryGetValue("documentReference", out reference))
         {
@@ -137,12 +142,12 @@ public abstract class ScopedDocumentIntentHandler(
                 && authorizedAccounts.Any(account => string.Equals(account.AccountNumber, reference.Trim(), StringComparison.OrdinalIgnoreCase)
                     || string.Equals(account.Id.ToString("D"), reference.Trim(), StringComparison.OrdinalIgnoreCase)))
             {
-                return reference.Trim();
+                return Task.FromResult(reference.Trim());
             }
             throw new InvalidOperationException("The requested document is outside the authorized account scope.");
         }
 
-        return authorizedAccounts[0].AccountNumber;
+        return Task.FromResult(authorizedAccounts[0].AccountNumber);
     }
 }
 
@@ -169,7 +174,8 @@ public sealed class InvoiceCopyIntentHandler(
     ICustomerAccountRepository accounts,
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
-    IClock clock)
+    IClock clock,
+    IInvoiceRepository invoices)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
     /// <inheritdoc />
@@ -178,6 +184,30 @@ public sealed class InvoiceCopyIntentHandler(
     protected override string ReferencePrefix => "invoice-copy";
     /// <inheritdoc />
     protected override string EntityName => "invoice";
+
+    /// <summary>Resolves an invoice number to an existing, account-owned invoice id.</summary>
+    protected override async Task<string> ResolveReferenceAsync(
+        IReadOnlyDictionary<string, string> entities,
+        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+        ArgumentNullException.ThrowIfNull(authorizedAccounts);
+        if (!entities.TryGetValue("reference", out string? reference)
+            && !entities.TryGetValue("documentReference", out reference))
+        {
+            throw new InvalidOperationException("An invoice number is required.");
+        }
+
+        VumaRetail.Domain.Sales.Invoices.Invoice? invoice = await invoices
+            .FindByNumberAsync(reference.Trim(), cancellationToken).ConfigureAwait(false);
+        if (invoice is null || !authorizedAccounts.Any(account => account.PartnerId == invoice.CustomerId))
+        {
+            throw new InvalidOperationException("The requested invoice is outside the authorized account scope or does not exist.");
+        }
+
+        return invoice.Id.ToString("D");
+    }
 }
 
 /// <summary>Delivers proof of delivery through the verified document transport.</summary>

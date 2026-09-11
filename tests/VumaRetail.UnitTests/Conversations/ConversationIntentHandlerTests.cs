@@ -6,6 +6,8 @@ using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Domain.Sales.Invoices;
 
 namespace VumaRetail.UnitTests.Conversations;
 
@@ -64,10 +66,13 @@ public sealed class ConversationIntentHandlerTests
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(now);
         DocumentDeliveryService delivery = new();
+        IInvoiceRepository invoices = Substitute.For<IInvoiceRepository>();
+        invoices.FindByNumberAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            Invoice.Create(tenantId, null, "INV-1", scope.OperatingCompanyId, "SO-1", InvoiceSourceType.SalesOrder, account.PartnerId, "ZAR"));
 
         IConversationIntentHandler[] handlers =
         [
-            new InvoiceCopyIntentHandler(scopes, accounts, bindings, delivery, clock),
+            new InvoiceCopyIntentHandler(scopes, accounts, bindings, delivery, clock, invoices),
             new CreditNoteRequestIntentHandler(scopes, accounts, bindings, delivery, clock),
         ];
 
@@ -125,7 +130,7 @@ public sealed class ConversationIntentHandlerTests
         clock.UtcNow.Returns(now);
 
         Func<Task> action = () => new InvoiceCopyIntentHandler(
-            scopes, accounts, bindings, new DocumentDeliveryService(), clock)
+            scopes, accounts, bindings, new DocumentDeliveryService(), clock, Substitute.For<IInvoiceRepository>())
             .HandleAsync(conversation, new Dictionary<string, string>(), "idem-no-account");
 
         await action.Should().ThrowAsync<InvalidOperationException>()
