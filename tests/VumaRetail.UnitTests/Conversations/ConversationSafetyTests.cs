@@ -67,6 +67,18 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public async Task Incomplete_conversation_times_out_to_human_escalation()
+    {
+        var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, At);
+        conversation.BeginVerification(ConversationIntent.RequestStatement, At);
+
+        ConversationState state = await new ConversationStateMachine(new KeywordIntentClassifier())
+            .HandleAsync(conversation, "still here", At.AddMinutes(30));
+
+        Assert.Equal(ConversationState.Escalated, state);
+    }
+
+    [Fact]
     public void Otp_is_hashed_single_use_and_limited_to_three_attempts()
     {
         var binding = new ContactBinding(Guid.NewGuid(), "+27825550134", Guid.NewGuid(), ConversationChannel.WhatsApp);

@@ -104,6 +104,12 @@ public sealed class ConversationStateMachine(IIntentClassifier classifier) : ICo
     {
         ArgumentNullException.ThrowIfNull(conversation);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (conversation.State is not (ConversationState.Idle or ConversationState.Done or ConversationState.Escalated)
+            && at >= conversation.LastActivityAt.AddMinutes(30))
+        {
+            conversation.Escalate(at);
+            return conversation.State;
+        }
         string command = message.Trim().ToUpperInvariant();
         if (command is "AGENT" or "HELP") { conversation.Escalate(at); return conversation.State; }
         if (command is "STOP") { conversation.Escalate(at); return conversation.State; }
