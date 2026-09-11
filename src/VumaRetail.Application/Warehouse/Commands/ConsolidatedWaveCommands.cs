@@ -72,6 +72,8 @@ public sealed class BuildConsolidatedWaveCommandHandler(
             throw new InvalidOperationException("No qualifying open order lines were found for this wave.");
         }
 
+        ValidateSourceLines(sourceLines, filter);
+
         // Group by (item, variant, uom, pack size)
         var grouped = await Task.WhenAll(sourceLines
             .Select(async line =>
@@ -133,6 +135,41 @@ public sealed class BuildConsolidatedWaveCommandHandler(
         }
 
         return wave.Id;
+    }
+
+    private static void ValidateSourceLines(
+        IReadOnlyList<OrderLineSummary> lines,
+        PickWaveFilter filter)
+    {
+        HashSet<Guid> lineIds = [];
+        foreach (OrderLineSummary line in lines)
+        {
+            if (line.OrderId == Guid.Empty || line.OrderLineId == Guid.Empty)
+            {
+                throw new InvalidOperationException("A consolidated wave line must identify its order and order line.");
+            }
+
+            if (!lineIds.Add(line.OrderLineId))
+            {
+                throw new InvalidOperationException($"Order line {line.OrderLineId} was supplied more than once.");
+            }
+
+            if (line.Quantity <= 0m)
+            {
+                throw new InvalidOperationException($"Order line {line.OrderLineId} must have a positive quantity.");
+            }
+
+            if (string.IsNullOrWhiteSpace(line.UnitOfMeasure))
+            {
+                throw new InvalidOperationException($"Order line {line.OrderLineId} must have a unit of measure.");
+            }
+
+            if (!string.Equals(line.GeographyValue.Trim(), filter.GeographyValue.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Order line {line.OrderLineId} is outside the requested {filter.GeographyLevel} geography.");
+            }
+        }
     }
 }
 

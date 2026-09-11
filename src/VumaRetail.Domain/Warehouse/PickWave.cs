@@ -89,6 +89,16 @@ public sealed class PickWave : Entity
     {
         ArgumentNullException.ThrowIfNull(geographyLevel);
         ArgumentNullException.ThrowIfNull(geographyValue);
+
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A pick wave must belong to a tenant.", nameof(tenantId));
+        }
+
+        if (locationId == Guid.Empty)
+        {
+            throw new ArgumentException("A pick wave must name a location.", nameof(locationId));
+        }
         var wave = Open(tenantId, storeId, locationId);
         wave.GeographyLevel = geographyLevel.Trim();
         wave.GeographyValue = geographyValue.Trim();
@@ -96,6 +106,42 @@ public sealed class PickWave : Entity
         wave.PeriodTo = periodTo;
         wave.CompanyScopeId = companyScope;
         return wave;
+    }
+
+    /// <summary>Opens a consolidated wave with a caller-supplied id for saga-leg replay.</summary>
+    public static PickWave OpenConsolidated(
+        Guid id,
+        Guid tenantId,
+        Guid? storeId,
+        Guid locationId,
+        string geographyLevel,
+        string geographyValue,
+        DateOnly periodFrom,
+        DateOnly periodTo,
+        Guid? companyScope = null)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("A pick wave id is required.", nameof(id));
+        }
+
+        ArgumentNullException.ThrowIfNull(geographyLevel);
+        ArgumentNullException.ThrowIfNull(geographyValue);
+
+        var wave = new PickWave(id, tenantId, storeId, locationId);
+        wave.GeographyLevel = geographyLevel.Trim();
+        wave.GeographyValue = geographyValue.Trim();
+        wave.PeriodFrom = periodFrom;
+        wave.PeriodTo = periodTo;
+        wave.CompanyScopeId = companyScope;
+        return wave;
+    }
+
+    private PickWave(Guid id, Guid tenantId, Guid? storeId, Guid locationId)
+        : base(id, tenantId, storeId)
+    {
+        LocationId = locationId;
+        Status = PickWaveStatus.Open;
     }
 
     /// <summary>Releases the wave — its lines are allocated and picking may begin.</summary>

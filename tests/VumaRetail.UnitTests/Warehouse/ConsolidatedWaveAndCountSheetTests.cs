@@ -51,6 +51,47 @@ public sealed class ConsolidatedWaveAndCountSheetTests
     }
 
     [Fact]
+    public async Task Build_wave_rejects_a_line_outside_the_requested_geography()
+    {
+        Guid itemId = Guid.NewGuid();
+        IPickWaveRepository waves = Substitute.For<IPickWaveRepository>();
+        IPickWaveLineBreakdownRepository breakdowns = Substitute.For<IPickWaveLineBreakdownRepository>();
+        IPackSizeResolver packs = Substitute.For<IPackSizeResolver>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+
+        BuildConsolidatedWaveCommand command = new(
+            new PickWaveFilter(new DateOnly(2026, 9, 7), new DateOnly(2026, 9, 13), "City", "Durban", LocationId: Guid.NewGuid()),
+            [new(Guid.NewGuid(), Guid.NewGuid(), itemId, null, 1m, "EA", "Each", "Cape Town")]);
+
+        Func<Task> act = () => new BuildConsolidatedWaveCommandHandler(waves, breakdowns, packs, tenant).HandleAsync(command);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*outside the requested City geography*");
+        waves.DidNotReceive().AddWave(Arg.Any<PickWave>());
+    }
+
+    [Fact]
+    public async Task Build_wave_rejects_duplicate_order_lines_before_persisting()
+    {
+        Guid lineId = Guid.NewGuid();
+        IPickWaveRepository waves = Substitute.For<IPickWaveRepository>();
+        IPickWaveLineBreakdownRepository breakdowns = Substitute.For<IPickWaveLineBreakdownRepository>();
+        IPackSizeResolver packs = Substitute.For<IPackSizeResolver>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+
+        BuildConsolidatedWaveCommand command = new(
+            new PickWaveFilter(new DateOnly(2026, 9, 7), new DateOnly(2026, 9, 13), "City", "Durban", LocationId: Guid.NewGuid()),
+            [new(Guid.NewGuid(), lineId, null, Guid.NewGuid(), 1m, "EA", "Each", "Durban"),
+             new(Guid.NewGuid(), lineId, null, Guid.NewGuid(), 1m, "EA", "Each", "Durban")]);
+
+        Func<Task> act = () => new BuildConsolidatedWaveCommandHandler(waves, breakdowns, packs, tenant).HandleAsync(command);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage($"*{lineId}*more than once*");
+        waves.DidNotReceive().AddWave(Arg.Any<PickWave>());
+    }
+
+    [Fact]
     public async Task Count_sheet_snapshots_actual_bin_stock_and_warns_for_staging_bins()
     {
         Guid tenantId = Guid.NewGuid();
