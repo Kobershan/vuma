@@ -1,12 +1,19 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Registry;
 
 namespace VumaRetail.Infrastructure.Conversations;
 
 /// <summary>Persists explicit account/company boundaries for conversation bindings.</summary>
-public sealed class ConversationScopeManagementService(VumaRegistryDbContext registry) : IConversationScopeManagementService, IConversationScopeReader
+public sealed class ConversationScopeManagementService(
+    VumaRegistryDbContext registry,
+    IServiceScopeFactory scopes,
+    ITenantContext tenant) : IConversationScopeManagementService, IConversationScopeReader
 {
     public async Task<ConversationAccountScope> AddAsync(ConversationAccountScope scope, CancellationToken cancellationToken = default)
     {
@@ -15,6 +22,33 @@ public sealed class ConversationScopeManagementService(VumaRegistryDbContext reg
         if (!bindingExists)
         {
             throw new InvalidOperationException("Conversation binding not found.");
+        }
+
+        bool companyExists = await registry.Companies
+            .AnyAsync(x => x.Id == scope.OperatingCompanyId && x.TenantId == tenant.TenantId && x.IsActive, cancellationToken)
+            .ConfigureAwait(false);
+        if (!companyExists)
+        {
+            throw new InvalidOperationException("Conversation scope company was not found or is inactive.");
+        }
+
+        // The registry deliberately has no foreign key into company databases. Validate the pair at
+        // the company boundary before persisting it; otherwise an administrator could grant a binding
+        // an arbitrary account id under an unrelated company and the document handlers would mint a
+        // token for a scope that was never real.
+        using IServiceScope companyScope = scopes.CreateScope();
+        companyScope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenant(tenant.TenantId);
+        companyScope.ServiceProvider.GetRequiredService<ICompanyContext>().SetCompany(scope.OperatingCompanyId);
+        ICompanyDbContextFactory factory = companyScope.ServiceProvider.GetRequiredService<ICompanyDbContextFactory>();
+        await using VumaRetailDbContext companyDb = await factory
+            .CreateAsync(CompanyAccessMode.Read, cancellationToken).ConfigureAwait(false);
+        bool accountExists = await companyDb.CustomerAccounts
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == scope.CustomerAccountId && x.TenantId == tenant.TenantId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!accountExists)
+        {
+            throw new InvalidOperationException("Conversation scope account was not found in the selected company.");
         }
 
         registry.ConversationAccountScopes.Add(scope);
