@@ -76,17 +76,10 @@ public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store =
             return consumed?.DocumentReference;
         }
 
-        DocumentDeliveryToken? delivery = _store is null
-            ? tokens.GetValueOrDefault(token.Trim())
-            : await _store.FindAsync(token.Trim(), cancellationToken).ConfigureAwait(false);
-        if (delivery is null || !TryFetch(delivery, at))
+        if (!tokens.TryRemove(token.Trim(), out DocumentDeliveryToken? delivery)
+            || !TryFetch(delivery, at))
         {
             return null;
-        }
-
-        if (_store is not null)
-        {
-            await _store.SaveAsync(delivery, cancellationToken).ConfigureAwait(false);
         }
         return delivery.DocumentReference;
     }
