@@ -137,6 +137,13 @@ public interface IPickWaveRepository
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<Quantity> SumOpenAllocatedQuantityAsync(
         Guid locationId, Guid? itemId, Guid? itemVariantId, string unitOfMeasure, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns tasks allocated to shelf bins in an active released wave. Interval counts defer a
+    /// matching bin/SKU so the checker is not counting stock while a picker is actively drawing it.
+    /// </summary>
+    Task<IReadOnlyList<PickTask>> ListOpenPickingTasksAsync(
+        Guid locationId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Reads and writes <see cref="PackTask"/> rows.</summary>

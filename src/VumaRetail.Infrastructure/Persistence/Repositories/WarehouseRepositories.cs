@@ -221,6 +221,21 @@ public sealed class PickWaveRepository(VumaRetailDbContext context) : IPickWaveR
 
         return new Domain.Primitives.Quantity(total, unitOfMeasure);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PickTask>> ListOpenPickingTasksAsync(
+        Guid locationId, CancellationToken cancellationToken = default)
+        => await (
+            from task in context.PickTasks
+            join wave in context.PickWaves on task.PickWaveId equals wave.Id
+            where wave.LocationId == locationId
+                && wave.Status == PickWaveStatus.Released
+                && task.Status == PickTaskStatus.Allocated
+                && task.AllocatedBinId != null
+            select task)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 }
 
 /// <summary>EF Core implementation of <see cref="IPackTaskRepository"/>.</summary>

@@ -83,4 +83,45 @@ public sealed class ConsolidatedWaveAndCountSheetTests
         counts.Received(1).AddLine(Arg.Is<CycleCountLine>(x =>
             x.BinId == bin.Id && x.ItemId == itemId && x.SystemQuantity.Value == 6m));
     }
+
+    [Fact]
+    public async Task Count_sheet_defers_stock_from_a_bin_currently_being_picked()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid storeId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid zoneId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        Bin shelf = Bin.Create(tenantId, storeId, locationId, zoneId, "SHELF-01", "Shelf", BinType.Shelf);
+        BinStock stock = BinStock.Open(tenantId, storeId, shelf.Id, itemId, null, "EA");
+        stock.ApplyIn(new Domain.Primitives.Quantity(4m, "EA"));
+        PickWave wave = PickWave.Open(tenantId, storeId, locationId);
+        wave.Release(DateTimeOffset.UtcNow);
+        PickTask task = PickTask.Create(tenantId, storeId, wave.Id, itemId, null,
+            new Domain.Primitives.Quantity(2m, "EA"), "order-line");
+        task.Allocate(shelf.Id, new Domain.Primitives.Quantity(2m, "EA"));
+
+        CountSchedule schedule = CountSchedule.Create(
+            tenantId, storeId, "Daily shelf count", CountCadence.Daily, "shelf", 30, 1,
+            DateTimeOffset.UtcNow);
+        ICountScheduleRepository schedules = Substitute.For<ICountScheduleRepository>();
+        schedules.FindAsync(schedule.Id, Arg.Any<CancellationToken>()).Returns(schedule);
+        ICycleCountRepository counts = Substitute.For<ICycleCountRepository>();
+        IBinRepository bins = Substitute.For<IBinRepository>();
+        bins.ListActiveForLocationAsync(locationId, Arg.Any<CancellationToken>()).Returns([shelf]);
+        IBinStockRepository stocks = Substitute.For<IBinStockRepository>();
+        stocks.ListForBinAsync(shelf.Id, Arg.Any<CancellationToken>()).Returns([stock]);
+        IBinStockMovementRepository movements = Substitute.For<IBinStockMovementRepository>();
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        IPickWaveRepository waves = Substitute.For<IPickWaveRepository>();
+        waves.ListOpenPickingTasksAsync(locationId, Arg.Any<CancellationToken>()).Returns([task]);
+
+        CountSheetResponse response = await new GetCountSheetQueryHandler(
+                schedules, counts, bins, stocks, movements, clock, waves)
+            .HandleAsync(new GetCountSheetQuery(schedule.Id, locationId));
+
+        response.Counts.Should().ContainSingle();
+        counts.DidNotReceive().AddLine(Arg.Any<CycleCountLine>());
+    }
 }

@@ -91,13 +91,15 @@ public sealed record InFlightWarning(
 /// <param name="binStocks">Bin stock lookup — in-flight stock lives here.</param>
 /// <param name="movements">Movement history used to select slow movers.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="waves">Optional active-wave lookup used to defer bins currently being picked.</param>
 public sealed class GetCountSheetQueryHandler(
     ICountScheduleRepository schedules,
     ICycleCountRepository counts,
     IBinRepository bins,
     IBinStockRepository binStocks,
     IBinStockMovementRepository movements,
-    IClock clock)
+    IClock clock,
+    IPickWaveRepository? waves = null)
     : IQueryHandler<GetCountSheetQuery, CountSheetResponse>
 {
     /// <inheritdoc />
@@ -130,6 +132,14 @@ public sealed class GetCountSheetQueryHandler(
         IReadOnlyList<StockMovementActivity> activity =
             await movements.ListLastActivityForLocationAsync(query.LocationId, cancellationToken)
                 .ConfigureAwait(false);
+        IReadOnlyList<PickTask> activePickingTasks = waves is null
+            ? []
+            : await waves.ListOpenPickingTasksAsync(query.LocationId, cancellationToken)
+                .ConfigureAwait(false);
+        HashSet<(Guid BinId, Guid? ItemId, Guid? ItemVariantId)> deferred = activePickingTasks
+            .Where(task => task.AllocatedBinId is not null)
+            .Select(task => (task.AllocatedBinId!.Value, task.ItemId, task.ItemVariantId))
+            .ToHashSet();
         DateTimeOffset cutoff = now.AddDays(-schedule.SlowMoverDays);
         var activityBySku = activity.ToDictionary(
             item => (item.ItemId, item.ItemVariantId), item => item.LastMovedAt);
@@ -137,10 +147,11 @@ public sealed class GetCountSheetQueryHandler(
         // A schedule targets untouched/old stock first and adds a deterministic sample. If a new
         // deployment has no movement history yet, all stock is included so the first count is useful.
         List<(Bin Bin, BinStock Stock)> selected = activity.Count == 0
-            ? stockRows
+            ? stockRows.Where(row => !deferred.Contains((row.Bin.Id, row.Stock.ItemId, row.Stock.ItemVariantId))).ToList()
             : stockRows.Where(row => !activityBySku.TryGetValue(
                 (row.Stock.ItemId, row.Stock.ItemVariantId), out DateTimeOffset lastMoved)
                 || lastMoved <= cutoff)
+                .Where(row => !deferred.Contains((row.Bin.Id, row.Stock.ItemId, row.Stock.ItemVariantId)))
                 .OrderBy(row => activityBySku.TryGetValue(
                     (row.Stock.ItemId, row.Stock.ItemVariantId), out DateTimeOffset lastMoved)
                     ? lastMoved : DateTimeOffset.MinValue)
@@ -149,7 +160,8 @@ public sealed class GetCountSheetQueryHandler(
         if (activity.Count > 0 && schedule.RandomSampleSize > 0)
         {
             selected.AddRange(stockRows
-                .Where(row => !selected.Contains(row))
+                .Where(row => !selected.Contains(row)
+                    && !deferred.Contains((row.Bin.Id, row.Stock.ItemId, row.Stock.ItemVariantId)))
                 .OrderBy(row => StableSampleKey(row.Stock.ItemId, row.Stock.ItemVariantId))
                 .Take(schedule.RandomSampleSize));
         }
