@@ -48,7 +48,8 @@ The registry business, hierarchy, owned-stock projection, premises routing, tran
 company-local reservation/shipment/receipt saga legs, sender-cost capture, and reversible migrations
 are implemented. Stage 13's warehouse ledger is reused for transfer movements; no second inventory
 ledger was introduced. Related remainder and reverse transfers are now represented as normal registry
-transfers with explicit relation metadata and protected API routes.
+transfers with explicit relation metadata, protected API routes, replay-safe uniqueness, and immutable
+goods-movement delivery notes.
 
 Verified on 2026-09-11: focused Stage 22 unit/domain tests and PostgreSQL migration/registry tests are
 green; the complete repository integration suite is recorded separately in the handoff. The stage
