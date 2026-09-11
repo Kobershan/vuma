@@ -29,7 +29,7 @@ Validates ADR-099 and ADR-116–120 together; findings must be fixed or recorded
 ## Definition of done
 Acceptance evidence, coverage, green builds, and known limitations are documented.
 ## Status
-NOT_STARTED
+SUPERSEDED — canonical TASK-06C-12 is COMPLETE
 ## Work log
 - 2026-08-27: Planned as the integrated acceptance checkpoint.
 

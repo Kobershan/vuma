@@ -72,7 +72,17 @@ public interface IBinStockMovementRepository
     /// </summary>
     Task<bool> ExistsForReferenceAsync(
         Guid referenceId, BinStockReferenceType referenceType, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the most recent bin movement for each SKU at a location.</summary>
+    Task<IReadOnlyList<StockMovementActivity>> ListLastActivityForLocationAsync(
+        Guid locationId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Last observed warehouse movement for one SKU.</summary>
+public sealed record StockMovementActivity(
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    DateTimeOffset LastMovedAt);
 
 /// <summary>Reads and writes <see cref="PutawayTask"/> rows.</summary>
 public interface IPutawayTaskRepository
@@ -160,6 +170,8 @@ public interface IOrderLineReader
         Guid locationId,
         DateOnly periodFrom,
         DateOnly periodTo,
+        string geographyLevel,
+        string geographyValue,
         Guid? companyScopeId,
         CancellationToken cancellationToken = default);
 }
@@ -168,7 +180,7 @@ public interface IOrderLineReader
 public sealed record OrderLineSummary(
     Guid OrderId,
     Guid OrderLineId,
-    Guid ItemId,
+    Guid? ItemId,
     Guid? ItemVariantId,
     decimal Quantity,
     string UnitOfMeasure,
@@ -188,6 +200,8 @@ public sealed class EmptyOrderLineReader : IOrderLineReader
         Guid locationId,
         DateOnly periodFrom,
         DateOnly periodTo,
+        string geographyLevel,
+        string geographyValue,
         Guid? companyScopeId,
         CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<OrderLineSummary>>([]);
 }

@@ -28,7 +28,7 @@ public sealed record PreviewConsolidatedWaveResponse(
     IReadOnlyList<OrderBreakdownPreview> OrderBreakdowns);
 
 public sealed record GroupedLinePreview(
-    Guid ItemId,
+    Guid? ItemId,
     Guid? ItemVariantId,
     string UnitOfMeasure,
     string PackSize,
@@ -38,7 +38,7 @@ public sealed record GroupedLinePreview(
 public sealed record OrderBreakdownPreview(
     Guid OrderId,
     Guid OrderLineId,
-    Guid ItemId,
+    Guid? ItemId,
     decimal Quantity);
 
 public sealed record ConsolidatedWaveResponse(

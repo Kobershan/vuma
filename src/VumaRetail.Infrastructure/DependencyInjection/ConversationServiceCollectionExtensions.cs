@@ -29,6 +29,11 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<ConversationRateLimiter>();
         services.AddScoped<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationIntentHandler, OrderStatusIntentHandler>();
+        services.AddScoped<IConversationIntentHandler, StatementIntentHandler>();
+        services.AddScoped<IConversationIntentHandler, InvoiceCopyIntentHandler>();
+        services.AddScoped<IConversationIntentHandler, PodIntentHandler>();
+        services.AddScoped<IConversationIntentHandler, CreditNoteRequestIntentHandler>();
+        services.AddScoped<IConversationIntentHandler, PlaceOrderIntentHandler>();
         services.AddScoped<IConversationStateMachine, ConversationStateMachine>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ConversationPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ConversationModuleManifest>());

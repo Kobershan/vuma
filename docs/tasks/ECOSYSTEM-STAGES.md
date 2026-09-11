@@ -1,7 +1,7 @@
 # TASK-21B-001 — Implement Vuma Connect relationships and catalogues
 
 ## Status
-NOT_STARTED
+COMPLETE (2026-09-11)
 ## Stage
 Stage 21b
 ## Objective
@@ -37,7 +37,7 @@ Relationship/catalogue/order foundations are tested.
 # TASK-21B-002 — Implement Connect settlement and supplier portal
 
 ## Status
-NOT_STARTED
+IN PROGRESS (2026-09-11)
 ## Stage
 Stage 21b
 ## Objective
@@ -69,6 +69,34 @@ Exposes the Stage 21 payment abstraction reused by 30b.
 ## Definition of Done
 All Stage 21b exit items have evidence.
 ## Follow-up
+
+## Work log
+
+2026-09-11: Existing relationship/code/catalogue/price foundation verified (StoreServer build green;
+8 original Connect tests green). Added a connection-scoped order aggregate with partial confirmation,
+rejection, dispatch/ASN and receipt transitions, plus focused tests. Persisted order/ASN/GRN adapters,
+claim/credit-note flow, and the full cross-tenant integration suite remain open.
+
+2026-09-11: Added `IPaymentGateway`, `ISettlementProvider`, and `IConnectLedgerPoster` contracts,
+deterministic non-money-moving provider fakes, and `docs/compliance/VUMA-CONNECT-PAYMENTS.md`.
+AP/AR posting orchestration, remittance persistence, supplier portal UI, discovery, network-insight
+suppression, and replication acceptance tests remain open.
+
+2026-09-11: Completed the executable Connect API slices: persisted idempotent remittance advice
+with capture-before-ledger ordering, paired AP/AR posting boundary, tenant-scoped supplier directory
+and order-board queries, and retailer claims with supplier credit-note or rejection resolution. Added
+reversible migrations and 11 focused domain tests; the StoreServer build is green with 0 errors.
+
+2026-09-12: Repaired the main-context migration chain with a generated `Stage21b_ConnectModel`
+migration and executable Connect schema creation for connections, codes, catalogues, price proposals,
+orders, remittances and claims. Added a real PostgreSQL persistence/isolation test covering supplier,
+retailer and outsider access plus catalogue and price-proposal persistence; it passes 1/1.
+The shared migration reversal suite also passes 9/9, and `has-pending-model-changes` is clean.
+
+2026-09-12: Added independent Connect permission/manifest verification; the five Connect unit tests
+covering settlement/replay and permission boundaries pass 14/14. The API surface is mapped under the
+Connect module and all writes carry explicit Connect permissions. Supplier portal UI/design-system
+evidence, full order/ASN/GRN and cross-tenant API integration coverage remain open.
 
 # TASK-22B-001 — Implement conversational identity and state machine
 

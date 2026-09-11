@@ -22,7 +22,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-11-001 | Verify data-import stage gaps | Stage 06; Stages 08/10 targets | NEEDS_VERIFICATION |
+| TASK-11-001 | Verify data-import stage gaps | Stage 06; Stages 08/10 targets | COMPLETE |
 
 ## Objective
 

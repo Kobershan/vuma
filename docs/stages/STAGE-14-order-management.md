@@ -27,7 +27,7 @@ decisions this stage makes).
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-14-001 | Verify reopened order-management stage | Stages 10, 13, 08c | NEEDS_VERIFICATION |
+| TASK-14-001 | Verify reopened order-management stage | Stages 10, 13, 08c | COMPLETE |
 
 ## Objective
 

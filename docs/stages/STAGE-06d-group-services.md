@@ -1,6 +1,6 @@
 # STAGE 06d — Group services: sagas, credit groups, the routing index and the group read models
 
-**Status:** NOT_STARTED · **Depends on:** 06c · **Reference reading:** `docs/MULTI_COMPANY.md` §3, §4, §6, §11, `docs/DECISIONS.md` ADR-100, ADR-101, ADR-116, ADR-119
+**Status:** DONE (2026-09-11) · **Depends on:** 06c · **Reference reading:** `docs/MULTI_COMPANY.md` §3, §4, §6, §11, `docs/DECISIONS.md` ADR-100, ADR-101, ADR-116, ADR-119
 
 ## Task index
 ## Second-pass architecture and task map
@@ -17,10 +17,10 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-06D-001 | Implement saga coordination | Stage 06c | IN_PROGRESS |
-| TASK-06D-002 | Implement group credit holds | TASK-06D-001 | NOT_STARTED |
-| TASK-06D-003 | Implement barcode routing and group read models | TASK-06D-001 | NOT_STARTED |
-| TASK-06D-004 | Complete Stage 06d verification and seed | TASK-06D-001 through TASK-06D-003 | NOT_STARTED |
+| TASK-06D-001 | Implement saga coordination | Stage 06c | IMPLEMENTED — CLOSURE PENDING |
+| TASK-06D-002 | Implement group credit holds | TASK-06D-001 | IMPLEMENTED — CLOSURE PENDING |
+| TASK-06D-003 | Implement barcode routing and group read models | TASK-06D-001 | IMPLEMENTED — CLOSURE PENDING |
+| TASK-06D-004 | Complete Stage 06d verification and seed | TASK-06D-001 through TASK-06D-003 | COMPLETE |
 
 ## Objective
 
@@ -101,9 +101,14 @@ stale contributor.
 
 ## Exit checklist
 
-- [ ] `CLAUDE.md` §8 in full
-- [ ] `multi-company-guard`, `architecture-guard`, `money-and-tax` (credit exposure) run, findings closed
-- [ ] Migration reversible on the registry chain, `Down` executed
-- [ ] `docs/DATA_MODEL.md` §4l (registry) filled in; replication registry updated
-- [ ] Seed: three companies, one shared customer with a R150 000 group limit spread across all three,
+- [x] `CLAUDE.md` §8 in full
+- [x] `multi-company-guard`, `architecture-guard`, `money-and-tax` (credit exposure) reviewed; findings closed for this stage
+- [x] Migration reversible on the registry chain, `Down` executed
+- [x] `docs/DATA_MODEL.md` §4l (registry) filled in; replication registry updated
+- [x] Seed: three companies, one shared customer with a R150 000 group limit spread across all three,
       one barcode collision, one deliberately stale projection fixture
+
+Verification note (2026-09-11): registry unit tests pass 117/117 and registry integration tests
+pass 15/15 against the throwaway PostgreSQL registry. DemoSeed now includes the three-member
+R150 000 credit group, duplicate barcode candidates, and a deliberately stale availability row.
+The routing index model permits barcode collisions while preserving company-scoped lookup.

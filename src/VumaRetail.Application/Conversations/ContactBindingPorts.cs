@@ -5,6 +5,8 @@ namespace VumaRetail.Application.Conversations;
 /// <summary>Tenant-side administration of channel bindings and OTP challenges.</summary>
 public interface IContactBindingManagementService
 {
+    /// <summary>Finds one binding owned by the current tenant.</summary>
+    Task<ContactBinding?> FindAsync(Guid bindingId, CancellationToken cancellationToken = default);
     /// <summary>Creates a tenant-owned binding.</summary>
     Task<ContactBinding> CreateAsync(ContactBinding binding, CancellationToken cancellationToken = default);
     /// <summary>Lists tenant-owned bindings with optional filters.</summary>

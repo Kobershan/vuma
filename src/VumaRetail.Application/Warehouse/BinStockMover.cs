@@ -56,6 +56,17 @@ public interface IBinStockMover
         Guid pickTaskId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Confirms a pick and places the picked quantity into a consolidation bin.</summary>
+    Task<(BinStockMovement Out, BinStockMovement In)> PickToStagingAsync(
+        Bin source,
+        Bin destination,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity pickedQuantity,
+        Quantity reservedQuantity,
+        Guid pickTaskId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Moves stock from one bin to another within the same location.</summary>
     /// <param name="source">Where the stock leaves.</param>
     /// <param name="destination">Where the stock arrives.</param>
@@ -134,6 +145,48 @@ public sealed class BinStockMover(IBinStockRepository binStocks, IBinStockMoveme
     }
 
     /// <inheritdoc />
+    public async Task<(BinStockMovement Out, BinStockMovement In)> PickToStagingAsync(
+        Bin source,
+        Bin destination,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity pickedQuantity,
+        Quantity reservedQuantity,
+        Guid pickTaskId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        if (destination.Type is not BinType.Consolidation and not BinType.Packing and not BinType.Dispatch)
+        {
+            throw new ArgumentException("The destination must be a staging bin.", nameof(destination));
+        }
+
+        BinStock? sourceBalance = await binStocks.FindAsync(source.Id, itemId, itemVariantId, cancellationToken)
+            .ConfigureAwait(false);
+        if (sourceBalance is null)
+        {
+            throw WarehouseRuleException.InsufficientBinStock(Quantity.Zero(pickedQuantity.UnitOfMeasure), pickedQuantity);
+        }
+
+        sourceBalance.ApplyOut(pickedQuantity);
+        sourceBalance.ReleaseReservation(reservedQuantity);
+        BinStock destinationBalance = await OpenOrFindAsync(
+            destination, itemId, itemVariantId, pickedQuantity.UnitOfMeasure, cancellationToken).ConfigureAwait(false);
+        destinationBalance.ApplyIn(pickedQuantity);
+
+        BinStockMovement outMovement = BinStockMovement.Post(
+            source.TenantId, source.StoreId, source.Id, itemId, itemVariantId,
+            BinStockMovementType.PickReserve, -pickedQuantity, BinStockReferenceType.Pick, pickTaskId);
+        BinStockMovement inMovement = BinStockMovement.Post(
+            destination.TenantId, destination.StoreId, destination.Id, itemId, itemVariantId,
+            BinStockMovementType.ConsolidationIn, pickedQuantity, BinStockReferenceType.Pick, pickTaskId);
+        movements.Add(outMovement);
+        movements.Add(inMovement);
+        return (outMovement, inMovement);
+    }
+
+    /// <inheritdoc />
     public async Task<(BinStockMovement Out, BinStockMovement In)> InternalTransferAsync(
         Bin source,
         Bin destination,
@@ -155,8 +208,9 @@ public sealed class BinStockMover(IBinStockRepository binStocks, IBinStockMoveme
 
         sourceBalance.ApplyOut(quantity);
 
+        BinStockMovementMovementTypes types = MovementTypesFor(source.Type, destination.Type);
         BinStockMovement outMovement = BinStockMovement.Post(
-            source.TenantId, source.StoreId, source.Id, itemId, itemVariantId, BinStockMovementType.InternalTransferOut,
+            source.TenantId, source.StoreId, source.Id, itemId, itemVariantId, types.Out,
             -quantity, BinStockReferenceType.InternalTransfer, transferId);
 
         movements.Add(outMovement);
@@ -165,13 +219,34 @@ public sealed class BinStockMover(IBinStockRepository binStocks, IBinStockMoveme
         destinationBalance.ApplyIn(quantity);
 
         BinStockMovement inMovement = BinStockMovement.Post(
-            destination.TenantId, destination.StoreId, destination.Id, itemId, itemVariantId, BinStockMovementType.InternalTransferIn,
+            destination.TenantId, destination.StoreId, destination.Id, itemId, itemVariantId, types.In,
             quantity, BinStockReferenceType.InternalTransfer, transferId);
 
         movements.Add(inMovement);
 
         return (outMovement, inMovement);
     }
+
+    private static BinStockMovementMovementTypes MovementTypesFor(BinType source, BinType destination)
+    {
+        BinStockMovementType inType = destination switch
+        {
+            BinType.Consolidation => BinStockMovementType.ConsolidationIn,
+            BinType.Packing => BinStockMovementType.PackingIn,
+            BinType.Dispatch => BinStockMovementType.DispatchIn,
+            _ => BinStockMovementType.InternalTransferIn
+        };
+        BinStockMovementType outType = source switch
+        {
+            BinType.Consolidation => BinStockMovementType.ConsolidationOut,
+            BinType.Packing => BinStockMovementType.PackingOut,
+            BinType.Dispatch => BinStockMovementType.DispatchOut,
+            _ => BinStockMovementType.InternalTransferOut
+        };
+        return new BinStockMovementMovementTypes(outType, inType);
+    }
+
+    private readonly record struct BinStockMovementMovementTypes(BinStockMovementType Out, BinStockMovementType In);
 
     private async Task<BinStock> OpenOrFindAsync(
         Bin bin, Guid? itemId, Guid? itemVariantId, string unitOfMeasure, CancellationToken cancellationToken)

@@ -185,4 +185,13 @@ public static class Schemas
 
     /// <summary>Conversation state, append-only turns, and delivery tokens. Stage 22b.</summary>
     public const string Conversations = "conversations";
+
+    /// <summary>Employees, contracts and leave. Stage 25.</summary>
+    public const string HrManagement = "hr_management";
+
+    /// <summary>Shifts, rosters and attendance. Stage 26.</summary>
+    public const string HrWorkforce = "hr_workforce";
+
+    /// <summary>Supplier/retailer connections, published catalogues and price proposals. Stage 21b.</summary>
+    public const string Connect = "connect";
 }

@@ -1,7 +1,11 @@
 # TASK-09-001 — Verify reopened POS and hardware stage
 
+> Status reconciliation note (2026-09-11): legacy entries in this historical register are superseded
+> where a canonical task file exists. Canonical stage/task documents are authoritative; this file now
+> records only genuine closure work and explicitly labels duplicate records as SUPERSEDED.
+
 ## Status
-NEEDS_VERIFICATION
+COMPLETE (2026-09-11)
 ## Stage
 Stage 09
 ## Objective
@@ -37,7 +41,7 @@ All open evidence gaps are resolved or explicitly tracked.
 # TASK-09B-001 — Implement mixed-basket transaction and per-company invoices
 
 ## Status
-BLOCKED
+SUPERSEDED — canonical TASK-09B-001 is COMPLETE
 ## Stage
 Stage 09b
 ## Objective
@@ -250,6 +254,14 @@ Verification only.
 Stage can leave REOPENED state.
 ## Follow-up
 
+## Verification record (2026-09-11)
+
+- Unit verification passed: 53 procurement document/match tests.
+- The implementation includes caller-supplied goods-receipt identity replay and release-time cumulative
+  invoice checks before advancing purchase-order quantities.
+- PostgreSQL integration verification passed: `ProcurementCommandTests` 15/15 against the throwaway
+  PostgreSQL fixture, including the database-backed duplicate-GRN and duplicate-invoice/payment paths.
+
 # TASK-13-001 — Verify reopened warehouse stage
 
 ## Status
@@ -393,6 +405,15 @@ Verification only.
 ## Definition of Done
 Stage no longer relies on unverified claims.
 ## Follow-up
+
+## Verification record (2026-09-11)
+
+- Unit verification passed: 16 revision-4 rework tests covering geography snapshots, click-and-collect,
+  COD dispatch/payment and driver-collect gates, reservation pointers, and order dispatch authorization.
+- The implementation is wired to the 08c reservation/availability ports and the warehouse dispatch gate.
+- PostgreSQL integration verification remains pending on this machine: the required Docker/local
+  PostgreSQL test service is unavailable. The concurrent-confirm, COD ship, cancel-release, and wave
+  snapshot acceptance scenarios must still be rerun against real PostgreSQL before closing the task.
 
 # TASK-14B-001 — Implement field-sales proposals and approval
 

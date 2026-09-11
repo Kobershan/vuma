@@ -360,7 +360,6 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                         .HasName("pk_catalog_routing_index");
 
                     b.HasIndex("TenantId", "Barcode")
-                        .IsUnique()
                         .HasDatabaseName("ix_catalog_routing_index_tenant_id_barcode");
 
                     b.HasIndex("TenantId", "CompanyId", "Barcode")

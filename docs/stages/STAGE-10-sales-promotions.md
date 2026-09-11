@@ -9,6 +9,8 @@ movement), **ADR-072** (the field this stage fills in), **ADR-073** (a refused s
 fail the document).
 
 ## Task index
+
+Verification note (2026-09-12): the Stage 10 Sales unit filter passed 166/166 tests, covering pricing, promotions, returns, quotes, invoices, and analytics. TASK-10-001 is therefore closed.
 ## Second-pass architecture and task map
 
 The existing objective, deliverables, business rules, acceptance criteria, and referenced documents in this stage remain authoritative. Use [the architecture map](../ARCHITECTURE.md) for project and boundary rules, then load only the references named by the eventual task.
@@ -23,7 +25,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-10-001 | Verify reopened sales and promotions stage | Stage 09 verification | NEEDS_VERIFICATION |
+| TASK-10-001 | Verify reopened sales and promotions stage | Stage 09 verification | COMPLETE |
 
 ## Objective
 

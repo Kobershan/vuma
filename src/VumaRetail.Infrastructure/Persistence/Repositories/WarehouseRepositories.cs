@@ -128,6 +128,23 @@ public sealed class BinStockMovementRepository(VumaRetailDbContext context) : IB
         => context.BinStockMovements.AnyAsync(
             movement => movement.ReferenceId == referenceId && movement.ReferenceType == referenceType,
             cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StockMovementActivity>> ListLastActivityForLocationAsync(
+        Guid locationId, CancellationToken cancellationToken = default)
+    {
+        var rows = await (
+            from movement in context.BinStockMovements.AsNoTracking()
+            join bin in context.Bins.AsNoTracking() on movement.BinId equals bin.Id
+            where bin.LocationId == locationId
+            group movement by new { movement.ItemId, movement.ItemVariantId } into sku
+            select new { sku.Key.ItemId, sku.Key.ItemVariantId, LastMovedAt = sku.Max(x => x.CreatedAt) })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return [.. rows.Select(row => new StockMovementActivity(
+            row.ItemId, row.ItemVariantId, row.LastMovedAt))];
+    }
 }
 
 /// <summary>EF Core implementation of <see cref="IPutawayTaskRepository"/>.</summary>

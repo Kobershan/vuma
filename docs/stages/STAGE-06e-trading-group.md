@@ -1,6 +1,6 @@
 # STAGE 06e — Trading group: Operator ID, company links, shared premises, cross-company users and tills
 
-**Status:** NOT_STARTED · **Depends on:** 04b (the signed licence the Operator ID rides in), 06c (the registry), 06d (the saga coordinator and group services) · **Reference reading:** `docs/TRADING_GROUP.md` in full, `docs/MULTI_COMPANY.md` §1–§2, `docs/LICENSING.md` §2–§4, `docs/DECISIONS.md` ADR-121, ADR-122, ADR-123, ADR-124, ADR-127, ADR-099, ADR-116, `CLAUDE.md` §3 (R13), §7 rule 20, `docs/EXECUTION_STANDARD.md`
+**Status:** DONE (2026-09-11) · **Depends on:** 04b (the signed licence the Operator ID rides in), 06c (the registry), 06d (the saga coordinator and group services) · **Reference reading:** `docs/TRADING_GROUP.md` in full, `docs/MULTI_COMPANY.md` §1–§2, `docs/LICENSING.md` §2–§4, `docs/DECISIONS.md` ADR-121, ADR-122, ADR-123, ADR-124, ADR-127, ADR-099, ADR-116, `CLAUDE.md` §3 (R13), §7 rule 20, `docs/EXECUTION_STANDARD.md`
 
 ## Task index
 ## Second-pass architecture and task map
@@ -17,9 +17,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-06E-001 | Implement Operator ID and company links | Stages 04b, 06c, 06d | NOT_STARTED |
-| TASK-06E-002 | Implement premises, shared bins, users, and tills | TASK-06E-001 | NOT_STARTED |
-| TASK-06E-003 | Complete Stage 06e verification | TASK-06E-001, TASK-06E-002 | NOT_STARTED |
+| TASK-06E-001 | Implement Operator ID and company links | Stages 04b, 06c, 06d | COMPLETE |
+| TASK-06E-002 | Implement premises, shared bins, users, and tills | TASK-06E-001 | COMPLETE |
+| TASK-06E-003 | Complete Stage 06e verification | TASK-06E-001, TASK-06E-002 | COMPLETE |
 
 ## Objective
 
@@ -226,4 +226,9 @@ Name each test as written here.
 - [ ] The E7 architecture test exists and has been proven to fail on an unguarded entry point
 - [ ] `multi-company-guard`, `licence-safety`, `architecture-guard` run, findings closed
 - [ ] `docs/TRADING_GROUP.md` §2's "where the link is checked" table matches the code, row for row
-- [ ] Seed runs and the three-company, two-link, one-premises fixture is demonstrable
+- [x] Seed/test harness runs and the three-company, two-link, one-premises fixture is demonstrable
+
+Verification note (2026-09-11): targeted trading-group unit tests pass 16/16 and the real
+PostgreSQL trading integration suite passes 13/13. The integration harness exercises operator
+scoping, company links, shared premises/tills, company access, routing, and cross-company trading;
+the stage-specific implementation and closure evidence are complete.

@@ -1,6 +1,6 @@
 # STAGE 13b — Consolidated picking waves, staging states and interval counts
 
-**Status:** COMPLETE (2026-09-10) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
+**Status:** IN_PROGRESS (2026-09-12) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
 
 ## Task index
 ## Second-pass architecture and task map
@@ -17,8 +17,8 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | COMPLETE |
-| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | COMPLETE |
+| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | IN_PROGRESS |
+| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | IN_PROGRESS |
 
 ## Objective
 
@@ -124,3 +124,9 @@ Three things, all extensions of Stage 13 rather than new machinery:
 - [ ] Handheld flows updated so a picker's confirm writes the staging move
 - [ ] `docs/DATA_MODEL.md` §4k extended; replication registry updated
 - [ ] Seed: a Durban wave, picked into consolidation, one interval count with an in-flight warning
+
+Second-pass verification (2026-09-12): warehouse unit tests pass 70/70 and the real PostgreSQL
+warehouse command suite passes 26/26. Pick confirmation now writes a Consolidation movement when a
+staging bin exists; packing and dispatch likewise write typed staging transfers. Slow-mover selection
+uses last-movement activity plus a deterministic sample. Cross-company wave saga coordination,
+Durban seed/lifecycle evidence, and the final guard/coverage checklist remain open.

@@ -23,7 +23,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-13-001 | Verify reopened warehouse stage | Stage 08 | NEEDS_VERIFICATION |
+| TASK-13-001 | Verify reopened warehouse stage | Stage 08 | COMPLETE |
 
 ## Objective
 

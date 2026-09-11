@@ -75,22 +75,41 @@ public sealed record CountSheetLine(
 
 /// <summary>Generates a count sheet for a schedule — the list of bins and stock-keeping units to count.</summary>
 /// <param name="ScheduleId">The schedule to generate a sheet for.</param>
-public sealed record GenerateCountSheetQuery(Guid ScheduleId) : IQuery<IReadOnlyList<CountSheetLine>>;
+/// <param name="LocationId">The location whose active bins are listed.</param>
+public sealed record GenerateCountSheetQuery(Guid ScheduleId, Guid LocationId) : IQuery<IReadOnlyList<CountSheetLine>>;
 
 /// <summary>
 /// Generates a count sheet from a schedule. The sheet lists the bins and stock-keeping units
 /// the schedule targets, ready for counting. The actual count rows are created when
 /// the sheet is recorded (Stage 13).
 /// </summary>
-public sealed class GenerateCountSheetQueryHandler
+public sealed class GenerateCountSheetQueryHandler(
+    ICountScheduleRepository schedules,
+    IBinRepository bins,
+    IBinStockRepository binStocks)
     : IQueryHandler<GenerateCountSheetQuery, IReadOnlyList<CountSheetLine>>
 {
     /// <inheritdoc />
-    public Task<IReadOnlyList<CountSheetLine>> HandleAsync(GenerateCountSheetQuery query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CountSheetLine>> HandleAsync(GenerateCountSheetQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        if (await schedules.FindAsync(query.ScheduleId, cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new WarehouseNotFoundException("count schedule", query.ScheduleId);
+        }
 
-        // The actual generation is a stub - full implementation in Stage 13b
-        return Task.FromResult<IReadOnlyList<CountSheetLine>>([]);
+        IReadOnlyList<Bin> locationBins = await bins.ListActiveForLocationAsync(query.LocationId, cancellationToken)
+            .ConfigureAwait(false);
+        var lines = new List<CountSheetLine>();
+        foreach (Bin bin in locationBins)
+        {
+            IReadOnlyList<BinStock> stock = await binStocks.ListForBinAsync(bin.Id, cancellationToken)
+                .ConfigureAwait(false);
+            lines.AddRange(stock.Select(balance => new CountSheetLine(
+                bin.Id, bin.Code, bin.Name, balance.ItemId, balance.ItemVariantId,
+                balance.QuantityOnHand)));
+        }
+
+        return lines;
     }
 }

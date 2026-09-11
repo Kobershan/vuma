@@ -29,7 +29,7 @@ Publishes ADR-118 lifecycle and ADR-099 routing without adding a cross-company t
 ## Definition of done
 API, permissions, contracts, tests, OpenAPI and review evidence are green.
 ## Status
-NOT_STARTED
+SUPERSEDED — canonical TASK-06C-11 is COMPLETE
 ## Work log
 - 2026-08-27: Planned after lifecycle and serving guard foundations.
 

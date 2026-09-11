@@ -29,7 +29,7 @@ Validates, but does not silently amend, ADR-099 and ADR-116–120; proposed chan
 ## Definition of done
 Panel evidence, closed findings, rerun results and limitations are recorded.
 ## Status
-NOT_STARTED
+SUPERSEDED — canonical TASK-06C-13 is COMPLETE
 ## Work log
 - 2026-08-27: Planned as the mandatory pre-closure review session.
 

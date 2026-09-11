@@ -53,8 +53,10 @@ using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Partners;
+using VumaRetail.Domain.Planning;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Procurement;
 using VumaRetail.Domain.Warehouse;
 using VumaRetail.Domain.Workflow;
@@ -198,6 +200,9 @@ public static class DemoSeed
         Guid freshFarm = await EnsurePartnerAsync(
             provider, context, "FRESHFARM", "Fresh Farm Distributors", PartnerType.Supplier, "orders@freshfarm.example", cancellationToken)
             .ConfigureAwait(false);
+
+        await SeedGroupServicesAsync(provider, registry, johannesburg.Id, milk, cancellationToken)
+            .ConfigureAwait(false);
         Guid corpClient = await EnsurePartnerAsync(
             provider, context, "CORPCLIENT", "Corporate Client (Pty) Ltd", PartnerType.Customer, "accounts@corpclient.example", cancellationToken)
             .ConfigureAwait(false);
@@ -222,6 +227,7 @@ public static class DemoSeed
         await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedFieldSalesAsync(provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedCrmLoyaltyAsync(provider, context, corpClient, cancellationToken).ConfigureAwait(false);
+        await SeedPlanningAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
 
         Guid giftPack = await EnsureItemAsync(
             provider, context, "GIFT-PACK", "Vuma breakfast gift pack", ItemType.Stock, each,
@@ -229,6 +235,120 @@ public static class DemoSeed
             .ConfigureAwait(false);
         await SeedManufacturingAsync(provider, context, giftPack, milk, shirt, shirtMedRed, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>Seeds a small, idempotent Stage 15 planning history and current snapshots.</summary>
+    private static async Task SeedPlanningAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid locationId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.DemandHistories.AnyAsync(
+                row => row.TenantId == DemoTenantId && row.CompanyId == DemoCompanyId
+                    && row.LocationId == locationId && row.ItemId == itemId,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IClock clock = provider.GetRequiredService<IClock>();
+        DateOnly currentWeek = StartOfPlanningWeek(DateOnly.FromDateTime(clock.UtcNow.UtcDateTime));
+        for (int weeksAgo = 8; weeksAgo >= 1; weeksAgo--)
+        {
+            DateOnly start = currentWeek.AddDays(-7 * weeksAgo);
+            context.DemandHistories.Add(DemandHistory.Create(
+                DemoTenantId, DemoCompanyId, locationId, itemId, null, start, start.AddDays(6),
+                18m + weeksAgo, "EA", clock.UtcNow));
+        }
+
+        context.ReplenishmentParameters.Add(ReplenishmentParameter.Create(
+            DemoTenantId, DemoCompanyId, locationId, itemId, null, ForecastMethod.MovingAverage,
+            95m, 7, 7, "EA"));
+        context.DemandForecasts.Add(DemandForecast.CreateVersion1(
+            DemoTenantId, DemoCompanyId, itemId, null, locationId, currentWeek.AddDays(7),
+            ForecastMethod.MovingAverage, 24m, 0.08m, 0.02m, clock.UtcNow));
+        context.SafetyStockCalculations.Add(SafetyStockCalculation.Create(
+            DemoTenantId, DemoCompanyId, locationId, itemId, null, 24m, 9m, 95m, 8, 7,
+            8m, 32m, false, "variance", clock.UtcNow));
+        context.OpenToBuyBudgets.Add(OpenToBuyBudget.Create(
+            DemoTenantId, DemoCompanyId, clock.UtcNow.Year, clock.UtcNow.Month, null, 50000m, "ZAR"));
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static DateOnly StartOfPlanningWeek(DateOnly date)
+    {
+        int offset = ((int)date.DayOfWeek + 6) % 7;
+        return date.AddDays(-offset);
+    }
+
+    /// <summary>
+    /// Seeds the Stage 06d group-service evidence: a shared R150 000 credit group, three
+    /// company members, a deliberately colliding barcode, and three availability contributions.
+    /// Registry projections remain read-only evidence and are never used as a commit source.
+    /// </summary>
+    private static async Task SeedGroupServicesAsync(
+        IServiceProvider provider,
+        VumaRegistryDbContext registry,
+        Guid locationId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        IClock clock = provider.GetRequiredService<IClock>();
+        Guid companyB = Guid.Parse("01900000-0000-7000-8000-0000000000c1");
+        Guid companyC = Guid.Parse("01900000-0000-7000-8000-0000000000c2");
+
+        CreditGroup? group = await registry.CreditGroups
+            .FirstOrDefaultAsync(x => x.TenantId == DemoTenantId && x.Name == "Demo shared customer group", cancellationToken)
+            .ConfigureAwait(false);
+        if (group is null)
+        {
+            group = new CreditGroup(DemoTenantId, "Demo shared customer group", "Receivable", 150000m, "ZAR");
+            registry.CreditGroups.Add(group);
+            registry.CreditGroupMembers.AddRange(
+                new CreditGroupMember(group.Id, DemoCompanyId, 50000m, DemoTenantId),
+                new CreditGroupMember(group.Id, companyB, 50000m, DemoTenantId),
+                new CreditGroupMember(group.Id, companyC, 50000m, DemoTenantId));
+        }
+
+        if (!await registry.CatalogRoutingIndex.AnyAsync(
+                x => x.TenantId == DemoTenantId && x.Barcode == "6009880999999", cancellationToken)
+            .ConfigureAwait(false))
+        {
+            registry.CatalogRoutingIndex.AddRange(
+                new CatalogRoutingIndexEntry
+                {
+                    Id = UuidV7.NewGuid(), TenantId = DemoTenantId, CompanyId = DemoCompanyId,
+                    CompanyCode = "DEMO-A", Barcode = "6009880999999", ItemId = itemId,
+                    ItemCode = "MILK-2L", Description = "Milk from demo company A", AsAt = clock.UtcNow,
+                },
+                new CatalogRoutingIndexEntry
+                {
+                    Id = UuidV7.NewGuid(), TenantId = DemoTenantId, CompanyId = companyB,
+                    CompanyCode = "DEMO-B", Barcode = "6009880999999", ItemId = itemId,
+                    ItemCode = "MILK-2L", Description = "Milk from demo company B", AsAt = clock.UtcNow,
+                });
+        }
+
+        foreach ((Guid companyId, string code, decimal onHand) in new[]
+        {
+            (DemoCompanyId, "DEMO-A", 120m), (companyB, "DEMO-B", 80m), (companyC, "DEMO-C", 40m),
+        })
+        {
+            bool exists = await registry.GroupAvailabilityRows.AnyAsync(
+                x => x.TenantId == DemoTenantId && x.CompanyId == companyId && x.LocationId == locationId && x.ItemId == itemId,
+                cancellationToken).ConfigureAwait(false);
+            if (!exists)
+            {
+                DateTimeOffset publishedAt = companyId == companyC ? clock.UtcNow.AddDays(-2) : clock.UtcNow;
+                registry.GroupAvailabilityRows.Add(GroupAvailabilityRow.Publish(
+                    DemoTenantId, companyId, code, locationId, itemId, null, onHand, 10m, 0m, "EA", publishedAt));
+            }
+        }
+
+        await registry.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Seeds Stage 16 with one published, multi-component BOM and an ordered routing.</summary>

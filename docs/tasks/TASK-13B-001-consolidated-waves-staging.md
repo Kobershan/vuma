@@ -1,6 +1,6 @@
 # TASK-13B-001 — Consolidated waves and staging states
 
-**Status:** NOT_STARTED · **Stage:** 13b · **Type:** Build (domain + application + infrastructure + tests)
+**Status:** IN_PROGRESS · **Stage:** 13b · **Type:** Build (domain + application + infrastructure + tests)
 **Depends on:** 13, 14, 06e, 08c — all present and verified.
 **Reference reading:** `docs/stages/STAGE-13b-picking-waves-staging.md`, `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091.
 
@@ -62,3 +62,11 @@ Durban wave with grouped lines, picked into consolidation, interval count with i
 
 Unit: wave builder groups correctly, geography snapshot, breakdown sums, staging state transitions, count schedule generation, in-flight warning math.
 Integration (real PG): full wave lifecycle, cross-company wave, interval count with in-flight warning.
+
+## Verification update (2026-09-12)
+
+The consolidated-wave and count-sheet handlers now use the ambient tenant/store context, persist
+per-order line breakdowns, read real Stage 14 sales-order demand through `SalesOrderLineReader`,
+and calculate count-sheet quantities/warnings from actual bin stock. Focused unit verification is
+green (2/2), and the Infrastructure project builds with 0 errors. Real-PG lifecycle, cross-company,
+and coverage evidence remains required before closure.

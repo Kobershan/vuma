@@ -24,7 +24,7 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-12-001 | Verify reopened procurement stage | Stages 08, 11 | NEEDS_VERIFICATION |
+| TASK-12-001 | Verify reopened procurement stage | Stages 08, 11 | COMPLETE |
 
 ## Objective
 

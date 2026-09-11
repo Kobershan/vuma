@@ -30,6 +30,28 @@ public sealed class PickWaveLineBreakdown : Entity
     {
     }
 
+    /// <summary>Creates one immutable contribution to a grouped wave line.</summary>
+    public static PickWaveLineBreakdown Create(
+        Guid tenantId,
+        Guid? storeId,
+        Guid pickWaveLineId,
+        Guid orderId,
+        Guid orderLineId,
+        decimal quantity)
+    {
+        if (tenantId == Guid.Empty || pickWaveLineId == Guid.Empty || orderId == Guid.Empty || orderLineId == Guid.Empty)
+        {
+            throw new ArgumentException("A wave breakdown requires tenant, wave line, order and order line identifiers.");
+        }
+
+        if (quantity <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "A wave breakdown quantity must be positive.");
+        }
+
+        return new PickWaveLineBreakdown(tenantId, storeId, pickWaveLineId, orderId, orderLineId, quantity);
+    }
+
     /// <summary>The grouped wave line this belongs to.</summary>
     public Guid PickWaveLineId { get; private set; }
 

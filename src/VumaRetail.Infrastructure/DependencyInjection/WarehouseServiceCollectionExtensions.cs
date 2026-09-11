@@ -5,6 +5,8 @@ using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Warehouse;
 using VumaRetail.Application.Warehouse.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Orders;
+using VumaRetail.Infrastructure.Warehouse;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -47,8 +49,8 @@ public static class WarehouseServiceCollectionExtensions
         services.AddScoped<IBinStockMover, BinStockMover>();
         services.AddScoped<IPickAllocationStrategy, LargestBinFirstAllocationStrategy>();
 
-        // Stage 14 seam: no order module exists yet, so consolidated-wave reads see no demand.
-        services.AddScoped<IOrderLineReader, EmptyOrderLineReader>();
+        services.AddScoped<IOrderLineReader, SalesOrderLineReader>();
+        services.AddHostedService<CountScheduleHostedService>();
         services.TryAddScoped<IOrderDispatchGate, NoOrderDispatchGate>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, WarehousePermissions>());

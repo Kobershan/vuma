@@ -30,19 +30,24 @@ public sealed class BuildConsolidatedWaveCommandValidator : AbstractValidator<Bu
     public BuildConsolidatedWaveCommandValidator()
     {
         RuleFor(c => c.Filter.PeriodFrom).NotEmpty();
-        RuleFor(c => c.Filter.PeriodTo).NotEmpty();
+        RuleFor(c => c.Filter.PeriodTo).NotEmpty().GreaterThanOrEqualTo(c => c.Filter.PeriodFrom);
         RuleFor(c => c.Filter.GeographyLevel).NotEmpty().Must(l => l is "Province" or "City" or "Suburb");
         RuleFor(c => c.Filter.GeographyValue).NotEmpty();
+        RuleFor(c => c.Filter.LocationId).NotEmpty();
         RuleFor(c => c.OrderLines).NotEmpty();
     }
 }
 
 /// <summary>Builds a consolidated wave: groups order lines by (item, variant, uom, pack size).</summary>
 /// <param name="waves">Wave insertion.</param>
+/// <param name="breakdowns">Per-order contribution persistence.</param>
 /// <param name="skus">Resolves pack size for grouping.</param>
+/// <param name="tenant">The ambient tenant and store.</param>
 public sealed class BuildConsolidatedWaveCommandHandler(
     IPickWaveRepository waves,
-    IPackSizeResolver skus)
+    IPickWaveLineBreakdownRepository breakdowns,
+    IPackSizeResolver skus,
+    ITenantContext tenant)
     : ICommandHandler<BuildConsolidatedWaveCommand, Guid>
 {
     /// <inheritdoc />
@@ -89,9 +94,9 @@ var grouped = await Task.WhenAll(command.OrderLines
             })
             .ToList();
 
-        // Use first order line's tenant/store for the wave
+        // The ambient tenant owns the wave. Order ids are references, never tenant identifiers.
         PickWave wave = PickWave.OpenConsolidated(
-            command.OrderLines.First().OrderId, null, filter.LocationId!.Value,
+            tenant.TenantId, tenant.StoreId, filter.LocationId!.Value,
             filter.GeographyLevel, filter.GeographyValue,
             filter.PeriodFrom, filter.PeriodTo, filter.CompanyScope);
 
@@ -104,8 +109,12 @@ var grouped = await Task.WhenAll(command.OrderLines
                 new Quantity(group.TotalQuantity, group.UnitOfMeasure), filter.CompanyScope?.ToString() ?? "consolidated");
 
             waves.AddTask(task);
-
-            // The breakdown repository will be used separately to add breakdowns
+            foreach (OrderLineSummary contribution in group.Contributions)
+            {
+                breakdowns.Add(PickWaveLineBreakdown.Create(
+                    tenant.TenantId, tenant.StoreId, task.Id,
+                    contribution.OrderId, contribution.OrderLineId, contribution.Quantity));
+            }
         }
 
         return wave.Id;

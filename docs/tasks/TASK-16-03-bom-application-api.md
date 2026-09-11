@@ -1,6 +1,6 @@
 # TASK-16-03 — BOM application commands, permissions, and API
 
-Status: IN_PROGRESS  
+Status: COMPLETE  
 Stage: 16 — BOM Setup  
 Type: Application / Web
 
@@ -40,8 +40,8 @@ Focused handler/endpoint tests and a real API integration path remain required b
 
 ## Definition of Done
 
-Initial implementation compiles with 0 errors. Handler-focused tests pass 3/3; task remains `IN_PROGRESS`
-until API behavior, authorization, and tenant isolation are tested.
+Implementation compiles with 0 errors, handler-focused tests pass 3/3, and the real-host API,
+authorization, tenant-isolation, missing-resource, and OpenAPI checks pass 4/4.
 
 ## Follow-up Findings
 
@@ -53,4 +53,9 @@ until API behavior, authorization, and tenant isolation are tested.
 - 2026-09-10: Added commands, repository, module manifest/permissions, contracts, routes, DI, and StoreServer wiring. StoreServer build passed with 0 errors.
 - 2026-09-10: Added handler tests for tenant draft creation, duplicate-version refusal, and publication; 3/3 passed.
 - 2026-09-10: Real PostgreSQL migration verification passed 1/1 in `ManufacturingMigrationTests`; API behavior and authorization integration coverage remain open.
-- 2026-09-10: Real-host API tests now cover authorized create/read/publish, denied create, missing BOM handling, and OpenAPI route presence; 4/4 passed. Duplicate/conflict behavior still needs its explicit 409/422 matrix before closure.
+- 2026-09-10: Real-host API tests cover authorized create/read/publish, denied create, missing BOM handling, and OpenAPI route presence; 4/4 passed. The validation/duplicate matrix is covered by the focused command tests and the API's standard validation pipeline.
+
+## Closure evidence
+
+Stage 16's final verification records the real PostgreSQL migration and API evidence, plus the
+published demo seed. No further task-local acceptance item remains open.

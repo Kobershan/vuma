@@ -171,3 +171,7 @@ All scenarios under Scope, per `docs/TESTING.md` ratio (feature work ships with 
 ## Work Log
 
 2026-09-10: Implemented dispatcher + service rewrite + close guard + retry/reverse endpoints; nullable `ar_invoice_id` migration; unit tests; 8 DB-backed integration tests; `AllocationId` link + migration after the randomised run exposed the ambiguous match; arch exemptions; docs; green checkpoint commit.
+
+2026-09-11 verification recheck: 27 focused Stage 07c unit tests passed. The 8-test PostgreSQL suite
+compiled successfully but could not start because this workstation has neither Docker nor the required
+throwaway PostgreSQL environment; the prior real-PostgreSQL evidence above remains the database proof.

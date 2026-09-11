@@ -54,7 +54,7 @@ public sealed record PreviewConsolidatedWaveResponse(
 
 /// <summary>One grouped SKU line in a wave preview.</summary>
 public sealed record GroupedLinePreview(
-    Guid ItemId,
+    Guid? ItemId,
     Guid? ItemVariantId,
     string UnitOfMeasure,
     string PackSize,
@@ -65,7 +65,7 @@ public sealed record GroupedLinePreview(
 public sealed record OrderBreakdownPreview(
     Guid OrderId,
     Guid OrderLineId,
-    Guid ItemId,
+    Guid? ItemId,
     decimal Quantity);
 
 /// <summary>
@@ -85,6 +85,7 @@ public sealed class PreviewConsolidatedWaveQueryHandler(IOrderLineReader orderLi
         var lines = await orderLines
             .ReadOpenLinesAsync(
                 query.LocationId, query.PeriodFrom, query.PeriodTo,
+                query.GeographyLevel, query.GeographyValue,
                 query.CompanyScopeId, cancellationToken)
             .ConfigureAwait(false);
 

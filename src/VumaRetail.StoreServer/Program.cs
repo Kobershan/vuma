@@ -33,6 +33,7 @@ using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
 using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
+using VumaRetail.Web.Hr;
 using VumaRetail.Web.Pos;
 using VumaRetail.Web.Planning;
 using VumaRetail.Web.Registry;
@@ -42,6 +43,7 @@ using VumaRetail.Web.Sync;
 using VumaRetail.Web.TradingSessions;
 using VumaRetail.Web.FieldSales;
 using VumaRetail.Web.Warehouse;
+using VumaRetail.Web.Connect;
 using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Manufacturing;
 
@@ -118,6 +120,7 @@ builder.Services.AddVumaPersistence(connectionString);
 builder.Services.AddVumaPlatform();
 builder.Services.AddVumaCatalog();
 builder.Services.AddVumaPartners();
+builder.Services.AddVumaHr();
 
 // Stage 07. GL, AR, AP, banking, tax and the posting rules engine — CLAUDE.md §7 rule 12's mechanism.
 // Built ahead of Inventory (08) and POS (09) because both post to it (ADR-016). The reconciliation
@@ -177,6 +180,9 @@ builder.Services.AddVumaPlanningScheduling(new PlanningHostTenant(host.TenantId,
 builder.Services.AddVumaProcurement(
     builder.Configuration.GetSection(ProcurementOptions.SectionName).Get<ProcurementOptions>()
         ?? new ProcurementOptions());
+
+// Stage 21b. Supplier/retailer connections, codes, catalogue publications and price proposals.
+builder.Services.AddVumaConnect();
 
 // Stage 13. Zones, bins, bin stock, putaway, pick/pack/ship and cycle counts. After AddVumaInventory:
 // every warehouse command validates a Stage 08 location and a cycle count variance posts through Stage
@@ -319,6 +325,7 @@ app.MapVumaLicensing();
 app.MapVumaWorkflow();
 app.MapVumaCatalog();
 app.MapVumaPartners();
+app.MapVumaHr();
 app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaAvailability();
@@ -330,6 +337,7 @@ app.MapVumaStokvels();
 app.MapTradingSessions();
 app.MapFieldSales();
 app.MapVumaProcurement();
+app.MapVumaConnect();
 app.MapVumaWarehouse();
 app.MapPickWaves();
 app.MapVumaOrders();

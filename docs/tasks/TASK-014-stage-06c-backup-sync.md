@@ -29,7 +29,7 @@ Direct implementation of ADR-120 and reinforcement of ADR-116 idempotent legs.
 ## Definition of done
 Operational seams, tests, docs evidence and sync specialist review are complete.
 ## Status
-NOT_STARTED
+SUPERSEDED — canonical TASK-06C-10 is COMPLETE
 ## Work log
 - 2026-08-27: Planned after company identity and saga records are stable.
 

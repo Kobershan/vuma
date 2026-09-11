@@ -12,6 +12,9 @@ public sealed class ContactBindingManagementService(
     IClock clock,
     IVerificationService verification) : IContactBindingManagementService
 {
+    public Task<ContactBinding?> FindAsync(Guid bindingId, CancellationToken cancellationToken = default)
+        => registry.ContactBindings.SingleOrDefaultAsync(x => x.Id == bindingId, cancellationToken);
+
     public async Task<ContactBinding> CreateAsync(ContactBinding binding, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(binding);

@@ -26,7 +26,7 @@ TEST STATUS (Stage 15 — PARTIALLY VERIFIED):
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed
   - Coverage: NOT MEASURED (needs ≥80% on new Domain+Application)
 
-BLOCKERS: None for compilation. Follow-ups before Stage 15 is DONE: broader Planning integration scenarios, coverage measurement, seed scenarios in DemoSeed, specialist review panel (money-and-tax, stock-availability-guard, architecture-guard, stage-verifier).
+BLOCKERS: None for compilation. Stage 15 evidence now includes the real PostgreSQL migration check (1/1), planning unit checks (16/16), and an idempotent DemoSeed fixture for eight weeks of demand history plus forecast, replenishment parameters, safety stock and open-to-buy. The focused XPlat coverage collector hung without producing a result and was stopped; no coverage percentage is claimed. Stage 21b now has a proper main-context migration with Connect schema creation, tenant-scoped remittance persistence, settlement replay tests, and a real PostgreSQL supplier/retailer/outsider isolation test (1/1). Remaining closure evidence is Stage 15 coverage/review and the Connect supplier portal/API permission surface.
 ENVIRONMENT LIMITATION: None active.
 
 SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, explicit persisted account/company scopes, deterministic classification, signed delivery, webhook boundary, and conversation migrations are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.

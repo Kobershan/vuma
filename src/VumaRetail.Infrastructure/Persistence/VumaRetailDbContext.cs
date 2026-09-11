@@ -148,6 +148,13 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Suppliers, customers, and partners who are both (Stage 06).</summary>
     public DbSet<Domain.Partners.Partner> Partners => Set<Domain.Partners.Partner>();
 
+    /// <summary>Tenant employees (Stage 25).</summary>
+    public DbSet<Domain.HrManagement.Employee> Employees => Set<Domain.HrManagement.Employee>();
+    public DbSet<Domain.HrManagement.EmploymentContract> EmploymentContracts => Set<Domain.HrManagement.EmploymentContract>();
+    public DbSet<Domain.HrManagement.LeaveRequest> LeaveRequests => Set<Domain.HrManagement.LeaveRequest>();
+    public DbSet<Domain.HrWorkforce.Shift> Shifts => Set<Domain.HrWorkforce.Shift>();
+    public DbSet<Domain.HrWorkforce.AttendanceRecord> AttendanceRecords => Set<Domain.HrWorkforce.AttendanceRecord>();
+
     /// <summary>Physical places stock is held — warehouses, sales floors (Stage 08).</summary>
     public DbSet<Domain.Inventory.StockLocation> StockLocations => Set<Domain.Inventory.StockLocation>();
 
@@ -343,6 +350,32 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>One supplier's performance over one closed period, frozen (ADR-084).</summary>
     public DbSet<Domain.Procurement.SupplierScorecard> SupplierScorecards
         => Set<Domain.Procurement.SupplierScorecard>();
+
+    /// <summary>Mutual supplier/retailer trading relationships (Stage 21b).</summary>
+    public DbSet<Domain.Connect.TradingConnection> TradingConnections => Set<Domain.Connect.TradingConnection>();
+
+    /// <summary>Supplier-issued invitation codes (Stage 21b).</summary>
+    public DbSet<Domain.Connect.ConnectionCode> ConnectionCodes => Set<Domain.Connect.ConnectionCode>();
+
+    /// <summary>Versioned supplier catalogue publications (Stage 21b).</summary>
+    public DbSet<Domain.Connect.CataloguePublication> CataloguePublications => Set<Domain.Connect.CataloguePublication>();
+
+    /// <summary>Lines in a catalogue publication.</summary>
+    public DbSet<Domain.Connect.CataloguePublicationLine> CataloguePublicationLines => Set<Domain.Connect.CataloguePublicationLine>();
+
+    /// <summary>Retailer-side price proposals.</summary>
+    public DbSet<Domain.Connect.PriceProposal> PriceProposals => Set<Domain.Connect.PriceProposal>();
+
+    /// <summary>Lines in a price proposal.</summary>
+    public DbSet<Domain.Connect.PriceProposalLine> PriceProposalLines => Set<Domain.Connect.PriceProposalLine>();
+
+    /// <summary>Connection-scoped purchase orders and supplier fulfilment state (Stage 21b).</summary>
+    public DbSet<Domain.Connect.ConnectOrder> ConnectOrders => Set<Domain.Connect.ConnectOrder>();
+    public DbSet<Domain.Connect.ConnectRemittanceAdvice> ConnectRemittances => Set<Domain.Connect.ConnectRemittanceAdvice>();
+    public DbSet<Domain.Connect.ConnectDeliveryClaim> ConnectClaims => Set<Domain.Connect.ConnectDeliveryClaim>();
+
+    /// <summary>Lines on connection-scoped purchase orders.</summary>
+    public DbSet<Domain.Connect.ConnectOrderLine> ConnectOrderLines => Set<Domain.Connect.ConnectOrderLine>();
 
     /// <summary>A named subdivision of a Stage 08 location. Stage 13.</summary>
     public DbSet<Domain.Warehouse.Zone> Zones => Set<Domain.Warehouse.Zone>();

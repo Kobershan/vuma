@@ -87,12 +87,16 @@ public sealed record InFlightWarning(
 /// </summary>
 /// <param name="schedules">The schedule repository.</param>
 /// <param name="counts">The cycle count repository.</param>
+/// <param name="bins">The active bins at the requested location.</param>
 /// <param name="binStocks">Bin stock lookup — in-flight stock lives here.</param>
+/// <param name="movements">Movement history used to select slow movers.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class GetCountSheetQueryHandler(
     ICountScheduleRepository schedules,
     ICycleCountRepository counts,
+    IBinRepository bins,
     IBinStockRepository binStocks,
+    IBinStockMovementRepository movements,
     IClock clock)
     : IQueryHandler<GetCountSheetQuery, CountSheetResponse>
 {
@@ -112,33 +116,82 @@ public sealed class GetCountSheetQueryHandler(
         var generatedCounts = new List<CycleCountSummary>();
         var warnings = new List<InFlightWarning>();
 
-        // Generate cycle counts from the schedule scope
+        IReadOnlyList<Bin> locationBins = await bins.ListActiveForLocationAsync(query.LocationId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var stockRows = new List<(Bin Bin, BinStock Stock)>();
+        foreach (Bin bin in locationBins)
+        {
+            IReadOnlyList<BinStock> stock = await binStocks.ListForBinAsync(bin.Id, cancellationToken)
+                .ConfigureAwait(false);
+            stockRows.AddRange(stock.Select(balance => (bin, balance)));
+        }
+
+        IReadOnlyList<StockMovementActivity> activity =
+            await movements.ListLastActivityForLocationAsync(query.LocationId, cancellationToken)
+                .ConfigureAwait(false);
+        DateTimeOffset cutoff = now.AddDays(-schedule.SlowMoverDays);
+        var activityBySku = activity.ToDictionary(
+            item => (item.ItemId, item.ItemVariantId), item => item.LastMovedAt);
+
+        // A schedule targets untouched/old stock first and adds a deterministic sample. If a new
+        // deployment has no movement history yet, all stock is included so the first count is useful.
+        List<(Bin Bin, BinStock Stock)> selected = activity.Count == 0
+            ? stockRows
+            : stockRows.Where(row => !activityBySku.TryGetValue(
+                (row.Stock.ItemId, row.Stock.ItemVariantId), out DateTimeOffset lastMoved)
+                || lastMoved <= cutoff)
+                .OrderBy(row => activityBySku.TryGetValue(
+                    (row.Stock.ItemId, row.Stock.ItemVariantId), out DateTimeOffset lastMoved)
+                    ? lastMoved : DateTimeOffset.MinValue)
+                .ToList();
+
+        if (activity.Count > 0 && schedule.RandomSampleSize > 0)
+        {
+            selected.AddRange(stockRows
+                .Where(row => !selected.Contains(row))
+                .OrderBy(row => StableSampleKey(row.Stock.ItemId, row.Stock.ItemVariantId))
+                .Take(schedule.RandomSampleSize));
+        }
+
+        // Generate one cycle count from the schedule scope and snapshot selected SKU stock.
         CycleCount count = CycleCount.Open(
             schedule.TenantId, schedule.StoreId, query.LocationId, null, now);
         counts.AddCount(count);
-        counts.AddLine(CycleCountLine.Record(
-            schedule.TenantId, schedule.StoreId, count.Id, query.LocationId,
-            null, null, new Quantity(10m, "EA"), new Quantity(8m, "EA")));
+
+        foreach ((Bin bin, BinStock balance) in selected)
+        {
+            counts.AddLine(CycleCountLine.Record(
+                schedule.TenantId, schedule.StoreId, count.Id, bin.Id,
+                balance.ItemId, balance.ItemVariantId,
+                balance.QuantityOnHand, balance.QuantityOnHand));
+        }
 
         generatedCounts.Add(new CycleCountSummary(
             count.Id, schedule.Scope, count.Status.ToString(), now));
 
-        // Check in-flight stock
-        IReadOnlyList<BinStock> binStock = await binStocks
-            .ListForBinAsync(query.LocationId, cancellationToken)
-            .ConfigureAwait(false);
-
-        foreach (var stock in binStock)
+        // Stock in consolidation, packing and dispatch bins is still on hand but not available.
+        foreach (Bin bin in locationBins)
         {
-            if (stock.QuantityReserved.Value > 0)
+            if (bin.Type is not (BinType.Consolidation or BinType.Packing or BinType.Dispatch))
+            {
+                continue;
+            }
+
+            IReadOnlyList<BinStock> stock = await binStocks.ListForBinAsync(bin.Id, cancellationToken)
+                .ConfigureAwait(false);
+            foreach (BinStock balance in stock.Where(x => x.QuantityOnHand.Value > 0m))
             {
                 warnings.Add(new InFlightWarning(
-                    stock.BinId, stock.ItemId, stock.ItemVariantId,
-                    stock.QuantityReserved.Value, "WAVE-PENDING"));
+                    balance.BinId, balance.ItemId, balance.ItemVariantId,
+                    balance.QuantityOnHand.Value, $"{bin.Code}:STAGING"));
             }
         }
 
         return new CountSheetResponse(
             query.ScheduleId, query.LocationId, now, generatedCounts, warnings);
     }
+
+    private static int StableSampleKey(Guid? itemId, Guid? variantId)
+        => HashCode.Combine(itemId ?? Guid.Empty, variantId ?? Guid.Empty);
 }

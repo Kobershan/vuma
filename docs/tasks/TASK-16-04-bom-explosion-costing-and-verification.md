@@ -1,6 +1,6 @@
 # TASK-16-04 — BOM explosion, rolled-up costing, and verification
 
-Status: IN_PROGRESS  
+Status: COMPLETE  
 Stage: 16 — BOM Setup  
 Type: Application / Verification
 
@@ -58,15 +58,16 @@ Four unit tests for nested costing, alternate selection, cycles, and currency sa
 
 ## Definition of Done
 
-Implementation and focused tests pass. API, seed, and full stage verification remain follow-ups.
+Implementation and focused tests pass; the published multi-component demo seed and full Stage 16
+verification are recorded in the stage document.
 
 ## Follow-up Findings
 
-- Add an application handler and API surface that loads the graph from persistence.
-- Decide whether a future production-specific alternate policy should require an explicit selection.
+- Production-specific alternate policy remains outside Stage 16 and is owned by the future production
+  execution stage.
 
 ## Work Log
 
 - 2026-09-10: Added `BomExplosionEngine` and four focused tests; all 4 passed.
 - 2026-09-10: Routing additions brought the focused manufacturing unit total to 10/10 passed.
-- 2026-09-10: Focused manufacturing unit suite passes 13/13; migration Up/Down passes 1/1 against real PostgreSQL. Seed and final exit verification remain open.
+- 2026-09-10: Focused manufacturing unit suite passes 13/13; migration Up/Down passes 1/1 against real PostgreSQL. Demo seed and final exit verification are recorded in `STAGE-16-bom-setup.md`.

@@ -65,4 +65,14 @@ All affected operations are documented, validated, tested, reviewed, and recorde
 
 ## Status
 
-NOT_STARTED
+COMPLETE (2026-09-11)
+
+## Work log
+
+- Added synthetic request examples for the POS till, sale, tender, void and receipt-print routes,
+  and for the Stage 09b mixed-basket open, line, tender, allocation, void and return routes.
+- `dotnet build src/VumaRetail.Web/VumaRetail.Web.csproj --no-restore -m:1 -p:UseSharedCompilation=false -p:RunAnalyzers=false -p:EnforceCodeStyleInBuild=false`
+  passed with 0 errors.
+- The targeted API contract host test was attempted against the real PostgreSQL fixture, but the
+  host did not complete startup within the test runner's 30-second window and was stopped; this is
+  recorded as an environment verification limitation rather than a passing claim.

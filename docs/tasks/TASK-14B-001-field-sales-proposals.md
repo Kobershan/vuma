@@ -1,6 +1,6 @@
 # TASK-14B-001 — Field-sales proposals and approval application
 
-**Status:** IN_PROGRESS · **Stage:** 14b · **Type:** Build (domain + application + unit tests)
+**Status:** COMPLETE · **Stage:** 14b · **Type:** Build (domain + application + unit tests)
 **Depends on:** 14 (orders), 10c (invoices), 08c (availability/reservations/sourcing), 05
 (`IApprovalService`, real `ApprovalEngine`), 06d (credit holds) — all present and verified.
 **Reference reading:** `docs/stages/STAGE-14b-field-sales.md`, `docs/FIELD_SALES.md` in full,

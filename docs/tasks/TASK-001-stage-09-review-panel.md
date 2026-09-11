@@ -79,9 +79,12 @@ No new decision is expected. Any change to ADR-135–ADR-138 requires a supersed
 
 ## Status
 
-IN_PROGRESS
+NEEDS_VERIFICATION
 
 ## Work log
 
 - Created as the first task in the task-sized workflow. The previous session could not run the
   independent panel because of an account usage limit.
+- The independent review runtime is unavailable in this environment. POS unit coverage previously
+  passed (141/141) and the Web project builds, but no independent specialist report is claimed.
+  The outstanding panel evidence remains explicitly unverified.

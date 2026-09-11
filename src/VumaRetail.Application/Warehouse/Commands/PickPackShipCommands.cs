@@ -286,13 +286,26 @@ public sealed class ConfirmPickCommandHandler(
         // reserved at release, and the whole of it is released here regardless of a short pick (§4.19).
         Quantity reservedQuantity = task.AllocatedQuantity!.Value;
 
-        task.ConfirmPick(command.PickedQuantity);
-
-        await mover.PickAsync(bin, task.ItemId, task.ItemVariantId, command.PickedQuantity, reservedQuantity, task.Id, cancellationToken)
-            .ConfigureAwait(false);
-
         PickWave wave = await waves.FindAsync(task.PickWaveId, cancellationToken).ConfigureAwait(false)
             ?? throw new WarehouseNotFoundException("pick wave", task.PickWaveId);
+
+        IReadOnlyList<Bin> activeBins = await bins.ListActiveForLocationAsync(wave.LocationId, cancellationToken)
+            .ConfigureAwait(false);
+        Bin? consolidation = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Consolidation);
+
+        task.ConfirmPick(command.PickedQuantity);
+        if (consolidation is null)
+        {
+            await mover.PickAsync(bin, task.ItemId, task.ItemVariantId, command.PickedQuantity, reservedQuantity, task.Id, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await mover.PickToStagingAsync(
+                    bin, consolidation, task.ItemId, task.ItemVariantId,
+                    command.PickedQuantity, reservedQuantity, task.Id, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         IReadOnlyList<PickTask> siblings = await waves.ListTasksAsync(wave.Id, cancellationToken).ConfigureAwait(false);
 
@@ -400,8 +413,15 @@ public sealed class PackWaveCommandValidator : AbstractValidator<PackWaveCommand
 /// <summary>Packs a wave, refusing one that is not <see cref="PickWaveStatus.Picked"/>.</summary>
 /// <param name="waves">Wave lookup.</param>
 /// <param name="packTasks">Pack record insertion.</param>
+/// <param name="bins">Staging-bin lookup.</param>
+/// <param name="mover">Moves picked stock into packing.</param>
 /// <param name="clock">The only source of time.</param>
-public sealed class PackWaveCommandHandler(IPickWaveRepository waves, IPackTaskRepository packTasks, IClock clock)
+public sealed class PackWaveCommandHandler(
+    IPickWaveRepository waves,
+    IPackTaskRepository packTasks,
+    IBinRepository bins,
+    IBinStockMover mover,
+    IClock clock)
     : ICommandHandler<PackWaveCommand, Guid>
 {
     /// <inheritdoc />
@@ -413,6 +433,28 @@ public sealed class PackWaveCommandHandler(IPickWaveRepository waves, IPackTaskR
             ?? throw new WarehouseNotFoundException("pick wave", command.PickWaveId);
 
         DateTimeOffset now = clock.UtcNow;
+
+        IReadOnlyList<Bin> activeBins = await bins.ListActiveForLocationAsync(wave.LocationId, cancellationToken)
+            .ConfigureAwait(false);
+        Bin? consolidation = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Consolidation);
+        Bin? packing = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Packing);
+        if (consolidation is not null && packing is not null)
+        {
+            IReadOnlyList<PickTask> picked = await waves.ListTasksAsync(wave.Id, cancellationToken)
+                .ConfigureAwait(false);
+            foreach (var group in picked
+                .Where(task => task.Status is PickTaskStatus.Picked or PickTaskStatus.ShortPicked)
+                .Where(task => task.PickedQuantity is { IsZero: false })
+                .GroupBy(task => (task.ItemId, task.ItemVariantId)))
+            {
+                Quantity quantity = group.Select(task => task.PickedQuantity!.Value)
+                    .Aggregate((left, right) => left + right);
+                await mover.InternalTransferAsync(
+                        consolidation, packing, group.Key.ItemId, group.Key.ItemVariantId,
+                        quantity, wave.Id, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
 
         wave.MarkPacked(now);
 
@@ -443,6 +485,8 @@ public sealed class ShipWaveCommandValidator : AbstractValidator<ShipWaveCommand
 /// <param name="locations">Stage 08 location lookup.</param>
 /// <param name="poster">Posts the location-level issue.</param>
 /// <param name="shipments">Shipment insertion.</param>
+/// <param name="bins">Staging-bin lookup.</param>
+/// <param name="mover">Moves packed stock into dispatch.</param>
 /// <param name="dispatchGate">Refuses the ship while a COD order behind the wave is unpaid and unauthorised.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class ShipWaveCommandHandler(
@@ -450,6 +494,8 @@ public sealed class ShipWaveCommandHandler(
     IStockLocationRepository locations,
     IStockLedgerPoster poster,
     IShipmentConfirmationRepository shipments,
+    IBinRepository bins,
+    IBinStockMover mover,
     IOrderDispatchGate dispatchGate,
     IClock clock) : ICommandHandler<ShipWaveCommand, Guid>
 {
@@ -483,6 +529,23 @@ public sealed class ShipWaveCommandHandler(
             ?? throw new InventoryNotFoundException("stock location", wave.LocationId);
 
         Guid shipmentId = UuidV7.NewGuid();
+
+        IReadOnlyList<Bin> activeBins = await bins.ListActiveForLocationAsync(wave.LocationId, cancellationToken)
+            .ConfigureAwait(false);
+        Bin? packing = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Packing);
+        Bin? dispatch = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Dispatch);
+        if (packing is not null && dispatch is not null)
+        {
+            foreach (var group in pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)))
+            {
+                Quantity quantity = group.Select(task => task.PickedQuantity!.Value)
+                    .Aggregate((left, right) => left + right);
+                await mover.InternalTransferAsync(
+                        packing, dispatch, group.Key.ItemId, group.Key.ItemVariantId,
+                        quantity, shipmentId, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
 
         foreach (var group in pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)))
         {

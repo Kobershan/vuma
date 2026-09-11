@@ -131,6 +131,109 @@ public static class VumaOpenApi
             ["certificateThumbprint"] = new OpenApiString(new string('A', 64)),
             ["deviceFingerprint"] = new OpenApiString("board-serial-1"),
         },
+        ["api/v1/pos/till-sessions"] = new OpenApiObject
+        {
+            ["openingFloat"] = new OpenApiDouble(500d),
+            ["currency"] = new OpenApiString("ZAR"),
+        },
+        ["api/v1/pos/till-sessions/{tillSessionId}/close"] = new OpenApiObject
+        {
+            ["countedCash"] = new OpenApiDouble(1250.50d),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["note"] = new OpenApiString("Drawer counted at shift close"),
+        },
+        ["api/v1/pos/sales"] = new OpenApiObject
+        {
+            ["saleId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000010"),
+            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000011"),
+            ["customerId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000012"),
+        },
+        ["api/v1/pos/sales/{saleId}/lines"] = new OpenApiObject
+        {
+            ["itemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000020"),
+            ["itemVariantId"] = new OpenApiNull(),
+            ["quantity"] = new OpenApiDouble(2),
+            ["unitOfMeasure"] = new OpenApiString("EA"),
+            ["unitPrice"] = new OpenApiDouble(59.99d),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["discountAmount"] = new OpenApiDouble(0),
+            ["saleLineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000021"),
+        },
+        ["api/v1/pos/sales/{saleId}/tenders"] = new OpenApiObject
+        {
+            ["tenderType"] = new OpenApiString("Cash"),
+            ["amount"] = new OpenApiDouble(120),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["reference"] = new OpenApiString("DRAWER-1"),
+            ["saleTenderId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000022"),
+        },
+        ["api/v1/pos/sales/{saleId}/void"] = new OpenApiObject
+        {
+            ["reason"] = new OpenApiString("Customer cancelled before payment"),
+        },
+        ["api/v1/pos/sales/{saleId}/receipt/prints"] = new OpenApiObject
+        {
+            ["reason"] = new OpenApiString("Customer requested a duplicate receipt"),
+            ["receiptPrintId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000023"),
+        },
+        ["api/v1/trading-sessions"] = new OpenApiObject
+        {
+            ["premisesId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000030"),
+            ["terminalId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000031"),
+            ["cashierUserId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000032"),
+            ["sessionCompanyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["idempotencyKey"] = new OpenApiString("till-20260911-0001"),
+            ["customerGroupPartnerId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000034"),
+        },
+        ["api/v1/trading-sessions/{sessionId}/lines"] = new OpenApiObject
+        {
+            ["barcode"] = new OpenApiString("6009880999999"),
+            ["quantityValue"] = new OpenApiDouble(1),
+            ["quantityUom"] = new OpenApiString("EA"),
+            ["unitPriceAmount"] = new OpenApiDouble(49.99d),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["discountAmount"] = new OpenApiDouble(0),
+            ["taxCode"] = new OpenApiString("STANDARD"),
+            ["lineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000035"),
+        },
+        ["api/v1/trading-sessions/{sessionId}/tender"] = new OpenApiObject
+        {
+            ["tenderType"] = new OpenApiString("Cash"),
+            ["amount"] = new OpenApiDouble(49.99d),
+            ["currency"] = new OpenApiString("ZAR"),
+            ["reference"] = new OpenApiString("DRAWER-2"),
+        },
+        ["api/v1/trading-sessions/{sessionId}/tender/allocations"] = new OpenApiObject
+        {
+            ["allocations"] = new OpenApiArray
+            {
+                new OpenApiObject
+                {
+                    ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
+                    ["amount"] = new OpenApiDouble(49.99d),
+                    ["currency"] = new OpenApiString("ZAR"),
+                },
+            },
+        },
+        ["api/v1/trading-sessions/{sessionId}/void"] = new OpenApiObject
+        {
+            ["reason"] = new OpenApiString("Customer cancelled before completion"),
+        },
+        ["api/v1/trading-sessions/{sessionId}/returns"] = new OpenApiObject
+        {
+            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
+            ["invoiceNumber"] = new OpenApiString("INV-20260911-0001"),
+            ["reason"] = new OpenApiString("Damaged item"),
+            ["lines"] = new OpenApiArray
+            {
+                new OpenApiObject
+                {
+                    ["sessionLineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000035"),
+                    ["quantityValue"] = new OpenApiDouble(1),
+                },
+            },
+        },
     };
 
     private static OpenApiResponse ProblemResponse(string status, string description) => new()

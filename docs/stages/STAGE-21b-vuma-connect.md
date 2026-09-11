@@ -7,7 +7,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 21b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 21b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | IN PROGRESS |
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
@@ -15,10 +15,12 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 ## Task index
 
+Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, and settlement-replay foundations are implemented and verified. Closure remains for the supplier portal surface and independent portal/API permission evidence.
+
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | NOT_STARTED |
-| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | DONE |
+| TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | COMPLETE |
+| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | IN PROGRESS |
 
 ## Objective
 Turn Vuma from software each retailer runs alone into a **network they trade across**. A supplier gets

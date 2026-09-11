@@ -262,7 +262,10 @@ public sealed class VumaRegistryDbContext(
         {
             builder.ToTable("catalog_routing_index", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
             builder.Property(x => x.Barcode).HasMaxLength(64).IsRequired(); builder.Property(x => x.CompanyCode).HasMaxLength(32).IsRequired(); builder.Property(x => x.ItemCode).HasMaxLength(64).IsRequired();
-            builder.HasIndex(x => new { x.TenantId, x.Barcode }).IsUnique(); builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Barcode });
+            // A barcode may legitimately be published by more than one company. The resolver
+            // must return every candidate instead of allowing the registry index to collapse the
+            // collision to one company.
+            builder.HasIndex(x => new { x.TenantId, x.Barcode }); builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Barcode });
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 
