@@ -4,6 +4,7 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Logistics;
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
 public sealed class ProofOfDelivery : Entity, IImmutableRecord
 {
     private ProofOfDelivery(Guid tenantId, Guid? storeId, Guid shipmentId, Guid? stopId, ProofOfDeliveryOutcome outcome, string recipientName, string? signatureHash, string? photoBlobKey, double? latitude, double? longitude, DateTimeOffset deliveredAt, string? notes) : base(tenantId, storeId)

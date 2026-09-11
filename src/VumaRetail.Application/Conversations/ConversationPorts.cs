@@ -15,6 +15,25 @@ public interface IIntentClassifier
     Task<IntentClassification> ClassifyAsync(string message, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Outbound WhatsApp boundary. The application never owns Twilio credentials.</summary>
+public interface IWhatsAppSender
+{
+    Task SendAsync(string destination, string body, CancellationToken cancellationToken = default);
+}
+
+public static class TwilioWebhookSecurity
+{
+    public static bool Verify(string url, IReadOnlyDictionary<string, string> parameters, string? signature, string authToken)
+    {
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(signature) || string.IsNullOrWhiteSpace(authToken)) return false;
+        string payload = url + string.Concat(parameters.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + x.Value));
+        using var hmac = new HMACSHA1(Encoding.UTF8.GetBytes(authToken));
+        byte[] expected = Encoding.UTF8.GetBytes(Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload))));
+        byte[] actual = Encoding.UTF8.GetBytes(signature);
+        return expected.Length == actual.Length && CryptographicOperations.FixedTimeEquals(expected, actual);
+    }
+}
+
 /// <summary>Only API-returned facts may be supplied to the reply composer.</summary>
 public sealed record ReplyFacts(IReadOnlyList<string> Facts, string FallbackText);
 public interface IReplyComposer

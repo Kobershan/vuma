@@ -48,6 +48,7 @@ using VumaRetail.Web.Connect;
 using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Manufacturing;
 using VumaRetail.Web.Logistics;
+using VumaRetail.Infrastructure.Conversations;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -220,6 +221,7 @@ builder.Services.AddVumaManufacturing();
 // never a cross-schema foreign key). No scheduled passes.
 builder.Services.AddVumaCrm();
 builder.Services.AddVumaConversationalCommerce();
+builder.Services.Configure<TwilioWhatsAppOptions>(builder.Configuration.GetSection(TwilioWhatsAppOptions.SectionName));
 
 // Stage 20. Loyalty: earn/burn through Orbit, caches and retry. After AddVumaCrm (marketing
 // bonuses gate on Stage 19 consent). The public surface (own DTOs, rate limits, neutral

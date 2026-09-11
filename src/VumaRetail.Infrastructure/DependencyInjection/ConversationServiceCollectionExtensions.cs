@@ -6,6 +6,7 @@ using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Registry;
 using VumaRetail.Infrastructure.Conversations;
+using Microsoft.Extensions.Options;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -27,6 +28,8 @@ public static class ConversationServiceCollectionExtensions
         services.AddScoped<IConversationStore, EfConversationStore>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
+        services.AddOptions<TwilioWhatsAppOptions>();
+        services.AddHttpClient<IWhatsAppSender, TwilioWhatsAppSender>();
         services.AddScoped<IConversationIntentRouter, ConversationIntentRouter>();
         services.AddScoped<IConversationIntentHandler, OrderStatusIntentHandler>();
         services.AddScoped<IConversationIntentHandler, StatementIntentHandler>();

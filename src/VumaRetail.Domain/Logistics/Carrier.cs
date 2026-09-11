@@ -1,8 +1,10 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Logistics;
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class Carrier : Entity
 {
     private Carrier(Guid tenantId, string code, string name, string? phone) : base(tenantId)

@@ -1,8 +1,10 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Logistics;
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class Shipment : Entity
 {
     private Shipment(Guid tenantId, Guid? storeId, Guid? orderId, Guid? shipmentConfirmationId, Guid? carrierId, string number, string? trackingNumber, string addressLine1, string? addressLine2, string city, string? postalCode, string country) : base(tenantId, storeId)

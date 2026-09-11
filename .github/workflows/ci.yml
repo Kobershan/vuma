@@ -354,6 +354,25 @@ jobs:
       - name: Build full solution
         run: dotnet build VumaRetail.sln -c Release --no-restore
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: stable
+
+      - name: Test Flutter client
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build Android APK and Windows Flutter client
+        working-directory: mobile
+        run: |
+          flutter build apk --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
+          flutter build windows --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
+
       # Run the token generator to ensure generated files are up to date.
       # PowerShell syntax: this job runs on windows-latest (bash subshell syntax fails here).
       - name: Regenerate tokens and verify
@@ -364,4 +383,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { echo "::error::Generated files differ from committed output"; exit 1 }
 
       - name: Package
-        run: echo "Packaging built in Stage 31."
+        run: echo "WPF .exe, Flutter APK, and Flutter Windows artifacts are built; installer signing remains deployment-specific."
+
+      - name: Upload client artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuma-client-builds
+          path: |
+            mobile/build/app/outputs/flutter-apk/*.apk
+            mobile/build/windows/runner/Release/**
+            src/VumaRetail.Desktop/bin/Release/**

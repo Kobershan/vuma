@@ -1,8 +1,10 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Logistics;
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class DeliveryRun : Entity
 {
     private DeliveryRun(Guid tenantId, Guid? storeId, Guid? carrierId, string runNumber, DateOnly plannedDate, string? driverName, string? vehicleRegistration) : base(tenantId, storeId)

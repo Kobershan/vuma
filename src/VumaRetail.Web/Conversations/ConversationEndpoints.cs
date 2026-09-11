@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using VumaRetail.Infrastructure.Conversations;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Application.Abstractions;
@@ -27,6 +30,8 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Accepts a signature-verified WhatsApp webhook.")
             .RequireModule("conversations");
+        endpoints.MapVumaApi().MapPost("/conversations/webhook/twilio/whatsapp", TwilioWhatsAppWebhookAsync)
+            .WithTags("Conversations").WithSummary("Accepts a Twilio-signed WhatsApp webhook.").RequireModule("conversations");
         group.MapPost("/{conversationId:guid}/escalate", async (Guid conversationId, IConversationStore store, IClock clock, ITenantContext tenant, CancellationToken cancellationToken) =>
             await store.EscalateAsync(tenant.TenantId, conversationId, clock.UtcNow, cancellationToken).ConfigureAwait(false)
                 ? Results.Accepted($"/api/v1/conversations/{conversationId}")
@@ -153,6 +158,18 @@ public static class ConversationEndpoints
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
             : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> TwilioWhatsAppWebhookAsync(HttpContext context, IConfiguration configuration, CancellationToken cancellationToken)
+    {
+        IFormCollection form = await context.Request.ReadFormAsync(cancellationToken).ConfigureAwait(false);
+        Dictionary<string, string> parameters = form.Keys.ToDictionary(key => key, key => form[key].ToString(), StringComparer.Ordinal);
+        TwilioWhatsAppOptions options = context.RequestServices.GetRequiredService<IOptions<TwilioWhatsAppOptions>>().Value;
+        string url = string.IsNullOrWhiteSpace(options.WebhookUrl) ? $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}" : options.WebhookUrl;
+        if (!TwilioWebhookSecurity.Verify(url, parameters, context.Request.Headers["X-Twilio-Signature"].ToString(), options.AuthToken)) return Results.Unauthorized();
+        if (!parameters.TryGetValue("From", out string? from) || !parameters.TryGetValue("Body", out string? body)) return Results.BadRequest(new { error = "Twilio From and Body are required." });
+        var services = context.RequestServices;
+        return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
