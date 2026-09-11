@@ -96,6 +96,22 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public async Task Durable_document_delivery_delegates_fetch_to_atomic_store_consume()
+    {
+        var store = Substitute.For<IDocumentDeliveryTokenStore>();
+        var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
+        binding.Verify(At);
+        binding.GrantConsent();
+        DocumentDeliveryToken token = new(binding.TenantId, binding.Id, "invoice/atomic", At);
+        store.ConsumeAsync(token.Token, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(token);
+
+        string? reference = await new DocumentDeliveryService(store).FetchAsync(token.Token, At.AddMinutes(1));
+
+        Assert.Equal("invoice/atomic", reference);
+        await store.Received(1).ConsumeAsync(token.Token, At.AddMinutes(1), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Sensitive_document_delivery_requires_verification_within_24_hours()
     {
         var binding = new ContactBinding(Guid.NewGuid(), "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);

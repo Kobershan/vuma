@@ -69,6 +69,13 @@ public sealed class DocumentDeliveryService(IDocumentDeliveryTokenStore? store =
     public async Task<string?> FetchAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        if (_store is not null)
+        {
+            DocumentDeliveryToken? consumed = await _store
+                .ConsumeAsync(token.Trim(), at, cancellationToken).ConfigureAwait(false);
+            return consumed?.DocumentReference;
+        }
+
         DocumentDeliveryToken? delivery = _store is null
             ? tokens.GetValueOrDefault(token.Trim())
             : await _store.FindAsync(token.Trim(), cancellationToken).ConfigureAwait(false);

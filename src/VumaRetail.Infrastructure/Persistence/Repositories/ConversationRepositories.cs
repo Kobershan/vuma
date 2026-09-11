@@ -20,6 +20,31 @@ public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db) : IDocu
         return db.DocumentDeliveryTokens.SingleOrDefaultAsync(x => x.Token == token.Trim(), cancellationToken);
     }
 
+    public async Task<DocumentDeliveryToken?> ConsumeAsync(
+        string token, DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        DocumentDeliveryToken? candidate = await db.DocumentDeliveryTokens
+            .SingleOrDefaultAsync(x => x.Token == token.Trim()
+                && x.RevokedAt == null
+                && x.FetchedAt == null
+                && x.ExpiresAt >= at, cancellationToken)
+            .ConfigureAwait(false);
+        if (candidate is null)
+        {
+            return null;
+        }
+
+        int consumed = await db.DocumentDeliveryTokens
+            .Where(x => x.Id == candidate.Id
+                && x.RevokedAt == null
+                && x.FetchedAt == null
+                && x.ExpiresAt >= at)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.FetchedAt, at), cancellationToken)
+            .ConfigureAwait(false);
+        return consumed == 1 ? candidate : null;
+    }
+
     public async Task SaveAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(token);

@@ -46,6 +46,8 @@ public interface IDocumentDeliveryTokenStore
 {
     Task AddAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default);
     Task<DocumentDeliveryToken?> FindAsync(string token, CancellationToken cancellationToken = default);
+    /// <summary>Atomically consumes one available token and returns its document reference.</summary>
+    Task<DocumentDeliveryToken?> ConsumeAsync(string token, DateTimeOffset at, CancellationToken cancellationToken = default);
     Task SaveAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default);
 }
 
