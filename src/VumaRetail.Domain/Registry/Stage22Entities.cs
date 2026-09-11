@@ -360,7 +360,24 @@ public sealed class StockTransferRequest
         if (DiscrepancyQuantity != 0 && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("A discrepancy requires a reason.");
         Status = TransferStatus.Reconciled;
     }
-    public void Cancel() { if (Status is TransferStatus.Reconciled or TransferStatus.Declined or TransferStatus.Cancelled) throw Invalid(); Status = TransferStatus.Cancelled; }
+    /// <summary>
+    /// Cancels a transfer before any company-local stock reservation is created.
+    /// Once reserved, picked, shipped, or received, cancellation would leave a company ledger
+    /// effect without a compensating saga leg; those states require an explicit release or reverse
+    /// operation instead.
+    /// </summary>
+    public void Cancel()
+    {
+        if (Status is not (TransferStatus.Requested
+            or TransferStatus.RegionalApprovalPending
+            or TransferStatus.Checked
+            or TransferStatus.Accepted))
+        {
+            throw Invalid();
+        }
+
+        Status = TransferStatus.Cancelled;
+    }
     private void Require(TransferStatus expected) { if (Status != expected) throw Invalid(); }
     private InvalidOperationException Invalid() => new($"Transfer {Id} cannot transition from {Status}.");
 }

@@ -60,6 +60,19 @@ public sealed class Stage22EntitiesTests
     }
 
     [Fact]
+    public void Transfer_cannot_be_cancelled_after_stock_reservation()
+    {
+        var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");
+        var transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m);
+        transfer.Check(settings, false);
+        transfer.Accept();
+        transfer.Reserve();
+
+        FluentActions.Invoking(transfer.Cancel).Should().Throw<InvalidOperationException>();
+        transfer.Status.Should().Be(TransferStatus.Reserved);
+    }
+
+    [Fact]
     public void Central_buying_is_preaccepted_only_for_a_direct_holding_child()
     {
         var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.GroupStandardCost, DiscrepancyOwner.Receiver, "SPAR");
