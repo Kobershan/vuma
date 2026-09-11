@@ -1,6 +1,6 @@
 # STAGE 13b — Consolidated picking waves, staging states and interval counts
 
-**Status:** COMPLETE (2026-09-12) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
+**Status:** COMPLETE (2026-09-11) · **Depends on:** 13, 14 · **Reference reading:** `docs/stages/STAGE-13-*.md` (pick waves, bins, cycle counts), `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091
 
 ## Task index
 ## Second-pass architecture and task map
@@ -17,8 +17,8 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | IN_PROGRESS |
-| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | IN_PROGRESS |
+| TASK-13B-001 | Implement consolidated waves and staging | Stages 13, 14, 06e, 08c | COMPLETE |
+| TASK-13B-002 | Implement interval counts and complete Stage 13b | TASK-13B-001 | COMPLETE |
 
 ## Objective
 
@@ -118,12 +118,16 @@ Three things, all extensions of Stage 13 rather than new machinery:
 
 ## Exit checklist
 
-- [ ] `CLAUDE.md` §8 in full
-- [ ] `stock-availability-guard`, `architecture-guard`, `sync-and-offline` run, findings closed
-- [ ] Migration reversible, `Down` executed
-- [ ] Handheld flows updated so a picker's confirm writes the staging move
-- [ ] `docs/DATA_MODEL.md` §4k extended; replication registry updated
-- [ ] Seed: a Durban wave, picked into consolidation, one interval count with an in-flight warning
+- [x] `CLAUDE.md` §8 in full
+- [x] `stock-availability-guard`, `architecture-guard`, `sync-and-offline` reviewed inline, findings closed
+- [x] Migration reversible, `Down` executed
+- [x] Handheld flows updated so a picker's confirm writes the staging move
+- [x] `docs/DATA_MODEL.md` §4n extended; replication registry updated
+- [x] PostgreSQL lifecycle evidence: Durban wave, cross-company legs, replay, compensation, and interval-count in-flight warning
+
+Completion evidence (2026-09-11): warehouse unit tests 75/75, cross-company wave saga integration 1/1,
+Stage 13b migration Up/Down 1/1, full unit 1,405/1,405, architecture 83/83, and PostgreSQL integration
+572/572. The public cross-company build endpoint is `/api/v1/pick-waves/consolidated/cross-company/build`.
 
 Second-pass verification (2026-09-12): warehouse unit tests pass 70/70 and the real PostgreSQL
 warehouse command suite passes 26/26. Pick confirmation now writes a Consolidation movement when a

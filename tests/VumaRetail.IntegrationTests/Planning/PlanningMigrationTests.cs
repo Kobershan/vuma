@@ -8,6 +8,33 @@ namespace VumaRetail.IntegrationTests.Planning;
 public sealed class PlanningMigrationTests(PostgresFixture fixture)
 {
     [Fact]
+    public async Task Stage13b_migration_up_and_down_are_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.For(connectionString);
+
+        await context.Database.MigrateAsync("20260909032943_Stage13b_PickingWavesStaging").ConfigureAwait(false);
+
+        IReadOnlyList<string> createdTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'warehouse'
+            """).ToListAsync().ConfigureAwait(false);
+        createdTables.Should().Contain("count_schedules");
+        createdTables.Should().Contain("pick_wave_line_breakdowns");
+
+        await context.Database.MigrateAsync("20260817061003_Warehouse").ConfigureAwait(false);
+
+        IReadOnlyList<string> remainingTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'warehouse'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingTables.Should().NotContain("count_schedules");
+        remainingTables.Should().NotContain("pick_wave_line_breakdowns");
+    }
+
+    [Fact]
     public async Task Stage15_migration_up_and_down_are_reversible()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);

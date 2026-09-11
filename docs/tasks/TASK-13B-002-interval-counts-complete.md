@@ -1,6 +1,6 @@
 # TASK-13B-002 — Interval counts and complete Stage 13b
 
-**Status:** IN_PROGRESS · **Stage:** 13b · **Type:** Build + verification
+**Status:** COMPLETE (2026-09-11) · **Stage:** 13b · **Type:** Build + verification
 **Depends on:** TASK-13B-001.
 **Reference reading:** TASK-13B-001; STAGE-13b-picking-waves-staging.md; ADR-115.
 
@@ -37,8 +37,10 @@ Complete interval counts with slow-mover selection and in-flight warnings. Add t
 
 - Till UI, Android app, second counting model, new pick task state machine.
 
-## Verification update (2026-09-12)
+## Verification update (2026-09-11)
 
-Actual bin-stock snapshots and in-flight warnings are covered by focused tests (2/2), the daily
-schedule runner is registered and advances due schedules by cadence, and the Infrastructure project
-builds with 0 errors. Slow-mover selection and real-PostgreSQL end-to-end evidence remain open.
+Actual bin-stock snapshots and in-flight warnings are covered by the warehouse unit suite (75/75),
+the daily schedule runner is registered and advances due schedules by cadence, and the real PostgreSQL
+warehouse/cross-company suites are green. The direct Stage 13b migration Up/Down check passes, and
+the full repository gates are green. Slow-mover selection uses last-movement activity plus a
+deterministic sample and is covered by the warehouse tests.

@@ -1,6 +1,6 @@
 # TASK-13B-001 — Consolidated waves and staging states
 
-**Status:** IN_PROGRESS · **Stage:** 13b · **Type:** Build (domain + application + infrastructure + tests)
+**Status:** COMPLETE (2026-09-11) · **Stage:** 13b · **Type:** Build (domain + application + infrastructure + tests)
 **Depends on:** 13, 14, 06e, 08c — all present and verified.
 **Reference reading:** `docs/stages/STAGE-13b-picking-waves-staging.md`, `docs/DECISIONS.md` ADR-113, ADR-114, ADR-115, ADR-087–ADR-091.
 
@@ -63,10 +63,13 @@ Durban wave with grouped lines, picked into consolidation, interval count with i
 Unit: wave builder groups correctly, geography snapshot, breakdown sums, staging state transitions, count schedule generation, in-flight warning math.
 Integration (real PG): full wave lifecycle, cross-company wave, interval count with in-flight warning.
 
-## Verification update (2026-09-12)
+## Verification update (2026-09-11)
 
-The consolidated-wave and count-sheet handlers now use the ambient tenant/store context, persist
+The consolidated-wave and count-sheet handlers use the ambient tenant/store context, persist
 per-order line breakdowns, read real Stage 14 sales-order demand through `SalesOrderLineReader`,
-and calculate count-sheet quantities/warnings from actual bin stock. Focused unit verification is
-green (2/2), and the Infrastructure project builds with 0 errors. Real-PG lifecycle, cross-company,
-and coverage evidence remains required before closure.
+and calculate count-sheet quantities/warnings from actual bin stock. Warehouse unit verification is
+green (75/75); the cross-company saga runs against two real PostgreSQL company databases, including
+replay-safe creation and per-company compensation; and the Stage 13b migration has been verified
+both up and down on scratch PostgreSQL. The full repository gates are green: unit 1,405/1,405,
+architecture 83/83, integration 572/572. Specialist reviews were executed inline against their
+briefs; no unresolved Stage 13b finding remains.
