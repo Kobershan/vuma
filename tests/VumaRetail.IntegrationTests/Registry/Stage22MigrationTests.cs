@@ -56,4 +56,27 @@ public sealed class Stage22MigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
         remainingColumns.Should().NotContain(["related_transfer_id", "relation"]);
     }
+
+    [Fact]
+    public async Task Stage22_related_transfer_idempotency_index_is_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.ForRegistry(connectionString);
+
+        await context.Database.MigrateAsync("20260911211503_Stage22RelatedTransferIdempotency").ConfigureAwait(false);
+        IReadOnlyList<string> indexes = await context.Database.SqlQuery<string>($"""
+            SELECT indexname AS "Value"
+            FROM pg_indexes
+            WHERE schemaname = 'registry' AND tablename = 'stock_transfer_requests'
+            """).ToListAsync().ConfigureAwait(false);
+        indexes.Should().Contain("ux_stock_transfer_requests_related_relation");
+
+        await context.Database.MigrateAsync("20260911205614_Stage22RelatedTransfers").ConfigureAwait(false);
+        IReadOnlyList<string> remainingIndexes = await context.Database.SqlQuery<string>($"""
+            SELECT indexname AS "Value"
+            FROM pg_indexes
+            WHERE schemaname = 'registry' AND tablename = 'stock_transfer_requests'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingIndexes.Should().NotContain("ux_stock_transfer_requests_related_relation");
+    }
 }

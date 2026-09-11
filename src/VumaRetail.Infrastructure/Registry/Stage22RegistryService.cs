@@ -169,6 +169,19 @@ public sealed class Stage22RegistryService(
             throw new InvalidOperationException("A related transfer can only be created after receipt.");
         }
 
+        StockTransferRequest? existing = await registry.StockTransferRequests
+            .SingleOrDefaultAsync(x => x.TenantId == source.TenantId
+                && x.RelatedTransferId == source.Id
+                && x.Relation == relation, cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            existing.Lines.AddRange(await registry.StockTransferLines
+                .Where(x => x.TenantId == source.TenantId && x.TransferId == existing.Id)
+                .ToListAsync(cancellationToken).ConfigureAwait(false));
+            return existing;
+        }
+
         List<StockTransferLine> lines = [];
         foreach (StockTransferLine line in sourceLines)
         {

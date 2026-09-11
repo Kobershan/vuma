@@ -727,6 +727,9 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.DiscrepancyQuantity).HasColumnType("numeric(18,6)");
             builder.HasIndex(x => new { x.TenantId, x.Status });
             builder.HasIndex(x => new { x.TenantId, x.SenderCompanyId, x.ReceiverCompanyId });
+            builder.HasIndex(x => new { x.TenantId, x.RelatedTransferId, x.Relation })
+                .IsUnique().HasFilter("related_transfer_id IS NOT NULL")
+                .HasDatabaseName("ux_stock_transfer_requests_related_relation");
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<StockTransferLine>(builder =>
