@@ -106,7 +106,8 @@ public sealed class StockTransferLine
         Guid? itemVariantId,
         decimal quantity,
         string unitOfMeasure,
-        Guid senderLocationId)
+        Guid senderLocationId,
+        Guid? receiverLocationId)
     {
         if (tenantId == Guid.Empty || transferId == Guid.Empty || senderLocationId == Guid.Empty)
         {
@@ -128,6 +129,7 @@ public sealed class StockTransferLine
         Quantity = quantity;
         UnitOfMeasure = unitOfMeasure.Trim();
         SenderLocationId = senderLocationId;
+        ReceiverLocationId = receiverLocationId;
     }
 
     public Guid Id { get; private set; }
@@ -138,6 +140,9 @@ public sealed class StockTransferLine
     public decimal Quantity { get; private set; }
     public string UnitOfMeasure { get; private set; } = string.Empty;
     public Guid SenderLocationId { get; private set; }
+    public Guid? ReceiverLocationId { get; private set; }
+    public decimal? UnitCostAtTransferAmount { get; private set; }
+    public string? UnitCostAtTransferCurrency { get; private set; }
     public decimal? ReceivedQuantity { get; private set; }
 
     public static StockTransferLine Create(
@@ -147,8 +152,25 @@ public sealed class StockTransferLine
         Guid? itemVariantId,
         decimal quantity,
         string unitOfMeasure,
-        Guid senderLocationId)
-        => new(tenantId, transferId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId);
+        Guid senderLocationId,
+        Guid? receiverLocationId = null)
+        => new(tenantId, transferId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId, receiverLocationId);
+
+    public void RecordTransferCost(Money cost)
+    {
+        if (cost.Amount < 0m || string.IsNullOrWhiteSpace(cost.Currency))
+        {
+            throw new ArgumentException("A transfer cost must have a non-negative amount and currency.", nameof(cost));
+        }
+        if (UnitCostAtTransferAmount is not null
+            && (UnitCostAtTransferAmount != cost.Amount
+                || !string.Equals(UnitCostAtTransferCurrency, cost.Currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("A transfer line cost cannot be changed after shipment.");
+        }
+        UnitCostAtTransferAmount = cost.Amount;
+        UnitCostAtTransferCurrency = cost.Currency.Trim().ToUpperInvariant();
+    }
 
     public void RecordReceived(decimal quantity)
     {
@@ -206,7 +228,7 @@ public sealed class StockTransferRequest
         {
             transfer.Lines.Add(StockTransferLine.Create(
                 tenantId, transfer.Id, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure, line.SenderLocationId));
+                line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
         }
         return transfer;
     }

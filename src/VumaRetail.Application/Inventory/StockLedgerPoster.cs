@@ -342,6 +342,29 @@ public interface IStockLedgerPoster
         Money unitCost,
         Guid orderReturnReferenceId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Posts stock received against a registry transfer at the sender's fixed cost.</summary>
+    Task<StockLedgerEntry> ReceiveForTransferAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid receiptReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
+
+    /// <summary>Posts a compensating issue for a previously received transfer receipt.</summary>
+    Task<StockLedgerEntry> ReverseTransferReceiptAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid reversalReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
 }
 
 /// <inheritdoc cref="IStockLedgerPoster" />
@@ -426,6 +449,43 @@ public sealed class StockLedgerPoster(
         return PostIssueLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
             StockReferenceType.Transfer, transferLineReferenceId, reasonCode: null, note, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> ReceiveForTransferAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Money unitCost,
+        Guid receiptReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostReceiptLikeAsync(
+            location, binId, itemId, itemVariantId, StockMovementType.TransferIn, quantity, unitCost,
+            StockReferenceType.Transfer, receiptReferenceId, reasonCode: null, note, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> ReverseTransferReceiptAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid reversalReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostIssueLikeAsync(
+            location, binId, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
+            StockReferenceType.Transfer, reversalReferenceId, reasonCode: null, note, cancellationToken);
     }
 
     /// <inheritdoc />

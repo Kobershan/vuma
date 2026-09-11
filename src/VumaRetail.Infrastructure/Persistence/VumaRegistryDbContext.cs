@@ -734,6 +734,9 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.Quantity).HasColumnType("numeric(18,6)").IsRequired();
             builder.Property(x => x.ReceivedQuantity).HasColumnType("numeric(18,6)");
             builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.Property(x => x.ReceiverLocationId);
+            builder.Property(x => x.UnitCostAtTransferAmount).HasColumnType("numeric(18,4)");
+            builder.Property(x => x.UnitCostAtTransferCurrency).HasMaxLength(3);
             builder.HasIndex(x => new { x.TenantId, x.TransferId });
             builder.HasIndex(x => new { x.TenantId, x.TransferId, x.ItemId, x.ItemVariantId }).IsUnique();
             builder.HasOne<StockTransferRequest>()

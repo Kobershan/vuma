@@ -8,7 +8,8 @@ public sealed record Stage22TransferLine(
     Guid? ItemVariantId,
     decimal Quantity,
     string UnitOfMeasure,
-    Guid SenderLocationId);
+    Guid SenderLocationId,
+    Guid? ReceiverLocationId = null);
 
 public interface IStage22RegistryService
 {

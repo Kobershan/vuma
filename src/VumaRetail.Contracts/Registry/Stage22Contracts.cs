@@ -2,7 +2,7 @@ namespace VumaRetail.Contracts.Registry;
 
 public sealed record CreateBusinessGroupRequest(Guid BusinessId, string BusinessName, string BusinessType, decimal TransferValueThreshold, string TransferCostingMethod, string DiscrepancyDefaultOwner, string StoreCodePrefix);
 public sealed record CreateHierarchyNodeRequest(Guid BusinessId, Guid CompanyId, string NodeType, string OwnershipType, Guid? ParentNodeId, string? StoreCode, bool StockHolding = true);
-public sealed record CreateTransferLineRequest(Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, Guid SenderLocationId);
+public sealed record CreateTransferLineRequest(Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, Guid SenderLocationId, Guid? ReceiverLocationId = null);
 public sealed record CreateTransferRequest(Guid RequesterCompanyId, Guid SenderCompanyId, Guid ReceiverCompanyId, Guid HoldingCompanyId, decimal TotalValue, bool CentralBuying = false, IReadOnlyList<CreateTransferLineRequest>? Lines = null);
 public sealed record AddBusinessCompanyRequest(Guid CompanyId);
 public sealed record ChangeBusinessTypeRequest(string BusinessType);

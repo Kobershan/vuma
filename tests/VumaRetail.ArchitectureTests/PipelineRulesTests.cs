@@ -153,6 +153,7 @@ public sealed class PipelineRulesTests
             // transaction behind the registry intent (ADR-116).
             "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs",
             "src/VumaRetail.Infrastructure/Registry/TransferShipmentSagaLegDispatcher.cs",
+            "src/VumaRetail.Infrastructure/Registry/TransferReceiptSagaLegDispatcher.cs",
             // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
             // owns its own saga transaction; the handler's pipeline transaction stays empty.
             "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");

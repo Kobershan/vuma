@@ -28,7 +28,8 @@ public sealed record TransferReservationLinePayload(
     Guid? ItemId,
     Guid? ItemVariantId,
     decimal Quantity,
-    string UnitOfMeasure);
+    string UnitOfMeasure,
+    Guid? ReceiverLocationId = null);
 
 /// <summary>Sanitised payload for one transfer's source reservation leg.</summary>
 public sealed record TransferReservationPayload(
@@ -36,3 +37,28 @@ public sealed record TransferReservationPayload(
     Guid TransferId,
     Guid SenderCompanyId,
     IReadOnlyList<TransferReservationLinePayload> Lines);
+
+/// <summary>Stable saga type for receiving a transfer into the receiver's company database.</summary>
+public static class TransferReceiptSaga
+{
+    /// <summary>The durable registry intent type.</summary>
+    public const string IntentType = "stage22-transfer-receipt";
+}
+
+/// <summary>One delta receipt, with the sender cost fixed at shipment.</summary>
+public sealed record TransferReceiptLinePayload(
+    Guid LineId,
+    Guid LocationId,
+    Guid? ItemId,
+    Guid? ItemVariantId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    decimal UnitCost,
+    string Currency);
+
+/// <summary>Receiver-company payload for one cumulative transfer receipt.</summary>
+public sealed record TransferReceiptPayload(
+    Guid TenantId,
+    Guid TransferId,
+    Guid ReceiverCompanyId,
+    IReadOnlyList<TransferReceiptLinePayload> Lines);

@@ -129,6 +129,22 @@ public sealed class Stage22EntitiesTests
     }
 
     [Fact]
+    public void Transfer_line_cost_is_write_once_and_normalized()
+    {
+        StockTransferLine line = StockTransferLine.Create(Tenant, Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA", Guid.NewGuid());
+
+        line.RecordTransferCost(new Money(12.3456m, "zar"));
+        line.UnitCostAtTransferAmount.Should().Be(12.3456m);
+        line.UnitCostAtTransferCurrency.Should().Be("ZAR");
+        line.RecordTransferCost(new Money(12.3456m, "ZAR"));
+
+        FluentActions.Invoking(() => line.RecordTransferCost(new Money(13m, "ZAR")))
+            .Should().Throw<InvalidOperationException>();
+        FluentActions.Invoking(() => line.RecordTransferCost(new Money(-1m, "ZAR")))
+            .Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Lined_transfer_rejects_over_receipt_and_requires_line_total_at_reconciliation()
     {
         var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");

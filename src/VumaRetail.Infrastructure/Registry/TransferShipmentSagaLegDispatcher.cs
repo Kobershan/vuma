@@ -34,6 +34,7 @@ public sealed class TransferShipmentSagaLegDispatcher(IServiceScopeFactory scope
         await using VumaRetailDbContext db = await databases.CreateAsync(cancellationToken).ConfigureAwait(false);
         IStockLedgerRepository ledger = new StockLedgerRepository(db);
         IStockReservationRepository reservationReader = new StockReservationRepository(db);
+        VumaRegistryDbContext registry = scope.ServiceProvider.GetRequiredService<VumaRegistryDbContext>();
         IReservationService reservations = scope.ServiceProvider.GetRequiredService<IReservationService>();
         IStockLedgerPoster poster = new StockLedgerPoster(
             new StockBalanceRepository(db),
@@ -75,6 +76,13 @@ public sealed class TransferShipmentSagaLegDispatcher(IServiceScopeFactory scope
                     cancellationToken).ConfigureAwait(false);
                 await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
+
+            StockTransferLine transferLine = await registry.StockTransferLines
+                .SingleOrDefaultAsync(x => x.TenantId == intent.TenantId && x.Id == line.LineId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"Transfer line {line.LineId} was not found in the registry.");
+            transferLine.RecordTransferCost(outbound.UnitCost);
+            await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
 
             if (hold is not null)
             {

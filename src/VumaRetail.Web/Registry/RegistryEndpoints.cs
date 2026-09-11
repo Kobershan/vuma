@@ -266,7 +266,8 @@ public static class RegistryEndpoints
         stage22.MapPost("/transfers", async (CreateTransferRequest request, IStage22RegistryService service, CancellationToken ct) =>
         {
             IReadOnlyCollection<Stage22TransferLine>? lines = request.Lines?.Select(line => new Stage22TransferLine(
-                line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure, line.SenderLocationId)).ToArray();
+                line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure, line.SenderLocationId,
+                line.ReceiverLocationId)).ToArray();
             var transfer = await service.CreateTransferAsync(request.RequesterCompanyId, request.SenderCompanyId, request.ReceiverCompanyId, request.HoldingCompanyId, request.TotalValue, request.CentralBuying, lines, ct);
             return Results.Created($"/api/v1/stage22/transfers/{transfer.Id}", new Stage22TransferResponse(transfer.Id, transfer.RequesterCompanyId, transfer.SenderCompanyId, transfer.ReceiverCompanyId, transfer.TotalValue, transfer.Status.ToString(), transfer.ReceivedQuantity, transfer.DiscrepancyQuantity));
         }).RequirePermission(PlatformPermissions.CompanyManage);

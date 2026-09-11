@@ -100,6 +100,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ISagaLegDispatcher, ConsolidatedWaveSagaLegDispatcher>();
         services.AddScoped<ISagaLegDispatcher, TransferReservationSagaLegDispatcher>();
         services.AddScoped<ISagaLegDispatcher, TransferShipmentSagaLegDispatcher>();
+        services.AddScoped<ISagaLegDispatcher, TransferReceiptSagaLegDispatcher>();
 
          // Stage 07c: Cross-company money
          services.AddScoped<IGroupReceiptRepository, GroupReceiptRepository>();

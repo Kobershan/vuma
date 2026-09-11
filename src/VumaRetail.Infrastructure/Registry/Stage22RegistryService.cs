@@ -148,7 +148,7 @@ public sealed class Stage22RegistryService(
             case "pick": transfer.Pick(); break;
             case "ship": await ShipTransferAsync(transfer, persistedLines, cancellationToken).ConfigureAwait(false); break;
             case "in-transit": transfer.MoveInTransit(); break;
-            case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break;
+            case "receive": await ReceiveTransferAsync(transfer, persistedLines, quantity ?? throw new ArgumentException("Quantity is required."), cancellationToken).ConfigureAwait(false); break;
             case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break;
             case "cancel": transfer.Cancel(); break;
             default: throw new ArgumentException("Unknown transfer action.", nameof(action));
@@ -183,7 +183,7 @@ public sealed class Stage22RegistryService(
             transfer.SenderCompanyId,
             lines.Select(line => new TransferReservationLinePayload(
                 line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure)).ToArray());
+                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId)).ToArray());
         SagaIntent intent = SagaIntent.Create(
             transfer.TenantId,
             TransferReservationSaga.IntentType,
@@ -224,7 +224,7 @@ public sealed class Stage22RegistryService(
             transfer.SenderCompanyId,
             lines.Select(line => new TransferReservationLinePayload(
                 line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure)).ToArray());
+                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId)).ToArray());
         SagaIntent intent = SagaIntent.Create(
             transfer.TenantId,
             TransferShipmentSaga.IntentType,
@@ -241,6 +241,84 @@ public sealed class Stage22RegistryService(
         }
 
         transfer.Ship();
+    }
+
+    private async Task ReceiveTransferAsync(
+        StockTransferRequest transfer,
+        IReadOnlyList<StockTransferLine> lines,
+        decimal quantity,
+        CancellationToken cancellationToken)
+    {
+        if (quantity < 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Received quantity cannot be negative.");
+        }
+
+        if (lines.Count == 0)
+        {
+            transfer.Receive(quantity);
+            return;
+        }
+
+        decimal requestedTotal = lines.Sum(line => line.Quantity);
+        if (quantity > requestedTotal)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Received quantity cannot exceed the transfer quantity.");
+        }
+
+        decimal previousTotal = transfer.ReceivedQuantity ?? 0m;
+        if (quantity <= previousTotal)
+        {
+            transfer.Receive(quantity);
+            return;
+        }
+
+        if (sagaCoordinator is null || operatorContext is null || hybridClock is null || principal is null)
+        {
+            throw new InvalidOperationException("Transfer receipt saga services are not configured.");
+        }
+
+        decimal remaining = quantity;
+        List<TransferReceiptLinePayload> receiptLines = [];
+        foreach (StockTransferLine line in lines)
+        {
+            decimal target = Math.Min(line.Quantity, remaining);
+            decimal alreadyReceived = line.ReceivedQuantity ?? 0m;
+            decimal delta = target - alreadyReceived;
+            if (delta > 0m)
+            {
+                if (line.ReceiverLocationId is not Guid receiverLocationId
+                    || line.UnitCostAtTransferAmount is not decimal unitCost
+                    || string.IsNullOrWhiteSpace(line.UnitCostAtTransferCurrency))
+                {
+                    throw new InvalidOperationException($"Transfer line {line.Id} is missing receiver location or shipment cost.");
+                }
+
+                receiptLines.Add(new TransferReceiptLinePayload(
+                    line.Id, receiverLocationId, line.ItemId, line.ItemVariantId,
+                    delta, line.UnitOfMeasure, unitCost, line.UnitCostAtTransferCurrency));
+            }
+            remaining -= target;
+        }
+
+        TransferReceiptPayload payload = new(
+            transfer.TenantId, transfer.Id, transfer.ReceiverCompanyId, receiptLines);
+        SagaIntent intent = SagaIntent.Create(
+            transfer.TenantId,
+            TransferReceiptSaga.IntentType,
+            $"transfer-receipt:{transfer.Id:N}:{quantity.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            clock.UtcNow,
+            JsonSerializer.Serialize(payload));
+        intent.Authorize(operatorContext.RequireOperatorId(), principal.Principal, hybridClock.Next().ToString());
+        intent.AddLeg(transfer.ReceiverCompanyId);
+
+        SagaResult result = await sagaCoordinator.ExecuteAsync(intent, cancellationToken).ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException("Transfer receipt is still pending or failed; retry the receipt leg.");
+        }
+
+        transfer.Receive(quantity);
     }
 
     public async Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default)
