@@ -260,6 +260,24 @@ public static class RegistryEndpoints
             PremisesSkuRouting route = await service.AddPremisesSkuRoutingAsync(request.PremisesId, request.SkuOrBarcode, request.CompanyId, request.IsBarcode, ct);
             return Results.Created($"/api/v1/stage22/premises-routing/{route.Id}", new { route.Id, route.PremisesId, route.SkuOrBarcode, route.CompanyId, route.IsBarcode });
         }).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/pricing/group", async (SetGroupRetailPriceRequest request, IStage22RegistryService service, CancellationToken ct) =>
+        {
+            GroupRetailPriceRow row = await service.SetGroupRetailPriceAsync(
+                request.BusinessId, request.CompanyId, request.ItemId, request.BasePrice, request.LocalOverride, request.Currency, ct);
+            return Results.Ok(new { row.Id, row.BusinessId, row.CompanyId, row.ItemId, row.BasePrice, row.LocalOverride, row.EffectivePrice, row.Currency });
+        }).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/pricing/franchise", async (SetFranchiseWholesalePriceRequest request, IStage22RegistryService service, CancellationToken ct) =>
+        {
+            FranchiseWholesalePriceRow row = await service.SetFranchiseWholesalePriceAsync(
+                request.BrandCompanyId, request.FranchiseeCompanyId, request.ItemId, request.FlatPrice, request.FranchiseeOverride, request.Currency, ct);
+            return Results.Ok(new { row.Id, row.BrandCompanyId, row.FranchiseeCompanyId, row.ItemId, row.FlatPrice, row.FranchiseeOverride, row.EffectivePrice, row.Currency });
+        }).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/pricing/shared-premises", async (SetSharedPremisesRetailPriceRequest request, IStage22RegistryService service, CancellationToken ct) =>
+        {
+            SharedPremisesRetailPriceRow row = await service.SetSharedPremisesRetailPriceAsync(
+                request.PremisesId, request.CompanyId, request.ItemId, request.RetailPrice, request.Currency, ct);
+            return Results.Ok(new { row.Id, row.PremisesId, row.CompanyId, row.ItemId, row.RetailPrice, row.Currency });
+        }).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapGet("/business-groups/{businessId:guid}/owned-stock", async (Guid businessId, Guid? companyId, IStage22RegistryService service, CancellationToken ct) =>
             Results.Ok((await service.ListOwnedStockAsync(businessId, companyId, ct)).Select(x => new Stage22OwnedStockResponse(x.Id, x.BusinessId, x.CompanyId, x.LocationId, x.ItemId, x.ItemVariantId, x.OnHand, x.Reserved, x.InStaging, x.Available, x.UnitOfMeasure, x.AsAt))))
             .RequirePermission(PlatformPermissions.CompanyView);

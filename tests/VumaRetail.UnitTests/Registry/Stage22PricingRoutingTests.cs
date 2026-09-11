@@ -20,4 +20,23 @@ public sealed class Stage22PricingRoutingTests
         group.EffectivePrice.Should().Be(12m);
         franchise.EffectivePrice.Should().Be(8m);
     }
+
+    [Fact]
+    public void Persisted_pricing_rows_validate_price_boundaries_and_fallbacks()
+    {
+        Guid tenant = Guid.NewGuid();
+        GroupRetailPriceRow group = GroupRetailPriceRow.Define(
+            tenant, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 12m, "zar");
+        FranchiseWholesalePriceRow franchise = FranchiseWholesalePriceRow.Define(
+            tenant, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 8m, null, "ZAR");
+        SharedPremisesRetailPriceRow shared = SharedPremisesRetailPriceRow.Define(
+            tenant, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 15m, "ZAR");
+
+        group.EffectivePrice.Should().Be(12m);
+        group.Currency.Should().Be("ZAR");
+        franchise.EffectivePrice.Should().Be(8m);
+        shared.RetailPrice.Should().Be(15m);
+        FluentActions.Invoking(() => group.Replace(-1m, null, "ZAR"))
+            .Should().Throw<ArgumentOutOfRangeException>();
+    }
 }

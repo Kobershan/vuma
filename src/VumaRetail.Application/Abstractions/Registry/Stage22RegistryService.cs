@@ -24,6 +24,9 @@ public interface IStage22RegistryService
     Task<StockTransferRequest> TransitionTransferAsync(Guid transferId, string action, decimal? quantity = null, decimal? requestedQuantity = null, string? reason = null, CancellationToken cancellationToken = default);
     Task<StockTransferDeliveryNote> CreateDeliveryNoteAsync(Guid transferId, string? driverReference = null, CancellationToken cancellationToken = default);
     Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default);
+    Task<GroupRetailPriceRow> SetGroupRetailPriceAsync(Guid businessId, Guid companyId, Guid itemId, decimal basePrice, decimal? localOverride, string currency, CancellationToken cancellationToken = default);
+    Task<FranchiseWholesalePriceRow> SetFranchiseWholesalePriceAsync(Guid brandCompanyId, Guid franchiseeCompanyId, Guid itemId, decimal flatPrice, decimal? franchiseeOverride, string currency, CancellationToken cancellationToken = default);
+    Task<SharedPremisesRetailPriceRow> SetSharedPremisesRetailPriceAsync(Guid premisesId, Guid companyId, Guid itemId, decimal retailPrice, string currency, CancellationToken cancellationToken = default);
     Task<OwnedStockOnHandProjection> PublishOwnedStockProjectionAsync(OwnedStockOnHandProjection projection, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OwnedStockOnHandProjection>> ListOwnedStockAsync(Guid businessId, Guid? companyId = null, CancellationToken cancellationToken = default);
 }

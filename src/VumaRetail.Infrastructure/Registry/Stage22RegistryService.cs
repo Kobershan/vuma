@@ -441,6 +441,97 @@ public sealed class Stage22RegistryService(
         return route;
     }
 
+    public async Task<GroupRetailPriceRow> SetGroupRetailPriceAsync(
+        Guid businessId, Guid companyId, Guid itemId, decimal basePrice, decimal? localOverride,
+        string currency, CancellationToken cancellationToken = default)
+    {
+        await RequireOwnedBusinessCompanyAsync(businessId, companyId, cancellationToken).ConfigureAwait(false);
+        GroupRetailPriceRow? existing = await registry.GroupRetailPriceRows.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.BusinessId == businessId && x.CompanyId == companyId && x.ItemId == itemId,
+            cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            existing.Replace(basePrice, localOverride, currency);
+            await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return existing;
+        }
+
+        GroupRetailPriceRow row = GroupRetailPriceRow.Define(tenant.TenantId, businessId, companyId, itemId, basePrice, localOverride, currency);
+        registry.GroupRetailPriceRows.Add(row);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return row;
+    }
+
+    public async Task<FranchiseWholesalePriceRow> SetFranchiseWholesalePriceAsync(
+        Guid brandCompanyId, Guid franchiseeCompanyId, Guid itemId, decimal flatPrice, decimal? franchiseeOverride,
+        string currency, CancellationToken cancellationToken = default)
+    {
+        GroupHierarchyNode brand = await RequireHierarchyCompanyAsync(brandCompanyId, cancellationToken).ConfigureAwait(false);
+        GroupHierarchyNode franchisee = await RequireHierarchyCompanyAsync(franchiseeCompanyId, cancellationToken).ConfigureAwait(false);
+        if (brand.BusinessId != franchisee.BusinessId)
+            throw new InvalidOperationException("Brand and franchisee must belong to the same business.");
+        if (brand.OwnershipType != OwnershipType.Owned || franchisee.OwnershipType != OwnershipType.Franchised)
+            throw new InvalidOperationException("Franchise pricing requires an owned brand and a franchised company.");
+
+        FranchiseWholesalePriceRow? existing = await registry.FranchiseWholesalePriceRows.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.BrandCompanyId == brandCompanyId
+                && x.FranchiseeCompanyId == franchiseeCompanyId && x.ItemId == itemId,
+            cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            existing.Replace(flatPrice, franchiseeOverride, currency);
+            await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return existing;
+        }
+
+        FranchiseWholesalePriceRow row = FranchiseWholesalePriceRow.Define(
+            tenant.TenantId, brandCompanyId, franchiseeCompanyId, itemId, flatPrice, franchiseeOverride, currency);
+        registry.FranchiseWholesalePriceRows.Add(row);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return row;
+    }
+
+    public async Task<SharedPremisesRetailPriceRow> SetSharedPremisesRetailPriceAsync(
+        Guid premisesId, Guid companyId, Guid itemId, decimal retailPrice, string currency,
+        CancellationToken cancellationToken = default)
+    {
+        bool validOccupancy = await registry.PremisesOccupancies.AnyAsync(
+            x => x.TenantId == tenant.TenantId && x.PremisesId == premisesId && x.CompanyId == companyId
+                && x.OccupiesTo == null,
+            cancellationToken).ConfigureAwait(false);
+        if (!validOccupancy)
+            throw new KeyNotFoundException("The company does not have an active occupancy at the premises.");
+
+        SharedPremisesRetailPriceRow? existing = await registry.SharedPremisesRetailPriceRows.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.PremisesId == premisesId && x.CompanyId == companyId && x.ItemId == itemId,
+            cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            existing.Replace(retailPrice, currency);
+            await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return existing;
+        }
+
+        SharedPremisesRetailPriceRow row = SharedPremisesRetailPriceRow.Define(
+            tenant.TenantId, premisesId, companyId, itemId, retailPrice, currency);
+        registry.SharedPremisesRetailPriceRows.Add(row);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return row;
+    }
+
+    private async Task RequireOwnedBusinessCompanyAsync(Guid businessId, Guid companyId, CancellationToken cancellationToken)
+    {
+        GroupHierarchyNode node = await RequireHierarchyCompanyAsync(companyId, cancellationToken).ConfigureAwait(false);
+        if (node.BusinessId != businessId || node.OwnershipType != OwnershipType.Owned)
+            throw new InvalidOperationException("Group pricing requires an owned company in the requested business.");
+    }
+
+    private async Task<GroupHierarchyNode> RequireHierarchyCompanyAsync(Guid companyId, CancellationToken cancellationToken)
+        => await registry.GroupHierarchyNodes.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.CompanyId == companyId,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("The hierarchy company was not found.");
+
     public async Task<OwnedStockOnHandProjection> PublishOwnedStockProjectionAsync(OwnedStockOnHandProjection projection, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projection);

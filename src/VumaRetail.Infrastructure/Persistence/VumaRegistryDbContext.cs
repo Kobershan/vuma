@@ -77,6 +77,9 @@ public sealed class VumaRegistryDbContext(
     public DbSet<StockTransferDeliveryNote> StockTransferDeliveryNotes => Set<StockTransferDeliveryNote>();
     public DbSet<StockTransferDeliveryNoteLine> StockTransferDeliveryNoteLines => Set<StockTransferDeliveryNoteLine>();
     public DbSet<PremisesSkuRouting> PremisesSkuRoutings => Set<PremisesSkuRouting>();
+    public DbSet<GroupRetailPriceRow> GroupRetailPriceRows => Set<GroupRetailPriceRow>();
+    public DbSet<FranchiseWholesalePriceRow> FranchiseWholesalePriceRows => Set<FranchiseWholesalePriceRow>();
+    public DbSet<SharedPremisesRetailPriceRow> SharedPremisesRetailPriceRows => Set<SharedPremisesRetailPriceRow>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(cancellationToken);
@@ -789,6 +792,35 @@ public sealed class VumaRegistryDbContext(
             builder.HasKey(x => x.Id);
             builder.Property(x => x.SkuOrBarcode).HasMaxLength(128).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.PremisesId, x.SkuOrBarcode, x.IsBarcode }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<GroupRetailPriceRow>(builder =>
+        {
+            builder.ToTable("group_retail_prices", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.BasePrice).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.LocalOverride).HasColumnType("numeric(18,4)");
+            builder.Property(x => x.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.BusinessId, x.CompanyId, x.ItemId }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<FranchiseWholesalePriceRow>(builder =>
+        {
+            builder.ToTable("franchise_wholesale_prices", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.FlatPrice).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.FranchiseeOverride).HasColumnType("numeric(18,4)");
+            builder.Property(x => x.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.BrandCompanyId, x.FranchiseeCompanyId, x.ItemId }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<SharedPremisesRetailPriceRow>(builder =>
+        {
+            builder.ToTable("shared_premises_retail_prices", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.RetailPrice).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.PremisesId, x.CompanyId, x.ItemId }).IsUnique();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
 

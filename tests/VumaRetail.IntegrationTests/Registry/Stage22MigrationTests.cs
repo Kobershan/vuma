@@ -125,4 +125,27 @@ public sealed class Stage22MigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
         remainingColumns.Should().NotContain(["batch_reference", "expiry_date", "serial_number"]);
     }
+
+    [Fact]
+    public async Task Stage22_independent_pricing_migration_is_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.ForRegistry(connectionString);
+
+        await context.Database.MigrateAsync("20260911214712_Stage22IndependentPricing").ConfigureAwait(false);
+        IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'registry'
+            """).ToListAsync().ConfigureAwait(false);
+        tables.Should().Contain(["group_retail_prices", "franchise_wholesale_prices", "shared_premises_retail_prices"]);
+
+        await context.Database.MigrateAsync("20260911214001_Stage22TransferTracking").ConfigureAwait(false);
+        IReadOnlyList<string> remainingTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'registry'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingTables.Should().NotContain(["group_retail_prices", "franchise_wholesale_prices", "shared_premises_retail_prices"]);
+    }
 }

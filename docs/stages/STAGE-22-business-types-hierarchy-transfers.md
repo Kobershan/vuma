@@ -52,9 +52,11 @@ transfers with explicit relation metadata, protected API routes, replay-safe uni
 goods-movement delivery notes. Transfer lines also preserve optional batch/expiry/serial identities,
 including them in delivery-note snapshots and saga payloads; serial uniqueness and quantity-one rules
 are enforced by the domain and database.
+Independent group, franchise-wholesale, and shared-premises price rows are now persisted with
+permission-gated registry APIs and ownership/occupancy validation.
 
 Verified on 2026-09-11: focused Stage 22 unit/domain tests and PostgreSQL migration/registry tests are
 green; the complete repository integration suite is recorded separately in the handoff. The stage
 remains open because company-ledger batch/serial enforcement, discrepancy GL/audit posting,
-notifications/SLA execution, independent pricing, and shared-till split posting still require their
-own implementation and acceptance evidence.
+notifications/SLA execution, sales/POS consumption of the independent prices, and shared-till split
+posting still require their own implementation and acceptance evidence.
