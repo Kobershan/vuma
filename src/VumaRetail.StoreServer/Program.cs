@@ -26,6 +26,7 @@ using VumaRetail.Application.Loyalty.Hosting;
 using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Web.CustomerAccounts;
 using VumaRetail.Web.Diagnostics;
+using VumaRetail.Web.Dashboard;
 using VumaRetail.Web.Finance;
 using VumaRetail.Web.Identity;
 using VumaRetail.Web.Imports;
@@ -355,6 +356,7 @@ app.MapVumaLoyaltyPublic(app.Services.GetRequiredService<LoyaltyPublicOptions>()
 app.MapVumaRegistry();
 app.MapGroupReceiptEndpoints();
 app.MapConsolidationEndpoints();
+app.MapVumaDashboard();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because
