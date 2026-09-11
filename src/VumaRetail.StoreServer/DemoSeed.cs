@@ -15,6 +15,7 @@ using VumaRetail.Application.Identity;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Inventory.Commands;
+using VumaRetail.Application.Manufacturing;
 using VumaRetail.Application.Partners.Commands;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Pos;
@@ -50,6 +51,7 @@ using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Licensing;
+using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Partners;
 using VumaRetail.Domain.Platform;
 using VumaRetail.Domain.Primitives;
@@ -220,6 +222,45 @@ public static class DemoSeed
         await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedFieldSalesAsync(provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedCrmLoyaltyAsync(provider, context, corpClient, cancellationToken).ConfigureAwait(false);
+
+        Guid giftPack = await EnsureItemAsync(
+            provider, context, "GIFT-PACK", "Vuma breakfast gift pack", ItemType.Stock, each,
+            "Assembled demo BOM containing milk and a branded shirt", "STANDARD", cancellationToken)
+            .ConfigureAwait(false);
+        await SeedManufacturingAsync(provider, context, giftPack, milk, shirt, shirtMedRed, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Seeds Stage 16 with one published, multi-component BOM and an ordered routing.</summary>
+    private static async Task SeedManufacturingAsync(
+        IServiceProvider provider,
+        VumaRetailDbContext context,
+        Guid finishedItemId,
+        Guid milkItemId,
+        Guid shirtItemId,
+        Guid shirtVariantId,
+        CancellationToken cancellationToken)
+    {
+        if (await context.BillOfMaterials.AnyAsync(bom => bom.FinishedItemId == finishedItemId, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IDispatcher dispatcher = provider.GetRequiredService<IDispatcher>();
+        Guid bomId = await dispatcher.SendAsync(new CreateBillOfMaterialsCommand(
+            DemoCompanyId,
+            finishedItemId,
+            null,
+            1,
+            "Breakfast gift pack",
+            [
+                new BillOfMaterialsLineInput(milkItemId, null, 1m, "EA", ScrapPercent: 2m),
+                new BillOfMaterialsLineInput(shirtItemId, shirtVariantId, 1m, "EA", AlternateGroup: "shirt"),
+            ]), cancellationToken).ConfigureAwait(false);
+
+        await dispatcher.SendAsync(new PublishBillOfMaterialsCommand(bomId), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
