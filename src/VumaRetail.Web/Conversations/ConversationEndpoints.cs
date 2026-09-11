@@ -19,7 +19,7 @@ public static class ConversationEndpoints
 {
     public static IEndpointRouteBuilder MapVumaConversations(this IEndpointRouteBuilder endpoints)
     {
-        RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/conversations").WithTags("Conversations").RequireModule("conversations");
+        RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/conversations").WithTags("Conversations").RequireModule("conversations").RequirePermission(ConversationPermissions.Receive);
         group.MapPost("/inbound", InboundAsync).WithSummary("Accepts a normalised inbound conversation message.");
         group.MapPost("/inbound/email", InboundEmailAsync)
             .WithSummary("Accepts a normalised inbound email message.");
@@ -27,7 +27,8 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Accepts a signature-verified WhatsApp webhook.")
             .RequireModule("conversations");
-        group.MapPost("/{conversationId:guid}/escalate", (Guid conversationId) => Results.Accepted($"/api/v1/conversations/{conversationId}"));
+        group.MapPost("/{conversationId:guid}/escalate", (Guid conversationId) => Results.Accepted($"/api/v1/conversations/{conversationId}"))
+            .RequirePermission(ConversationPermissions.Escalate);
         endpoints.MapVumaApi().MapGet("/d/{token}", FetchDocumentAsync)
             .WithTags("Conversations")
             .WithSummary("Fetches a one-time, expiring document delivery reference.")
