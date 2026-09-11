@@ -14,6 +14,24 @@ namespace VumaRetail.UnitTests.Conversations;
 
 public sealed class ConversationSafetyTests
 {
+    [Fact]
+    public void Reply_safety_rejects_a_number_not_present_in_api_facts()
+    {
+        ReplyFacts facts = new(["Balance is R100.00 as at 2026-09-11."], "Unable to provide the balance.");
+
+        ReplySafety.ContainsOnlyApiFacts("Balance is R100.00 as at 2026-09-11.", facts).Should().BeTrue();
+        ReplySafety.ContainsOnlyApiFacts("Balance is R999.00 as at 2026-09-11.", facts).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Template_composer_returns_the_fallback_if_a_fact_check_fails()
+    {
+        string reply = await new TemplateReplyComposer().ComposeAsync(
+            new ReplyFacts(["Invoice 100 is ready."], "Please contact a human."));
+
+        reply.Should().Be("Invoice 100 is ready.");
+    }
+
     private static readonly DateTimeOffset At = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 
     [Theory]

@@ -34,7 +34,6 @@ public sealed class BuildConsolidatedWaveCommandValidator : AbstractValidator<Bu
         RuleFor(c => c.Filter.GeographyLevel).NotEmpty().Must(l => l is "Province" or "City" or "Suburb");
         RuleFor(c => c.Filter.GeographyValue).NotEmpty();
         RuleFor(c => c.Filter.LocationId).NotEmpty();
-        RuleFor(c => c.OrderLines).NotEmpty();
     }
 }
 
@@ -43,11 +42,13 @@ public sealed class BuildConsolidatedWaveCommandValidator : AbstractValidator<Bu
 /// <param name="breakdowns">Per-order contribution persistence.</param>
 /// <param name="skus">Resolves pack size for grouping.</param>
 /// <param name="tenant">The ambient tenant and store.</param>
+/// <param name="orderLineReader">Loads qualifying order lines for API-originated builds.</param>
 public sealed class BuildConsolidatedWaveCommandHandler(
     IPickWaveRepository waves,
     IPickWaveLineBreakdownRepository breakdowns,
     IPackSizeResolver skus,
-    ITenantContext tenant)
+    ITenantContext tenant,
+    IOrderLineReader? orderLineReader = null)
     : ICommandHandler<BuildConsolidatedWaveCommand, Guid>
 {
     /// <inheritdoc />
@@ -57,8 +58,22 @@ public sealed class BuildConsolidatedWaveCommandHandler(
 
         PickWaveFilter filter = command.Filter;
 
+        IReadOnlyList<OrderLineSummary> sourceLines = command.OrderLines.Count > 0
+            ? command.OrderLines
+            : orderLineReader is null
+                ? []
+                : await orderLineReader.ReadOpenLinesAsync(
+                    filter.LocationId!.Value, filter.PeriodFrom, filter.PeriodTo,
+                    filter.GeographyLevel, filter.GeographyValue, filter.CompanyScope,
+                    cancellationToken).ConfigureAwait(false);
+
+        if (sourceLines.Count == 0)
+        {
+            throw new InvalidOperationException("No qualifying open order lines were found for this wave.");
+        }
+
         // Group by (item, variant, uom, pack size)
-var grouped = await Task.WhenAll(command.OrderLines
+        var grouped = await Task.WhenAll(sourceLines
             .Select(async line =>
             {
                 PackSizeSnapshot packSize = await skus.ResolveAsync(

@@ -227,7 +227,7 @@ public static class DemoSeed
         await SeedOrdersAsync(provider, context, corpClient, milk, shirtMedRed, cancellationToken).ConfigureAwait(false);
         await SeedFieldSalesAsync(provider, context, corpClient, milk, cancellationToken).ConfigureAwait(false);
         await SeedCrmLoyaltyAsync(provider, context, corpClient, cancellationToken).ConfigureAwait(false);
-        await SeedPlanningAsync(provider, context, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
+        await SeedPlanningAsync(provider, context, unitOfWork, johannesburg.Id, milk, cancellationToken).ConfigureAwait(false);
 
         Guid giftPack = await EnsureItemAsync(
             provider, context, "GIFT-PACK", "Vuma breakfast gift pack", ItemType.Stock, each,
@@ -241,6 +241,7 @@ public static class DemoSeed
     private static async Task SeedPlanningAsync(
         IServiceProvider provider,
         VumaRetailDbContext context,
+        IUnitOfWork unitOfWork,
         Guid locationId,
         Guid itemId,
         CancellationToken cancellationToken)
@@ -275,7 +276,7 @@ public static class DemoSeed
         context.OpenToBuyBudgets.Add(OpenToBuyBudget.Create(
             DemoTenantId, DemoCompanyId, clock.UtcNow.Year, clock.UtcNow.Month, null, 50000m, "ZAR"));
 
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static DateOnly StartOfPlanningWeek(DateOnly date)
@@ -348,7 +349,7 @@ public static class DemoSeed
             }
         }
 
-        await registry.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Seeds Stage 16 with one published, multi-component BOM and an ordered routing.</summary>

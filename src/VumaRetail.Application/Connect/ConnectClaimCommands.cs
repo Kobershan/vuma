@@ -6,8 +6,10 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Connect;
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RaiseConnectClaimCommand(Guid OrderId, Guid OrderLineId, string ClaimNumber,
     ConnectClaimReason Reason, decimal Quantity, string UnitOfMeasure, decimal Amount, string Currency, string Description) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ResolveConnectClaimCommand(Guid ClaimId, bool Credit, string? CreditNoteReference) : ICommand;
 
 public sealed class RaiseConnectClaimCommandValidator : AbstractValidator<RaiseConnectClaimCommand>

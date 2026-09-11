@@ -10,7 +10,12 @@ public sealed record IssueConnectionCodeCommand(string Code, int Uses, DateTimeO
 
 public sealed class IssueConnectionCodeCommandValidator : AbstractValidator<IssueConnectionCodeCommand>
 {
-    public IssueConnectionCodeCommandValidator() { RuleFor(x => x.Code).NotEmpty().MaximumLength(64); RuleFor(x => x.Uses).GreaterThan(0); RuleFor(x => x.ExpiresAt).GreaterThan(DateTimeOffset.UtcNow); }
+    public IssueConnectionCodeCommandValidator(IClock clock)
+    {
+        RuleFor(x => x.Code).NotEmpty().MaximumLength(64);
+        RuleFor(x => x.Uses).GreaterThan(0);
+        RuleFor(x => x.ExpiresAt).Must(expiresAt => expiresAt > clock.UtcNow).WithMessage("Expiry must be in the future.");
+    }
 }
 
 public sealed class IssueConnectionCodeCommandHandler(IConnectionCodeRepository codes, ITenantContext tenant, IClock clock) : ICommandHandler<IssueConnectionCodeCommand, ConnectCodeResult>

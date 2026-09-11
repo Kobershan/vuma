@@ -7,10 +7,15 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Application.Connect;
 
 public sealed record ConnectOrderLineInput(string SupplierSku, string Description, decimal Quantity, string UnitOfMeasure, decimal UnitPrice, string Currency);
+[CommandSideEffect(SideEffect.Write)]
 public sealed record PlaceConnectOrderCommand(Guid ConnectionId, Guid PurchaseOrderId, string OrderNumber, IReadOnlyList<ConnectOrderLineInput> Lines) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ConfirmConnectOrderCommand(Guid OrderId, IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset PromisedAt) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RejectConnectOrderCommand(Guid OrderId, string Reason) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record DispatchConnectOrderCommand(Guid OrderId, string DispatchNoteNumber, IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset DispatchedAt) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ReceiveConnectOrderCommand(Guid OrderId) : ICommand;
 
 public sealed class PlaceConnectOrderCommandValidator : AbstractValidator<PlaceConnectOrderCommand>

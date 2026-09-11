@@ -20,6 +20,8 @@ public static class ConversationEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/conversations").WithTags("Conversations").RequireModule("conversations");
         group.MapPost("/inbound", InboundAsync).WithSummary("Accepts a normalised inbound conversation message.");
+        group.MapPost("/inbound/email", InboundEmailAsync)
+            .WithSummary("Accepts a normalised inbound email message.");
         endpoints.MapVumaApi().MapPost("/conversations/webhook/whatsapp", WhatsAppWebhookAsync)
             .WithTags("Conversations")
             .WithSummary("Accepts a signature-verified WhatsApp webhook.")
@@ -139,6 +141,23 @@ public static class ConversationEndpoints
             ? Results.BadRequest(new { error = "invalid webhook payload" })
             : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, clock, cancellationToken).ConfigureAwait(false);
     }
+
+    private static async Task<IResult> InboundEmailAsync(
+        InboundMessage message,
+        IContactResolver contacts,
+        IContactBindingManagementService bindingManagement,
+        IConversationStore conversationStore,
+        IIntentClassifier classifier,
+        IClock clock,
+        CancellationToken cancellationToken)
+        => await InboundAsync(
+            message with { Channel = ConversationChannel.Email },
+            contacts,
+            bindingManagement,
+            conversationStore,
+            classifier,
+            clock,
+            cancellationToken).ConfigureAwait(false);
 
     private static async Task<IResult> InboundAsync(InboundMessage message, IContactResolver contacts, IContactBindingManagementService bindingManagement, IConversationStore conversationStore, IIntentClassifier classifier, IClock clock, CancellationToken cancellationToken)
     {

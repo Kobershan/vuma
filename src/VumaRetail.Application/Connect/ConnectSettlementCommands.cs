@@ -6,6 +6,7 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Connect;
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record SettleConnectPaymentCommand(Guid PaymentId, Guid ConnectionId, string InvoiceReference,
     decimal Amount, string Currency, ConnectPaymentMethod Method) : ICommand<SettlementResult>;
 

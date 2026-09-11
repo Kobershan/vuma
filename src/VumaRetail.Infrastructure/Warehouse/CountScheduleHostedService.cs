@@ -26,6 +26,7 @@ public sealed class CountScheduleHostedService(
     {
         using IServiceScope scope = scopeFactory.CreateScope();
         ICountScheduleRepository schedules = scope.ServiceProvider.GetRequiredService<ICountScheduleRepository>();
+        IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         DateTimeOffset now = clock.UtcNow;
         IReadOnlyList<CountSchedule> due = await schedules.ListActiveDueAsync(now, cancellationToken)
             .ConfigureAwait(false);
@@ -34,6 +35,11 @@ public sealed class CountScheduleHostedService(
         {
             schedule.Advance(NextRun(schedule, now));
             logger.LogInformation("Advanced count schedule {ScheduleId} to {NextRunAt}.", schedule.Id, schedule.NextRunAt);
+        }
+
+        if (due.Count > 0)
+        {
+            await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

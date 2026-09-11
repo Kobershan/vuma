@@ -131,6 +131,9 @@ public sealed class TemplateReplyComposer : IReplyComposer
     {
         ArgumentNullException.ThrowIfNull(facts);
         string result = facts.Facts.Count == 0 ? facts.FallbackText : string.Join(" ", facts.Facts);
-        return Task.FromResult(result);
+        return Task.FromResult(
+            facts.Facts.Count == 0 || ReplySafety.ContainsOnlyApiFacts(result, facts)
+                ? result
+                : facts.FallbackText);
     }
 }
