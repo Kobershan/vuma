@@ -218,4 +218,21 @@ public sealed class Stage22EntitiesTests
         reverse.Lines.Single().SenderLocationId.Should().Be(receiverLocation);
         reverse.Lines.Single().ReceiverLocationId.Should().Be(senderLocation);
     }
+
+    [Fact]
+    public void Delivery_note_is_immutable_snapshot_and_is_only_issued_after_shipping()
+    {
+        StockTransferRequest source = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 100m);
+        StockTransferLine line = StockTransferLine.Create(Tenant, source.Id, Guid.NewGuid(), null, 2m, "EA", Guid.NewGuid(), Guid.NewGuid());
+        source.Lines.Add(line);
+
+        FluentActions.Invoking(() => StockTransferDeliveryNote.Create(source, DateTimeOffset.UtcNow))
+            .Should().Throw<InvalidOperationException>();
+
+        source.Check(GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR"), false);
+        source.Accept(); source.Reserve(); source.Pick(); source.Ship();
+        StockTransferDeliveryNote note = StockTransferDeliveryNote.Create(source, DateTimeOffset.UtcNow, "DRIVER-1");
+        note.Number.Should().Be($"DN-{source.Id:N}");
+        note.Lines.Should().ContainSingle().Which.Quantity.Should().Be(2m);
+    }
 }

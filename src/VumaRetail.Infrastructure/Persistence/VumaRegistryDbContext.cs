@@ -74,6 +74,8 @@ public sealed class VumaRegistryDbContext(
     public DbSet<OwnedStockOnHandProjection> OwnedStockOnHandProjections => Set<OwnedStockOnHandProjection>();
     public DbSet<StockTransferRequest> StockTransferRequests => Set<StockTransferRequest>();
     public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
+    public DbSet<StockTransferDeliveryNote> StockTransferDeliveryNotes => Set<StockTransferDeliveryNote>();
+    public DbSet<StockTransferDeliveryNoteLine> StockTransferDeliveryNoteLines => Set<StockTransferDeliveryNoteLine>();
     public DbSet<PremisesSkuRouting> PremisesSkuRoutings => Set<PremisesSkuRouting>();
 
     public Task<int> CommitAsync(CancellationToken cancellationToken = default)
@@ -748,6 +750,27 @@ public sealed class VumaRegistryDbContext(
                 .WithMany(x => x.Lines)
                 .HasForeignKey(x => x.TransferId)
                 .OnDelete(DeleteBehavior.Restrict);
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<StockTransferDeliveryNote>(builder =>
+        {
+            builder.ToTable("stock_transfer_delivery_notes", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Number).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.DriverReference).HasMaxLength(128);
+            builder.HasIndex(x => new { x.TenantId, x.TransferId }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
+            builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        });
+        modelBuilder.Entity<StockTransferDeliveryNoteLine>(builder =>
+        {
+            builder.ToTable("stock_transfer_delivery_note_lines", "registry");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Quantity).HasColumnType("numeric(18,6)").IsRequired();
+            builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.DeliveryNoteId });
+            builder.HasOne<StockTransferDeliveryNote>().WithMany(x => x.Lines)
+                .HasForeignKey(x => x.DeliveryNoteId).OnDelete(DeleteBehavior.Restrict);
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<PremisesSkuRouting>(builder =>

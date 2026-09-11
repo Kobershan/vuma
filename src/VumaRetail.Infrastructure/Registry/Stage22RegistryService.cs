@@ -158,6 +158,36 @@ public sealed class Stage22RegistryService(
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return transfer;
     }
 
+    public async Task<StockTransferDeliveryNote> CreateDeliveryNoteAsync(
+        Guid transferId,
+        string? driverReference = null,
+        CancellationToken cancellationToken = default)
+    {
+        StockTransferRequest transfer = await registry.StockTransferRequests
+            .SingleOrDefaultAsync(x => x.Id == transferId && x.TenantId == tenant.TenantId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Transfer was not found.");
+        List<StockTransferLine> lines = await registry.StockTransferLines
+            .Where(x => x.TenantId == tenant.TenantId && x.TransferId == transferId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        transfer.Lines.AddRange(lines);
+
+        StockTransferDeliveryNote? existing = await registry.StockTransferDeliveryNotes
+            .Include(x => x.Lines)
+            .SingleOrDefaultAsync(x => x.TenantId == tenant.TenantId && x.TransferId == transferId, cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null) return existing;
+
+        StockTransferDeliveryNote note = StockTransferDeliveryNote.Create(transfer, clock.UtcNow, driverReference);
+        registry.StockTransferDeliveryNotes.Add(note);
+        foreach (StockTransferDeliveryNoteLine line in note.Lines)
+        {
+            registry.StockTransferDeliveryNoteLines.Add(line);
+        }
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return note;
+    }
+
     private async Task<StockTransferRequest> CreateRelatedTransferAsync(
         StockTransferRequest source,
         IReadOnlyList<StockTransferLine> sourceLines,

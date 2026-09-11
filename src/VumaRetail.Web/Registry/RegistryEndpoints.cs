@@ -283,6 +283,20 @@ public static class RegistryEndpoints
         stage22.MapPost("/transfers/{id:guid}/remainder", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Created($"/api/v1/stage22/transfers", await service.TransitionTransferAsync(id, "remainder", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/reverse", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Created($"/api/v1/stage22/transfers", await service.TransitionTransferAsync(id, "reverse", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/cancel", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "cancel", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/transfers/{id:guid}/delivery-note", async (Guid id, CreateTransferDeliveryNoteRequest request, IStage22RegistryService service, CancellationToken ct) =>
+        {
+            var note = await service.CreateDeliveryNoteAsync(id, request.DriverReference, ct);
+            return Results.Created($"/api/v1/stage22/transfers/{id}/delivery-note", new
+            {
+                note.Id, note.Number, note.TransferId, note.SenderCompanyId, note.ReceiverCompanyId,
+                note.IssuedAt, note.DriverReference,
+                Lines = note.Lines.Select(line => new
+                {
+                    line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure,
+                    line.SenderLocationId, line.ReceiverLocationId
+                })
+            });
+        }).RequirePermission(PlatformPermissions.CompanyManage);
         return endpoints;
     }
 }

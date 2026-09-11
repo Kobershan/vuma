@@ -14,3 +14,4 @@ public sealed record Stage22OwnedStockResponse(Guid Id, Guid BusinessId, Guid Co
 public sealed record Stage22BusinessGroupResponse(Guid BusinessId, string BusinessName, string BusinessType, decimal TransferValueThreshold, string TransferCostingMethod, string DiscrepancyDefaultOwner, string StoreCodePrefix);
 public sealed record Stage22HierarchyNodeResponse(Guid Id, Guid BusinessId, Guid CompanyId, string NodeType, string OwnershipType, Guid? ParentNodeId, string? StoreCode, bool StockHolding);
 public sealed record Stage22TransferResponse(Guid Id, Guid RequesterCompanyId, Guid SenderCompanyId, Guid ReceiverCompanyId, decimal TotalValue, string Status, decimal? ReceivedQuantity, decimal? DiscrepancyQuantity);
+public sealed record CreateTransferDeliveryNoteRequest(string? DriverReference = null);

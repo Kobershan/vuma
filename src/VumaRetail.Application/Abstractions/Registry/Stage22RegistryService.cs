@@ -19,6 +19,7 @@ public interface IStage22RegistryService
     Task<GroupHierarchyNode> AddHierarchyNodeAsync(Guid businessId, Guid companyId, HierarchyNodeType nodeType, OwnershipType ownership, Guid? parentNodeId, string? storeCode, bool stockHolding, CancellationToken cancellationToken = default);
     Task<StockTransferRequest> CreateTransferAsync(Guid requesterCompanyId, Guid senderCompanyId, Guid receiverCompanyId, Guid holdingCompanyId, decimal totalValue, bool centralBuying, IReadOnlyCollection<Stage22TransferLine>? lines = null, CancellationToken cancellationToken = default);
     Task<StockTransferRequest> TransitionTransferAsync(Guid transferId, string action, decimal? quantity = null, decimal? requestedQuantity = null, string? reason = null, CancellationToken cancellationToken = default);
+    Task<StockTransferDeliveryNote> CreateDeliveryNoteAsync(Guid transferId, string? driverReference = null, CancellationToken cancellationToken = default);
     Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default);
     Task<OwnedStockOnHandProjection> PublishOwnedStockProjectionAsync(OwnedStockOnHandProjection projection, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OwnedStockOnHandProjection>> ListOwnedStockAsync(Guid businessId, Guid? companyId = null, CancellationToken cancellationToken = default);

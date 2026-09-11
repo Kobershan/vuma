@@ -71,7 +71,7 @@ public sealed class ConversationIntentHandlerTests
         DocumentDeliveryService delivery = new();
         IInvoiceRepository invoices = Substitute.For<IInvoiceRepository>();
         invoices.FindByNumberAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
-            Invoice.Create(tenantId, null, "INV-1", scope.OperatingCompanyId, "SO-1", InvoiceSourceType.SalesOrder, account.PartnerId, "ZAR"));
+            Invoice.Create(tenantId, null, "INV-1", scope.OperatingCompanyId, "SO-1", InvoiceSourceType.Order, account.PartnerId, "ZAR"));
 
         IConversationIntentHandler[] handlers =
         [
