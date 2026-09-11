@@ -103,7 +103,10 @@ public sealed class MultiCompanyGuardTests
             // leg method), but two separate methods each call CreateAsync — one for
             // Reserve/Release, one for WriteSplitOrder. Each call is a distinct scope; no
             // handler has two concurrent company contexts.
-            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs");
+            "src/VumaRetail.Infrastructure/Inventory/ServiceScopeCompanyGateway.cs",
+            // Stage 13b saga dispatcher: DispatchAsync and CompensateAsync are separate leg
+            // invocations; each opens exactly one company context in its own scope.
+            "src/VumaRetail.Infrastructure/Registry/ConsolidatedWaveSagaLegDispatcher.cs");
 
         // Group violations by file; any file with two or more .CreateAsync calls is suspicious.
         var filesWithMultipleCalls = violations

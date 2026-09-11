@@ -146,6 +146,9 @@ public sealed class PipelineRulesTests
             // stays empty because the group-receipt handlers only call IGroupReceiptService.
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegDispatcher.cs",
+            // Stage 13b: this is a saga leg boundary, not a command handler; it commits exactly
+            // one company-local serialisable transaction per registry leg (ADR-116).
+            "src/VumaRetail.Infrastructure/Registry/ConsolidatedWaveSagaLegDispatcher.cs",
             // CommitSourcingPlanCommandHandler delegates to ISourcingCommitService which
             // owns its own saga transaction; the handler's pipeline transaction stays empty.
             "src/VumaRetail.Application/Inventory/Commands/SourcingCommands.cs");

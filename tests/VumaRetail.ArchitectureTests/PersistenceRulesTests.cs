@@ -140,7 +140,9 @@ public sealed class PersistenceRulesTests
             // scope and commits that scope's own serialisable transaction — one human action,
             // N databases, no two-phase commit (ADR-116).
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
-            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegDispatcher.cs");
+            "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegDispatcher.cs",
+            // Stage 13b saga leg: one company-local transaction, never a pipeline commit.
+            "src/VumaRetail.Infrastructure/Registry/ConsolidatedWaveSagaLegDispatcher.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked
