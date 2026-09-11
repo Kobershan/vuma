@@ -273,6 +273,7 @@ public static class RegistryEndpoints
         }).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/approve", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "approve", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/accept", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "accept", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/transfers/{id:guid}/decline", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "decline", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/reserve", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "reserve", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/pick", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "pick", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/ship", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "ship", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
@@ -281,6 +282,7 @@ public static class RegistryEndpoints
         stage22.MapPost("/transfers/{id:guid}/reconcile", async (Guid id, ReconcileTransferRequest request, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "reconcile", requestedQuantity: request.RequestedQuantity, reason: request.Reason, cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/remainder", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Created($"/api/v1/stage22/transfers", await service.TransitionTransferAsync(id, "remainder", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         stage22.MapPost("/transfers/{id:guid}/reverse", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Created($"/api/v1/stage22/transfers", await service.TransitionTransferAsync(id, "reverse", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
+        stage22.MapPost("/transfers/{id:guid}/cancel", async (Guid id, IStage22RegistryService service, CancellationToken ct) => Results.Ok(await service.TransitionTransferAsync(id, "cancel", cancellationToken: ct))).RequirePermission(PlatformPermissions.CompanyManage);
         return endpoints;
     }
 }
