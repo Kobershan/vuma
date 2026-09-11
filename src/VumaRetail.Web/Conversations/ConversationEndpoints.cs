@@ -222,12 +222,15 @@ public static class ConversationEndpoints
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(message.MessageId)
-            && await conversationStore.FindTurnByExternalMessageIdAsync(conversation.Id, message.MessageId, cancellationToken).ConfigureAwait(false) is not null)
+        string idempotencyKey = $"{binding.TenantId:N}:{conversation.Id:N}:" +
+            (message.MessageId is { Length: > 0 } externalId
+                ? $"message:{externalId.Trim()}"
+                : $"text:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.Text.Trim())))}");
+        if (await conversationStore.FindTurnByIdempotencyKeyAsync(conversation.Id, idempotencyKey, cancellationToken).ConfigureAwait(false) is not null)
         {
             return Results.Accepted(value: new { bindingId = binding.Id, state = "duplicate" });
         }
-        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at, message.MessageId), cancellationToken).ConfigureAwait(false);
+        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at, message.MessageId, idempotencyKey), cancellationToken).ConfigureAwait(false);
         ConversationState state = await stateMachine.HandleAsync(conversation, message.Text, at, cancellationToken).ConfigureAwait(false);
 
         // A fresh, consented binding is the transport-level proof of identity. Promote the explicit
@@ -252,10 +255,6 @@ public static class ConversationEndpoints
         // The transport message id is only unique within a conversation/provider boundary. Scope it
         // before handing it to the router so a reused provider id can never replay another tenant's
         // IntentResult from the process-local idempotency cache.
-        string idempotencyKey = $"{binding.TenantId:N}:{conversation.Id:N}:" +
-            (message.MessageId is { Length: > 0 } externalId
-                ? $"message:{externalId.Trim()}"
-                : $"text:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.Text.Trim())))}");
         IntentResult result = await router.RouteAsync(conversation, classification, idempotencyKey, cancellationToken).ConfigureAwait(false);
         string reply = await composer.ComposeAsync(
             new ReplyFacts(result.Facts, "I could not complete that request."), cancellationToken).ConfigureAwait(false);

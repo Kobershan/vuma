@@ -38,10 +38,13 @@ internal sealed class ConversationTurnConfiguration : EntityConfiguration<Conver
         builder.Property(x => x.ExtractedEntities).HasMaxLength(4000);
         builder.Property(x => x.PhrasedFromResultId);
         builder.Property(x => x.ExternalMessageId).HasMaxLength(256);
+        builder.Property(x => x.IdempotencyKey).HasMaxLength(256);
         builder.Property(x => x.HappenedAt).IsRequired();
         builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.HappenedAt });
         builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.ExternalMessageId })
             .IsUnique().HasFilter("external_message_id IS NOT NULL");
+        builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.IdempotencyKey })
+            .IsUnique().HasFilter("idempotency_key IS NOT NULL");
     }
 }
 

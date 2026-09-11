@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using NSubstitute;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Orders;
 using VumaRetail.Domain.CustomerAccounts;

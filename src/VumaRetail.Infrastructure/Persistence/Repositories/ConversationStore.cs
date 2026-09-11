@@ -32,6 +32,9 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
     public Task<ConversationTurn?> FindTurnByExternalMessageIdAsync(Guid conversationId, string externalMessageId, CancellationToken cancellationToken = default)
         => db.ConversationTurns.FirstOrDefaultAsync(x => x.ConversationId == conversationId && x.ExternalMessageId == externalMessageId.Trim(), cancellationToken);
 
+    public Task<ConversationTurn?> FindTurnByIdempotencyKeyAsync(Guid conversationId, string idempotencyKey, CancellationToken cancellationToken = default)
+        => db.ConversationTurns.FirstOrDefaultAsync(x => x.ConversationId == conversationId && x.IdempotencyKey == idempotencyKey.Trim(), cancellationToken);
+
     public async Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default)
         => await db.ConversationTurns.AsNoTracking().Where(x => x.ConversationId == conversationId)
             .OrderBy(x => x.HappenedAt).ThenBy(x => x.Id).ToListAsync(cancellationToken).ConfigureAwait(false);

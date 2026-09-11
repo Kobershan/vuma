@@ -97,7 +97,7 @@ public sealed class Conversation : Entity
 public sealed class ConversationTurn : Entity, IImmutableRecord
 {
     private ConversationTurn() { }
-    public ConversationTurn(Guid tenantId, Guid conversationId, ConversationTurnDirection direction, string text, DateTimeOffset at, string? externalMessageId = null)
+    public ConversationTurn(Guid tenantId, Guid conversationId, ConversationTurnDirection direction, string text, DateTimeOffset at, string? externalMessageId = null, string? idempotencyKey = null)
         : base(tenantId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
@@ -106,6 +106,7 @@ public sealed class ConversationTurn : Entity, IImmutableRecord
         Text = text.Trim();
         HappenedAt = at;
         ExternalMessageId = string.IsNullOrWhiteSpace(externalMessageId) ? null : externalMessageId.Trim();
+        IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
     }
     public Guid ConversationId { get; private set; }
     public ConversationTurnDirection Direction { get; private set; }
@@ -114,5 +115,6 @@ public sealed class ConversationTurn : Entity, IImmutableRecord
     public string? ExtractedEntities { get; private set; }
     public Guid? PhrasedFromResultId { get; private set; }
     public string? ExternalMessageId { get; private set; }
+    public string? IdempotencyKey { get; private set; }
     public DateTimeOffset HappenedAt { get; private set; }
 }
