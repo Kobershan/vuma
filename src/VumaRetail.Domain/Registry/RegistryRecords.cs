@@ -139,11 +139,14 @@ public sealed class SagaLeg
     public void Compensate()
     {
         // A pending leg has not reached a company, so compensation is a durable no-op that
-        // prevents a timed-out intent from being redriven after the coordinator closes it.
-        if (State is SagaLegState.Pending or SagaLegState.Dispatched or SagaLegState.Failed or SagaLegState.TimedOut)
+        // prevents a timed-out intent from being redriven after the coordinator closes it. An
+        // acknowledged leg is changed only after its dispatcher has durably written a new
+        // reversal/release document; the state records that the compensating document exists.
+        if (State is SagaLegState.Pending or SagaLegState.Dispatched or SagaLegState.Failed
+            or SagaLegState.TimedOut or SagaLegState.Acknowledged)
             State = SagaLegState.Compensated;
         else
-            throw new InvalidOperationException("A completed leg cannot be compensated.");
+            throw new InvalidOperationException("A compensated leg cannot be compensated again.");
     }
     public void Timeout(DateTimeOffset timedOutAt) { if (State is SagaLegState.Acknowledged or SagaLegState.Compensated) throw new InvalidOperationException("A completed leg cannot time out."); State = SagaLegState.TimedOut; TimedOutAt = timedOutAt; }
     private static string ParseStamp(string value) { try { HlcStamp.Parse(value); return value; } catch (MalformedHlcStampException) { throw new ArgumentException("A valid HLC stamp is required.", nameof(value)); } }

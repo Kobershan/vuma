@@ -165,9 +165,12 @@ public sealed class AddBasketLineCommandHandler(
             throw TradingSessionException.UnroutableBarcode(command.Barcode.Trim());
         }
 
-        // ADR-100 collision order is the resolver's: first candidate wins, and the choice
-        // is on the line (CompanyId) where the completion legs and the cashier can see it.
-        BarcodeCandidate candidate = resolution.Candidates[0];
+        if (resolution.IsMultiple)
+        {
+            throw TradingSessionException.AmbiguousBarcode(command.Barcode.Trim());
+        }
+
+        BarcodeCandidate candidate = resolution.Candidates.Single();
 
         if (candidate.CompanyId != session.SessionCompanyId)
         {

@@ -249,6 +249,7 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(); builder.Property(x => x.DocumentReference).HasMaxLength(256).IsRequired();
             builder.Property(x => x.State).HasConversion<string>().HasMaxLength(16).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.State });
+            builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.CompanyId, x.DocumentReference }).IsUnique();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<CreditExposureEntry>(builder =>
@@ -256,6 +257,7 @@ public sealed class VumaRegistryDbContext(
             builder.ToTable("credit_exposure_entries", "registry"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
             builder.Property(x => x.Currency).HasMaxLength(3).IsRequired(); builder.Property(x => x.DocumentReference).HasMaxLength(256).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.CompanyId });
+            builder.HasIndex(x => new { x.TenantId, x.CreditGroupId, x.CompanyId, x.DocumentReference }).IsUnique();
             builder.HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         });
         modelBuilder.Entity<CatalogRoutingIndexEntry>(builder =>

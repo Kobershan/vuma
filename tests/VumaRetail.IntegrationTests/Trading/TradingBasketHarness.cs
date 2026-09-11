@@ -511,7 +511,11 @@ public sealed class TradingBasketHarness : IAsyncDisposable
         VumaRetailDbContext companyA = OpenCompanyDb(CompanyAId);
         var tax = new TaxEngine(new TaxRuleRepository(companyA));
         var packs = new PackSizeResolver(new UnitOfMeasureRepository(companyA));
-        var barcodes = new BarcodeResolver(Registry, Substitute.For<ICompanyContext>(), Clock);
+        var barcodes = new BarcodeResolver(
+            Registry,
+            Substitute.For<ICompanyContext>(),
+            Substitute.For<ICompanyDbContextFactory>(),
+            Clock);
         var links = new CompanyLinkService(Registry, Clock, TenantContext, Substitute.For<IOperatorContext>());
         return new TradingHandlers(this, tax, packs, barcodes, links);
     }

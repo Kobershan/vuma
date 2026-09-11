@@ -21,6 +21,9 @@ public interface IGroupCreditService
     /// <summary>Expired holds are cleaned by a background job. This is the idempotent method it calls.</summary>
     Task<int> ExpireHoldsAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
+    /// <summary>Held, unconfirmed tokens requiring operational follow-up.</summary>
+    Task<IReadOnlyList<OutstandingCreditHold>> GetOutstandingHoldsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
     /// <summary>Every group the company belongs to (Stage 14b: the approval saga holds here).</summary>
     Task<IReadOnlyList<CreditGroupSummary>> ListGroupsForCompanyAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default);
 }
@@ -44,3 +47,14 @@ public sealed record CreditGroupSummary(Guid Id, string Name, string Direction, 
 
 /// <summary>Summary of a credit group member.</summary>
 public sealed record CreditGroupMemberSummary(Guid CompanyId, string CompanyCode, decimal? SubLimit);
+
+/// <summary>A live hold and its remaining lifetime for the held-but-unconfirmed report.</summary>
+public sealed record OutstandingCreditHold(
+    Guid HoldId,
+    Guid CreditGroupId,
+    Guid CompanyId,
+    decimal Amount,
+    string Currency,
+    string DocumentReference,
+    DateTimeOffset ExpiresAt,
+    TimeSpan RemainingLifetime);

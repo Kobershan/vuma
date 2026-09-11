@@ -95,6 +95,9 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Conversations/ConversationScopeManagementService.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
+            // Stage 13b. This daily background lifecycle pass is not a dispatched message handler;
+            // it advances due schedules in its own scoped unit-of-work boundary.
+            "src/VumaRetail.Infrastructure/Warehouse/CountScheduleHostedService.cs",
             "src/VumaRetail.Infrastructure/Persistence/VumaRegistryDbContext.cs",
             // Stage 22b document links are a deliberate edge-service write: fetching a one-time
             // token must atomically consume it during an anonymous GET, which has no command

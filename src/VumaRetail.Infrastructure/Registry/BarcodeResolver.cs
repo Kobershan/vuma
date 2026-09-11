@@ -12,12 +12,18 @@ public sealed class BarcodeResolver : IBarcodeResolver
 {
     private readonly VumaRegistryDbContext _registry;
     private readonly ICompanyContext _companyContext;
+    private readonly ICompanyDbContextFactory _companyDatabases;
     private readonly IClock _clock;
 
-    public BarcodeResolver(VumaRegistryDbContext registry, ICompanyContext companyContext, IClock clock)
+    public BarcodeResolver(
+        VumaRegistryDbContext registry,
+        ICompanyContext companyContext,
+        ICompanyDbContextFactory companyDatabases,
+        IClock clock)
     {
         _registry = registry;
         _companyContext = companyContext;
+        _companyDatabases = companyDatabases;
         _clock = clock;
     }
 
@@ -26,21 +32,25 @@ public sealed class BarcodeResolver : IBarcodeResolver
         if (string.IsNullOrWhiteSpace(barcode))
             throw new ArgumentException("Barcode is required.", nameof(barcode));
 
-        var entries = await _registry.CatalogRoutingIndex
-            .Where(e => e.Barcode == barcode && !e.IsRetired)
-            .OrderBy(e => e.CompanyId)
-            .ToListAsync(cancellationToken);
+        string scanned = barcode.Trim();
+        List<CatalogRoutingIndexEntry> entries;
+        try
+        {
+            entries = await _registry.CatalogRoutingIndex
+                .AsNoTracking()
+                .Where(e => e.Barcode == scanned && !e.IsRetired)
+                .OrderBy(e => e.CompanyCode)
+                .ThenBy(e => e.CompanyId)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Npgsql.NpgsqlException)
+        {
+            return await ResolveLocallyAsync(scanned, cancellationToken);
+        }
 
         if (entries.Count == 0)
         {
-            var localCompanyId = _companyContext.CompanyId;
-            if (localCompanyId is not null)
-            {
-                return new BarcodeResolution(
-                    new[] { new BarcodeCandidate(localCompanyId.Value, "local", Guid.Empty, null, barcode, "Local resolution", _clock.UtcNow) },
-                    IsLocalFallback: true);
-            }
-            return new BarcodeResolution(Array.Empty<BarcodeCandidate>(), IsLocalFallback: false);
+            return await ResolveLocallyAsync(scanned, cancellationToken);
         }
 
         var candidates = entries.Select(e => new BarcodeCandidate(
@@ -51,14 +61,26 @@ public sealed class BarcodeResolver : IBarcodeResolver
 
     public async Task RebuildAsync(CancellationToken cancellationToken = default)
     {
-        _registry.CatalogRoutingIndex.RemoveRange(_registry.CatalogRoutingIndex);
-        await _registry.CommitAsync(cancellationToken);
+        // A rebuild must ask every company to republish. Erasing a live projection before that
+        // fan-out has completed makes a registry outage look like an empty catalogue, so this
+        // method deliberately refuses the old destructive placeholder until a publisher is wired.
+        throw new NotSupportedException("Routing rebuild requires a company catalogue republisher.");
     }
 
     public async Task PublishAsync(Guid tenantId, Guid companyId, BarcodeEntry entry, CancellationToken cancellationToken = default)
     {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (string.IsNullOrWhiteSpace(entry.Barcode)) throw new ArgumentException("A barcode is required.", nameof(entry));
+
+        string companyCode = await _registry.Companies.AsNoTracking()
+            .Where(company => company.TenantId == tenantId && company.Id == companyId)
+            .Select(company => company.Code)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The publishing company is not registered.");
+        string scanned = entry.Barcode.Trim();
         var existing = await _registry.CatalogRoutingIndex
-            .FirstOrDefaultAsync(e => e.TenantId == tenantId && e.CompanyId == companyId && e.Barcode == entry.Barcode, cancellationToken);
+            .FirstOrDefaultAsync(e => e.TenantId == tenantId && e.CompanyId == companyId && e.Barcode == scanned, cancellationToken);
 
         if (existing is not null)
         {
@@ -71,7 +93,8 @@ public sealed class BarcodeResolver : IBarcodeResolver
                 Id = UuidV7.NewGuid(),
                 TenantId = tenantId,
                 CompanyId = companyId,
-                Barcode = entry.Barcode,
+                CompanyCode = companyCode,
+                Barcode = scanned,
                 ItemId = entry.ItemId,
                 VariantId = entry.VariantId,
                 ItemCode = entry.ItemCode,
@@ -82,5 +105,34 @@ public sealed class BarcodeResolver : IBarcodeResolver
         }
 
         await _registry.CommitAsync(cancellationToken);
+    }
+
+    private async Task<BarcodeResolution> ResolveLocallyAsync(string barcode, CancellationToken cancellationToken)
+    {
+        Guid? companyId = _companyContext.CompanyId;
+        if (companyId is null) return new BarcodeResolution([], IsLocalFallback: true);
+
+        await using VumaRetailDbContext company = await _companyDatabases
+            .CreateAsync(CompanyAccessMode.Read, cancellationToken);
+        Domain.Catalog.Barcode? local = await company.Barcodes.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Code == barcode, cancellationToken);
+        if (local is null) return new BarcodeResolution([], IsLocalFallback: true);
+
+        Guid itemId = local.ItemId ?? Guid.Empty;
+        Domain.Catalog.Item? item;
+        if (local.ItemVariantId is { } variantId)
+        {
+            Domain.Catalog.ItemVariant? variant = await company.ItemVariants.AsNoTracking()
+                .FirstOrDefaultAsync(candidate => candidate.Id == variantId, cancellationToken);
+            itemId = variant?.ItemId ?? Guid.Empty;
+        }
+        item = itemId == Guid.Empty ? null : await company.Items.AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == itemId, cancellationToken);
+        if (item is null || !item.IsActive) return new BarcodeResolution([], IsLocalFallback: true);
+
+        return new BarcodeResolution(
+            [new BarcodeCandidate(companyId.Value, "local", itemId, local.ItemVariantId,
+                item.Code, item.Description ?? item.Name, _clock.UtcNow)],
+            IsLocalFallback: true);
     }
 }

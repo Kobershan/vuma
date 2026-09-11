@@ -19,6 +19,24 @@ public interface ISagaCoordinator
     Task RetryLegAsync(Guid intentId, Guid legId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Executes one saga leg in the owning company database. Implementations must be idempotent on
+/// <c>(intent.Id, leg.LegId)</c>; returning successfully is the acknowledgement consumed by the
+/// coordinator. Compensation must create a new reversal/release document, never mutate the
+/// document made by <see cref="DispatchAsync"/>.
+/// </summary>
+public interface ISagaLegDispatcher
+{
+    /// <summary>Whether this dispatcher owns the supplied immutable intent type.</summary>
+    bool CanDispatch(string intentType);
+
+    /// <summary>Applies one company-local leg.</summary>
+    Task DispatchAsync(SagaIntent intent, SagaLeg leg, CancellationToken cancellationToken = default);
+
+    /// <summary>Applies a compensating company-local document for one acknowledged leg.</summary>
+    Task CompensateAsync(SagaIntent intent, SagaLeg leg, CancellationToken cancellationToken = default);
+}
+
 /// <summary>The outcome of a saga execution.</summary>
 public sealed record SagaResult(Guid IntentId, SagaIntentState FinalState, IReadOnlyList<SagaLegResult> Legs)
 {

@@ -5,6 +5,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -50,52 +51,94 @@ public sealed class GroupCreditService : IGroupCreditService
 
     public async Task<HoldResult> TryHoldAsync(Guid tenantId, Guid creditGroupId, Guid companyId, decimal amount, string currency, string documentReference, TimeSpan expiry, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await _registry.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        try
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (creditGroupId == Guid.Empty) throw new ArgumentException("A credit group is required.", nameof(creditGroupId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (amount <= 0m) throw new ArgumentOutOfRangeException(nameof(amount), "A hold amount must be positive.");
+        if (string.IsNullOrWhiteSpace(currency)) throw new ArgumentException("A currency is required.", nameof(currency));
+        if (string.IsNullOrWhiteSpace(documentReference)) throw new ArgumentException("A document reference is required.", nameof(documentReference));
+        if (expiry <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(expiry), "A hold expiry must be positive.");
+
+        // Check the live trading-group link before entering the retrying serializable operation.
+        // This is deliberately at the public cross-company entry point so a suspended link cannot
+        // be hidden behind a cached/configuration-time membership decision.
+        Guid[] linkedCompanies = await _registry.CreditGroupMembers
+            .Where(member => member.CreditGroupId == creditGroupId && member.CompanyId != companyId)
+            .Select(member => member.CompanyId)
+            .ToArrayAsync(cancellationToken);
+        foreach (Guid other in linkedCompanies)
+            await _companyLinks.RequireLink(companyId, other, CompanyLinkScope.SharedCredit, cancellationToken);
+
+        // PostgreSQL detects a genuine serialisation race with SQLSTATE 40001. Re-read inside a
+        // new serialisable transaction so the losing till returns an ordinary credit refusal
+        // instead of a transient database error; a stable document reference makes this replay-safe.
+        for (int attempt = 0; ; attempt++)
         {
-            var position = await GetPositionAsync(tenantId, creditGroupId, cancellationToken);
-            if (position.Available < amount)
+            try
             {
-                await transaction.RollbackAsync(cancellationToken);
-                return HoldResult.Failed(Guid.NewGuid());
+                return await TryHoldOnceAsync(tenantId, creditGroupId, companyId, amount, currency.Trim().ToUpperInvariant(), documentReference.Trim(), expiry, cancellationToken);
             }
-
-            var member = await _registry.CreditGroupMembers
-                .FirstOrDefaultAsync(m => m.CreditGroupId == creditGroupId && m.CompanyId == companyId, cancellationToken);
-
-            if (member?.SubLimit is not null && member.SubLimit < amount)
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure && attempt < 4)
             {
-                await transaction.RollbackAsync(cancellationToken);
-                return HoldResult.Failed(Guid.NewGuid());
+                _registry.ChangeTracker.Clear();
             }
-
-            // Holding against a group limit spends the whole group's headroom, so the acting
-            // company must hold SharedCredit with every other member — checked here, at the
-            // point of use, not when the group was configured (TRADING_GROUP §2).
-            List<Guid> others = await _registry.CreditGroupMembers
-                .Where(m => m.TenantId == tenantId && m.CreditGroupId == creditGroupId && m.CompanyId != companyId)
-                .Select(m => m.CompanyId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-
-            foreach (Guid other in others)
-            {
-                await _companyLinks.RequireLink(companyId, other, CompanyLinkScope.SharedCredit, cancellationToken);
-            }
-
-            var hold = CreditHold.Create(tenantId, creditGroupId, companyId, amount, currency, documentReference, _clock.UtcNow.Add(expiry));
-            _registry.CreditHolds.Add(hold);
-            await _registry.CommitAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            var newPosition = await GetPositionAsync(tenantId, creditGroupId, cancellationToken);
-            return new HoldResult(hold.Id, true, newPosition.Available);
         }
-        catch
+    }
+
+    private async Task<HoldResult> TryHoldOnceAsync(
+        Guid tenantId, Guid creditGroupId, Guid companyId, decimal amount, string currency,
+        string documentReference, TimeSpan expiry, CancellationToken cancellationToken)
+    {
+        // Disposing an EF transaction rolls back an uncommitted transaction.  Do not explicitly
+        // roll it back from a catch block: PostgreSQL has already completed the transaction when
+        // it reports a serialisation failure, and a second rollback masks that retriable error.
+        await using var transaction = await _registry.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        CreditGroup group = await _registry.CreditGroups
+                .Include(candidate => candidate.Members)
+                .SingleOrDefaultAsync(candidate => candidate.Id == creditGroupId && candidate.TenantId == tenantId, cancellationToken)
+                ?? throw new InvalidOperationException("Credit group not found.");
+        if (!string.Equals(group.Currency, currency, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Hold currency must match the credit group currency.");
+
+        CreditHold? existing = await _registry.CreditHolds
+            .SingleOrDefaultAsync(hold => hold.TenantId == tenantId && hold.CreditGroupId == creditGroupId
+                && hold.CompanyId == companyId && hold.DocumentReference == documentReference, cancellationToken);
+        if (existing is not null)
+        {
+            CreditPosition replayPosition = await GetPositionAsync(tenantId, creditGroupId, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new HoldResult(existing.Id, existing.State is CreditHoldState.Held or CreditHoldState.Confirmed, replayPosition.Available);
+        }
+
+        CreditGroupMember? member = group.Members.SingleOrDefault(candidate => candidate.CompanyId == companyId);
+        if (member is null) throw new InvalidOperationException("The company is not a member of the credit group.");
+
+        CreditPosition position = await GetPositionAsync(tenantId, creditGroupId, cancellationToken);
+        if (position.Available < amount)
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw;
+            return HoldResult.Failed(Guid.NewGuid());
         }
+
+        decimal companyConfirmed = await _registry.CreditExposureEntries
+            .Where(entry => entry.TenantId == tenantId && entry.CreditGroupId == creditGroupId && entry.CompanyId == companyId)
+            .SumAsync(entry => (decimal?)entry.Amount, cancellationToken) ?? 0m;
+        decimal companyHeld = await _registry.CreditHolds
+            .Where(hold => hold.TenantId == tenantId && hold.CreditGroupId == creditGroupId && hold.CompanyId == companyId
+                && hold.State == CreditHoldState.Held && hold.ExpiresAt > _clock.UtcNow)
+            .SumAsync(hold => (decimal?)hold.Amount, cancellationToken) ?? 0m;
+        if (member.SubLimit is { } subLimit && companyConfirmed + companyHeld + amount > subLimit)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return HoldResult.Failed(Guid.NewGuid());
+        }
+
+        CreditHold hold = CreditHold.Create(tenantId, creditGroupId, companyId, amount, currency, documentReference, _clock.UtcNow.Add(expiry));
+        _registry.CreditHolds.Add(hold);
+        await _registry.CommitAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new HoldResult(hold.Id, true, position.Available - amount);
     }
 
     public async Task ConfirmHoldAsync(Guid holdId, CancellationToken cancellationToken = default)
@@ -103,8 +146,8 @@ public sealed class GroupCreditService : IGroupCreditService
         var hold = await _registry.CreditHolds.FindAsync(new object[] { holdId }, cancellationToken)
             ?? throw new InvalidOperationException("Hold not found.");
 
-        if (hold.State != CreditHoldState.Held)
-            throw new InvalidOperationException("Hold is not in Held state.");
+        if (hold.State == CreditHoldState.Confirmed) return;
+        if (hold.State != CreditHoldState.Held) throw new InvalidOperationException("Hold is not in Held state.");
 
         hold.Confirm(_clock.UtcNow);
         _registry.CreditExposureEntries.Add(new CreditExposureEntry
@@ -126,6 +169,8 @@ public sealed class GroupCreditService : IGroupCreditService
         var hold = await _registry.CreditHolds.FindAsync(new object[] { holdId }, cancellationToken)
             ?? throw new InvalidOperationException("Hold not found.");
 
+        if (hold.State is CreditHoldState.Released or CreditHoldState.Expired) return;
+        if (hold.State != CreditHoldState.Held) throw new InvalidOperationException("Only an unconfirmed hold can be released.");
         hold.Release(_clock.UtcNow);
         await _registry.CommitAsync(cancellationToken);
     }
@@ -141,8 +186,20 @@ public sealed class GroupCreditService : IGroupCreditService
             hold.Expire(_clock.UtcNow);
         }
 
-        await _registry.CommitAsync(cancellationToken);
+        if (expired.Count > 0) await _registry.CommitAsync(cancellationToken);
         return expired.Count;
+    }
+
+    public async Task<IReadOnlyList<OutstandingCreditHold>> GetOutstandingHoldsAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset now = _clock.UtcNow;
+        return await _registry.CreditHolds.AsNoTracking()
+            .Where(hold => hold.TenantId == tenantId && hold.State == CreditHoldState.Held && hold.ExpiresAt > now)
+            .OrderBy(hold => hold.ExpiresAt)
+            .Select(hold => new OutstandingCreditHold(
+                hold.Id, hold.CreditGroupId, hold.CompanyId, hold.Amount, hold.Currency,
+                hold.DocumentReference, hold.ExpiresAt, hold.ExpiresAt - now))
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>Every group the company belongs to (Stage 14b: the approval saga holds here).</summary>
@@ -150,6 +207,7 @@ public sealed class GroupCreditService : IGroupCreditService
     {
         List<CreditGroup> groups = await _registry.CreditGroups
             .AsNoTracking()
+            .Include(group => group.Members)
             .Where(group => group.TenantId == tenantId
                 && group.Members.Any(member => member.CompanyId == companyId))
             .ToListAsync(cancellationToken)

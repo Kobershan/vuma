@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VumaRetail.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using VumaRetail.Infrastructure.Persistence;
 namespace VumaRetail.Infrastructure.RegistryMigrations
 {
     [DbContext(typeof(VumaRegistryDbContext))]
-    partial class VumaRegistryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910190359_Stage06d_BarcodeCollisions")]
+    partial class Stage06d_BarcodeCollisions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -363,6 +366,7 @@ namespace VumaRetail.Infrastructure.RegistryMigrations
                         .HasDatabaseName("ix_catalog_routing_index_tenant_id_barcode");
 
                     b.HasIndex("TenantId", "CompanyId", "Barcode")
+                        .IsUnique()
                         .HasDatabaseName("ix_catalog_routing_index_tenant_id_company_id_barcode");
 
                     b.ToTable("catalog_routing_index", "registry");

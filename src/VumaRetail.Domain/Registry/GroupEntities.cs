@@ -14,9 +14,13 @@ public sealed class CreditGroup
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A name is required.", nameof(name));
-        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("A direction is required.", nameof(direction));
+        ArgumentNullException.ThrowIfNull(direction);
+        if (!string.Equals(direction, "Receivable", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(direction, "Payable", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Direction must be Receivable or Payable.", nameof(direction));
+        if (limit < 0m) throw new ArgumentOutOfRangeException(nameof(limit), "A credit limit cannot be negative.");
         if (string.IsNullOrWhiteSpace(currency)) throw new ArgumentException("A currency is required.", nameof(currency));
-        Id = UuidV7.NewGuid(); TenantId = tenantId; Name = name.Trim(); Direction = direction.Trim(); Limit = limit; Currency = currency.Trim();
+        Id = UuidV7.NewGuid(); TenantId = tenantId; Name = name.Trim(); Direction = direction.Trim(); Limit = limit; Currency = currency.Trim().ToUpperInvariant();
     }
     public Guid Id { get; private set; }
     public Guid TenantId { get; private set; }
@@ -35,6 +39,7 @@ public sealed class CreditGroupMember
         if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
         if (creditGroupId == Guid.Empty) throw new ArgumentException("A credit group is required.", nameof(creditGroupId));
         if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (subLimit is < 0m) throw new ArgumentOutOfRangeException(nameof(subLimit), "A sub-limit cannot be negative.");
         CreditGroupId = creditGroupId; CompanyId = companyId; SubLimit = subLimit; TenantId = tenantId;
     }
     public Guid TenantId { get; private set; }
@@ -63,6 +68,12 @@ public sealed class CreditHold
 
     public static CreditHold Create(Guid tenantId, Guid creditGroupId, Guid companyId, decimal amount, string currency, string documentReference, DateTimeOffset expiresAt)
     {
+        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (creditGroupId == Guid.Empty) throw new ArgumentException("A credit group is required.", nameof(creditGroupId));
+        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (amount <= 0m) throw new ArgumentOutOfRangeException(nameof(amount), "A hold amount must be positive.");
+        if (string.IsNullOrWhiteSpace(currency)) throw new ArgumentException("A currency is required.", nameof(currency));
+        if (string.IsNullOrWhiteSpace(documentReference)) throw new ArgumentException("A document reference is required.", nameof(documentReference));
         return new CreditHold
         {
             Id = UuidV7.NewGuid(),
@@ -70,8 +81,8 @@ public sealed class CreditHold
             CreditGroupId = creditGroupId,
             CompanyId = companyId,
             Amount = amount,
-            Currency = currency,
-            DocumentReference = documentReference,
+            Currency = currency.Trim().ToUpperInvariant(),
+            DocumentReference = documentReference.Trim(),
             State = CreditHoldState.Held,
             ExpiresAt = expiresAt
         };

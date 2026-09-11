@@ -33,6 +33,11 @@ public sealed class TradingSessionException(string code, string message) : Inval
         => new("TRADING_UNROUTABLE_BARCODE",
             $"Barcode '{barcode}' resolves to no company. It cannot be added to a mixed basket.");
 
+    /// <summary>A barcode is published by more than one company and needs an explicit selection.</summary>
+    public static TradingSessionException AmbiguousBarcode(string barcode)
+        => new("TRADING_AMBIGUOUS_BARCODE",
+            $"Barcode '{barcode}' resolves to more than one company. Select the owning company; the till will not guess.");
+
     /// <summary>A line's currency differs from the session's (§4.13's lesson).</summary>
     public static TradingSessionException CurrencyMismatch(string sessionCurrency, string lineCurrency)
         => new("TRADING_CURRENCY_MISMATCH",

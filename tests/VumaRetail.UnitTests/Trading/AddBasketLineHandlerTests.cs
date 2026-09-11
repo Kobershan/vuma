@@ -116,6 +116,30 @@ public sealed class AddBasketLineHandlerTests
     }
 
     [Fact]
+    public async Task Collision_is_refused_without_guessing_an_owning_company()
+    {
+        TradingSession session = OpenSession();
+        _sessions.FindAsync(SessionId, Arg.Any<CancellationToken>()).Returns(session);
+        _barcodes.ResolveAsync("SHARED-01", Arg.Any<CancellationToken>()).Returns(
+            new BarcodeResolution(
+                [new BarcodeCandidate(SessionCompany, "NG", ItemId, null, "OWN", "Own item", Now),
+                 new BarcodeCandidate(SisterCompany, "SY", UuidV7.NewGuid(), null, "SIS", "Sister item", Now)],
+                IsLocalFallback: false));
+
+        var handler = new AddBasketLineCommandHandler(
+            _sessions, _barcodes, _links, _tax, _packs, _tenant, _clock);
+
+        Func<Task> act = () => handler.HandleAsync(
+            new AddBasketLineCommand(SessionId, "SHARED-01", 1m, "EA", 100.00m, "ZAR"));
+
+        TradingSessionException exception = (await act.Should().ThrowAsync<TradingSessionException>()).Which;
+        exception.Code.Should().Be("TRADING_AMBIGUOUS_BARCODE");
+        session.Segments.Should().BeEmpty();
+        await _links.DidNotReceive().RequireLink(
+            Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CompanyLinkScope>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Replayed_line_id_returns_the_existing_line()
     {
         TradingSession session = OpenSession();
