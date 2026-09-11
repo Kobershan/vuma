@@ -9,6 +9,9 @@ conversation work, and persist an explicit conversation state machine.
 
 ## Current evidence
 
+- Durable conversation-turn idempotency keys are tenant/conversation scoped and protected by a unique
+  database index; replay survives process restart. Escalation now persists the conversation state.
+
 - `ContactBinding`, `VerificationChallenge`, `Conversation`, and `ConversationTurn` exist.
 - Registry binding/challenge persistence and company conversation persistence are wired.
 - Verification, 24-hour freshness, three-attempt limit, rate limiting, escalation, and idempotency

@@ -9,6 +9,10 @@ single-use links and channel policy.
 
 ## Current evidence
 
+- Delivery tokens are one-time, expiring, tenant-scoped and durably consumed; invoice references are
+  resolved against the owning sales repository before delivery. WhatsApp signatures fail closed.
+- The transport sender/template/email integration is not present and remains a dependency on Stage 22.
+
 - `DocumentDeliveryToken` and `DocumentDeliveryService` enforce verification freshness and granted
   consent, expire after 24 hours, support revocation, and audit fetches.
 - WhatsApp webhook signature verification and normalized inbound handling exist.

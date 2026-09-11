@@ -15,12 +15,14 @@ model data access and no unscoped customer lookup.
 - `OrderStatusIntentHandler` is now registered and queries orders only through the persisted
   binding scope; the repository exposes a partner-constrained query rather than an in-memory
   post-filter.
+- `InvoiceCopyIntentHandler` resolves a real invoice by number and verifies its customer against the
+  binding's authorized partner scope before minting a delivery token.
 
 ## Remaining work
 
 - Connect the structural contact-account/company scope reader to the remaining handlers.
-- Implement and register `PlaceOrderHandler`, `StatementHandler`,
-  `InvoiceCopyHandler`, `PodHandler`, and `CreditNoteRequestHandler` against existing module ports.
+- Implement and register `PlaceOrderHandler`, `StatementHandler`, and `CreditNoteRequestHandler`
+  against existing module ports. POD is explicitly deferred and fails closed until Stage 24 exists.
 - Add result-number/date post-checking and tests for prompt-injection text.
 
 ## Definition of done

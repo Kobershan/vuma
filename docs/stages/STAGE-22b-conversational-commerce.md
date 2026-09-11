@@ -17,9 +17,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, and persistence implemented; dependency closure remains |
-| [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer implemented; six module-backed handlers remain |
-| [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery and WhatsApp signature boundary implemented; Stage 22 sender integration remains |
+| [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, durable conversation persistence and restart-safe idempotency implemented; dependency closure remains |
+| [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer, scoped order status, and real-invoice ownership lookup implemented; order capture and remaining module-backed handlers remain |
+| [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery, tenant isolation, real-invoice lookup, and WhatsApp signature boundary implemented; Stage 22 sender integration remains |
 | [TASK-22B-004](../tasks/TASK-22B-004-conversational-verification.md) | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
 
 ## Objective
@@ -149,7 +149,7 @@ orders submitted, escalations. **Counts only** — never message content (R10).
 
 **E. Delivery**
 - [ ] E1 — `DocumentDeliveryToken`, `/api/v1/d/{token}`, expiry, revocation, fetch audit
-- [ ] E2 — Stage 22 transport wiring; WhatsApp templates registered; email sender
+ - [ ] E2 — Stage 22 transport wiring; WhatsApp templates registered; email sender
 - [ ] E3 — Delivery failure retry with backoff → human queue
 
 **F. Close**
@@ -191,3 +191,9 @@ orders submitted, escalations. **Counts only** — never message content (R10).
 - [ ] POPIA: consent, withdrawal, retention and the transcript's data classification recorded in
       `docs/SECURITY.md`
 - [ ] Deferred items (e.g. POD if 24 is not DONE) listed in `PROGRESS.md` §3 with what unblocks them
+
+Current verification also proves that a webhook without a provider message id is deduplicated through
+a durable tenant/conversation idempotency key, escalation persists the conversation state, invoice
+copy requests cannot mint a token for a nonexistent or out-of-scope invoice, and POD requests fail
+closed until Stage 24 supplies the owning document API. These are safety boundaries, not substitutes
+for the missing transport and module integrations above.

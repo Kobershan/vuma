@@ -1,6 +1,6 @@
 # STAGE 22 — Business identity, hierarchy, shared premises and stock transfers
 
-**Status:** NOT_STARTED · **Depends on:** 06c, 06e, 08/08c, 09b, 12 · **Reference:** `docs/DECISIONS.md` ADR-099, ADR-116, `docs/MULTI_COMPANY.md`
+**Status:** IN_PROGRESS (2026-09-11) · **Depends on:** 06c, 06e, 08/08c, 09b, 12 · **Reference:** `docs/DECISIONS.md` ADR-099, ADR-116, `docs/MULTI_COMPANY.md`
 
 ## Objective
 
@@ -41,3 +41,17 @@ Tests cover pre-issued identity, schema invariance, type changes without migrati
 Open decisions: confirm SLA/calendar; franchise tiering beyond flat-plus-override; whether a bare SKU can span companies at one premises; accountant wording/retention; tenant defaults for threshold, currency rounding, costing and discrepancy owner; and whether live type changes need approval workflow.
 
 See `docs/tasks/TASK-22-01` through `TASK-22-18`; identity and registry constraints precede hierarchy, transfer saga/local stock legs, then shared-premises routing and pricing.
+
+## Current implementation evidence
+
+The registry business, hierarchy, owned-stock projection, premises routing, transfer lifecycle,
+company-local reservation/shipment/receipt saga legs, sender-cost capture, and reversible migrations
+are implemented. Stage 13's warehouse ledger is reused for transfer movements; no second inventory
+ledger was introduced. Related remainder and reverse transfers are now represented as normal registry
+transfers with explicit relation metadata and protected API routes.
+
+Verified on 2026-09-11: focused Stage 22 unit/domain tests and PostgreSQL migration/registry tests are
+green; the complete repository integration suite is recorded separately in the handoff. The stage
+remains open because batch/expiry/serial references, discrepancy GL/audit posting, delivery notes,
+notifications/SLA execution, independent pricing, and shared-till split posting still require their
+own implementation and acceptance evidence.
