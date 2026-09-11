@@ -149,17 +149,17 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Webhook_accepts_without_a_secret_and_updates_nothing_for_ghosts()
+    public async Task Webhook_rejects_without_a_secret()
     {
         await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
 
-        // Anonymous by design (HMAC, not a user credential); the test host configures no secret.
+        // Anonymous by design (HMAC, not a user credential); missing configuration must fail closed.
         HttpResponseMessage accepted = await harness.Client.PostAsJsonAsync(
             "/api/v1/loyalty/webhooks/notifications",
             new WebhookNotificationRequest(
                 Guid.NewGuid(), "orbit-ghost", 10m, null, "balance.adjusted")).ConfigureAwait(false);
 
-        accepted.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        accepted.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
