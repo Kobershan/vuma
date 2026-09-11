@@ -720,7 +720,9 @@ public sealed class VumaRegistryDbContext(
             builder.ToTable("stock_transfer_requests", "registry");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.Property(x => x.Relation).HasConversion<string>().HasMaxLength(16).IsRequired();
             builder.Property(x => x.TotalValue).HasColumnType("numeric(18,4)").IsRequired();
+            builder.Property(x => x.RelatedTransferId);
             builder.Property(x => x.ReceivedQuantity).HasColumnType("numeric(18,6)");
             builder.Property(x => x.DiscrepancyQuantity).HasColumnType("numeric(18,6)");
             builder.HasIndex(x => new { x.TenantId, x.Status });

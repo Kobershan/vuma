@@ -93,6 +93,7 @@ public sealed class GroupHierarchyNode
 public sealed record OwnedStockOnHandProjection(Guid TenantId, Guid BusinessId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal OnHand, decimal Reserved, decimal InStaging, decimal Available, string UnitOfMeasure, DateTimeOffset AsAt) { public Guid Id { get; init; } = UuidV7.NewGuid(); }
 
 public enum TransferStatus { Requested, RegionalApprovalPending, Checked, Accepted, Declined, Reserved, Picked, Shipped, InTransit, Received, Reconciled, Cancelled }
+public enum TransferRelation { Original, Remainder, Reverse }
 
 /// <summary>A requested SKU quantity in a registry transfer; stock itself remains company-local.</summary>
 public sealed class StockTransferLine
@@ -192,7 +193,7 @@ public sealed class StockTransferRequest
         if (tenantId == Guid.Empty || requesterCompanyId == Guid.Empty || senderCompanyId == Guid.Empty || receiverCompanyId == Guid.Empty) throw new ArgumentException("Transfer companies are required.");
         if (senderCompanyId == receiverCompanyId) throw new ArgumentException("Sender and receiver must differ.");
         if (totalValue < 0) throw new ArgumentOutOfRangeException(nameof(totalValue));
-        Id = UuidV7.NewGuid(); TenantId = tenantId; RequesterCompanyId = requesterCompanyId; SenderCompanyId = senderCompanyId; ReceiverCompanyId = receiverCompanyId; HoldingCompanyId = holdingCompanyId; TotalValue = totalValue; CentralBuying = centralBuying; Status = TransferStatus.Requested;
+        Id = UuidV7.NewGuid(); TenantId = tenantId; RequesterCompanyId = requesterCompanyId; SenderCompanyId = senderCompanyId; ReceiverCompanyId = receiverCompanyId; HoldingCompanyId = holdingCompanyId; TotalValue = totalValue; CentralBuying = centralBuying; Status = TransferStatus.Requested; Relation = TransferRelation.Original;
     }
     public Guid Id { get; private set; }
     public Guid TenantId { get; private set; }
@@ -202,6 +203,8 @@ public sealed class StockTransferRequest
     public Guid HoldingCompanyId { get; private set; }
     public decimal TotalValue { get; private set; }
     public bool CentralBuying { get; private set; }
+    public Guid? RelatedTransferId { get; private set; }
+    public TransferRelation Relation { get; private set; }
     public TransferStatus Status { get; private set; }
     public List<StockTransferLine> Lines { get; private set; } = [];
     public decimal? ReceivedQuantity { get; private set; }
@@ -229,6 +232,40 @@ public sealed class StockTransferRequest
             transfer.Lines.Add(StockTransferLine.Create(
                 tenantId, transfer.Id, line.ItemId, line.ItemVariantId,
                 line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
+        }
+        return transfer;
+    }
+
+    public static StockTransferRequest CreateRelated(
+        StockTransferRequest source,
+        TransferRelation relation,
+        IReadOnlyCollection<StockTransferLine> lines,
+        decimal totalValue)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(lines);
+        if (relation == TransferRelation.Original) throw new ArgumentException("A related transfer must declare its relation.", nameof(relation));
+        if (lines.Count == 0) throw new ArgumentException("A related transfer must contain at least one line.", nameof(lines));
+
+        StockTransferRequest transfer = Create(
+            source.TenantId,
+            source.RequesterCompanyId,
+            relation == TransferRelation.Reverse ? source.ReceiverCompanyId : source.SenderCompanyId,
+            relation == TransferRelation.Reverse ? source.SenderCompanyId : source.ReceiverCompanyId,
+            source.HoldingCompanyId,
+            totalValue,
+            centralBuying: false);
+        transfer.RelatedTransferId = source.Id;
+        transfer.Relation = relation;
+        foreach (StockTransferLine line in lines)
+        {
+            transfer.Lines.Add(StockTransferLine.Create(
+                transfer.TenantId, transfer.Id, line.ItemId, line.ItemVariantId,
+                line.Quantity, line.UnitOfMeasure,
+                relation == TransferRelation.Reverse
+                    ? line.ReceiverLocationId ?? throw new InvalidOperationException("A reverse line requires its receiver location.")
+                    : line.SenderLocationId,
+                relation == TransferRelation.Reverse ? line.SenderLocationId : line.ReceiverLocationId));
         }
         return transfer;
     }

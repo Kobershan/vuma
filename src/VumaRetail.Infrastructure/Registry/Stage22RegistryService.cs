@@ -151,9 +151,53 @@ public sealed class Stage22RegistryService(
             case "receive": await ReceiveTransferAsync(transfer, persistedLines, quantity ?? throw new ArgumentException("Quantity is required."), cancellationToken).ConfigureAwait(false); break;
             case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break;
             case "cancel": transfer.Cancel(); break;
+            case "remainder": return await CreateRelatedTransferAsync(transfer, persistedLines, TransferRelation.Remainder, cancellationToken).ConfigureAwait(false);
+            case "reverse": return await CreateRelatedTransferAsync(transfer, persistedLines, TransferRelation.Reverse, cancellationToken).ConfigureAwait(false);
             default: throw new ArgumentException("Unknown transfer action.", nameof(action));
         }
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return transfer;
+    }
+
+    private async Task<StockTransferRequest> CreateRelatedTransferAsync(
+        StockTransferRequest source,
+        IReadOnlyList<StockTransferLine> sourceLines,
+        TransferRelation relation,
+        CancellationToken cancellationToken)
+    {
+        if (source.Status is not (TransferStatus.Received or TransferStatus.Reconciled))
+        {
+            throw new InvalidOperationException("A related transfer can only be created after receipt.");
+        }
+
+        List<StockTransferLine> lines = [];
+        foreach (StockTransferLine line in sourceLines)
+        {
+            decimal quantity = relation == TransferRelation.Reverse
+                ? line.ReceivedQuantity ?? 0m
+                : line.Quantity - (line.ReceivedQuantity ?? 0m);
+            if (quantity <= 0m) continue;
+            lines.Add(StockTransferLine.Create(
+                source.TenantId, source.Id, line.ItemId, line.ItemVariantId,
+                quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
+        }
+        if (lines.Count == 0)
+        {
+            throw new InvalidOperationException(relation == TransferRelation.Reverse
+                ? "There is no received quantity to reverse."
+                : "There is no unreceived quantity remaining.");
+        }
+
+        decimal sourceQuantity = sourceLines.Sum(line => line.Quantity);
+        decimal relatedQuantity = lines.Sum(line => line.Quantity);
+        decimal totalValue = sourceQuantity == 0m ? 0m : source.TotalValue * relatedQuantity / sourceQuantity;
+        StockTransferRequest related = StockTransferRequest.CreateRelated(source, relation, lines, totalValue);
+        registry.StockTransferRequests.Add(related);
+        foreach (StockTransferLine line in related.Lines)
+        {
+            registry.StockTransferLines.Add(line);
+        }
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return related;
     }
 
     private async Task ReserveTransferAsync(

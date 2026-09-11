@@ -200,4 +200,22 @@ public sealed class Stage22EntitiesTests
         transfer.Lines.Should().ContainSingle();
         transfer.Lines[0].TransferId.Should().Be(transfer.Id);
     }
+
+    [Fact]
+    public void Related_transfers_preserve_scope_and_reverse_locations()
+    {
+        StockTransferRequest source = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 100m);
+        Guid senderLocation = Guid.NewGuid();
+        Guid receiverLocation = Guid.NewGuid();
+        StockTransferLine sourceLine = StockTransferLine.Create(Tenant, source.Id, Guid.NewGuid(), null, 5m, "EA", senderLocation, receiverLocation);
+        source.Lines.Add(sourceLine);
+        StockTransferRequest reverse = StockTransferRequest.CreateRelated(source, TransferRelation.Reverse, [sourceLine], 100m);
+
+        reverse.Relation.Should().Be(TransferRelation.Reverse);
+        reverse.RelatedTransferId.Should().Be(source.Id);
+        reverse.SenderCompanyId.Should().Be(CompanyB);
+        reverse.ReceiverCompanyId.Should().Be(CompanyA);
+        reverse.Lines.Single().SenderLocationId.Should().Be(receiverLocation);
+        reverse.Lines.Single().ReceiverLocationId.Should().Be(senderLocation);
+    }
 }

@@ -33,4 +33,27 @@ public sealed class Stage22MigrationTests(PostgresFixture fixture)
 
         remainingColumns.Should().NotContain(["receiver_location_id", "unit_cost_at_transfer_amount", "unit_cost_at_transfer_currency"]);
     }
+
+    [Fact]
+    public async Task Stage22_related_transfer_metadata_migration_is_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.ForRegistry(connectionString);
+
+        await context.Database.MigrateAsync("20260911205614_Stage22RelatedTransfers").ConfigureAwait(false);
+        IReadOnlyList<string> columns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'registry' AND table_name = 'stock_transfer_requests'
+            """).ToListAsync().ConfigureAwait(false);
+        columns.Should().Contain(["related_transfer_id", "relation"]);
+
+        await context.Database.MigrateAsync("20260911203305_Stage22TransferReceiptMetadata").ConfigureAwait(false);
+        IReadOnlyList<string> remainingColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'registry' AND table_name = 'stock_transfer_requests'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingColumns.Should().NotContain(["related_transfer_id", "relation"]);
+    }
 }
