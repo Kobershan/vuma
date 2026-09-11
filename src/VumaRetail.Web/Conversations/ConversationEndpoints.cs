@@ -33,6 +33,8 @@ public static class ConversationEndpoints
             .WithTags("Conversations")
             .WithSummary("Fetches a one-time, expiring document delivery reference.")
             .RequireModule("conversations");
+        endpoints.MapVumaApi().MapGet("/conversations/{conversationId:guid}/transcript", async (Guid conversationId, IConversationStore store, CancellationToken ct) =>
+            Results.Ok(await store.ListTurnsAsync(conversationId, ct))).RequireModule("conversations").RequirePermission(ConversationPermissions.TranscriptView);
         RouteGroupBuilder bindings = endpoints.MapVumaApi().MapGroup("/contact-bindings")
             .WithTags("Conversations")
             .RequireModule("conversations");
@@ -212,7 +214,12 @@ public static class ConversationEndpoints
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         }
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
-        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(message.MessageId)
+            && await conversationStore.FindTurnByExternalMessageIdAsync(conversation.Id, message.MessageId, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            return Results.Accepted(value: new { bindingId = binding.Id, state = "duplicate" });
+        }
+        await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at, message.MessageId), cancellationToken).ConfigureAwait(false);
         ConversationState state = await stateMachine.HandleAsync(conversation, message.Text, at, cancellationToken).ConfigureAwait(false);
 
         // A fresh, consented binding is the transport-level proof of identity. Promote the explicit

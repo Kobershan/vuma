@@ -37,8 +37,11 @@ internal sealed class ConversationTurnConfiguration : EntityConfiguration<Conver
         builder.Property(x => x.ClassifiedIntent).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.ExtractedEntities).HasMaxLength(4000);
         builder.Property(x => x.PhrasedFromResultId);
+        builder.Property(x => x.ExternalMessageId).HasMaxLength(256);
         builder.Property(x => x.HappenedAt).IsRequired();
         builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.HappenedAt });
+        builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.ExternalMessageId })
+            .IsUnique().HasFilter("external_message_id IS NOT NULL");
     }
 }
 

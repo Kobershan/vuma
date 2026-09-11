@@ -97,7 +97,7 @@ public sealed class Conversation : Entity
 public sealed class ConversationTurn : Entity, IImmutableRecord
 {
     private ConversationTurn() { }
-    public ConversationTurn(Guid tenantId, Guid conversationId, ConversationTurnDirection direction, string text, DateTimeOffset at)
+    public ConversationTurn(Guid tenantId, Guid conversationId, ConversationTurnDirection direction, string text, DateTimeOffset at, string? externalMessageId = null)
         : base(tenantId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
@@ -105,6 +105,7 @@ public sealed class ConversationTurn : Entity, IImmutableRecord
         Direction = direction;
         Text = text.Trim();
         HappenedAt = at;
+        ExternalMessageId = string.IsNullOrWhiteSpace(externalMessageId) ? null : externalMessageId.Trim();
     }
     public Guid ConversationId { get; private set; }
     public ConversationTurnDirection Direction { get; private set; }
@@ -112,5 +113,6 @@ public sealed class ConversationTurn : Entity, IImmutableRecord
     public ConversationIntent? ClassifiedIntent { get; private set; }
     public string? ExtractedEntities { get; private set; }
     public Guid? PhrasedFromResultId { get; private set; }
+    public string? ExternalMessageId { get; private set; }
     public DateTimeOffset HappenedAt { get; private set; }
 }

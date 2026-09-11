@@ -52,6 +52,8 @@ public interface IDocumentDeliveryTokenStore
 public interface IConversationStore
 {
     Task<Conversation> GetOrCreateAsync(ContactBinding binding, ConversationChannel channel, DateTimeOffset at, CancellationToken cancellationToken = default);
+    Task<ConversationTurn?> FindTurnByExternalMessageIdAsync(Guid conversationId, string externalMessageId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ConversationTurn>> ListTurnsAsync(Guid conversationId, CancellationToken cancellationToken = default);
     Task AddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
 }
 
