@@ -47,6 +47,7 @@ using VumaRetail.Web.Warehouse;
 using VumaRetail.Web.Connect;
 using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Manufacturing;
+using VumaRetail.Web.Logistics;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -191,6 +192,7 @@ builder.Services.AddVumaConnect();
 // new financial event publisher, the existing inventory binding carries it (see the module's own DI
 // extension for why).
 builder.Services.AddVumaWarehouse();
+builder.Services.AddVumaLogistics();
 
 // Stage 14. Sales orders, allocation, backorders, click & collect and order returns. After
 // AddVumaInventory (validates the fulfilling location), AddVumaWarehouse (allocates through Stage 13's
@@ -345,6 +347,7 @@ app.MapFieldSales();
 app.MapVumaProcurement();
 app.MapVumaConnect();
 app.MapVumaWarehouse();
+app.MapVumaLogistics();
 app.MapPickWaves();
 app.MapVumaOrders();
 app.MapVumaImports();

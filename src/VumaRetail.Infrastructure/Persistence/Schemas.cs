@@ -55,6 +55,9 @@ public static class Schemas
     /// </summary>
     public const string Inventory = "inventory";
 
+    /// <summary>Carriers, shipments, delivery runs, stops and proof of delivery. Stage 24.</summary>
+    public const string Logistics = "logistics";
+
     /// <summary>
     /// Till sessions, sales, sale lines, tenders and the receipt print log. Stage 09.
     /// </summary>

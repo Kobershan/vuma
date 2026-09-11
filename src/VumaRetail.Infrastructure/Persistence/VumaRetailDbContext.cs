@@ -404,6 +404,17 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>The document recording a wave's shipment — stock leaving the location. Stage 13.</summary>
     public DbSet<Domain.Warehouse.ShipmentConfirmation> ShipmentConfirmations => Set<Domain.Warehouse.ShipmentConfirmation>();
 
+    /// <summary>Stage 24 carrier directory.</summary>
+    public DbSet<Domain.Logistics.Carrier> Carriers => Set<Domain.Logistics.Carrier>();
+    /// <summary>Stage 24 delivery shipments.</summary>
+    public DbSet<Domain.Logistics.Shipment> Shipments => Set<Domain.Logistics.Shipment>();
+    /// <summary>Stage 24 delivery runs.</summary>
+    public DbSet<Domain.Logistics.DeliveryRun> DeliveryRuns => Set<Domain.Logistics.DeliveryRun>();
+    /// <summary>Stops assigned to delivery runs.</summary>
+    public DbSet<Domain.Logistics.DeliveryStop> DeliveryStops => Set<Domain.Logistics.DeliveryStop>();
+    /// <summary>Immutable proof that a shipment was delivered or refused.</summary>
+    public DbSet<Domain.Logistics.ProofOfDelivery> ProofsOfDelivery => Set<Domain.Logistics.ProofOfDelivery>();
+
     /// <summary>A physical count of one or more bins. Stage 13.</summary>
     public DbSet<Domain.Warehouse.CycleCount> CycleCounts => Set<Domain.Warehouse.CycleCount>();
 
