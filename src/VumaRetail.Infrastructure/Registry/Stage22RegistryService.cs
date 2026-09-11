@@ -111,7 +111,7 @@ public sealed class Stage22RegistryService(
             {
                 StockTransferLine transferLine = StockTransferLine.Create(
                     tenant.TenantId, transfer.Id, line.ItemId, line.ItemVariantId,
-                    line.Quantity, line.UnitOfMeasure, line.SenderLocationId);
+                    line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId);
                 transfer.Lines.Add(transferLine);
             }
         }
