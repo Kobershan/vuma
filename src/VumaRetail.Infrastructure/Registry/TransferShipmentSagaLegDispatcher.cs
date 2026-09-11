@@ -73,7 +73,10 @@ public sealed class TransferShipmentSagaLegDispatcher(IServiceScopeFactory scope
                     new Quantity(line.Quantity, line.UnitOfMeasure),
                     line.LineId,
                     $"Transfer {payload.TransferId:N}",
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken,
+                    batchReference: line.BatchReference,
+                    expiryDate: line.ExpiryDate,
+                    serialNumber: line.SerialNumber).ConfigureAwait(false);
                 await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
 

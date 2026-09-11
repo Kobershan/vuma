@@ -81,6 +81,13 @@ internal sealed class StockLedgerEntryConfiguration : EntityConfiguration<StockL
             .HasMaxLength(16);
 
         builder.Property(entry => entry.Note).HasMaxLength(1000);
+        builder.Property(entry => entry.BatchReference).HasMaxLength(128);
+        builder.Property(entry => entry.ExpiryDate);
+        builder.Property(entry => entry.SerialNumber).HasMaxLength(128);
+
+        builder.HasIndex(entry => new { entry.LocationId, entry.ItemId, entry.BatchReference, entry.ExpiryDate, entry.SerialNumber })
+            .HasDatabaseName("ix_stock_ledger_entries_tracking_item")
+            .HasFilter("batch_reference IS NOT NULL OR expiry_date IS NOT NULL OR serial_number IS NOT NULL");
 
         // The module's hot read: "what has moved for this stock-keeping unit at this location, newest
         // first" — the keyset page IStockLedgerRepository.ListPageAsync serves. Ordered (created_at,
@@ -305,6 +312,9 @@ internal sealed class StockReservationConfiguration : EntityConfiguration<StockR
         builder.Property(reservation => reservation.LegId);
         builder.Property(reservation => reservation.ConsumedByReferenceId);
         builder.Property(reservation => reservation.Reason).HasMaxLength(500);
+        builder.Property(reservation => reservation.BatchReference).HasMaxLength(128);
+        builder.Property(reservation => reservation.ExpiryDate);
+        builder.Property(reservation => reservation.SerialNumber).HasMaxLength(128);
 
         // Live holds for one stock-keeping unit at one location — the re-check's working set.
         builder.HasIndex(reservation => new { reservation.LocationId, reservation.ItemId, reservation.State })
@@ -312,6 +322,17 @@ internal sealed class StockReservationConfiguration : EntityConfiguration<StockR
 
         builder.HasIndex(reservation => new { reservation.LocationId, reservation.ItemVariantId, reservation.State })
             .HasDatabaseName("ix_stock_reservations_location_id_item_variant_id_state");
+
+        builder.HasIndex(reservation => new
+        {
+            reservation.LocationId,
+            reservation.ItemId,
+            reservation.ItemVariantId,
+            reservation.BatchReference,
+            reservation.ExpiryDate,
+            reservation.SerialNumber,
+            reservation.State
+        }).HasDatabaseName("ix_stock_reservations_tracking_state");
 
         // One chain's history.
         builder.HasIndex(reservation => new { reservation.ReservationId, reservation.SequenceNumber })

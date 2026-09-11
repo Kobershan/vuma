@@ -117,7 +117,10 @@ public interface IReservationService
         Guid? intentId = null,
         Guid? legId = null,
         string? reason = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>Consumes a live hold — the held quantity shipped or issued.</summary>
     Task ConsumeAsync(Guid reservationId, Guid consumedByReferenceId, CancellationToken cancellationToken = default);

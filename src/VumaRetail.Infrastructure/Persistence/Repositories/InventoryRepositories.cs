@@ -113,6 +113,30 @@ public sealed class StockLedgerRepository(VumaRetailDbContext context) : IStockL
             .ConfigureAwait(false);
 
     /// <inheritdoc />
+    public async Task<decimal> SumTrackedQuantityAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber,
+        CancellationToken cancellationToken = default)
+    {
+        string? batch = StockTracking.Normalise(batchReference, nameof(batchReference));
+        string? serial = StockTracking.Normalise(serialNumber, nameof(serialNumber));
+        return await context.StockLedgerEntries
+            .Where(entry => entry.LocationId == locationId
+                && entry.ItemId == itemId
+                && entry.ItemVariantId == itemVariantId
+                && entry.BatchReference == batch
+                && entry.ExpiryDate == expiryDate
+                && entry.SerialNumber == serial)
+            .Select(entry => (decimal?)entry.Quantity.Value)
+            .SumAsync(cancellationToken)
+            .ConfigureAwait(false) ?? 0m;
+    }
+
+    /// <inheritdoc />
     public void Add(StockLedgerEntry entry) => context.StockLedgerEntries.Add(entry);
 }
 
@@ -260,6 +284,9 @@ public sealed class StockReservationRepository(VumaRetailDbContext context) : IS
         Guid locationId,
         Guid? itemId,
         Guid? itemVariantId,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null,
         CancellationToken cancellationToken = default)
         => context.StockReservations
             .Where(reservation => reservation.IntentId == intentId
@@ -267,6 +294,9 @@ public sealed class StockReservationRepository(VumaRetailDbContext context) : IS
                 && reservation.LocationId == locationId
                 && reservation.ItemId == itemId
                 && reservation.ItemVariantId == itemVariantId
+                && reservation.BatchReference == batchReference
+                && reservation.ExpiryDate == expiryDate
+                && reservation.SerialNumber == serialNumber
                 && reservation.State == ReservationState.Held)
             .OrderBy(reservation => reservation.SequenceNumber)
             .FirstOrDefaultAsync(cancellationToken);

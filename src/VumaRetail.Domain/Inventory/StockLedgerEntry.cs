@@ -43,7 +43,10 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         StockReferenceType referenceType,
         Guid? referenceId,
         AdjustmentReasonCode? reasonCode,
-        string? note)
+        string? note,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber)
         : base(tenantId, storeId)
     {
         LocationId = locationId;
@@ -57,6 +60,9 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         ReferenceId = referenceId;
         ReasonCode = reasonCode;
         Note = note;
+        BatchReference = batchReference;
+        ExpiryDate = expiryDate;
+        SerialNumber = serialNumber;
     }
 
     /// <summary>Required by EF Core for materialisation. Do not call from business code.</summary>
@@ -115,6 +121,15 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
     /// <summary>An optional free-text note.</summary>
     public string? Note { get; private set; }
 
+    /// <summary>Optional batch or lot identity.</summary>
+    public string? BatchReference { get; private set; }
+
+    /// <summary>Optional expiry date carried by the batch.</summary>
+    public DateOnly? ExpiryDate { get; private set; }
+
+    /// <summary>Optional serial identity; serialised movements are exactly one unit.</summary>
+    public string? SerialNumber { get; private set; }
+
     /// <summary>The total value this movement carries — <see cref="Quantity"/> extended by <see cref="UnitCost"/>.</summary>
     public Money Value => Quantity.Extend(UnitCost);
 
@@ -135,6 +150,9 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
     /// <param name="referenceId">The correlating document's id. Required unless <paramref name="referenceType"/> is <see cref="StockReferenceType.Manual"/>.</param>
     /// <param name="reasonCode">Why an adjustment was made. Required when <paramref name="movementType"/> is <see cref="StockMovementType.Adjustment"/>.</param>
     /// <param name="note">An optional free-text note.</param>
+    /// <param name="batchReference">Optional batch or lot identity.</param>
+    /// <param name="expiryDate">Optional expiry date.</param>
+    /// <param name="serialNumber">Optional serial identity.</param>
     /// <exception cref="InventoryRuleException">A structural invariant was broken.</exception>
     public static StockLedgerEntry Post(
         Guid tenantId,
@@ -149,7 +167,10 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
         StockReferenceType referenceType,
         Guid? referenceId,
         AdjustmentReasonCode? reasonCode,
-        string? note)
+        string? note,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -178,6 +199,9 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
             throw InventoryRuleException.ReferenceIdRequired();
         }
 
+        (batchReference, expiryDate, serialNumber) = StockTracking.Validate(
+            quantity.Value, batchReference, expiryDate, serialNumber);
+
         return new StockLedgerEntry(
             tenantId,
             storeId,
@@ -191,7 +215,10 @@ public sealed class StockLedgerEntry : Entity, IImmutableRecord
             referenceType,
             referenceId,
             reasonCode,
-            string.IsNullOrWhiteSpace(note) ? null : note.Trim());
+            string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+            batchReference,
+            expiryDate,
+            serialNumber);
     }
 }
 

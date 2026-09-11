@@ -101,7 +101,10 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         Guid? intentId = null,
         Guid? legId = null,
         string? reason = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(demanded);
 
@@ -118,7 +121,8 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         return ExecuteWithRetryAsync(
             () => ReserveOnceAsync(
                 locationId, itemId, itemVariantId, demanded, source, sourceDocumentId,
-                groupDocumentRef, expiresAt, intentId, legId, reason, cancellationToken),
+                groupDocumentRef, expiresAt, intentId, legId, reason,
+                batchReference, expiryDate, serialNumber, cancellationToken),
             cancellationToken);
     }
 
@@ -248,9 +252,15 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         Guid? intentId,
         Guid? legId,
         string? reason,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber,
         CancellationToken cancellationToken)
     {
         VumaRetailDbContext db = await CompanyDbAsync(cancellationToken).ConfigureAwait(false);
+
+        (batchReference, expiryDate, serialNumber) = StockTracking.Validate(
+            demanded.Value, batchReference, expiryDate, serialNumber);
 
         await using var transaction = await db.Database
             .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
@@ -294,7 +304,8 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
             if (intentId.HasValue && legId.HasValue)
             {
                 StockReservation? replayed = await new StockReservationRepository(db).FindLegHoldAsync(
-                        intentId.Value, legId.Value, locationId, itemId, itemVariantId, cancellationToken)
+                        intentId.Value, legId.Value, locationId, itemId, itemVariantId,
+                        batchReference, expiryDate, serialNumber, cancellationToken)
                     .ConfigureAwait(false);
                 if (replayed is not null)
                 {
@@ -319,7 +330,28 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
                 .ConfigureAwait(false);
             position.RefreshStaging(inStaging);
 
-            Quantity available = onHand - position.Reserved - position.InStaging;
+            bool tracked = batchReference is not null || expiryDate is not null || serialNumber is not null;
+            decimal trackedOnHand = tracked
+                ? await new StockLedgerRepository(db).SumTrackedQuantityAsync(
+                    locationId, itemId, itemVariantId, batchReference, expiryDate, serialNumber, cancellationToken)
+                    .ConfigureAwait(false)
+                : onHand.Value;
+            decimal trackedReserved = tracked
+                ? await db.StockReservations
+                    .Where(reservation => reservation.LocationId == locationId
+                        && reservation.ItemId == itemId
+                        && reservation.ItemVariantId == itemVariantId
+                        && reservation.BatchReference == batchReference
+                        && reservation.ExpiryDate == expiryDate
+                        && reservation.SerialNumber == serialNumber
+                        && reservation.State == ReservationState.Held)
+                    .Select(reservation => (decimal?)reservation.Quantity.Value)
+                    .SumAsync(cancellationToken)
+                    .ConfigureAwait(false) ?? 0m
+                : position.Reserved.Value;
+            decimal staging = tracked ? 0m : position.InStaging.Value;
+            decimal availableValue = trackedOnHand - trackedReserved - staging;
+            Quantity available = new(Math.Max(availableValue, 0m), unitOfMeasure);
             Quantity holdQuantity = available.Value <= 0m
                 ? Quantity.Zero(unitOfMeasure)
                 : available.Value >= demanded.Value ? demanded : available;
@@ -343,7 +375,10 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
                     expiresAt,
                     intentId,
                     legId,
-                    reason);
+                    reason,
+                    batchReference,
+                    expiryDate,
+                    serialNumber);
                 db.StockReservations.Add(hold);
                 position.ApplyHold(holdQuantity);
                 Capture(hold);
@@ -354,7 +389,9 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             _stamper.Complete();
 
-            Quantity remaining = onHand - position.Reserved - position.InStaging;
+            Quantity remaining = tracked
+                ? new(Math.Max(trackedOnHand - trackedReserved - holdQuantity.Value, 0m), unitOfMeasure)
+                : onHand - position.Reserved - position.InStaging;
             var outcome = new ReserveOutcome(
                 hold?.ReservationId,
                 holdQuantity,

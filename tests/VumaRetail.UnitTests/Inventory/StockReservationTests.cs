@@ -32,6 +32,25 @@ public sealed class StockReservationTests
             reason: "Order line");
 
     [Fact]
+    public void A_hold_preserves_tracking_across_terminal_rows()
+    {
+        StockReservation hold = StockReservation.Hold(
+            TenantId, StoreId, CompanyId, LocationId, ItemId, null,
+            new Quantity(1m, "EA"), ReservationSource.Order, OrderId,
+            reason: "Tracked order", batchReference: "BATCH-7",
+            expiryDate: new DateOnly(2027, 1, 31), serialNumber: "SERIAL-7");
+
+        StockReservation released = hold.Release();
+
+        hold.BatchReference.Should().Be("BATCH-7");
+        hold.ExpiryDate.Should().Be(new DateOnly(2027, 1, 31));
+        hold.SerialNumber.Should().Be("SERIAL-7");
+        released.BatchReference.Should().Be(hold.BatchReference);
+        released.ExpiryDate.Should().Be(hold.ExpiryDate);
+        released.SerialNumber.Should().Be(hold.SerialNumber);
+    }
+
+    [Fact]
     public void A_hold_opens_a_chain_with_sequence_zero()
     {
         StockReservation hold = NewHold();

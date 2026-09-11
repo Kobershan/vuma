@@ -101,7 +101,10 @@ public sealed class StockReservation : Entity, IImmutableRecord
         Guid? intentId,
         Guid? legId,
         Guid? consumedByReferenceId,
-        string? reason)
+        string? reason,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber)
         : base(tenantId, storeId)
     {
         LocationId = locationId;
@@ -119,6 +122,9 @@ public sealed class StockReservation : Entity, IImmutableRecord
         LegId = legId;
         ConsumedByReferenceId = consumedByReferenceId;
         Reason = reason;
+        BatchReference = batchReference;
+        ExpiryDate = expiryDate;
+        SerialNumber = serialNumber;
     }
 
     /// <summary>Required by EF Core for materialisation. Do not call from business code.</summary>
@@ -181,6 +187,15 @@ public sealed class StockReservation : Entity, IImmutableRecord
     /// <summary>Why the hold was taken, released or expired. Operator text, capped and trimmed.</summary>
     public string? Reason { get; private set; }
 
+    /// <summary>Optional batch or lot identity held by this reservation.</summary>
+    public string? BatchReference { get; private set; }
+
+    /// <summary>Optional expiry date carried by the batch identity.</summary>
+    public DateOnly? ExpiryDate { get; private set; }
+
+    /// <summary>Optional serial identity held by this reservation.</summary>
+    public string? SerialNumber { get; private set; }
+
     /// <summary>Takes a new hold. The one way a reservation chain comes to exist.</summary>
     /// <param name="tenantId">The owning tenant.</param>
     /// <param name="storeId">The owning store — the location's own.</param>
@@ -196,6 +211,9 @@ public sealed class StockReservation : Entity, IImmutableRecord
     /// <param name="intentId">The saga intent taking this hold, when a saga does.</param>
     /// <param name="legId">The saga leg taking this hold, when a saga does. Required with <paramref name="intentId"/>.</param>
     /// <param name="reason">Why the hold was taken.</param>
+    /// <param name="batchReference">Optional batch or lot identity.</param>
+    /// <param name="expiryDate">Optional expiry date.</param>
+    /// <param name="serialNumber">Optional serial identity.</param>
     /// <exception cref="InventoryRuleException">A structural invariant was broken.</exception>
     public static StockReservation Hold(
         Guid tenantId,
@@ -211,7 +229,10 @@ public sealed class StockReservation : Entity, IImmutableRecord
         DateTimeOffset? expiresAt = null,
         Guid? intentId = null,
         Guid? legId = null,
-        string? reason = null)
+        string? reason = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -250,6 +271,9 @@ public sealed class StockReservation : Entity, IImmutableRecord
             throw InventoryRuleException.ReservationExpiryInvalid();
         }
 
+        (batchReference, expiryDate, serialNumber) = StockTracking.Validate(
+            quantity.Value, batchReference, expiryDate, serialNumber);
+
         var reservation = new StockReservation(
             tenantId,
             storeId,
@@ -267,7 +291,7 @@ public sealed class StockReservation : Entity, IImmutableRecord
             intentId,
             legId,
             consumedByReferenceId: null,
-            NormaliseReason(reason));
+            NormaliseReason(reason), batchReference, expiryDate, serialNumber);
         reservation.AssignCompany(companyId);
         return reservation;
     }
@@ -348,7 +372,7 @@ public sealed class StockReservation : Entity, IImmutableRecord
             IntentId,
             LegId,
             consumedByReferenceId,
-            NormaliseReason(reason));
+            NormaliseReason(reason), BatchReference, ExpiryDate, SerialNumber);
         if (CompanyId.HasValue)
         {
             next.AssignCompany(CompanyId.Value);

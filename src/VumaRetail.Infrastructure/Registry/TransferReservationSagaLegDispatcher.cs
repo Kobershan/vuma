@@ -44,7 +44,10 @@ public sealed class TransferReservationSagaLegDispatcher(
                 $"transfer:{payload.TransferId:N}",
                 intentId: intent.Id,
                 legId: leg.LegId,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                cancellationToken: cancellationToken,
+                batchReference: line.BatchReference,
+                expiryDate: line.ExpiryDate,
+                serialNumber: line.SerialNumber).ConfigureAwait(false);
 
             if (!outcome.Shortfall.IsZero)
             {

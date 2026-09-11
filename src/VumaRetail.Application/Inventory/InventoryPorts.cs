@@ -52,6 +52,16 @@ public interface IStockLedgerRepository
     Task<IReadOnlyList<StockLedgerEntry>> ListByReferenceAsync(
         StockReferenceType referenceType, Guid referenceId, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the net quantity for one exact batch/expiry/serial identity.</summary>
+    Task<decimal> SumTrackedQuantityAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Appends a new entry. Nothing already added through this method is ever updated or removed.</summary>
     void Add(StockLedgerEntry entry);
 }
@@ -139,6 +149,9 @@ public interface IStockReservationRepository
         Guid locationId,
         Guid? itemId,
         Guid? itemVariantId,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Every live hold carrying one group document reference — the compensation set.</summary>

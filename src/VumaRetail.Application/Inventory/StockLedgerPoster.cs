@@ -275,7 +275,10 @@ public interface IStockLedgerPoster
         Guid transferLineReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null);
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>
     /// Posts a bin-level cycle count line's variance to the ledger, or does nothing if the line counted
@@ -353,7 +356,10 @@ public interface IStockLedgerPoster
         Guid receiptReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null);
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>Posts a compensating issue for a previously received transfer receipt.</summary>
     Task<StockLedgerEntry> ReverseTransferReceiptAsync(
@@ -364,7 +370,10 @@ public interface IStockLedgerPoster
         Guid reversalReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null);
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 }
 
 /// <inheritdoc cref="IStockLedgerPoster" />
@@ -442,13 +451,17 @@ public sealed class StockLedgerPoster(
         Guid transferLineReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null)
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostIssueLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
-            StockReferenceType.Transfer, transferLineReferenceId, reasonCode: null, note, cancellationToken);
+            StockReferenceType.Transfer, transferLineReferenceId, reasonCode: null, note, cancellationToken,
+            batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />
@@ -461,13 +474,17 @@ public sealed class StockLedgerPoster(
         Guid receiptReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null)
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostReceiptLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.TransferIn, quantity, unitCost,
-            StockReferenceType.Transfer, receiptReferenceId, reasonCode: null, note, cancellationToken);
+            StockReferenceType.Transfer, receiptReferenceId, reasonCode: null, note, cancellationToken,
+            batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />
@@ -479,13 +496,17 @@ public sealed class StockLedgerPoster(
         Guid reversalReferenceId,
         string? note = null,
         CancellationToken cancellationToken = default,
-        Guid? binId = null)
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostIssueLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
-            StockReferenceType.Transfer, reversalReferenceId, reasonCode: null, note, cancellationToken);
+            StockReferenceType.Transfer, reversalReferenceId, reasonCode: null, note, cancellationToken,
+            batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />
@@ -758,7 +779,10 @@ public sealed class StockLedgerPoster(
         Guid? referenceId,
         AdjustmentReasonCode? reasonCode,
         string? note,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         StockBalance? balance = await balances
             .FindAsync(location.Id, itemId, itemVariantId, cancellationToken)
@@ -777,7 +801,8 @@ public sealed class StockLedgerPoster(
 
         StockLedgerEntry entry = StockLedgerEntry.Post(
             location.TenantId, location.StoreId, location.Id, binId, itemId, itemVariantId, movementType,
-            quantity, unitCost, referenceType, referenceId, reasonCode, note);
+            quantity, unitCost, referenceType, referenceId, reasonCode, note,
+            batchReference, expiryDate, serialNumber);
 
         ledger.Add(entry);
 
@@ -801,7 +826,10 @@ public sealed class StockLedgerPoster(
         Guid? referenceId,
         AdjustmentReasonCode? reasonCode,
         string? note,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         StockBalance? balance = await balances
             .FindAsync(location.Id, itemId, itemVariantId, cancellationToken)
@@ -812,13 +840,26 @@ public sealed class StockLedgerPoster(
             throw InventoryRuleException.InsufficientStock(Quantity.Zero(quantity.UnitOfMeasure), quantity);
         }
 
+        if (batchReference is not null || expiryDate is not null || serialNumber is not null)
+        {
+            decimal trackedOnHand = await ledger.SumTrackedQuantityAsync(
+                location.Id, itemId, itemVariantId, batchReference, expiryDate, serialNumber, cancellationToken)
+                .ConfigureAwait(false);
+            if (trackedOnHand < quantity.Value)
+            {
+                throw InventoryRuleException.InsufficientStock(
+                    new Quantity(Math.Max(trackedOnHand, 0m), quantity.UnitOfMeasure), quantity);
+            }
+        }
+
         Money unitCost = balance.AverageCost;
 
         balance.ApplyIssue(quantity);
 
         StockLedgerEntry entry = StockLedgerEntry.Post(
             location.TenantId, location.StoreId, location.Id, binId, itemId, itemVariantId, movementType,
-            -quantity, unitCost, referenceType, referenceId, reasonCode, note);
+            -quantity, unitCost, referenceType, referenceId, reasonCode, note,
+            batchReference, expiryDate, serialNumber);
 
         ledger.Add(entry);
 

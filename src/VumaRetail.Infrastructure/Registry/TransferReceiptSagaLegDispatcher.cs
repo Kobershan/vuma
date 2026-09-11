@@ -65,7 +65,10 @@ public sealed class TransferReceiptSagaLegDispatcher(IServiceScopeFactory scopes
                 new Money(line.UnitCost, line.Currency),
                 receiptReferenceId,
                 $"Transfer {payload.TransferId:N}",
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                batchReference: line.BatchReference,
+                expiryDate: line.ExpiryDate,
+                serialNumber: line.SerialNumber).ConfigureAwait(false);
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
@@ -119,7 +122,10 @@ public sealed class TransferReceiptSagaLegDispatcher(IServiceScopeFactory scopes
                 new Quantity(line.Quantity, line.UnitOfMeasure),
                 reversalReferenceId,
                 $"Reverse transfer receipt {payload.TransferId:N}",
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                batchReference: line.BatchReference,
+                expiryDate: line.ExpiryDate,
+                serialNumber: line.SerialNumber).ConfigureAwait(false);
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }

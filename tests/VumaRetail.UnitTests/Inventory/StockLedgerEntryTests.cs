@@ -28,6 +28,30 @@ public sealed class StockLedgerEntryTests
             referenceType, referenceId, reasonCode, note);
 
     [Fact]
+    public void A_ledger_entry_preserves_batch_expiry_and_serial_tracking()
+    {
+        StockLedgerEntry entry = StockLedgerEntry.Post(
+            TenantId, StoreId, LocationId, null, ItemId, null, StockMovementType.Receipt,
+            new Quantity(1m, "EA"), new Money(20m, "ZAR"), StockReferenceType.Manual, null, null, null,
+            "BATCH-7", new DateOnly(2027, 1, 31), "SERIAL-7");
+
+        entry.BatchReference.Should().Be("BATCH-7");
+        entry.ExpiryDate.Should().Be(new DateOnly(2027, 1, 31));
+        entry.SerialNumber.Should().Be("SERIAL-7");
+    }
+
+    [Fact]
+    public void A_serialised_ledger_entry_must_have_unit_quantity()
+    {
+        Action posting = () => StockLedgerEntry.Post(
+            TenantId, StoreId, LocationId, null, ItemId, null, StockMovementType.Receipt,
+            new Quantity(2m, "EA"), new Money(20m, "ZAR"), StockReferenceType.Manual, null, null, null,
+            serialNumber: "SERIAL-7");
+
+        posting.Should().Throw<ArgumentException>().WithMessage("*serialised movement*exactly one*");
+    }
+
+    [Fact]
     public void A_ledger_entry_is_an_immutable_record()
     {
         // Marked so the persistence layer refuses it in the Modified or Deleted state (§7 rule 7) —
