@@ -95,6 +95,9 @@ public sealed class PipelineRulesTests
             "src/VumaRetail.Infrastructure/Conversations/ConversationScopeManagementService.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptLegHandler.cs",
             "src/VumaRetail.Infrastructure/Registry/GroupReceiptService.cs",
+            // Stage 22 registry business/transfer administration is an explicit registry edge
+            // service, not a dispatched company command handler; it owns the registry transaction.
+            "src/VumaRetail.Infrastructure/Registry/Stage22RegistryService.cs",
             // Stage 13b. This daily background lifecycle pass is not a dispatched message handler;
             // it advances due schedules in its own scoped unit-of-work boundary.
             "src/VumaRetail.Infrastructure/Warehouse/CountScheduleHostedService.cs",

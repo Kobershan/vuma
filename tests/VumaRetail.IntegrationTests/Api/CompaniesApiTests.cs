@@ -44,7 +44,7 @@ public sealed class CompaniesApiTests(PostgresFixture fixture)
         using HttpClient client = await harness.SignInAsync("company-reader");
 
         HttpResponseMessage provision = await client.PostAsJsonAsync("/api/v1/companies/",
-            new ProvisionCompanyRequest("DENY", "Denied Company", "Denied Company", "ZAR", "en-ZA", "DN"));
+            new ProvisionCompanyRequest(Guid.NewGuid(), "DENY", "Denied Company", "Denied Company", "ZAR", "en-ZA", "DN"));
         provision.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         HttpResponseMessage deactivate = await client.PostAsJsonAsync(
