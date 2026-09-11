@@ -9,7 +9,8 @@ Stage 24 adds tenant-scoped delivery execution to the existing Stage 13 shipment
 - planned delivery runs and ordered stops;
 - immutable proof-of-delivery records with recipient, outcome, optional signature/photo references and validated GPS coordinates;
 - authenticated API endpoints under `/api/v1/logistics`;
-- PostgreSQL migration `Stage24Logistics` in the company database.
+- PostgreSQL migrations `Stage24Logistics` (compatibility marker) and `Stage24LogisticsAlignment`
+  (the actual table/index creation) in the company database.
 
 No cross-company foreign keys are used. References to orders and Stage 13 shipment confirmations are
 tenant-filtered identifiers, consistent with the modular schema rules. POD photos/signatures are
