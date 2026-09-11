@@ -120,7 +120,16 @@ public sealed class StockTransferRequest
     public void Check(GroupSettings settings, bool receiverIsDirectChildOfHolding)
     {
         Require(TransferStatus.Requested);
-        if (TotalValue >= settings.TransferValueThreshold) Status = TransferStatus.RegionalApprovalPending;
+        if (CentralBuying)
+        {
+            if (!receiverIsDirectChildOfHolding)
+            {
+                throw new InvalidOperationException("Central buying may only deliver to a direct holding-store child.");
+            }
+
+            Status = TransferStatus.Accepted;
+        }
+        else if (TotalValue >= settings.TransferValueThreshold) Status = TransferStatus.RegionalApprovalPending;
         else Status = TransferStatus.Checked;
     }
     public void ApproveRegional() { Require(TransferStatus.RegionalApprovalPending); Status = TransferStatus.Checked; }

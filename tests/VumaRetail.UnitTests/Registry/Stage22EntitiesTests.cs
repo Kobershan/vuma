@@ -59,6 +59,35 @@ public sealed class Stage22EntitiesTests
     }
 
     [Fact]
+    public void Central_buying_is_preaccepted_only_for_a_direct_holding_child()
+    {
+        var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.GroupStandardCost, DiscrepancyOwner.Receiver, "SPAR");
+        var transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, CompanyA, 10_000m, centralBuying: true);
+
+        FluentActions.Invoking(() => transfer.Check(settings, receiverIsDirectChildOfHolding: false))
+            .Should().Throw<InvalidOperationException>();
+
+        transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, CompanyA, 10_000m, centralBuying: true);
+        transfer.Check(settings, receiverIsDirectChildOfHolding: true);
+        transfer.Status.Should().Be(TransferStatus.Accepted);
+    }
+
+    [Fact]
+    public void Shipping_and_in_transit_are_separate_observable_states()
+    {
+        var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");
+        var transfer = StockTransferRequest.Create(Tenant, CompanyA, CompanyA, CompanyB, Guid.NewGuid(), 1m);
+        transfer.Check(settings, false);
+        transfer.Accept();
+        transfer.Reserve();
+        transfer.Pick();
+        transfer.Ship();
+        transfer.Status.Should().Be(TransferStatus.Shipped);
+        transfer.MoveInTransit();
+        transfer.Status.Should().Be(TransferStatus.InTransit);
+    }
+
+    [Fact]
     public void Discrepancy_requires_reason()
     {
         var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.LandedCost, DiscrepancyOwner.HeldForReview, "SPAR");

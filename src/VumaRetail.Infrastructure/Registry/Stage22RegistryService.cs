@@ -96,7 +96,11 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
             x => x.TenantId == tenant.TenantId && x.BusinessId == sender.BusinessId, cancellationToken)
             .ConfigureAwait(false);
         var transfer = StockTransferRequest.Create(tenant.TenantId, requesterCompanyId, senderCompanyId, receiverCompanyId, holdingCompanyId, totalValue, centralBuying);
-        transfer.Check(settings, false);
+        GroupHierarchyNode? holdingNode = await registry.GroupHierarchyNodes.SingleOrDefaultAsync(
+            x => x.TenantId == tenant.TenantId && x.BusinessId == sender.BusinessId && x.CompanyId == holdingCompanyId,
+            cancellationToken).ConfigureAwait(false);
+        bool receiverIsDirectChildOfHolding = holdingNode is not null && receiver.ParentNodeId == holdingNode.Id;
+        transfer.Check(settings, receiverIsDirectChildOfHolding);
         registry.StockTransferRequests.Add(transfer);
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
         return transfer;
@@ -108,7 +112,7 @@ public sealed class Stage22RegistryService(VumaRegistryDbContext registry, ITena
             .SingleOrDefaultAsync(x => x.Id == transferId && x.TenantId == tenant.TenantId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Transfer was not found.");
-        switch (action.Trim().ToLowerInvariant()) { case "approve": transfer.ApproveRegional(); break; case "accept": transfer.Accept(); break; case "decline": transfer.Decline(); break; case "reserve": transfer.Reserve(); break; case "pick": transfer.Pick(); break; case "ship": transfer.Ship(); transfer.MoveInTransit(); break; case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break; case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break; case "cancel": transfer.Cancel(); break; default: throw new ArgumentException("Unknown transfer action.", nameof(action)); }
+        switch (action.Trim().ToLowerInvariant()) { case "approve": transfer.ApproveRegional(); break; case "accept": transfer.Accept(); break; case "decline": transfer.Decline(); break; case "reserve": transfer.Reserve(); break; case "pick": transfer.Pick(); break; case "ship": transfer.Ship(); break; case "in-transit": transfer.MoveInTransit(); break; case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break; case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break; case "cancel": transfer.Cancel(); break; default: throw new ArgumentException("Unknown transfer action.", nameof(action)); }
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return transfer;
     }
 

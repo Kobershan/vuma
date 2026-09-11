@@ -47,7 +47,7 @@ public sealed class Stage22RegistryTests(PostgresFixture fixture)
                 holdingCompanyId, holdingCompanyId, storeCompanyId, holdingCompanyId, 100m, false);
             transfer.Status.Should().Be(TransferStatus.Checked);
 
-            string[] actions = ["accept", "reserve", "pick", "ship"];
+            string[] actions = ["accept", "reserve", "pick", "ship", "in-transit"];
             foreach (string action in actions)
             {
                 transfer = await service.TransitionTransferAsync(transfer.Id, action);
