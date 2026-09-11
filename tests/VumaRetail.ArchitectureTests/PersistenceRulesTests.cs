@@ -144,7 +144,8 @@ public sealed class PersistenceRulesTests
             // Stage 13b saga leg: one company-local transaction, never a pipeline commit.
             "src/VumaRetail.Infrastructure/Registry/ConsolidatedWaveSagaLegDispatcher.cs",
             // Stage 22 transfer reservation saga leg owns one company-local reservation commit.
-            "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs");
+            "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs",
+            "src/VumaRetail.Infrastructure/Registry/TransferShipmentSagaLegDispatcher.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

@@ -266,6 +266,17 @@ public interface IStockLedgerPoster
         CancellationToken cancellationToken = default,
         Guid? binId = null);
 
+    /// <summary>Posts the source-company issue for one registry transfer line.</summary>
+    Task<StockLedgerEntry> IssueForTransferAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid transferLineReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null);
+
     /// <summary>
     /// Posts a bin-level cycle count line's variance to the ledger, or does nothing if the line counted
     /// exactly what the system expected.
@@ -397,6 +408,24 @@ public sealed class StockLedgerPoster(
         return PostIssueLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
             StockReferenceType.Shipment, shipmentReferenceId, reasonCode: null, note: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> IssueForTransferAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid transferLineReferenceId,
+        string? note = null,
+        CancellationToken cancellationToken = default,
+        Guid? binId = null)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return PostIssueLikeAsync(
+            location, binId, itemId, itemVariantId, StockMovementType.TransferOut, quantity,
+            StockReferenceType.Transfer, transferLineReferenceId, reasonCode: null, note, cancellationToken);
     }
 
     /// <inheritdoc />

@@ -146,7 +146,7 @@ public sealed class Stage22RegistryService(
             case "decline": transfer.Decline(); break;
             case "reserve": await ReserveTransferAsync(transfer, persistedLines, cancellationToken).ConfigureAwait(false); break;
             case "pick": transfer.Pick(); break;
-            case "ship": transfer.Ship(); break;
+            case "ship": await ShipTransferAsync(transfer, persistedLines, cancellationToken).ConfigureAwait(false); break;
             case "in-transit": transfer.MoveInTransit(); break;
             case "receive": transfer.Receive(quantity ?? throw new ArgumentException("Quantity is required.")); break;
             case "reconcile": transfer.Reconcile(requestedQuantity ?? throw new ArgumentException("Requested quantity is required."), reason); break;
@@ -200,6 +200,47 @@ public sealed class Stage22RegistryService(
         }
 
         transfer.Reserve();
+    }
+
+    private async Task ShipTransferAsync(
+        StockTransferRequest transfer,
+        IReadOnlyList<StockTransferLine> lines,
+        CancellationToken cancellationToken)
+    {
+        if (lines.Count == 0)
+        {
+            transfer.Ship();
+            return;
+        }
+
+        if (sagaCoordinator is null || operatorContext is null || hybridClock is null || principal is null)
+        {
+            throw new InvalidOperationException("Transfer shipment saga services are not configured.");
+        }
+
+        TransferShipmentPayload payload = new(
+            transfer.TenantId,
+            transfer.Id,
+            transfer.SenderCompanyId,
+            lines.Select(line => new TransferReservationLinePayload(
+                line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
+                line.Quantity, line.UnitOfMeasure)).ToArray());
+        SagaIntent intent = SagaIntent.Create(
+            transfer.TenantId,
+            TransferShipmentSaga.IntentType,
+            $"transfer-shipment:{transfer.Id:N}",
+            clock.UtcNow,
+            JsonSerializer.Serialize(payload));
+        intent.Authorize(operatorContext.RequireOperatorId(), principal.Principal, hybridClock.Next().ToString());
+        intent.AddLeg(transfer.SenderCompanyId);
+
+        SagaResult result = await sagaCoordinator.ExecuteAsync(intent, cancellationToken).ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException("Transfer shipment is still pending or failed; retry the shipment leg.");
+        }
+
+        transfer.Ship();
     }
 
     public async Task<PremisesSkuRouting> AddPremisesSkuRoutingAsync(Guid premisesId, string skuOrBarcode, Guid companyId, bool isBarcode, CancellationToken cancellationToken = default)

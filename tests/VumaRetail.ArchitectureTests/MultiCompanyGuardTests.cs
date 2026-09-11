@@ -109,7 +109,8 @@ public sealed class MultiCompanyGuardTests
             "src/VumaRetail.Infrastructure/Registry/ConsolidatedWaveSagaLegDispatcher.cs",
             // Stage 22 reservation dispatcher invokes DispatchAsync/CompensateAsync as separate
             // saga legs, each with one child company scope.
-            "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs");
+            "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs",
+            "src/VumaRetail.Infrastructure/Registry/TransferShipmentSagaLegDispatcher.cs");
 
         // Group violations by file; any file with two or more .CreateAsync calls is suspicious.
         var filesWithMultipleCalls = violations
