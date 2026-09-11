@@ -120,6 +120,7 @@ public static class ConversationEndpoints
         IReplyComposer composer,
         ConversationRateLimiter rateLimiter,
         IClock clock,
+        ITenantContext tenant,
         CancellationToken cancellationToken)
     {
         using var reader = new StreamReader(request.Body, Encoding.UTF8);
@@ -148,7 +149,7 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, cancellationToken).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
@@ -162,6 +163,7 @@ public static class ConversationEndpoints
         IReplyComposer composer,
         ConversationRateLimiter rateLimiter,
         IClock clock,
+        ITenantContext tenant,
         CancellationToken cancellationToken)
         => await InboundAsync(
             message with { Channel = ConversationChannel.Email },
@@ -174,6 +176,7 @@ public static class ConversationEndpoints
             composer,
             rateLimiter,
             clock,
+            tenant,
             cancellationToken).ConfigureAwait(false);
 
     private static async Task<IResult> InboundAsync(
@@ -187,6 +190,7 @@ public static class ConversationEndpoints
         IReplyComposer composer,
         ConversationRateLimiter rateLimiter,
         IClock clock,
+        ITenantContext tenant,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(message.Address) || string.IsNullOrWhiteSpace(message.Text))
@@ -195,6 +199,10 @@ public static class ConversationEndpoints
         }
         ContactBinding? binding = await contacts.ResolveAsync(message.Channel, message.Address, cancellationToken).ConfigureAwait(false);
         if (binding is null)
+        {
+            return Results.Accepted(value: new { state = "onboarding", message = "Ask your account manager to link this address." });
+        }
+        if (tenant.TenantId != Guid.Empty && binding.TenantId != tenant.TenantId)
         {
             return Results.Accepted(value: new { state = "onboarding", message = "Ask your account manager to link this address." });
         }
