@@ -7,6 +7,7 @@ using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Domain.Sales.Invoices;
 
 namespace VumaRetail.UnitTests.Conversations;
@@ -35,8 +36,10 @@ public sealed class ConversationIntentHandlerTests
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         DocumentDeliveryService delivery = new();
+        IArInvoiceRepository arInvoices = Substitute.For<IArInvoiceRepository>();
+        arInvoices.ListOpenAsync(Arg.Any<CancellationToken>()).Returns([]);
 
-        IntentResult result = await new StatementIntentHandler(scopes, accounts, bindings, delivery, clock)
+        IntentResult result = await new StatementIntentHandler(scopes, accounts, bindings, delivery, clock, arInvoices)
             .HandleAsync(conversation, new Dictionary<string, string> { ["reference"] = "ACT-1" }, "idem-1");
 
         result.Facts.Single().Should().Contain("one-time delivery");
@@ -73,7 +76,6 @@ public sealed class ConversationIntentHandlerTests
         IConversationIntentHandler[] handlers =
         [
             new InvoiceCopyIntentHandler(scopes, accounts, bindings, delivery, clock, invoices),
-            new CreditNoteRequestIntentHandler(scopes, accounts, bindings, delivery, clock),
         ];
 
         foreach (IConversationIntentHandler handler in handlers)
@@ -87,7 +89,7 @@ public sealed class ConversationIntentHandlerTests
             result.ResultId.Should().NotBeEmpty();
         }
 
-        await accounts.Received(2).FindAsync(accountId, Arg.Any<CancellationToken>());
+        await accounts.Received(1).FindAsync(accountId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -106,6 +108,24 @@ public sealed class ConversationIntentHandlerTests
 
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Proof of delivery is not available until Stage 24 is deployed.");
+    }
+
+    [Fact]
+    public async Task Credit_note_handler_fails_closed_until_stage_14b_is_connected()
+    {
+        Func<Task> action = () => new CreditNoteRequestIntentHandler(
+            Substitute.For<IConversationScopeReader>(),
+            Substitute.For<ICustomerAccountRepository>(),
+            Substitute.For<IContactBindingManagementService>(),
+            new DocumentDeliveryService(),
+            Substitute.For<IClock>())
+            .HandleAsync(
+                new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, DateTimeOffset.UtcNow),
+                new Dictionary<string, string>(),
+                "credit-key");
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Credit-note requests are not available until the Stage 14b approval flow is connected.");
     }
 
     [Fact]

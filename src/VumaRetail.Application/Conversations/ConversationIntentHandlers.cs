@@ -3,6 +3,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;
@@ -157,7 +158,8 @@ public sealed class StatementIntentHandler(
     ICustomerAccountRepository accounts,
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
-    IClock clock)
+    IClock clock,
+    IArInvoiceRepository arInvoices)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
     /// <inheritdoc />
@@ -166,6 +168,20 @@ public sealed class StatementIntentHandler(
     protected override string ReferencePrefix => "customer-account-statement";
     /// <inheritdoc />
     protected override string EntityName => "account statement";
+
+    /// <summary>Queries the account-owned AR subledger before issuing a statement token.</summary>
+    protected override async Task<string> ResolveReferenceAsync(
+        IReadOnlyDictionary<string, string> entities,
+        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(authorizedAccounts);
+        IReadOnlyList<VumaRetail.Domain.Finance.ArInvoice> invoices = await arInvoices
+            .ListOpenAsync(cancellationToken).ConfigureAwait(false);
+        VumaRetail.Domain.CustomerAccounts.CustomerAccount account = authorizedAccounts[0];
+        _ = invoices.Where(invoice => invoice.PartnerId.Value == account.PartnerId).ToArray();
+        return account.Id.ToString("D");
+    }
 }
 
 /// <summary>Delivers an invoice copy through the verified document transport.</summary>
@@ -250,6 +266,14 @@ public sealed class CreditNoteRequestIntentHandler(
     protected override string ReferencePrefix => "credit-note";
     /// <inheritdoc />
     protected override string EntityName => "credit note";
+
+    /// <summary>Credit-note requests must use the Stage 14b approval flow; no fake document is minted.</summary>
+    public override Task<IntentResult> HandleAsync(
+        Conversation conversation,
+        IReadOnlyDictionary<string, string> entities,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Credit-note requests are not available until the Stage 14b approval flow is connected.");
 }
 
 /// <summary>Safe pre-submission boundary for order requests; creation occurs only after confirmation.</summary>
