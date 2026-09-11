@@ -267,7 +267,7 @@ public static class RegistryEndpoints
         {
             IReadOnlyCollection<Stage22TransferLine>? lines = request.Lines?.Select(line => new Stage22TransferLine(
                 line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure, line.SenderLocationId,
-                line.ReceiverLocationId)).ToArray();
+                line.ReceiverLocationId, line.BatchReference, line.ExpiryDate, line.SerialNumber)).ToArray();
             var transfer = await service.CreateTransferAsync(request.RequesterCompanyId, request.SenderCompanyId, request.ReceiverCompanyId, request.HoldingCompanyId, request.TotalValue, request.CentralBuying, lines, ct);
             return Results.Created($"/api/v1/stage22/transfers/{transfer.Id}", new Stage22TransferResponse(transfer.Id, transfer.RequesterCompanyId, transfer.SenderCompanyId, transfer.ReceiverCompanyId, transfer.TotalValue, transfer.Status.ToString(), transfer.ReceivedQuantity, transfer.DiscrepancyQuantity));
         }).RequirePermission(PlatformPermissions.CompanyManage);
@@ -293,7 +293,7 @@ public static class RegistryEndpoints
                 Lines = note.Lines.Select(line => new
                 {
                     line.ItemId, line.ItemVariantId, line.Quantity, line.UnitOfMeasure,
-                    line.SenderLocationId, line.ReceiverLocationId
+                    line.SenderLocationId, line.ReceiverLocationId, line.BatchReference, line.ExpiryDate, line.SerialNumber
                 })
             });
         }).RequirePermission(PlatformPermissions.CompanyManage);

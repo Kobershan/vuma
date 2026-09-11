@@ -54,7 +54,8 @@ public sealed class StockTransferDeliveryNote
         {
             note.Lines.Add(StockTransferDeliveryNoteLine.Create(
                 note.TenantId, note.Id, line.ItemId, line.ItemVariantId, line.Quantity,
-                line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
+                line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId,
+                line.BatchReference, line.ExpiryDate, line.SerialNumber));
         }
         return note;
     }
@@ -72,7 +73,10 @@ public sealed class StockTransferDeliveryNoteLine
         decimal quantity,
         string unitOfMeasure,
         Guid senderLocationId,
-        Guid? receiverLocationId)
+        Guid? receiverLocationId,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber)
     {
         Id = UuidV7.NewGuid();
         TenantId = tenantId;
@@ -83,6 +87,9 @@ public sealed class StockTransferDeliveryNoteLine
         UnitOfMeasure = unitOfMeasure;
         SenderLocationId = senderLocationId;
         ReceiverLocationId = receiverLocationId;
+        BatchReference = batchReference;
+        ExpiryDate = expiryDate;
+        SerialNumber = serialNumber;
     }
 
     public Guid Id { get; private set; }
@@ -94,6 +101,9 @@ public sealed class StockTransferDeliveryNoteLine
     public string UnitOfMeasure { get; private set; } = string.Empty;
     public Guid SenderLocationId { get; private set; }
     public Guid? ReceiverLocationId { get; private set; }
+    public string? BatchReference { get; private set; }
+    public DateOnly? ExpiryDate { get; private set; }
+    public string? SerialNumber { get; private set; }
 
     public static StockTransferDeliveryNoteLine Create(
         Guid tenantId,
@@ -103,6 +113,9 @@ public sealed class StockTransferDeliveryNoteLine
         decimal quantity,
         string unitOfMeasure,
         Guid senderLocationId,
-        Guid? receiverLocationId)
-        => new(tenantId, deliveryNoteId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId, receiverLocationId);
+        Guid? receiverLocationId,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
+        => new(tenantId, deliveryNoteId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId, receiverLocationId, batchReference, expiryDate, serialNumber);
 }

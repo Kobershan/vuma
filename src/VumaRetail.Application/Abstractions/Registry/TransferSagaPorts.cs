@@ -29,7 +29,10 @@ public sealed record TransferReservationLinePayload(
     Guid? ItemVariantId,
     decimal Quantity,
     string UnitOfMeasure,
-    Guid? ReceiverLocationId = null);
+    Guid? ReceiverLocationId = null,
+    string? BatchReference = null,
+    DateOnly? ExpiryDate = null,
+    string? SerialNumber = null);
 
 /// <summary>Sanitised payload for one transfer's source reservation leg.</summary>
 public sealed record TransferReservationPayload(
@@ -54,7 +57,10 @@ public sealed record TransferReceiptLinePayload(
     decimal Quantity,
     string UnitOfMeasure,
     decimal UnitCost,
-    string Currency);
+    string Currency,
+    string? BatchReference = null,
+    DateOnly? ExpiryDate = null,
+    string? SerialNumber = null);
 
 /// <summary>Receiver-company payload for one cumulative transfer receipt.</summary>
 public sealed record TransferReceiptPayload(

@@ -111,7 +111,8 @@ public sealed class Stage22RegistryService(
             {
                 StockTransferLine transferLine = StockTransferLine.Create(
                     tenant.TenantId, transfer.Id, line.ItemId, line.ItemVariantId,
-                    line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId);
+                    line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId,
+                    line.BatchReference, line.ExpiryDate, line.SerialNumber);
                 transfer.Lines.Add(transferLine);
             }
         }
@@ -270,7 +271,8 @@ public sealed class Stage22RegistryService(
             transfer.SenderCompanyId,
             lines.Select(line => new TransferReservationLinePayload(
                 line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId)).ToArray());
+                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId,
+                line.BatchReference, line.ExpiryDate, line.SerialNumber)).ToArray());
         SagaIntent intent = SagaIntent.Create(
             transfer.TenantId,
             TransferReservationSaga.IntentType,
@@ -311,7 +313,8 @@ public sealed class Stage22RegistryService(
             transfer.SenderCompanyId,
             lines.Select(line => new TransferReservationLinePayload(
                 line.Id, line.SenderLocationId, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId)).ToArray());
+                line.Quantity, line.UnitOfMeasure, line.ReceiverLocationId,
+                line.BatchReference, line.ExpiryDate, line.SerialNumber)).ToArray());
         SagaIntent intent = SagaIntent.Create(
             transfer.TenantId,
             TransferShipmentSaga.IntentType,
@@ -383,7 +386,8 @@ public sealed class Stage22RegistryService(
 
                 receiptLines.Add(new TransferReceiptLinePayload(
                     line.Id, receiverLocationId, line.ItemId, line.ItemVariantId,
-                    delta, line.UnitOfMeasure, unitCost, line.UnitCostAtTransferCurrency));
+                    delta, line.UnitOfMeasure, unitCost, line.UnitCostAtTransferCurrency,
+                    line.BatchReference, line.ExpiryDate, line.SerialNumber));
             }
             remaining -= target;
         }

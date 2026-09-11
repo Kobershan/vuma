@@ -9,7 +9,10 @@ public sealed record Stage22TransferLine(
     decimal Quantity,
     string UnitOfMeasure,
     Guid SenderLocationId,
-    Guid? ReceiverLocationId = null);
+    Guid? ReceiverLocationId = null,
+    string? BatchReference = null,
+    DateOnly? ExpiryDate = null,
+    string? SerialNumber = null);
 
 public interface IStage22RegistryService
 {

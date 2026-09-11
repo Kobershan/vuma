@@ -108,7 +108,10 @@ public sealed class StockTransferLine
         decimal quantity,
         string unitOfMeasure,
         Guid senderLocationId,
-        Guid? receiverLocationId)
+        Guid? receiverLocationId,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber)
     {
         if (tenantId == Guid.Empty || transferId == Guid.Empty || senderLocationId == Guid.Empty)
         {
@@ -131,6 +134,13 @@ public sealed class StockTransferLine
         UnitOfMeasure = unitOfMeasure.Trim();
         SenderLocationId = senderLocationId;
         ReceiverLocationId = receiverLocationId;
+        BatchReference = Normalize(batchReference, nameof(batchReference), 128);
+        ExpiryDate = expiryDate;
+        SerialNumber = Normalize(serialNumber, nameof(serialNumber), 128);
+        if (SerialNumber is not null && quantity != 1m)
+        {
+            throw new ArgumentException("A serialised transfer line must have quantity one.", nameof(quantity));
+        }
     }
 
     public Guid Id { get; private set; }
@@ -142,6 +152,12 @@ public sealed class StockTransferLine
     public string UnitOfMeasure { get; private set; } = string.Empty;
     public Guid SenderLocationId { get; private set; }
     public Guid? ReceiverLocationId { get; private set; }
+    /// <summary>Batch or lot identity carried with the movement, when batch tracked.</summary>
+    public string? BatchReference { get; private set; }
+    /// <summary>Expiry date carried with the batch identity, when present.</summary>
+    public DateOnly? ExpiryDate { get; private set; }
+    /// <summary>Serial identity carried with the movement, when serial tracked.</summary>
+    public string? SerialNumber { get; private set; }
     public decimal? UnitCostAtTransferAmount { get; private set; }
     public string? UnitCostAtTransferCurrency { get; private set; }
     public decimal? ReceivedQuantity { get; private set; }
@@ -154,8 +170,19 @@ public sealed class StockTransferLine
         decimal quantity,
         string unitOfMeasure,
         Guid senderLocationId,
-        Guid? receiverLocationId = null)
-        => new(tenantId, transferId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId, receiverLocationId);
+        Guid? receiverLocationId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
+        => new(tenantId, transferId, itemId, itemVariantId, quantity, unitOfMeasure, senderLocationId, receiverLocationId, batchReference, expiryDate, serialNumber);
+
+    private static string? Normalize(string? value, string name, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        string normalized = value.Trim();
+        if (normalized.Length > maxLength) throw new ArgumentException($"{name} is too long.", name);
+        return normalized;
+    }
 
     public void RecordTransferCost(Money cost)
     {
@@ -231,7 +258,8 @@ public sealed class StockTransferRequest
         {
             transfer.Lines.Add(StockTransferLine.Create(
                 tenantId, transfer.Id, line.ItemId, line.ItemVariantId,
-                line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
+                line.Quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId,
+                line.BatchReference, line.ExpiryDate, line.SerialNumber));
         }
         return transfer;
     }
@@ -265,7 +293,8 @@ public sealed class StockTransferRequest
                 relation == TransferRelation.Reverse
                     ? line.ReceiverLocationId ?? throw new InvalidOperationException("A reverse line requires its receiver location.")
                     : line.SenderLocationId,
-                relation == TransferRelation.Reverse ? line.SenderLocationId : line.ReceiverLocationId));
+                relation == TransferRelation.Reverse ? line.SenderLocationId : line.ReceiverLocationId,
+                line.BatchReference, line.ExpiryDate, line.SerialNumber));
         }
         return transfer;
     }

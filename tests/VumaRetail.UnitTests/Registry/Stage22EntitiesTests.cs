@@ -146,6 +146,24 @@ public sealed class Stage22EntitiesTests
     }
 
     [Fact]
+    public void Transfer_line_preserves_batch_expiry_and_serial_identity()
+    {
+        DateOnly expiry = new(2027, 6, 30);
+        StockTransferLine line = StockTransferLine.Create(
+            Tenant, Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA", Guid.NewGuid(), Guid.NewGuid(),
+            "LOT-42", expiry, "SN-9001");
+
+        line.BatchReference.Should().Be("LOT-42");
+        line.ExpiryDate.Should().Be(expiry);
+        line.SerialNumber.Should().Be("SN-9001");
+
+        FluentActions.Invoking(() => StockTransferLine.Create(
+                Tenant, Guid.NewGuid(), Guid.NewGuid(), null, 2m, "EA", Guid.NewGuid(), Guid.NewGuid(),
+                serialNumber: "SN-9002"))
+            .Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Lined_transfer_rejects_over_receipt_and_requires_line_total_at_reconciliation()
     {
         var settings = GroupSettings.Create(Tenant, Business, 1000m, TransferCostingMethod.SenderCost, DiscrepancyOwner.Sender, "SPAR");

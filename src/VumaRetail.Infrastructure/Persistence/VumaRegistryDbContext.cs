@@ -742,10 +742,17 @@ public sealed class VumaRegistryDbContext(
             builder.Property(x => x.ReceivedQuantity).HasColumnType("numeric(18,6)");
             builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
             builder.Property(x => x.ReceiverLocationId);
+            builder.Property(x => x.BatchReference).HasMaxLength(128);
+            builder.Property(x => x.ExpiryDate);
+            builder.Property(x => x.SerialNumber).HasMaxLength(128);
             builder.Property(x => x.UnitCostAtTransferAmount).HasColumnType("numeric(18,4)");
             builder.Property(x => x.UnitCostAtTransferCurrency).HasMaxLength(3);
             builder.HasIndex(x => new { x.TenantId, x.TransferId });
-            builder.HasIndex(x => new { x.TenantId, x.TransferId, x.ItemId, x.ItemVariantId }).IsUnique();
+            // One SKU may legitimately occupy several batch/serial lines on a transfer.
+            builder.HasIndex(x => new { x.TenantId, x.TransferId, x.ItemId, x.ItemVariantId });
+            builder.HasIndex(x => new { x.TenantId, x.TransferId, x.SerialNumber })
+                .IsUnique().HasFilter("serial_number IS NOT NULL")
+                .HasDatabaseName("ux_stock_transfer_lines_transfer_serial");
             builder.HasOne<StockTransferRequest>()
                 .WithMany(x => x.Lines)
                 .HasForeignKey(x => x.TransferId)
@@ -768,6 +775,9 @@ public sealed class VumaRegistryDbContext(
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Quantity).HasColumnType("numeric(18,6)").IsRequired();
             builder.Property(x => x.UnitOfMeasure).HasMaxLength(16).IsRequired();
+            builder.Property(x => x.BatchReference).HasMaxLength(128);
+            builder.Property(x => x.ExpiryDate);
+            builder.Property(x => x.SerialNumber).HasMaxLength(128);
             builder.HasIndex(x => new { x.TenantId, x.DeliveryNoteId });
             builder.HasOne<StockTransferDeliveryNote>().WithMany(x => x.Lines)
                 .HasForeignKey(x => x.DeliveryNoteId).OnDelete(DeleteBehavior.Restrict);

@@ -102,4 +102,27 @@ public sealed class Stage22MigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
         remainingTables.Should().NotContain(["stock_transfer_delivery_notes", "stock_transfer_delivery_note_lines"]);
     }
+
+    [Fact]
+    public async Task Stage22_transfer_tracking_migration_is_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.ForRegistry(connectionString);
+
+        await context.Database.MigrateAsync("20260911214001_Stage22TransferTracking").ConfigureAwait(false);
+        IReadOnlyList<string> columns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'registry' AND table_name = 'stock_transfer_lines'
+            """).ToListAsync().ConfigureAwait(false);
+        columns.Should().Contain(["batch_reference", "expiry_date", "serial_number"]);
+
+        await context.Database.MigrateAsync("20260911211737_Stage22TransferDeliveryNotes").ConfigureAwait(false);
+        IReadOnlyList<string> remainingColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'registry' AND table_name = 'stock_transfer_lines'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingColumns.Should().NotContain(["batch_reference", "expiry_date", "serial_number"]);
+    }
 }

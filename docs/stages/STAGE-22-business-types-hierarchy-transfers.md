@@ -49,10 +49,12 @@ company-local reservation/shipment/receipt saga legs, sender-cost capture, and r
 are implemented. Stage 13's warehouse ledger is reused for transfer movements; no second inventory
 ledger was introduced. Related remainder and reverse transfers are now represented as normal registry
 transfers with explicit relation metadata, protected API routes, replay-safe uniqueness, and immutable
-goods-movement delivery notes.
+goods-movement delivery notes. Transfer lines also preserve optional batch/expiry/serial identities,
+including them in delivery-note snapshots and saga payloads; serial uniqueness and quantity-one rules
+are enforced by the domain and database.
 
 Verified on 2026-09-11: focused Stage 22 unit/domain tests and PostgreSQL migration/registry tests are
 green; the complete repository integration suite is recorded separately in the handoff. The stage
-remains open because batch/expiry/serial references, discrepancy GL/audit posting, delivery notes,
+remains open because company-ledger batch/serial enforcement, discrepancy GL/audit posting,
 notifications/SLA execution, independent pricing, and shared-till split posting still require their
 own implementation and acceptance evidence.
