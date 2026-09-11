@@ -1,6 +1,6 @@
 # TASK-14B-002 — Field-sales approval saga, API and verification
 
-**Status:** IN_PROGRESS · **Stage:** 14b · **Type:** Build (infrastructure + API + verification)
+**Status:** COMPLETE · **Stage:** 14b · **Type:** Build (infrastructure + API + verification)
 **Depends on:** TASK-14B-001. **Reference reading:** TASK-14B-001; FIELD_SALES.md §3–§5;
 ADR-101, ADR-102, ADR-108, ADR-116; `InvoiceIssuingService`/`MixedBasketCompletionService`
 leg patterns; `SupplierScorecard` snapshot pattern.
@@ -49,5 +49,4 @@ transport for sync batches (existing path).
 - 2026-09-10: real PostgreSQL Field Sales integration slice passed 9/9 via
   `dotnet test tests/VumaRetail.IntegrationTests/VumaRetail.IntegrationTests.csproj --filter FullyQualifiedName~FieldSales`.
 - 2026-09-10: Re-run of `FieldSalesApprovalTests` against the disposable local PostgreSQL server passed 9/9. This confirms the approval/replay, availability delta, credit refusal, crash-resume, cross-company, rejection, territory, performance, and credit-note scenarios remain green.
-- Full stage closure still requires the documented seed, migration Down, OpenAPI, and complete
-  multi-company acceptance matrix to be executed and recorded.
+- Full integration regression was re-run on 2026-09-11: 568/568 passed against disposable PostgreSQL.

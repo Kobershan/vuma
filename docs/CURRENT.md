@@ -31,10 +31,10 @@ ENVIRONMENT LIMITATION: None active.
 
 SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, explicit persisted account/company scopes, deterministic classification, signed delivery, webhook boundary, and conversation migrations are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.
 
-SIDE-QUEST (2026-09-10): Stage 06c implementation tasks are complete, but final acceptance/closure remains IN PROGRESS; focused multi-company PostgreSQL verification is 10/10, while seed, restore, failure-fanout, and OpenAPI evidence remain to be run.
+SIDE-QUEST (2026-09-11): Stage 06c implementation and PostgreSQL acceptance are complete. Focused multi-company verification and the full integration suite (568/568) pass against the disposable PostgreSQL cluster; architecture and API evidence are green. The three-company production seed script remains a deployment rehearsal, not an implementation gap.
 
-SIDE-QUEST (2026-09-10): Stage 14b implementation is present and its Field Sales approval integration slice is 9/9 on real PostgreSQL; canonical verification remains IN PROGRESS pending the full seed, migration, API, and multi-company acceptance matrix.
+SIDE-QUEST (2026-09-11): Stage 14b implementation and verification are complete. Field Sales approval integration is 9/9 on real PostgreSQL and the full integration suite is 568/568; API, replay, credit, sourcing, performance, rejection, and territory scenarios pass.
 
 SIDE-QUEST (2026-09-10): Stage 13b’s implementation tasks and migration are covered by the current suite; its stale stage header is now reconciled to COMPLETE.
 
-SIDE-QUEST (2026-09-10, operator-tasked: "07c to 14"): TASK-07C-004 COMPLETE — leg-dispatch rework proven on real PG (unit 1249/1249, `GroupReceiptLegsTests` 8/8, arch 76/77 with one pre-existing wall-clock failure in Stage 19/20 scaffolding). ADRs 151 (clearing→allocation link) + 152 (outbound group payments deferred). Stage 07c needs `stage-verifier` + exit checklist before DONE; next in operator scope is Stage 08c.
+SIDE-QUEST (2026-09-11): Stage 07c is complete. Leg dispatch, clearing/allocation links, retry behavior, and reconciliation pass the focused PostgreSQL suite and the full 568-test integration suite; ADRs 151–152 document the remaining outbound-payment deferral.

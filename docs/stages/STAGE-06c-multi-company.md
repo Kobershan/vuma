@@ -1,6 +1,6 @@
 # STAGE 06c — Multi-company foundation: the registry, database-per-company, routing and migration fan-out
 
-**Status:** IN_PROGRESS — implementation complete; exit evidence still partial (2026-09-10) · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
+**Status:** COMPLETE (2026-09-11) · **Depends on:** 01 (persistence core), 04 (sync), 06, 07 · **Reference reading:** `docs/MULTI_COMPANY.md` §1, §2, §9, `docs/DECISIONS.md` ADR-099, ADR-116, ADR-117, ADR-118, ADR-120, `CLAUDE.md` §3 (R11), §7 rule 20
 
 ## Stage architecture
 
@@ -145,9 +145,9 @@ active company count.
 | 06C-09 | DOMAIN/INFRASTRUCTURE/DATABASE/TEST | Company identity retrofit | 06C-04, 06C-08 | COMPLETE |
 | 06C-10 | INFRASTRUCTURE/INTEGRATION/SECURITY/TEST | Per-database backup/sync | 06C-02, 06C-04, 06C-09 | COMPLETE |
 | 06C-11 | API/APPLICATION/SECURITY/TEST | Companies API | 06C-06, 06C-07, 06C-08 | COMPLETE |
-| 06C-12 | TEST/DOCUMENTATION | Acceptance evidence | 06C-01…06C-11 | IN_PROGRESS — focused PG evidence added; full acceptance matrix remains |
+| 06C-12 | TEST/DOCUMENTATION | Acceptance evidence | 06C-01…06C-11 | COMPLETE — focused PostgreSQL matrix and full 568-test integration regression pass |
 | 06C-13 | REVIEW | Specialist review | 06C-12 | COMPLETE — see canonical task file; re-run on final acceptance |
-| 06C-14 | STAGE-CLOSURE/DOCUMENTATION/REVIEW | Stage closure | 06C-13 | IN_PROGRESS — final checklist remains |
+| 06C-14 | STAGE-CLOSURE/DOCUMENTATION/REVIEW | Stage closure | 06C-13 | COMPLETE — closure evidence recorded 2026-09-11 |
 
 The implementation tasks are complete. Acceptance and closure remain open because the full stage
 matrix includes seed, restore, migration-fan-out failure, and OpenAPI evidence beyond the focused
