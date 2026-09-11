@@ -115,6 +115,7 @@ public static class ConversationEndpoints
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
         IReplyComposer composer,
+        ConversationRateLimiter rateLimiter,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -123,8 +124,9 @@ public static class ConversationEndpoints
         string secret = configuration["Vuma:Conversations:WebhookSecret"] ?? string.Empty;
         if (string.IsNullOrWhiteSpace(secret))
         {
-            loggers.CreateLogger("VumaRetail.Web.Conversations").LogWarning(
-                "WhatsApp webhook accepted without a signature: no secret is configured.");
+            loggers.CreateLogger("VumaRetail.Web.Conversations").LogError(
+                "WhatsApp webhook rejected: no verification secret is configured.");
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
         else if (!ConversationWebhookSecurity.Verify(body, request.Headers["X-Vuma-Signature"].ToString(), secret))
         {
@@ -143,7 +145,7 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, clock, cancellationToken).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
@@ -155,6 +157,7 @@ public static class ConversationEndpoints
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
         IReplyComposer composer,
+        ConversationRateLimiter rateLimiter,
         IClock clock,
         CancellationToken cancellationToken)
         => await InboundAsync(
@@ -166,6 +169,7 @@ public static class ConversationEndpoints
             stateMachine,
             router,
             composer,
+            rateLimiter,
             clock,
             cancellationToken).ConfigureAwait(false);
 
@@ -178,6 +182,7 @@ public static class ConversationEndpoints
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
         IReplyComposer composer,
+        ConversationRateLimiter rateLimiter,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -200,6 +205,10 @@ public static class ConversationEndpoints
             return Results.Accepted(value: new { state = "stopped", message = "This address has opted out of conversation messages." });
         }
         DateTimeOffset at = clock.UtcNow;
+        if (!rateLimiter.TryConsume(binding.TenantId, binding.Address, classification.Intent, at))
+        {
+            return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+        }
         Conversation conversation = await conversationStore.GetOrCreateAsync(binding, message.Channel, at, cancellationToken).ConfigureAwait(false);
         await conversationStore.AddTurnAsync(new ConversationTurn(binding.TenantId, conversation.Id, ConversationTurnDirection.Inbound, message.Text, at), cancellationToken).ConfigureAwait(false);
         IntentClassification classification = await classifier.ClassifyAsync(message.Text, cancellationToken).ConfigureAwait(false);

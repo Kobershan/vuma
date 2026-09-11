@@ -86,7 +86,7 @@ public static class ConversationWebhookSecurity
         if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(presentedSignature)
             || !presentedSignature.StartsWith("sha256=", StringComparison.Ordinal))
         {
-            return string.IsNullOrWhiteSpace(secret);
+            return false;
         }
 
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));

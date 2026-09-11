@@ -123,6 +123,7 @@ public sealed class ConversationSafetyTests
         Assert.True(ConversationWebhookSecurity.Verify(body, signature, secret));
         Assert.False(ConversationWebhookSecurity.Verify(body + " ", signature, secret));
         Assert.False(ConversationWebhookSecurity.Verify(body, null, secret));
+        Assert.False(ConversationWebhookSecurity.Verify(body, null, string.Empty));
     }
 
     [Fact]
