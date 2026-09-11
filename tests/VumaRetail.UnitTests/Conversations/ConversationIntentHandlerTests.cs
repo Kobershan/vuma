@@ -68,7 +68,6 @@ public sealed class ConversationIntentHandlerTests
         IConversationIntentHandler[] handlers =
         [
             new InvoiceCopyIntentHandler(scopes, accounts, bindings, delivery, clock),
-            new PodIntentHandler(scopes, accounts, bindings, delivery, clock),
             new CreditNoteRequestIntentHandler(scopes, accounts, bindings, delivery, clock),
         ];
 
@@ -83,7 +82,25 @@ public sealed class ConversationIntentHandlerTests
             result.ResultId.Should().NotBeEmpty();
         }
 
-        await accounts.Received(3).FindAsync(accountId, Arg.Any<CancellationToken>());
+        await accounts.Received(2).FindAsync(accountId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Pod_handler_fails_closed_until_stage_24_exists()
+    {
+        Func<Task> action = () => new PodIntentHandler(
+            Substitute.For<IConversationScopeReader>(),
+            Substitute.For<ICustomerAccountRepository>(),
+            Substitute.For<IContactBindingManagementService>(),
+            new DocumentDeliveryService(),
+            Substitute.For<IClock>())
+            .HandleAsync(
+                new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, DateTimeOffset.UtcNow),
+                new Dictionary<string, string>(),
+                "pod-key");
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Proof of delivery is not available until Stage 24 is deployed.");
     }
 
     [Fact]

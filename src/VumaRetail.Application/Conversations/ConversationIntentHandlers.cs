@@ -87,7 +87,7 @@ public abstract class ScopedDocumentIntentHandler(
     protected abstract string EntityName { get; }
 
     /// <inheritdoc />
-    public async Task<IntentResult> HandleAsync(
+    public virtual async Task<IntentResult> HandleAsync(
         Conversation conversation,
         IReadOnlyDictionary<string, string> entities,
         string idempotencyKey,
@@ -195,6 +195,14 @@ public sealed class PodIntentHandler(
     protected override string ReferencePrefix => "proof-of-delivery";
     /// <inheritdoc />
     protected override string EntityName => "proof of delivery";
+
+    /// <summary>Stage 24 owns POD records and rendering; fail closed until that dependency exists.</summary>
+    public override Task<IntentResult> HandleAsync(
+        Conversation conversation,
+        IReadOnlyDictionary<string, string> entities,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Proof of delivery is not available until Stage 24 is deployed.");
 }
 
 /// <summary>Delivers a credit-note reference through the verified document transport.</summary>
