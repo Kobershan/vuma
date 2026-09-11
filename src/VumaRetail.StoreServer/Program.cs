@@ -316,6 +316,11 @@ if (args.Contains("--restore", StringComparer.Ordinal))
     return;
 }
 
+// The dashboard is a static, same-origin shell. It contains no credentials or tenant data; all data
+// requests still cross the normal authenticated /api/v1 boundary, so hosting it here avoids a second
+// origin and keeps the browser from needing a token in local storage.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();

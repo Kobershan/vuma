@@ -19,4 +19,9 @@
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\dashboard\**\*" Link="wwwroot\dashboard\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

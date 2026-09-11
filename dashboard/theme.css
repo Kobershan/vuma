@@ -1,0 +1,31 @@
+/* Theme aliases generated from the values in design/tokens.json. */
+:root, [data-theme="light"] {
+  --color-surface-base: #FAFAFA;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #F0F0F2;
+  --color-separator: #E3E3E6;
+  --color-text-primary: #0A0A0B;
+  --color-text-secondary: #5A5A62;
+  --color-text-tertiary: #73737B;
+  --color-accent: #0B7A5A;
+  --color-accent-quiet: #E6F3EE;
+  --color-positive: #0B7A5A;
+  --color-warning: #B26A00;
+  --color-critical: #C0261F;
+  --color-info: #1B5FB0;
+}
+[data-theme="dark"] {
+  --color-surface-base: #000000;
+  --color-surface-raised: #141416;
+  --color-surface-sunken: #0A0A0B;
+  --color-separator: #2A2A2E;
+  --color-text-primary: #F5F5F7;
+  --color-text-secondary: #A0A0A8;
+  --color-text-tertiary: #A8A8B0;
+  --color-accent: #16A97D;
+  --color-accent-quiet: #0E2A22;
+  --color-positive: #16A97D;
+  --color-warning: #E5940A;
+  --color-critical: #FF5A4E;
+  --color-info: #4C94F0;
+}
