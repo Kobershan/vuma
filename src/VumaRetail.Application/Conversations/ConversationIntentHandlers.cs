@@ -79,10 +79,14 @@ public abstract class ScopedDocumentIntentHandler(
     IDocumentDeliveryService delivery,
     IClock clock) : IConversationIntentHandler
 {
+    /// <inheritdoc />
     public abstract ConversationIntent Intent { get; }
+    /// <summary>Prefix used when minting the delivery reference.</summary>
     protected abstract string ReferencePrefix { get; }
+    /// <summary>Human-readable document name used in the response.</summary>
     protected abstract string EntityName { get; }
 
+    /// <inheritdoc />
     public async Task<IntentResult> HandleAsync(
         Conversation conversation,
         IReadOnlyDictionary<string, string> entities,
@@ -129,7 +133,10 @@ public abstract class ScopedDocumentIntentHandler(
         if (entities.TryGetValue("reference", out string? reference)
             || entities.TryGetValue("documentReference", out reference))
         {
-            if (!string.IsNullOrWhiteSpace(reference)) return reference.Trim();
+            if (!string.IsNullOrWhiteSpace(reference))
+            {
+                return reference.Trim();
+            }
         }
 
         Guid accountId = granted[0].CustomerAccountId;
@@ -146,8 +153,11 @@ public sealed class StatementIntentHandler(
     IClock clock)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
+    /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestStatement;
+    /// <inheritdoc />
     protected override string ReferencePrefix => "customer-account-statement";
+    /// <inheritdoc />
     protected override string EntityName => "account statement";
 }
 
@@ -160,8 +170,11 @@ public sealed class InvoiceCopyIntentHandler(
     IClock clock)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
+    /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestInvoiceCopy;
+    /// <inheritdoc />
     protected override string ReferencePrefix => "invoice-copy";
+    /// <inheritdoc />
     protected override string EntityName => "invoice";
 }
 
@@ -174,8 +187,11 @@ public sealed class PodIntentHandler(
     IClock clock)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
+    /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestPod;
+    /// <inheritdoc />
     protected override string ReferencePrefix => "proof-of-delivery";
+    /// <inheritdoc />
     protected override string EntityName => "proof of delivery";
 }
 
@@ -188,16 +204,21 @@ public sealed class CreditNoteRequestIntentHandler(
     IClock clock)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
+    /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestCreditNote;
+    /// <inheritdoc />
     protected override string ReferencePrefix => "credit-note";
+    /// <inheritdoc />
     protected override string EntityName => "credit note";
 }
 
 /// <summary>Safe pre-submission boundary for order requests; creation occurs only after confirmation.</summary>
 public sealed class PlaceOrderIntentHandler(IConversationScopeReader scopes) : IConversationIntentHandler
 {
+    /// <inheritdoc />
     public ConversationIntent Intent => ConversationIntent.PlaceOrder;
 
+    /// <inheritdoc />
     public async Task<IntentResult> HandleAsync(
         Conversation conversation,
         IReadOnlyDictionary<string, string> entities,
