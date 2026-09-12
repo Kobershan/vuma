@@ -7,10 +7,11 @@ const apiBaseUrl = String.fromEnvironment(
   defaultValue: 'https://localhost:7243/api/v1',
 );
 
-void main() => runApp(const VumaApp());
+void main() => runApp(VumaApp(api: VumaApi()));
 
 class VumaApp extends StatelessWidget {
-  const VumaApp({super.key});
+  final VumaApi api;
+  const VumaApp({super.key, required this.api});
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Vuma Retail',
@@ -25,37 +26,199 @@ class VumaApp extends StatelessWidget {
       cardTheme: const CardThemeData(color: Color(0xff131c19)),
       useMaterial3: true,
     ),
-    home: const OperationsShell(),
+    home: AuthGate(api: api),
   );
 }
 
 class VumaApi {
+  String? accessToken;
+
+  Future<void> signIn(String userName, String password, String? storeId) async {
+    final result = await _request(
+      '/auth/token',
+      method: 'POST',
+      body: <String, dynamic>{
+        'userName': userName,
+        'password': password,
+        if (storeId != null && storeId.trim().isNotEmpty)
+          'storeId': storeId.trim(),
+      },
+    );
+    accessToken = result['accessToken'] as String?;
+    if (accessToken == null || accessToken!.isEmpty) {
+      throw const FormatException('The API did not return an access token.');
+    }
+  }
+
   Future<Map<String, dynamic>> get(String path) async {
+    return _request(path);
+  }
+
+  Future<Map<String, dynamic>> _request(
+    String path, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+  }) async {
     final client = HttpClient();
     try {
-      final request = await client.getUrl(Uri.parse('$apiBaseUrl$path'));
+      final request = await client.openUrl(
+        method,
+        Uri.parse('$apiBaseUrl$path'),
+      );
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-      if (response.statusCode >= 400) {
-        throw HttpException('API ${response.statusCode}: $body');
+      if (accessToken != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          'Bearer $accessToken',
+        );
       }
-      return jsonDecode(body) as Map<String, dynamic>;
+      if (body != null) {
+        request.headers.contentType = ContentType.json;
+        request.write(jsonEncode(body));
+      }
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      if (response.statusCode >= 400) {
+        throw HttpException('API ${response.statusCode}: $responseBody');
+      }
+      return jsonDecode(responseBody) as Map<String, dynamic>;
     } finally {
       client.close(force: true);
     }
   }
 }
 
+class AuthGate extends StatefulWidget {
+  final VumaApi api;
+  const AuthGate({super.key, required this.api});
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool signedIn = false;
+
+  @override
+  Widget build(BuildContext context) => signedIn
+      ? OperationsShell(api: widget.api)
+      : LoginPage(
+          api: widget.api,
+          onSignedIn: () => setState(() => signedIn = true),
+        );
+}
+
+class LoginPage extends StatefulWidget {
+  final VumaApi api;
+  final VoidCallback onSignedIn;
+  const LoginPage({super.key, required this.api, required this.onSignedIn});
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final userName = TextEditingController();
+  final password = TextEditingController();
+  final storeId = TextEditingController();
+  bool loading = false;
+  String? error;
+
+  @override
+  void dispose() {
+    userName.dispose();
+    password.dispose();
+    storeId.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      await widget.api.signIn(
+        userName.text.trim(),
+        password.text,
+        storeId.text,
+      );
+      if (mounted) widget.onSignedIn();
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Sign in to Vuma',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: userName,
+                  decoration: const InputDecoration(labelText: 'Username'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: password,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: storeId,
+                  decoration: const InputDecoration(
+                    labelText: 'Store ID (optional)',
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: Colors.orangeAccent),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: loading ? null : submit,
+                  child: Text(loading ? 'Signing in…' : 'Sign in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class OperationsShell extends StatefulWidget {
-  const OperationsShell({super.key});
+  final VumaApi api;
+  const OperationsShell({super.key, required this.api});
   @override
   State<OperationsShell> createState() => _OperationsShellState();
 }
 
 class _OperationsShellState extends State<OperationsShell> {
   int index = 0;
-  final pages = const [OverviewPage(), ShipmentsPage(), SettingsPage()];
+  late final pages = [
+    OverviewPage(api: widget.api),
+    const ShipmentsPage(),
+    const SettingsPage(),
+  ];
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -135,7 +298,8 @@ class _OperationsShellState extends State<OperationsShell> {
 }
 
 class OverviewPage extends StatelessWidget {
-  const OverviewPage({super.key});
+  final VumaApi api;
+  const OverviewPage({super.key, required this.api});
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(24),
@@ -155,7 +319,7 @@ class OverviewPage extends StatelessWidget {
       ),
       const SizedBox(height: 24),
       FutureBuilder<Map<String, dynamic>>(
-        future: VumaApi().get('/dashboard/overview'),
+        future: api.get('/dashboard/overview'),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _ErrorCard(message: snapshot.error.toString());
