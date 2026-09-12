@@ -1,6 +1,6 @@
 # STAGE 17 — Manufacturing Execution
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 16, 13; integration with 07, 08c, 05 · **Reference reading:** [BOM stage](STAGE-16-bom-setup.md), [warehouse stage](STAGE-13-warehouse-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — canonical task queue created 2026-09-12; implementation not certified · **Depends on:** 16, 13; integration with 07, 08c, 05 · **Reference reading:** [BOM stage](STAGE-16-bom-setup.md), [warehouse stage](STAGE-13-warehouse-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -47,7 +47,11 @@ Declare granular `manufacturing.view`, `manufacturing.manage` and distinct high-
 - [ ] 17-P02: Implement reservation, issue, receipt, scrap and per-company financial event integration.
 - [ ] 17-P03: Add capacity/genealogy queries, API routes, offline replay and closure evidence.
 
-Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
+Execute parts in this order. The canonical queue is [STAGE-17-INDEX](../tasks/STAGE-17-INDEX.md), with
+focused tasks [TASK-17-001](../tasks/TASK-17-001-production-order-lifecycle.md),
+[TASK-17-002](../tasks/TASK-17-002-production-material-and-output.md), and
+[TASK-17-003](../tasks/TASK-17-003-production-api-and-closure.md). Record any durable change to
+existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
@@ -69,4 +73,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
