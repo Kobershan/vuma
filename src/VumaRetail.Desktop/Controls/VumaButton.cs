@@ -34,7 +34,6 @@ public sealed class VumaButton : Button
 
     public VumaButton()
     {
-        AutomationProperties.SetRole(this, AutomationRole.Button);
     }
 }
 

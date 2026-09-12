@@ -52,9 +52,14 @@ function HexToComposeColor {
         $r = [Convert]::ToInt32($Matches[1].Substring(0,2), 16)
         $g = [Convert]::ToInt32($Matches[1].Substring(2,2), 16)
         $b = [Convert]::ToInt32($Matches[1].Substring(4,2), 16)
-        return "Color(0xFF${r:X2}${g:X2}${b:X2})"
+        return [string]::Format("Color(0xFF{0:X2}{1:X2}{2:X2})", $r, $g, $b)
     }
     return $hex
+}
+
+function ConvertToKotlinIdentifier {
+    param([string]$Name)
+    return ($Name -replace '-', '')
 }
 
 # Generate WPF ResourceDictionary
@@ -81,58 +86,58 @@ function Generate-WpfTheme {
 
     # Surface colours
     [void]$sb.AppendLine('  <!-- Surface colours -->')
-    [void]$sb.AppendLine("  <Color x:Key=""SurfaceBase"">$(HexToWpfColor $surface.base)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""SurfaceRaised"">$(HexToWpfColor $surface.raised)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""SurfaceSunken"">$(HexToWpfColor $surface.sunken)</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""SurfaceBase"">$(HexToWpfColor $($surface.base))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""SurfaceRaised"">$(HexToWpfColor $($surface.raised))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""SurfaceSunken"">$(HexToWpfColor $($surface.sunken))</Color>")
     [void]$sb.AppendLine()
 
     # Text colours
     [void]$sb.AppendLine('  <!-- Text colours -->')
-    [void]$sb.AppendLine("  <Color x:Key=""TextPrimary"">$(HexToWpfColor $text.primary)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""TextSecondary"">$(HexToWpfColor $text.secondary)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""TextTertiary"">$(HexToWpfColor $text.tertiary)</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""TextPrimary"">$(HexToWpfColor $($text.primary))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""TextSecondary"">$(HexToWpfColor $($text.secondary))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""TextTertiary"">$(HexToWpfColor $($text.tertiary))</Color>")
     [void]$sb.AppendLine()
 
     # Accent and semantic colours
     [void]$sb.AppendLine('  <!-- Accent and semantic colours -->')
-    [void]$sb.AppendLine("  <Color x:Key=""AccentPrimary"">$(HexToWpfColor $accent.primary)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""AccentQuiet"">$(HexToWpfColor $accent.quiet)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""Positive"">$(HexToWpfColor $ThemeTokens.positive)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""Warning"">$(HexToWpfColor $ThemeTokens.warning)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""Critical"">$(HexToWpfColor $ThemeTokens.critical)</Color>")
-    [void]$sb.AppendLine("  <Color x:Key=""Info"">$(HexToWpfColor $ThemeTokens.info)</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""AccentPrimary"">$(HexToWpfColor $accent)</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""AccentQuiet"">$(HexToWpfColor $($ThemeTokens.accentQuiet))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""Positive"">$(HexToWpfColor $($ThemeTokens.positive))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""Warning"">$(HexToWpfColor $($ThemeTokens.warning))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""Critical"">$(HexToWpfColor $($ThemeTokens.critical))</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""Info"">$(HexToWpfColor $($ThemeTokens.info))</Color>")
     [void]$sb.AppendLine()
 
     # Separator
-    [void]$sb.AppendLine("  <Color x:Key=""Separator"">$(HexToWpfColor $ThemeTokens.separator)</Color>")
+    [void]$sb.AppendLine("  <Color x:Key=""Separator"">$(HexToWpfColor $($ThemeTokens.separator))</Color>")
     [void]$sb.AppendLine()
 
     # Brushes from colours
     [void]$sb.AppendLine('  <!-- Brushes -->')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""SurfaceBaseBrush"" Color=""{DynamicResource SurfaceBase}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""SurfaceRaisedBrush"" Color=""{DynamicResource SurfaceRaised}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""SurfaceSunkenBrush"" Color=""{DynamicResource SurfaceSunken}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""TextPrimaryBrush"" Color=""{DynamicResource TextPrimary}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""TextSecondaryBrush"" Color=""{DynamicResource TextSecondary}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""TextTertiaryBrush"" Color=""{DynamicResource TextTertiary}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""AccentBrush"" Color=""{DynamicResource AccentPrimary}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""AccentQuietBrush"" Color=""{DynamicResource AccentQuiet}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""PositiveBrush"" Color=""{DynamicResource Positive}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""WarningBrush"" Color=""{DynamicResource Warning}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""CriticalBrush"" Color=""{DynamicResource Critical}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""InfoBrush"" Color=""{DynamicResource Info}"" />')
-    [void]$sb.AppendLine('  <SolidColorBrush x:Key=""SeparatorBrush"" Color=""{DynamicResource Separator}"" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="SurfaceBaseBrush" Color="{DynamicResource SurfaceBase}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="{DynamicResource SurfaceRaised}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunken}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimary}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondary}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="TextTertiaryBrush" Color="{DynamicResource TextTertiary}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentPrimary}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="AccentQuietBrush" Color="{DynamicResource AccentQuiet}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="PositiveBrush" Color="{DynamicResource Positive}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="WarningBrush" Color="{DynamicResource Warning}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="CriticalBrush" Color="{DynamicResource Critical}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="InfoBrush" Color="{DynamicResource Info}" />')
+    [void]$sb.AppendLine('  <SolidColorBrush x:Key="SeparatorBrush" Color="{DynamicResource Separator}" />')
     [void]$sb.AppendLine()
 
     # Typography
     [void]$sb.AppendLine('  <!-- Typography -->')
-    $typeScale = $tokens.type.scale
+    $typeScale = $tokens.typography.scale
     foreach ($key in $typeScale.PSObject.Properties.Name) {
         $token = $typeScale.$key
-        [void]$sb.AppendLine("  <FontFamily x:Key=""Font${key}"">$($tokens.type.fontFamily.$key)</FontFamily>")
+        [void]$sb.AppendLine("  <FontFamily x:Key=""Font${key}"">$($tokens.typography.fontFamily.($token.fontFamily))</FontFamily>")
         [void]$sb.AppendLine("  <sys:Double x:Key=""FontSize${key}"">$($token.size)</sys:Double>")
         [void]$sb.AppendLine("  <FontWeight x:Key=""FontWeight${key}"">$($token.weight)</FontWeight>")
-        [void]$sb.AppendLine("  <sys:Double x:Key=""LineHeight${key}"">$($token.line)</sys:Double>")
+        [void]$sb.AppendLine("  <sys:Double x:Key=""LineHeight${key}"">$($token.lineHeight)</sys:Double>")
     }
     [void]$sb.AppendLine()
 
@@ -153,7 +158,7 @@ function Generate-WpfTheme {
     # Elevation
     [void]$sb.AppendLine('  <!-- Elevation -->')
     foreach ($e in $tokens.elevation.PSObject.Properties.Name) {
-        [void]$sb.AppendLine("  <x:String x:Key=""Elevation$e"">$($tokens.elevation.$e.shadow)</x:String>")
+        [void]$sb.AppendLine("  <sys:String x:Key=""Elevation$e"">$($tokens.elevation.$e.shadow)</sys:String>")
     }
     [void]$sb.AppendLine()
 
@@ -162,16 +167,16 @@ function Generate-WpfTheme {
     foreach ($m in $tokens.motion.PSObject.Properties.Name) {
         $motion = $tokens.motion.$m
         [void]$sb.AppendLine("  <sys:Int32 x:Key=""Motion${m}Duration"">$($motion.duration)</sys:Int32>")
-        [void]$sb.AppendLine("  <x:String x:Key=""Motion${m}Curve"">$($motion.curve)</x:String>")
+        [void]$sb.AppendLine("  <sys:String x:Key=""Motion${m}Curve"">$($motion.curve)</sys:String>")
     }
     [void]$sb.AppendLine()
 
     # Touch targets
     [void]$sb.AppendLine('  <!-- Touch targets -->')
-    foreach ($t in $tokens.touchTargets.PSObject.Properties.Name) {
-        $tt = $tokens.touchTargets.$t
-        [void]$sb.AppendLine("  <sys:Double x:Key=""TouchTarget${t}Width"">$($tt.width)</sys:Double>")
-        [void]$sb.AppendLine("  <sys:Double x:Key=""TouchTarget${t}Height"">$($tt.height)</sys:Double>")
+    foreach ($t in $tokens.touchTarget.PSObject.Properties.Name) {
+        $tt = $tokens.touchTarget.$t
+        [void]$sb.AppendLine("  <sys:Double x:Key=""TouchTarget${t}Width"">$tt</sys:Double>")
+        [void]$sb.AppendLine("  <sys:Double x:Key=""TouchTarget${t}Height"">$tt</sys:Double>")
     }
     [void]$sb.AppendLine()
 
@@ -184,7 +189,7 @@ function Generate-WpfTheme {
         return $content
     }
 
-    Set-Content -Path $OutputFile -Value $content -Encoding UTF8
+    Set-Content -Path $OutputFile -Value ($content.TrimEnd() + [Environment]::NewLine) -Encoding UTF8 -NoNewline
     Write-Host "Generated: $OutputFile"
 }
 
@@ -213,42 +218,43 @@ function Generate-AndroidTheme {
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('object VumaColorTokens {')
     [void]$sb.AppendLine('    // Surface')
-    [void]$sb.AppendLine("    val surfaceBase = $(HexToComposeColor $surface.base)")
-    [void]$sb.AppendLine("    val surfaceRaised = $(HexToComposeColor $surface.raised)")
-    [void]$sb.AppendLine("    val surfaceSunken = $(HexToComposeColor $surface.sunken)")
+    [void]$sb.AppendLine("    val surfaceBase = $(HexToComposeColor $($surface.base))")
+    [void]$sb.AppendLine("    val surfaceRaised = $(HexToComposeColor $($surface.raised))")
+    [void]$sb.AppendLine("    val surfaceSunken = $(HexToComposeColor $($surface.sunken))")
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('    // Text')
-    [void]$sb.AppendLine("    val textPrimary = $(HexToComposeColor $text.primary)")
-    [void]$sb.AppendLine("    val textSecondary = $(HexToComposeColor $text.secondary)")
-    [void]$sb.AppendLine("    val textTertiary = $(HexToComposeColor $text.tertiary)")
+    [void]$sb.AppendLine("    val textPrimary = $(HexToComposeColor $($text.primary))")
+    [void]$sb.AppendLine("    val textSecondary = $(HexToComposeColor $($text.secondary))")
+    [void]$sb.AppendLine("    val textTertiary = $(HexToComposeColor $($text.tertiary))")
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('    // Accent')
-    [void]$sb.AppendLine("    val accentPrimary = $(HexToComposeColor $accent.primary)")
-    [void]$sb.AppendLine("    val accentQuiet = $(HexToComposeColor $accent.quiet)")
+    [void]$sb.AppendLine("    val accentPrimary = $(HexToComposeColor $accent)")
+    [void]$sb.AppendLine("    val accentQuiet = $(HexToComposeColor $($ThemeTokens.accentQuiet))")
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('    // Semantic')
-    [void]$sb.AppendLine("    val positive = $(HexToComposeColor $ThemeTokens.positive)")
-    [void]$sb.AppendLine("    val warning = $(HexToComposeColor $ThemeTokens.warning)")
-    [void]$sb.AppendLine("    val critical = $(HexToComposeColor $ThemeTokens.critical)")
-    [void]$sb.AppendLine("    val info = $(HexToComposeColor $ThemeTokens.info)")
+    [void]$sb.AppendLine("    val positive = $(HexToComposeColor $($ThemeTokens.positive))")
+    [void]$sb.AppendLine("    val warning = $(HexToComposeColor $($ThemeTokens.warning))")
+    [void]$sb.AppendLine("    val critical = $(HexToComposeColor $($ThemeTokens.critical))")
+    [void]$sb.AppendLine("    val info = $(HexToComposeColor $($ThemeTokens.info))")
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine("    val separator = $(HexToComposeColor $ThemeTokens.separator)")
+    [void]$sb.AppendLine("    val separator = $(HexToComposeColor $($ThemeTokens.separator))")
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('object VumaTypographyTokens {')
-    $typeScale = $tokens.type.scale
+    $typeScale = $tokens.typography.scale
     foreach ($key in $typeScale.PSObject.Properties.Name) {
         $token = $typeScale.$key
-        [void]$sb.AppendLine("    val ${key}: FontFamily = FontFamily(${tokens.type.fontFamily.$key})")
-        [void]$sb.AppendLine("    val ${key}Size: Sp = ${token.size}.sp")
-        [void]$sb.AppendLine("    val ${key}Weight: FontWeight = FontWeight.${token.weight}")
-        [void]$sb.AppendLine("    val ${key}LineHeight: Sp = ${token.line}.sp")
+        $identifier = ConvertToKotlinIdentifier $key
+        [void]$sb.AppendLine("    val ${identifier}: FontFamily = FontFamily.Default")
+        [void]$sb.AppendLine("    val ${identifier}Size: androidx.compose.ui.unit.TextUnit = $($token.size).sp")
+        [void]$sb.AppendLine("    val ${identifier}Weight: FontWeight = FontWeight($($token.weight))")
+        [void]$sb.AppendLine("    val ${identifier}LineHeight: androidx.compose.ui.unit.TextUnit = $($token.lineHeight).sp")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('object VumaShapeTokens {')
     foreach ($r in $tokens.radius.PSObject.Properties.Name) {
-        [void]$sb.AppendLine("    val ${r} = androidx.compose.foundation.shape.RoundedCornerShape(${tokens.radius.$r}.dp)")
+        [void]$sb.AppendLine("    val ${r} = androidx.compose.foundation.shape.RoundedCornerShape($($tokens.radius.$r).dp)")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -261,15 +267,17 @@ function Generate-AndroidTheme {
     [void]$sb.AppendLine('object VumaMotionTokens {')
     foreach ($m in $tokens.motion.PSObject.Properties.Name) {
         $motion = $tokens.motion.$m
-        [void]$sb.AppendLine("    val ${m}DurationMs = ${motion.duration}")
-        [void]$sb.AppendLine("    val ${m}Curve = androidx.compose.animation.core.CurveSpec(${motion.curve})")
+        $identifier = ConvertToKotlinIdentifier $m
+        [void]$sb.AppendLine("    const val ${identifier}DurationMs = $($motion.duration)")
+        [void]$sb.AppendLine("    const val ${identifier}Curve = `"$($motion.curve)`"")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
     [void]$sb.AppendLine('object VumaTouchTargetTokens {')
-    foreach ($t in $tokens.touchTargets.PSObject.Properties.Name) {
-        $tt = $tokens.touchTargets.$t
-        [void]$sb.AppendLine("    val ${t}Size = ${tt.width}.dp")
+    foreach ($t in $tokens.touchTarget.PSObject.Properties.Name) {
+        $tt = $tokens.touchTarget.$t
+        $identifier = ConvertToKotlinIdentifier $t
+        [void]$sb.AppendLine("    val ${identifier}Size = ${tt}.dp")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -280,7 +288,7 @@ function Generate-AndroidTheme {
         return $content
     }
 
-    Set-Content -Path $OutputFile -Value $content -Encoding UTF8
+    Set-Content -Path $OutputFile -Value ($content.TrimEnd() + [Environment]::NewLine) -Encoding UTF8 -NoNewline
     Write-Host "Generated: $OutputFile"
 }
 
@@ -294,8 +302,8 @@ function Generate-CssTokens {
     [void]$sb.AppendLine(':root {')
     [void]$sb.AppendLine('  /* Light theme (default) */')
 
-    $light = $tokens.colour.light
-    $dark = $tokens.colour.dark
+    $light = $tokens.color.light
+    $dark = $tokens.color.dark
 
     # Light theme
     [void]$sb.AppendLine('  --surface-base: ' + $light.surface.base + ';')
@@ -305,8 +313,8 @@ function Generate-CssTokens {
     [void]$sb.AppendLine('  --text-primary: ' + $light.text.primary + ';')
     [void]$sb.AppendLine('  --text-secondary: ' + $light.text.secondary + ';')
     [void]$sb.AppendLine('  --text-tertiary: ' + $light.text.tertiary + ';')
-    [void]$sb.AppendLine('  --accent-primary: ' + $light.accent.primary + ';')
-    [void]$sb.AppendLine('  --accent-quiet: ' + $light.accent.quiet + ';')
+    [void]$sb.AppendLine('  --accent-primary: ' + $light.accent + ';')
+    [void]$sb.AppendLine('  --accent-quiet: ' + $light.accentQuiet + ';')
     [void]$sb.AppendLine('  --positive: ' + $light.positive + ';')
     [void]$sb.AppendLine('  --warning: ' + $light.warning + ';')
     [void]$sb.AppendLine('  --critical: ' + $light.critical + ';')
@@ -321,8 +329,8 @@ function Generate-CssTokens {
     [void]$sb.AppendLine('  --text-primary: ' + $dark.text.primary + ';')
     [void]$sb.AppendLine('  --text-secondary: ' + $dark.text.secondary + ';')
     [void]$sb.AppendLine('  --text-tertiary: ' + $dark.text.tertiary + ';')
-    [void]$sb.AppendLine('  --accent-primary: ' + $dark.accent.primary + ';')
-    [void]$sb.AppendLine('  --accent-quiet: ' + $dark.accent.quiet + ';')
+    [void]$sb.AppendLine('  --accent-primary: ' + $dark.accent + ';')
+    [void]$sb.AppendLine('  --accent-quiet: ' + $dark.accentQuiet + ';')
     [void]$sb.AppendLine('  --positive: ' + $dark.positive + ';')
     [void]$sb.AppendLine('  --warning: ' + $dark.warning + ';')
     [void]$sb.AppendLine('  --critical: ' + $dark.critical + ';')
@@ -333,9 +341,9 @@ function Generate-CssTokens {
     # Typography
     [void]$sb.AppendLine('/* Typography */')
     [void]$sb.AppendLine(':root {')
-    foreach ($key in $tokens.type.scale.PSObject.Properties.Name) {
-        $token = $tokens.type.scale.$key
-        [void]$sb.AppendLine("  --font-${key}: ${token.size}/${token.line} ${token.weight} ${tokens.type.fontFamily.$key};")
+    foreach ($key in $tokens.typography.scale.PSObject.Properties.Name) {
+        $token = $tokens.typography.scale.$key
+        [void]$sb.AppendLine("  --font-${key}: $($token.size)/$($token.lineHeight) $($token.weight) $($tokens.typography.fontFamily.($token.fontFamily));")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -353,7 +361,7 @@ function Generate-CssTokens {
     [void]$sb.AppendLine('/* Radius */')
     [void]$sb.AppendLine(':root {')
     foreach ($r in $tokens.radius.PSObject.Properties.Name) {
-        [void]$sb.AppendLine("  --radius-${r}: ${tokens.radius.$r}px;")
+        [void]$sb.AppendLine("  --radius-${r}: $($tokens.radius.$r)px;")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -363,7 +371,7 @@ function Generate-CssTokens {
     [void]$sb.AppendLine(':root {')
     foreach ($m in $tokens.motion.PSObject.Properties.Name) {
         $motion = $tokens.motion.$m
-        [void]$sb.AppendLine("  --motion-${m}: ${motion.duration}ms ${motion.curve};")
+        [void]$sb.AppendLine("  --motion-${m}: $($motion.duration)ms $($motion.curve);")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -371,18 +379,10 @@ function Generate-CssTokens {
     # Touch targets
     [void]$sb.AppendLine('/* Touch targets */')
     [void]$sb.AppendLine(':root {')
-    foreach ($t in $tokens.touchTargets.PSObject.Properties.Name) {
-        $tt = $tokens.touchTargets.$t
-        [void]$sb.AppendLine("  --touch-${t}: ${tt.width}px ${tt.height}px;")
+    foreach ($t in $tokens.touchTarget.PSObject.Properties.Name) {
+        $tt = $tokens.touchTarget.$t
+        [void]$sb.AppendLine("  --touch-${t}: ${tt}px;")
     }
-    [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine()
-
-    # Focus
-    [void]$sb.AppendLine('/* Focus ring */')
-    [void]$sb.AppendLine(':root {')
-    [void]$sb.AppendLine("  --focus-ring-width: ${tokens.focus.ringWidth}px;")
-    [void]$sb.AppendLine("  --focus-ring-offset: ${tokens.focus.offset}px;")
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
 
@@ -390,12 +390,12 @@ function Generate-CssTokens {
     [void]$sb.AppendLine('/* Elevation */')
     [void]$sb.AppendLine(':root {')
     foreach ($e in $tokens.elevation.PSObject.Properties.Name) {
-        [void]$sb.AppendLine("  --elevation-${e}: ${tokens.elevation.$e.shadow};")
+        [void]$sb.AppendLine("  --elevation-${e}: $($tokens.elevation.$e.shadow);")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine('[data-theme="dark"] {')
     foreach ($e in $tokens.elevation.PSObject.Properties.Name) {
-        [void]$sb.AppendLine("  --elevation-${e}: ${tokens.elevation.$e.darkShadow};")
+        [void]$sb.AppendLine("  --elevation-${e}: $($tokens.elevation.$e.darkShadow);")
     }
     [void]$sb.AppendLine('}')
     [void]$sb.AppendLine()
@@ -416,12 +416,12 @@ Write-Host "Source: $TokensPath"
 Write-Host "Output: $OutputPath"
 
 # Generate WPF themes
-Generate-WpfTheme -ThemeName "Light" -ThemeTokens $tokens.colour.light -OutputFile (Join-Path $wpfThemesDir "LightTheme.xaml")
-Generate-WpfTheme -ThemeName "Dark" -ThemeTokens $tokens.colour.dark -OutputFile (Join-Path $wpfThemesDir "DarkTheme.xaml")
+Generate-WpfTheme -ThemeName "Light" -ThemeTokens $tokens.color.light -OutputFile (Join-Path $wpfThemesDir "LightTheme.xaml")
+Generate-WpfTheme -ThemeName "Dark" -ThemeTokens $tokens.color.dark -OutputFile (Join-Path $wpfThemesDir "DarkTheme.xaml")
 
 # Generate Android Compose themes
-Generate-AndroidTheme -ThemeName "Light" -ThemeTokens $tokens.colour.light -OutputFile (Join-Path $androidThemeDir "VumaColorTokens.kt")
-Generate-AndroidTheme -ThemeName "Dark" -ThemeTokens $tokens.colour.dark -OutputFile (Join-Path $androidThemeDir "VumaColorTokensDark.kt")
+Generate-AndroidTheme -ThemeName "Light" -ThemeTokens $tokens.color.light -OutputFile (Join-Path $androidThemeDir "VumaColorTokens.kt")
+Generate-AndroidTheme -ThemeName "Dark" -ThemeTokens $tokens.color.dark -OutputFile (Join-Path $androidThemeDir "VumaColorTokensDark.kt")
 
 # Generate CSS
 Generate-CssTokens -OutputFile (Join-Path $cssDir "tokens.css")
@@ -432,7 +432,7 @@ Write-Host ""
 Write-Host "Running verification: checking no literal hex values in generated files..."
 
 # Verify no literal hex values in generated files (they should only come from tokens.json)
-$generatedFiles = Get-ChildItem -Path (Join-Path $wpfThemesDir "*.xaml") -Recurse + Get-ChildItem -Path (Join-Path $androidThemeDir "*.kt") -Recurse + Get-ChildItem -Path (Join-Path $cssDir "tokens.css") -Recurse
+$generatedFiles = @(Get-ChildItem -Path (Join-Path $wpfThemesDir "*.xaml") -Recurse) + @(Get-ChildItem -Path (Join-Path $androidThemeDir "*.kt") -Recurse) + @(Get-ChildItem -Path (Join-Path $cssDir "tokens.css") -Recurse)
 $literalHexCount = 0
 foreach ($file in $generatedFiles) {
     $content = Get-Content $file.FullName -Raw

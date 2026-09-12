@@ -58,8 +58,7 @@ public sealed class VumaTick : Control
 
     private static bool IsReducedMotionRequested()
     {
-        return SystemParameters.HighContrast ||
-               AutomationProperties.GetAccessibilityView(new DependencyObject()) != AutomationAccessibilityView.None;
+        return SystemParameters.HighContrast;
     }
 
     private void OnConfirmedChanged(bool confirmed)

@@ -1,7 +1,16 @@
-/* Auto-generated from design/tokens.json — DO NOT EDIT. Run the token generator instead. */
-:root, [data-theme="light"] {
-  --accent: #0B7A5A;
-  --accentQuiet: #E6F3EE;
+/* Generated from design/tokens.json. DO NOT EDIT BY HAND. */
+/* Regenerate with: pwsh scripts/generate-tokens.ps1 */
+:root {
+  /* Light theme (default) */
+  --surface-base: #FAFAFA;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #F0F0F2;
+  --separator: #E3E3E6;
+  --text-primary: #0A0A0B;
+  --text-secondary: #5A5A62;
+  --text-tertiary: #73737B;
+  --accent-primary: #0B7A5A;
+  --accent-quiet: #E6F3EE;
   --positive: #0B7A5A;
   --warning: #B26A00;
   --critical: #C0261F;
@@ -9,47 +18,35 @@
 }
 
 [data-theme="dark"] {
-  --accent: #16A97D;
-  --accentQuiet: #0E2A22;
+  --surface-base: #000000;
+  --surface-raised: #141416;
+  --surface-sunken: #0A0A0B;
+  --separator: #2A2A2E;
+  --text-primary: #F5F5F7;
+  --text-secondary: #A0A0A8;
+  --text-tertiary: #A8A8B0;
+  --accent-primary: #16A97D;
+  --accent-quiet: #0E2A22;
   --positive: #16A97D;
   --warning: #E5940A;
   --critical: #FF5A4E;
   --info: #4C94F0;
 }
 
+/* Typography */
 :root {
-  --font-display-size: 44px;
-  --font-display-line-height: 48px;
-  --font-display-weight: 600;
-  --font-display-family: Inter Display;
-  --font-title1-size: 30px;
-  --font-title1-line-height: 36px;
-  --font-title1-weight: 600;
-  --font-title1-family: Inter;
-  --font-title2-size: 22px;
-  --font-title2-line-height: 28px;
-  --font-title2-weight: 600;
-  --font-title2-family: Inter;
-  --font-headline-size: 17px;
-  --font-headline-line-height: 22px;
-  --font-headline-weight: 600;
-  --font-headline-family: Inter;
-  --font-body-size: 15px;
-  --font-body-line-height: 21px;
-  --font-body-weight: 400;
-  --font-body-family: Inter;
-  --font-callout-size: 14px;
-  --font-callout-line-height: 19px;
-  --font-callout-weight: 400;
-  --font-callout-family: Inter;
-  --font-caption-size: 12px;
-  --font-caption-line-height: 16px;
-  --font-caption-weight: 500;
-  --font-caption-family: Inter;
-  --font-mono-size: 13px;
-  --font-mono-line-height: 18px;
-  --font-mono-weight: 400;
-  --font-mono-family: JetBrains Mono;
+  --font-display: 44/48 600 Inter Display;
+  --font-title1: 30/36 600 Inter;
+  --font-title2: 22/28 600 Inter;
+  --font-headline: 17/22 600 Inter;
+  --font-body: 15/21 400 Inter;
+  --font-callout: 14/19 400 Inter;
+  --font-caption: 12/16 500 Inter;
+  --font-mono: 13/18 400 JetBrains Mono;
+}
+
+/* Spacing */
+:root {
   --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
@@ -58,18 +55,42 @@
   --spacing-32: 32px;
   --spacing-48: 48px;
   --spacing-64: 64px;
+}
+
+/* Radius */
+:root {
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 22px;
   --radius-pill: 999px;
-  --motion-instant-duration: 100ms;
-  --motion-vuma-tick-duration: 220ms;
-  --motion-quick-duration: 180ms;
-  --motion-standard-duration: 260ms;
-  --motion-vumaTick-duration: 220ms;
+}
+
+/* Motion */
+:root {
+  --motion-instant: 100ms ease-out;
+  --motion-vuma-tick: 220ms ease-out;
+  --motion-quick: 180ms cubic-bezier(.2,0,0,1);
+  --motion-standard: 260ms cubic-bezier(.2,0,0,1);
+  --motion-vumaTick: 220ms cubic-bezier(.65,0,.35,1);
+}
+
+/* Touch targets */
+:root {
   --touch-posPrimary: 64px;
   --touch-posSecondary: 48px;
   --touch-backOffice: 36px;
   --touch-androidWarehouse: 56px;
 }
+
+/* Elevation */
+:root {
+  --elevation-e1: 0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.04);
+  --elevation-e2: 0 8px 28px rgba(0,0,0,.12);
+}
+[data-theme="dark"] {
+  --elevation-e1: none;
+  --elevation-e2: none;
+}
+
+

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Data;
+using WpfApplication = global::System.Windows.Application;
 
 namespace VumaRetail.Desktop;
 
@@ -47,7 +48,8 @@ public static class ThemeManager
     public static void SetUserThemeOverride(bool isDark)
     {
         // Persist user preference; ApplyTheme picks it up on next switch
-        Application.Current?.Properties["UserThemeOverride"] = isDark;
+        if (WpfApplication.Current != null)
+            WpfApplication.Current.Properties["UserThemeOverride"] = isDark;
         SetTheme(isDark);
     }
 
@@ -56,7 +58,8 @@ public static class ThemeManager
     /// </summary>
     public static void SetTerminalThemeOverride(bool isDark)
     {
-        Application.Current?.Properties["TerminalThemeOverride"] = isDark;
+        if (WpfApplication.Current != null)
+            WpfApplication.Current.Properties["TerminalThemeOverride"] = isDark;
         SetTheme(isDark);
     }
 
@@ -65,27 +68,27 @@ public static class ThemeManager
     /// </summary>
     public static void ResetToOsDefault()
     {
-        Application.Current?.Properties.Remove("UserThemeOverride");
-        Application.Current?.Properties.Remove("TerminalThemeOverride");
+        WpfApplication.Current?.Properties.Remove("UserThemeOverride");
+        WpfApplication.Current?.Properties.Remove("TerminalThemeOverride");
         _isDark = DetectOsThemePreference();
         ApplyTheme(_isDark);
     }
 
     private static void ApplyTheme(bool isDark)
     {
-        if (Application.Current == null) return;
+        if (WpfApplication.Current == null) return;
 
         var currentTheme = isDark ? _darkTheme : _lightTheme;
 
         // Replace the current theme dictionary
-        var existing = Application.Current.Resources.MergedDictionaries
+        var existing = WpfApplication.Current.Resources.MergedDictionaries
             .FirstOrDefault(d => d.Source?.ToString().Contains("Themes/") == true);
         if (existing != null)
         {
-            Application.Current.Resources.MergedDictionaries.Remove(existing);
+            WpfApplication.Current.Resources.MergedDictionaries.Remove(existing);
         }
 
-        Application.Current.Resources.MergedDictionaries.Add(currentTheme!);
+        WpfApplication.Current.Resources.MergedDictionaries.Add(currentTheme!);
         _isDark = isDark;
     }
 

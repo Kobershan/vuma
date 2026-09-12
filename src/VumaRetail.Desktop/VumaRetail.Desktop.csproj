@@ -8,6 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Controls/ComponentStubs.cs" />
+    <Compile Remove="Controls/StatTile.cs" />
+    <Compile Remove="Controls/TillLineList.cs" />
+    <Compile Remove="Controls/Display/**/*.cs" />
+    <Compile Remove="Controls/Till/**/*.cs" />
     <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
     <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
     <PackageReference Include="CommunityToolkit.Mvvm" />

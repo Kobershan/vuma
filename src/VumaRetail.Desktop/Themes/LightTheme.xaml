@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
@@ -13,7 +14,7 @@
   <!-- Text colours -->
   <Color x:Key="TextPrimary">#0A0A0B</Color>
   <Color x:Key="TextSecondary">#5A5A62</Color>
-  <Color x:Key="TextTertiary">#8E8E96</Color>
+  <Color x:Key="TextTertiary">#73737B</Color>
 
   <!-- Accent and semantic colours -->
   <Color x:Key="AccentPrimary">#0B7A5A</Color>
@@ -41,33 +42,38 @@
   <SolidColorBrush x:Key="SeparatorBrush" Color="{DynamicResource Separator}" />
 
   <!-- Typography -->
-  <FontFamily x:Key="FontDisplay">Inter Display</FontFamily>
-  <FontFamily x:Key="FontBody">Inter</FontFamily>
-  <FontFamily x:Key="FontMono">JetBrains Mono</FontFamily>
-  <sys:Double x:Key="FontSizeDisplay">44</sys:Double>
-  <sys:Double x:Key="FontSizeTitle1">30</sys:Double>
-  <sys:Double x:Key="FontSizeTitle2">22</sys:Double>
-  <sys:Double x:Key="FontSizeHeadline">17</sys:Double>
-  <sys:Double x:Key="FontSizeBody">15</sys:Double>
-  <sys:Double x:Key="FontSizeCallout">14</sys:Double>
-  <sys:Double x:Key="FontSizeCaption">12</sys:Double>
-  <sys:Double x:Key="FontSizeMono">13</sys:Double>
-  <FontWeight x:Key="FontWeightDisplay">600</FontWeight>
-  <FontWeight x:Key="FontWeightTitle1">600</FontWeight>
-  <FontWeight x:Key="FontWeightTitle2">600</FontWeight>
-  <FontWeight x:Key="FontWeightHeadline">600</FontWeight>
-  <FontWeight x:Key="FontWeightBody">400</FontWeight>
-  <FontWeight x:Key="FontWeightCallout">400</FontWeight>
-  <FontWeight x:Key="FontWeightCaption">500</FontWeight>
-  <FontWeight x:Key="FontWeightMono">400</FontWeight>
-  <sys:Double x:Key="LineHeightDisplay">48</sys:Double>
-  <sys:Double x:Key="LineHeightTitle1">36</sys:Double>
-  <sys:Double x:Key="LineHeightTitle2">28</sys:Double>
-  <sys:Double x:Key="LineHeightHeadline">22</sys:Double>
-  <sys:Double x:Key="LineHeightBody">21</sys:Double>
-  <sys:Double x:Key="LineHeightCallout">19</sys:Double>
-  <sys:Double x:Key="LineHeightCaption">16</sys:Double>
-  <sys:Double x:Key="LineHeightMono">18</sys:Double>
+  <FontFamily x:Key="Fontdisplay">Inter Display</FontFamily>
+  <sys:Double x:Key="FontSizedisplay">44</sys:Double>
+  <FontWeight x:Key="FontWeightdisplay">600</FontWeight>
+  <sys:Double x:Key="LineHeightdisplay">48</sys:Double>
+  <FontFamily x:Key="Fonttitle1">Inter</FontFamily>
+  <sys:Double x:Key="FontSizetitle1">30</sys:Double>
+  <FontWeight x:Key="FontWeighttitle1">600</FontWeight>
+  <sys:Double x:Key="LineHeighttitle1">36</sys:Double>
+  <FontFamily x:Key="Fonttitle2">Inter</FontFamily>
+  <sys:Double x:Key="FontSizetitle2">22</sys:Double>
+  <FontWeight x:Key="FontWeighttitle2">600</FontWeight>
+  <sys:Double x:Key="LineHeighttitle2">28</sys:Double>
+  <FontFamily x:Key="Fontheadline">Inter</FontFamily>
+  <sys:Double x:Key="FontSizeheadline">17</sys:Double>
+  <FontWeight x:Key="FontWeightheadline">600</FontWeight>
+  <sys:Double x:Key="LineHeightheadline">22</sys:Double>
+  <FontFamily x:Key="Fontbody">Inter</FontFamily>
+  <sys:Double x:Key="FontSizebody">15</sys:Double>
+  <FontWeight x:Key="FontWeightbody">400</FontWeight>
+  <sys:Double x:Key="LineHeightbody">21</sys:Double>
+  <FontFamily x:Key="Fontcallout">Inter</FontFamily>
+  <sys:Double x:Key="FontSizecallout">14</sys:Double>
+  <FontWeight x:Key="FontWeightcallout">400</FontWeight>
+  <sys:Double x:Key="LineHeightcallout">19</sys:Double>
+  <FontFamily x:Key="Fontcaption">Inter</FontFamily>
+  <sys:Double x:Key="FontSizecaption">12</sys:Double>
+  <FontWeight x:Key="FontWeightcaption">500</FontWeight>
+  <sys:Double x:Key="LineHeightcaption">16</sys:Double>
+  <FontFamily x:Key="Fontmono">JetBrains Mono</FontFamily>
+  <sys:Double x:Key="FontSizemono">13</sys:Double>
+  <FontWeight x:Key="FontWeightmono">400</FontWeight>
+  <sys:Double x:Key="LineHeightmono">18</sys:Double>
 
   <!-- Spacing -->
   <sys:Double x:Key="Spacing4">4</sys:Double>
@@ -80,38 +86,36 @@
   <sys:Double x:Key="Spacing64">64</sys:Double>
 
   <!-- Radius -->
-  <sys:Double x:Key="RadiusSm">8</sys:Double>
-  <sys:Double x:Key="RadiusMd">12</sys:Double>
-  <sys:Double x:Key="RadiusLg">16</sys:Double>
-  <sys:Double x:Key="RadiusXl">22</sys:Double>
-  <sys:Double x:Key="RadiusPill">999</sys:Double>
+  <sys:Double x:Key="Radiussm">8</sys:Double>
+  <sys:Double x:Key="Radiusmd">12</sys:Double>
+  <sys:Double x:Key="Radiuslg">16</sys:Double>
+  <sys:Double x:Key="Radiusxl">22</sys:Double>
+  <sys:Double x:Key="Radiuspill">999</sys:Double>
 
   <!-- Elevation -->
-  <x:String x:Key="ElevationE1">0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.04)</x:String>
-  <x:String x:Key="ElevationE2">0 8px 28px rgba(0,0,0,.12)</x:String>
+  <sys:String x:Key="Elevatione1">0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.04)</sys:String>
+  <sys:String x:Key="Elevatione2">0 8px 28px rgba(0,0,0,.12)</sys:String>
 
   <!-- Motion -->
-  <sys:Int32 x:Key="MotionInstantDuration">100</sys:Int32>
-  <x:String x:Key="MotionInstantCurve">ease-out</x:String>
-  <sys:Int32 x:Key="MotionQuickDuration">180</sys:Int32>
-  <x:String x:Key="MotionQuickCurve">cubic-bezier(.2,0,0,1)</x:String>
-  <sys:Int32 x:Key="MotionStandardDuration">260</sys:Int32>
-  <x:String x:Key="MotionStandardCurve">cubic-bezier(.2,0,0,1)</x:String>
-  <sys:Int32 x:Key="MotionVumaTickDuration">220</sys:Int32>
-  <x:String x:Key="MotionVumaTickCurve">cubic-bezier(.65,0,.35,1)</x:String>
+  <sys:Int32 x:Key="MotioninstantDuration">100</sys:Int32>
+  <sys:String x:Key="MotioninstantCurve">ease-out</sys:String>
+  <sys:Int32 x:Key="Motionvuma-tickDuration">220</sys:Int32>
+  <sys:String x:Key="Motionvuma-tickCurve">ease-out</sys:String>
+  <sys:Int32 x:Key="MotionquickDuration">180</sys:Int32>
+  <sys:String x:Key="MotionquickCurve">cubic-bezier(.2,0,0,1)</sys:String>
+  <sys:Int32 x:Key="MotionstandardDuration">260</sys:Int32>
+  <sys:String x:Key="MotionstandardCurve">cubic-bezier(.2,0,0,1)</sys:String>
+  <sys:Int32 x:Key="MotionvumaTickDuration">220</sys:Int32>
+  <sys:String x:Key="MotionvumaTickCurve">cubic-bezier(.65,0,.35,1)</sys:String>
 
   <!-- Touch targets -->
-  <sys:Double x:Key="TouchTargetPosPrimaryWidth">64</sys:Double>
-  <sys:Double x:Key="TouchTargetPosPrimaryHeight">64</sys:Double>
-  <sys:Double x:Key="TouchTargetPosSecondaryWidth">48</sys:Double>
-  <sys:Double x:Key="TouchTargetPosSecondaryHeight">48</sys:Double>
-  <sys:Double x:Key="TouchTargetBackOfficeWidth">36</sys:Double>
-  <sys:Double x:Key="TouchTargetBackOfficeHeight">36</sys:Double>
-  <sys:Double x:Key="TouchTargetAndroidWarehouseWidth">56</sys:Double>
-  <sys:Double x:Key="TouchTargetAndroidWarehouseHeight">56</sys:Double>
-
-  <!-- Focus -->
-  <sys:Double x:Key="FocusRingWidth">2</sys:Double>
-  <sys:Double x:Key="FocusRingOffset">2</sys:Double>
+  <sys:Double x:Key="TouchTargetposPrimaryWidth">64</sys:Double>
+  <sys:Double x:Key="TouchTargetposPrimaryHeight">64</sys:Double>
+  <sys:Double x:Key="TouchTargetposSecondaryWidth">48</sys:Double>
+  <sys:Double x:Key="TouchTargetposSecondaryHeight">48</sys:Double>
+  <sys:Double x:Key="TouchTargetbackOfficeWidth">36</sys:Double>
+  <sys:Double x:Key="TouchTargetbackOfficeHeight">36</sys:Double>
+  <sys:Double x:Key="TouchTargetandroidWarehouseWidth">56</sys:Double>
+  <sys:Double x:Key="TouchTargetandroidWarehouseHeight">56</sys:Double>
 
 </ResourceDictionary>

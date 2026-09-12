@@ -10,26 +10,26 @@ import androidx.compose.ui.unit.sp
 
 object VumaColorTokens {
     // Surface
-    val surfaceBase = Color(0xFFFAFAFA)
-    val surfaceRaised = Color(0xFFFFFFFF)
-    val surfaceSunken = Color(0xFFF0F0F2)
+    val surfaceBase = Color(0xFF000000)
+    val surfaceRaised = Color(0xFF141416)
+    val surfaceSunken = Color(0xFF0A0A0B)
 
     // Text
-    val textPrimary = Color(0xFF0A0A0B)
-    val textSecondary = Color(0xFF5A5A62)
-    val textTertiary = Color(0xFF73737B)
+    val textPrimary = Color(0xFFF5F5F7)
+    val textSecondary = Color(0xFFA0A0A8)
+    val textTertiary = Color(0xFFA8A8B0)
 
     // Accent
-    val accentPrimary = Color(0xFF0B7A5A)
-    val accentQuiet = Color(0xFFE6F3EE)
+    val accentPrimary = Color(0xFF16A97D)
+    val accentQuiet = Color(0xFF0E2A22)
 
     // Semantic
-    val positive = Color(0xFF0B7A5A)
-    val warning = Color(0xFFB26A00)
-    val critical = Color(0xFFC0261F)
-    val info = Color(0xFF1B5FB0)
+    val positive = Color(0xFF16A97D)
+    val warning = Color(0xFFE5940A)
+    val critical = Color(0xFFFF5A4E)
+    val info = Color(0xFF4C94F0)
 
-    val separator = Color(0xFFE3E3E6)
+    val separator = Color(0xFF2A2A2E)
 }
 
 object VumaTypographyTokens {

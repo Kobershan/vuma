@@ -46,6 +46,8 @@ if (host.TenantId != Guid.Empty)
 
 string connectionString = builder.Configuration.GetConnectionString("Vuma")
     ?? throw new InvalidOperationException("ConnectionStrings:Vuma is not configured.");
+string registryConnectionString = builder.Configuration.GetConnectionString("Registry")
+    ?? throw new InvalidOperationException("ConnectionStrings:Registry is not configured.");
 
 NodeIdentityOptions node = builder.Configuration.GetSection(NodeIdentityOptions.SectionName)
     .Get<NodeIdentityOptions>() ?? new NodeIdentityOptions();
@@ -61,6 +63,10 @@ PostgresBackupOptions postgres = builder.Configuration.GetSection(PostgresBackup
     .Get<PostgresBackupOptions>() ?? new PostgresBackupOptions();
 
 builder.Services.AddVumaWeb(jwt, host);
+// Register the control-plane database first. AddVumaPersistence is intentionally last so the
+// ordinary business pipeline keeps VumaRetailDbContext as its default IUnitOfWork while registry
+// services resolve VumaRegistryDbContext explicitly.
+builder.Services.AddVumaRegistryPersistence(registryConnectionString);
 builder.Services.AddVumaPersistence(connectionString);
 builder.Services.AddVumaSync(node);
 builder.Services.AddVumaBackup(connectionString, vault, encryption, postgres);
@@ -70,6 +76,7 @@ WebApplication app = builder.Build();
 if (args.Contains("--migrate", StringComparer.Ordinal))
 {
     using IServiceScope scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<VumaRegistryDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await scope.ServiceProvider.GetRequiredService<VumaRetailDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     return;
 }

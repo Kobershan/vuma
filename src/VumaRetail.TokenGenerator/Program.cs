@@ -34,9 +34,9 @@ public static class Program
         foreach (var (themeName, themeTokens) in new[] { ("Light", light), ("Dark", dark) })
         {
             var sb = new StringBuilder();
-            sb.AppendLine(Marker);
             sb.AppendLine("<ResourceDictionary xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\"");
             sb.AppendLine("                xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\">");
+            sb.AppendLine($"  <!-- {Marker.Trim('/', '*', ' ')} -->");
             WriteWpfColors(sb, themeTokens["surface"]!, "Surface");
             WriteWpfColors(sb, themeTokens["text"]!, "Text");
             WriteWpfSemantic(sb, themeTokens);
