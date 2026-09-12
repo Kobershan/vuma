@@ -1,6 +1,6 @@
 # TASK-17-001 — Production-order lifecycle and BOM snapshot
 
-**Status:** READY · **Stage:** 17 · **Type:** Domain, application, persistence, tests
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, persistence, tests
 
 ## Objective
 
@@ -30,4 +30,7 @@ duplicate operation tests, migration reversibility and architecture classificati
 ## Work log
 
 - 2026-09-12: canonicalized from Stage 17 part 17-P01. Implementation not yet started.
-
+- 2026-09-12: added the caller-identified `ProductionOrder` lifecycle and immutable release-time BOM
+  snapshot/material requirement model in `src/VumaRetail.Domain/Manufacturing/ProductionOrder.cs`.
+  Focused manufacturing unit suite passes 16/16 including three production-order tests. Persistence,
+  command handlers, migration and PostgreSQL evidence remain open; task is not complete.

@@ -34,6 +34,14 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     public static ManufacturingRuleException MixedCostCurrency(string expected, string actual)
         => new("BOM_MIXED_CURRENCY", $"BOM costs must use {expected}; received {actual}.");
 
+    /// <summary>A production order transition is not allowed.</summary>
+    public static ManufacturingRuleException InvalidProductionTransition(ProductionOrderStatus from, ProductionOrderStatus to)
+        => new("PRODUCTION_INVALID_TRANSITION", $"A production order cannot move from {from} to {to}.");
+
+    /// <summary>Release requires the published BOM for the order's finished item.</summary>
+    public static ManufacturingRuleException PublishedProductionBomRequired()
+        => new("PRODUCTION_BOM_REQUIRED", "A production order must be released against its published finished-item BOM.");
+
     /// <summary>A definition version already exists.</summary>
     public static ManufacturingRuleException DuplicateVersion(Guid itemId, int version)
         => new("BOM_DUPLICATE_VERSION", $"BOM version {version} already exists for item {itemId}.");
