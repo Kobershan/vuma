@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj
+RUN dotnet publish src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+ENV ASPNETCORE_URLS=http://+:10000
+EXPOSE 10000
+ENTRYPOINT ["sh", "-c", "dotnet VumaRetail.CloudApi.dll --urls http://0.0.0.0:${PORT:-10000}"]
