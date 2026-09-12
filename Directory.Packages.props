@@ -31,6 +31,7 @@
     <!-- Stage 04: the outbox dispatcher is an IHostedService (CLAUDE.md §4, background work). -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <!-- Stage 04: the store server's HTTP sync transport to the cloud. -->
     <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.0" />

@@ -28,6 +28,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- This project is a contract library, not a host. Its development settings must never
+         compete with the StoreServer host settings in a published service bundle. -->
+    <Content Update="appsettings.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
     <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
   </ItemGroup>
 

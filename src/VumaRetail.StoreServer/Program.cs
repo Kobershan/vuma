@@ -52,6 +52,10 @@ using VumaRetail.Infrastructure.Conversations;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// Run as a real Windows Service in production so the SCM can start it at boot and recover it
+// after a crash or power interruption. Console execution remains supported for development.
+builder.Host.UseWindowsService(options => options.ServiceName = "Vuma Retail Store Server");
+
 builder.AddVumaLogging("VumaRetail.StoreServer");
 
 JwtOptions jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
