@@ -97,3 +97,67 @@ public sealed class GetBillOfMaterialsQueryHandler(IBillOfMaterialsRepository bo
             ?? throw ManufacturingRuleException.NotFound(query.BillOfMaterialsId);
     }
 }
+
+/// <summary>Creates a draft production order with an offline-safe caller identity.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateProductionOrderCommand(
+    Guid OperationId,
+    Guid CompanyId,
+    Guid FinishedItemId,
+    decimal Quantity,
+    string UnitOfMeasure,
+    string OrderNumber,
+    Guid BillOfMaterialsId) : ICommand<Guid>;
+
+/// <summary>Creates a production order; release-time BOM data is not read until release.</summary>
+public sealed class CreateProductionOrderCommandHandler(
+    IProductionOrderRepository orders,
+    ITenantContext tenant) : ICommandHandler<CreateProductionOrderCommand, Guid>
+{
+    /// <inheritdoc />
+    public async Task<Guid> HandleAsync(CreateProductionOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.OperationId == Guid.Empty || command.CompanyId == Guid.Empty || command.FinishedItemId == Guid.Empty)
+        {
+            throw new ArgumentException("Production order identity and ownership are required.");
+        }
+        if (await orders.FindAsync(command.OperationId, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            return command.OperationId;
+        }
+
+        ProductionOrder order = ProductionOrder.Create(
+            command.OperationId,
+            tenant.TenantId,
+            command.CompanyId,
+            command.FinishedItemId,
+            new Quantity(command.Quantity, command.UnitOfMeasure),
+            command.OrderNumber);
+        orders.Add(order);
+        return order.Id;
+    }
+}
+
+/// <summary>Releases a production order against a published BOM snapshot.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ReleaseProductionOrderCommand(Guid ProductionOrderId, Guid BillOfMaterialsId) : ICommand;
+
+/// <summary>Loads the order and BOM through tenant-scoped repositories before releasing it.</summary>
+public sealed class ReleaseProductionOrderCommandHandler(
+    IProductionOrderRepository orders,
+    IBillOfMaterialsRepository boms,
+    IClock clock) : ICommandHandler<ReleaseProductionOrderCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(ReleaseProductionOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        BillOfMaterials bom = await boms.FindAsync(command.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.BillOfMaterialsId);
+        order.Release(bom, clock.UtcNow);
+        return Unit.Value;
+    }
+}

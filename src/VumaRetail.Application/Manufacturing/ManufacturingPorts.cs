@@ -14,3 +14,13 @@ public interface IBillOfMaterialsRepository
     /// <summary>Adds a new definition.</summary>
     void Add(BillOfMaterials bom);
 }
+
+/// <summary>Reads and writes tenant/company-scoped production orders.</summary>
+public interface IProductionOrderRepository
+{
+    /// <summary>Finds an order by its stable client-created id.</summary>
+    Task<ProductionOrder?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a new order.</summary>
+    void Add(ProductionOrder order);
+}

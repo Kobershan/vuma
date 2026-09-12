@@ -535,6 +535,10 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Manufacturing.BillOfMaterials> BillOfMaterials
         => Set<Domain.Manufacturing.BillOfMaterials>();
 
+    /// <summary>Traceable production orders and their release-time BOM snapshots (Stage 17).</summary>
+    public DbSet<Domain.Manufacturing.ProductionOrder> ProductionOrders
+        => Set<Domain.Manufacturing.ProductionOrder>();
+
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
 

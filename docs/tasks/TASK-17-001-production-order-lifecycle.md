@@ -34,3 +34,7 @@ duplicate operation tests, migration reversibility and architecture classificati
   snapshot/material requirement model in `src/VumaRetail.Domain/Manufacturing/ProductionOrder.cs`.
   Focused manufacturing unit suite passes 16/16 including three production-order tests. Persistence,
   command handlers, migration and PostgreSQL evidence remain open; task is not complete.
+- 2026-09-12: added the tenant/company-scoped repository, commands, EF configuration and reversible
+  `20260912215016_Stage17_ProductionOrderLifecycle` migration. Infrastructure build passes with 0
+  errors; local PostgreSQL migration execution is not available because the configured `vuma` user
+  password is rejected. The preceding pushed commit `ef12f02` is green in CI run `34720055190`.
