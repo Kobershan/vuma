@@ -23,9 +23,11 @@ and [the WhatsApp API](https://www.twilio.com/docs/whatsapp/api).
 
 ## PCs
 
-Install the Windows Vuma `.exe` package, the required receipt-printer/scanner drivers, and the
-terminal certificate issued by the server. The desktop client points at the local StoreServer HTTPS
-URL. PCs do not receive database credentials and do not connect directly to PostgreSQL.
+Install the self-contained Windows Vuma `.exe` package, the required receipt-printer/scanner drivers,
+and the terminal certificate issued by the server. The desktop client points at the local StoreServer
+HTTPS URL. Use the self-contained single-file artifact from `artifacts/desktop-win-single`; do not
+copy only a framework-dependent launcher without its companion files. PCs do not receive database
+credentials and do not connect directly to PostgreSQL.
 
 The StoreServer is the local offline-first boundary. Its outbox synchronises approved data to the
 cloud API; conflicts remain in the existing review queue. Use the Windows package job to produce the

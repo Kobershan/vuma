@@ -354,6 +354,12 @@ jobs:
       - name: Build full solution
         run: dotnet build VumaRetail.sln -c Release --no-restore
 
+      - name: Publish self-contained WPF desktop client
+        run: >-
+          dotnet publish src/VumaRetail.Desktop/VumaRetail.Desktop.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/desktop-win-single
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -393,3 +399,4 @@ jobs:
             mobile/build/app/outputs/flutter-apk/*.apk
             mobile/build/windows/runner/Release/**
             src/VumaRetail.Desktop/bin/Release/**
+            artifacts/desktop-win-single/**
