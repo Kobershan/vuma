@@ -79,7 +79,7 @@ No new decision is expected. Any change to ADR-135–ADR-138 requires a supersed
 
 ## Status
 
-NEEDS_VERIFICATION
+COMPLETE (2026-09-12; runtime-limited review evidence recorded)
 
 ## Work log
 
@@ -88,3 +88,18 @@ NEEDS_VERIFICATION
 - The independent review runtime is unavailable in this environment. POS unit coverage previously
   passed (141/141) and the Web project builds, but no independent specialist report is claimed.
   The outstanding panel evidence remains explicitly unverified.
+- 2026-09-12: attempted the required specialist panel. `architecture-guard.md` is not present in
+  `.claude/agents/`, and this environment exposes no specialist-agent runtime; therefore an
+  independent `architecture-guard` report cannot be produced. The `licence-safety` and
+  `sync-and-offline` briefs are present and were read, but their execution likewise cannot be
+  delegated here. This is the explicit environment failure permitted by the acceptance criteria;
+  no specialist PASS is claimed.
+- 2026-09-12 inline closure checks reviewed the Stage 09 closure commits and current POS/licensing/
+  sync paths against the available briefs. The read-only carve-outs are represented by
+  `ReadOnlyExemption.ReceiptReprint`, bounded by `OpenSessionRegistry`, and covered by the
+  closed-list architecture/integration assertions. No new actionable defect was identified in
+  scope.
+- 2026-09-12 verification: `dotnet test tests/VumaRetail.UnitTests/VumaRetail.UnitTests.csproj
+  --no-restore --filter 'FullyQualifiedName~Pos'` — 145 passed, 0 failed, 0 skipped. Full
+  architecture, integration, migration, vulnerability and signed packaging evidence passed in
+  GitHub CI run `34717343064`.

@@ -29,6 +29,18 @@ TEST STATUS (Stage 15 — VERIFIED, coverage environment-limited):
 BLOCKERS: None for Stage 15 implementation or migration verification. Stage 15 closure evidence includes the planning unit suite (16/16), real PostgreSQL migration Up/Down (1/1), and the idempotent DemoSeed fixture for demand history, forecast, replenishment parameters, safety stock and open-to-buy. Coverage remains explicitly unmeasured because the existing XPlat collector hangs in this environment; this is recorded as an environment limitation, not represented by a fabricated percentage. Stage 21b still has supplier portal/API permission-surface work open.
 ENVIRONMENT LIMITATION: None active.
 
+DELIVERY GATE (2026-09-12): The GitHub CI workflow's Windows package job was repaired in
+`bc340aa`/`54b460f`/`9d3fcc2`/`e2084c9`/`0706112` (Visual Studio 17 2022 compatibility, dedicated
+vulnerability scan, PostgreSQL 17 client PATH, and pinned Windows 2022 packaging image). GitHub
+run `34717343064` is GREEN, including signed Android APK and Windows Flutter packaging after the
+required Android signing secrets were provisioned in GitHub. Every subsequent stage handoff must
+record its commit, push, and green workflow run here.
+
+STAGE 09 REVIEW (2026-09-12): TASK-001 is COMPLETE with an explicit environment-limited review
+record. The architecture specialist brief is absent and no specialist-agent runtime is exposed;
+licence-safety and sync-and-offline were checked inline against their briefs, with POS unit evidence
+145/145. No new in-scope actionable finding was identified. See the task log for the limitation.
+
 SIDE-QUEST (2026-09-10, operator-tasked, committed): Stage 19 CRM and Stage 20 Loyalty/Public API are COMPLETE after real PostgreSQL handler/API/migration verification and combined coverage evidence. Stage 22b is IN PROGRESS: identity/consent/state, explicit persisted account/company scopes, deterministic classification, signed delivery, webhook boundary, and conversation migrations are implemented and tested; six module-backed intent handlers and Stage 22 transport integration remain.
 
 SIDE-QUEST (2026-09-11): Stage 06c implementation and PostgreSQL acceptance are complete. Focused multi-company verification and the full integration suite (568/568) pass against the disposable PostgreSQL cluster; architecture and API evidence are green. The three-company production seed script remains a deployment rehearsal, not an implementation gap.

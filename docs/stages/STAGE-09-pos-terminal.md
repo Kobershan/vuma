@@ -27,7 +27,7 @@ implementation and verification units; completing a task does not complete the s
 
 | Task | Objective | Dependencies | Status |
 |---|---|---|---|
-| [TASK-001](../tasks/TASK-001-stage-09-review-panel.md) | Run the independent review panel for the closure commits | Stage 09 closure commits | NEEDS_VERIFICATION |
+| [TASK-001](../tasks/TASK-001-stage-09-review-panel.md) | Run the independent review panel for the closure commits | Stage 09 closure commits | COMPLETE (runtime-limited evidence) |
 | [TASK-002](../tasks/TASK-002-openapi-examples.md) | Complete OpenAPI examples for reopened module endpoints | TASK-001 | COMPLETE |
 
 The till. A sale is opened at a terminal, lines are rung up, tenders are taken, a receipt is printed,
