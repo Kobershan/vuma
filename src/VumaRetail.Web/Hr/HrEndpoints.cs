@@ -15,18 +15,18 @@ public static class HrEndpoints
     public static IEndpointRouteBuilder MapVumaHr(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapVumaApi();
-        var hr = api.MapGroup("/hr").WithTags("HR");
-        hr.MapGet("/employees", async (IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmployeesQuery(), ct)));
-        hr.MapPost("/employees", async (CreateEmployeeRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/employees", await d.SendAsync(new CreateEmployeeCommand(r.EmployeeNumber, r.FirstName, r.LastName, r.EmploymentType, r.PreferredName, r.Email, r.Phone), ct)));
-        hr.MapGet("/employees/{employeeId:guid}/contracts", async (Guid employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmploymentContractsQuery(employeeId), ct)));
-        hr.MapPost("/employees/{employeeId:guid}/contracts", async (Guid employeeId, EmploymentContractRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/contracts", await d.SendAsync(new CreateEmploymentContractCommand(employeeId, r.StartsOn, r.EndsOn, r.HourlyRate, r.Currency), ct)));
-        hr.MapGet("/leave", async (Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListLeaveRequestsQuery(employeeId), ct)));
-        hr.MapPost("/leave", async (CreateLeaveRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/leave", await d.SendAsync(new CreateLeaveRequestCommand(r.EmployeeId, r.From, r.To, r.LeaveType, r.Reason), ct)));
-        hr.MapPost("/leave/{id:guid}/decision", async (Guid id, LeaveDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideLeaveCommand(id, r.Approved), ct); return Results.NoContent(); });
-        var workforce = api.MapGroup("/workforce").WithTags("Workforce");
-        workforce.MapGet("/shifts", async (DateTimeOffset from, DateTimeOffset to, Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListShiftsQuery(from, to, employeeId), ct)));
-        workforce.MapPost("/shifts", async (CreateShiftRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shifts", await d.SendAsync(new CreateShiftCommand(r.EmployeeId, r.StartsAt, r.EndsAt, r.Role, r.StoreId), ct)));
-        workforce.MapPost("/attendance", async (RecordAttendanceRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/attendance", await d.SendAsync(new RecordAttendanceCommand(r.EmployeeId, r.ShiftId, r.EventType, r.OccurredAt, r.Source), ct)));
+        var hr = api.MapGroup("/hr").WithTags("HR").RequireModule("hr");
+        hr.MapGet("/employees", async (IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmployeesQuery(), ct))).RequirePermission(HrPermissions.View);
+        hr.MapPost("/employees", async (CreateEmployeeRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/employees", await d.SendAsync(new CreateEmployeeCommand(r.EmployeeNumber, r.FirstName, r.LastName, r.EmploymentType, r.PreferredName, r.Email, r.Phone), ct))).RequirePermission(HrPermissions.Manage);
+        hr.MapGet("/employees/{employeeId:guid}/contracts", async (Guid employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmploymentContractsQuery(employeeId), ct))).RequirePermission(HrPermissions.View);
+        hr.MapPost("/employees/{employeeId:guid}/contracts", async (Guid employeeId, EmploymentContractRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/contracts", await d.SendAsync(new CreateEmploymentContractCommand(employeeId, r.StartsOn, r.EndsOn, r.HourlyRate, r.Currency), ct))).RequirePermission(HrPermissions.Manage);
+        hr.MapGet("/leave", async (Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListLeaveRequestsQuery(employeeId), ct))).RequirePermission(HrPermissions.LeaveView);
+        hr.MapPost("/leave", async (CreateLeaveRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/leave", await d.SendAsync(new CreateLeaveRequestCommand(r.EmployeeId, r.From, r.To, r.LeaveType, r.Reason), ct))).RequirePermission(HrPermissions.LeaveManage);
+        hr.MapPost("/leave/{id:guid}/decision", async (Guid id, LeaveDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideLeaveCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.LeaveManage);
+        var workforce = api.MapGroup("/workforce").WithTags("Workforce").RequireModule("workforce");
+        workforce.MapGet("/shifts", async (DateTimeOffset from, DateTimeOffset to, Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListShiftsQuery(from, to, employeeId), ct))).RequirePermission(WorkforcePermissions.View);
+        workforce.MapPost("/shifts", async (CreateShiftRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shifts", await d.SendAsync(new CreateShiftCommand(r.EmployeeId, r.StartsAt, r.EndsAt, r.Role, r.StoreId), ct))).RequirePermission(WorkforcePermissions.Manage);
+        workforce.MapPost("/attendance", async (RecordAttendanceRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/attendance", await d.SendAsync(new RecordAttendanceCommand(r.EmployeeId, r.ShiftId, r.EventType, r.OccurredAt, r.Source), ct))).RequirePermission(WorkforcePermissions.AttendanceRecord);
         return endpoints;
     }
     public sealed record CreateEmployeeRequest(string EmployeeNumber, string FirstName, string LastName, EmploymentType EmploymentType, string? PreferredName, string? Email, string? Phone);
