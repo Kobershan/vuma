@@ -8,5 +8,7 @@ public partial class App : global::System.Windows.Application
     {
         ThemeManager.Initialize();
         base.OnStartup(e);
+        var window = new MainWindow(new SystemClock());
+        window.Show();
     }
 }

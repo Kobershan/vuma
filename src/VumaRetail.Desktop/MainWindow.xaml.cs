@@ -4,11 +4,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using VumaRetail.Application.Abstractions;
 
 namespace VumaRetail.Desktop;
 
 public partial class MainWindow : Window
 {
+    private readonly IClock _clock;
     private readonly DesktopApi _api = new();
     private static readonly Dictionary<string, (string Title, string Description, string Capabilities)> Modules = new()
     {
@@ -25,8 +27,9 @@ public partial class MainWindow : Window
         ["Sync"] = ("Sync & backups", "Monitor store/cloud sync, conflicts, snapshots and verification status.", "Batch status • conflicts • conflict resolution • snapshots • snapshot verification"),
     };
 
-    public MainWindow()
+    public MainWindow(IClock clock)
     {
+        _clock = clock;
         InitializeComponent();
         var configured = Environment.GetEnvironmentVariable("VUMA_API_BASE_URL");
         if (!string.IsNullOrWhiteSpace(configured)) _api.BaseUrl = configured.TrimEnd('/');
@@ -62,7 +65,7 @@ public partial class MainWindow : Window
             RecentActivity.Text = data.RecentOrders.Count == 0
                 ? "No recent orders were returned for this tenant."
                 : string.Join(Environment.NewLine, data.RecentOrders.Select(x => $"{x.OrderNumber}  ·  {x.Status}  ·  {x.Gross:N2} {x.Currency}"));
-            StatusText.Text = $"Last refreshed {DateTime.Now:t}";
+            StatusText.Text = $"Last refreshed {_clock.UtcNow.ToLocalTime():t}";
         }
         catch (Exception ex)
         {
