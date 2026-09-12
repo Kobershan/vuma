@@ -2,6 +2,8 @@
 
 **Status:** IN_PROGRESS (2026-09-10) · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
 
+**Dependency clarification (2026-09-12):** Stage 22 here means [Marketing Automation](STAGE-22-marketing-automation.md), which owns transport/templates/opt-out. It does not mean the separate historical Stage-22 business-types/hierarchy/transfers workstream. No task status or identifier changes with this clarification.
+
 ## Task index
 ## Second-pass architecture and task map
 

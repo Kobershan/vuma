@@ -1,6 +1,6 @@
 # ROADMAP — Vuma Retail
 
-46 stages, dependency-ordered. Each stage is decomposed into focused task sessions and ends at a green
+47 stages, dependency-ordered. Each stage is decomposed into focused task sessions and ends at a green
 build with the work demonstrable. Close the task session, open a new one, repeat.
 
 > **Revision 4 (2026-08-22).** Nine stages were inserted — **06c**, **06d**, **07c**, **08c**, **13b** and
@@ -22,7 +22,18 @@ is the truth, and if they disagree `PROGRESS.md` wins and this table gets correc
 Each stage gets a document at `docs/stages/STAGE-NN-<slug>.md` before it is executed. Where the
 document does not exist yet, the executing session writes it first — objective, deliverables,
 business rules, tests/acceptance, exit checklist — using `STAGE-04b-licensing.md` as the template. A
-linked title below means the document exists on `main`; plain text means it doesn't yet.
+linked title below means the document exists in this checkout, not that its implementation is complete.
+
+> **Specification audit (2026-09-12).** Added the ten missing subject specifications and linked
+> every stage row. New documents are NOT_STARTED specifications, not completion evidence.
+> Historical inline status notes below are retained; consult `docs/CURRENT.md` and `docs/PROGRESS.md`
+> for execution state. See [the repository audit](REPOSITORY-AUDIT-2026-09-12.md).
+>
+> **Stage 22 naming collision:** this roadmap's 22 and 22b dependency mean
+> [Marketing Automation](stages/STAGE-22-marketing-automation.md).
+> The existing [Business Types, Hierarchy and Transfers](stages/STAGE-22-business-types-hierarchy-transfers.md)
+> document and its TASK-22 identifiers are retained as a separate historical workstream.
+> Marketing parts use `22M` to avoid overwriting those task IDs; no historical work is renumbered.
 
 ## Phase A — Platform (00–05)
 
@@ -36,18 +47,18 @@ Nothing user-visible ships here, but every later stage depends on it. Do not rus
 | 03 | [API Platform & Realtime](stages/STAGE-03-api-platform.md) | 02 | Versioned REST, OpenAPI, ProblemDetails, idempotency, CQRS pipeline |
 | 04 | [Sync Engine, Cloud Backup & Restore](stages/STAGE-04-sync-and-backup.md) | 03 | Three-tier sync, HLC, conflict policy, encrypted snapshots, restore tooling |
 | 04b | [Licensing, Activation & Entitlement](stages/STAGE-04b-licensing.md) ★ | 04 | Monthly signed licence, hardware activation, entitlement gating, enforcement ladder |
-| 05 | Workflow, Approvals, Notifications & Documents ★ | 04b | The generic engines a dozen later modules would otherwise each reinvent — **WIP, branch `stage-05-workflow`, not yet merged** |
+| 05 | [Workflow, Approvals, Notifications & Documents](stages/STAGE-05-workflow.md) ★ | 04b | The generic engines a dozen later modules would otherwise each reinvent — **WIP, branch `stage-05-workflow`, not yet merged** |
 
 ## Phase B — Financial & retail core (06–11)
 The minimum that makes a business able to trade *and* account for it.
 
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
-| 06 | Master Data | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
+| 06 | [Master Data](stages/STAGE-06-master-data.md) | 05 | Products, variants, barcodes, UoM, price lists, tax rules, customers, suppliers — **WIP, branch `worktree-stage-06-master-data`, not yet merged** |
 | 06c | [Multi-Company Foundation](stages/STAGE-06c-multi-company.md) ◆ | 01, 04, 06, 07 | **One database per company** plus a tenant registry: connection routing, provisioning lifecycle, migration fan-out, per-database backup and sync |
 | 06d | [Group Services](stages/STAGE-06d-group-services.md) ◆ | 06c | The saga coordinator, credit groups with hold tokens, the barcode routing index, the group read models — everything that spans databases |
 | 06e | [Trading Group](stages/STAGE-06e-trading-group.md) ◆ | 04b, 06c, 06d | **The Operator ID and the company link** — which companies may cooperate at all, scoped and checked at every point of use; shared premises; cross-company users and tills; the billing dimensions |
-| 07 | Financial Core: GL, AR, AP, Banking, Tax ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
+| 07 | [Financial Core: GL, AR, AP, Banking, Tax](stages/STAGE-07-finance.md) ★ | 06 | The accounting spine. Without it this is not an ERP — **DONE, merged to `main` 2026-08-15** |
 | 07c | [Cross-Company Money](stages/STAGE-07c-cross-company-money.md) ◆ | 07, 06d | Capture one receipt, allocate it across companies; inter-company clearing; per-company statements plus a labelled consolidated view |
 | 08 | [Inventory Core](stages/STAGE-08-inventory-core.md) | 07 | Append-only stock ledger, valuation, adjustments, transfers, stocktakes — **DONE, merged to `main` 2026-08-15** |
 | 08b | [Design System & Theming](stages/STAGE-08b-design-system.md) ★ | 08 | Apple-inspired tokens, dark + light, component library — built before any UI |
@@ -55,7 +66,7 @@ The minimum that makes a business able to trade *and* account for it.
 | 09 | [POS Terminal & Hardware](stages/STAGE-09-pos-terminal.md) | 08 | The till: sales, tenders, receipts, cash-up, printer/drawer/scanner — API and hardware merged to `main` 2026-08-15; the WPF till screen is deferred with 08b. **REOPENED after the agent reviews of 2026-08-15: `stage-verifier` returned `STAGE NOT DONE — 2 failing, 3 unverified`. Eight open defects, see `PROGRESS.md` §4.10–§4.16** |
 | 09b | [The Mixed Basket](stages/STAGE-09b-mixed-basket.md) ◆ | 09, 06e, 07c, 08c, 10c | One till, one customer, two companies' goods → **one tax invoice per company**, taxed and rounded per company, one payment allocated across them, one non-fiscal basket summary |
 | 10 | [Sales Management & Promotions](stages/STAGE-10-sales-promotions.md) | 09 | Price lists and price resolution, the promotions engine, returns and credit notes — **DONE, merged to `main` 2026-08-16**. Split as ADR-074; quotes, invoices and analytics moved to 10c |
-| 10c | Quotes, Invoices & Sales Analytics | 10, 14, 08c | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it. **Amended (Rev 4):** invoice lines carry and print **pack sizes** (ADR-112), and an order sourced across companies produces one invoice per company (ADR-102) |
+| 10c | [Quotes, Invoices & Sales Analytics](stages/STAGE-10c-quotes-invoices-analytics.md) | 10, 14, 08c | Sales *documents* and their reporting. Split out of 10 by ADR-074 — nothing in 10b, 11 or 12 depends on it. **Amended (Rev 4):** invoice lines carry and print **pack sizes** (ADR-112), and an order sourced across companies produces one invoice per company (ADR-102) |
 | 10b | [Customer Accounts, Lay-by & Stokvels](stages/STAGE-10b-accounts-layby-stokvel.md) ★ | 07, 09, 10 | Credit accounts, lay-by, stokvel groups — money held on behalf of customers |
 | 11 | [Data Import (Excel/CSV/PDF)](stages/STAGE-11-data-import.md) | 06 | Ingest suppliers, customers, inventory and specials with mapping, preview, validation and rollback — **DONE 2026-08-16**, branch `stage-11-data-import`. See `docs/IMPORT_PIPELINE.md`. Closes `PROGRESS.md` §4.16. **The six agent reviews have not run (§4.17)** |
 
@@ -64,45 +75,45 @@ The minimum that makes a business able to trade *and* account for it.
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
 | 12 | [Procurement](stages/STAGE-12-procurement.md) | 08, 11 | Requisitions, RFQs, POs, GRNs, three-way match, supplier scorecards — **DONE 2026-08-17**, merged to `main`. Closes the "minimum viable trading system" at 00–12: the shop can now buy as well as sell |
-| 13 | Warehouse Management | 08 | Zones/bins, putaway, pick/pack/ship, cycle counts, handheld flows — **DONE 2026-08-19**, merged to `main` |
+| 13 | [Warehouse Management](stages/STAGE-13-warehouse-management.md) | 08 | Zones/bins, putaway, pick/pack/ship, cycle counts, handheld flows — **DONE 2026-08-19**, merged to `main` |
 | 13b | [Consolidated Picking Waves, Staging States & Interval Counts](stages/STAGE-13b-picking-waves-staging.md) ◆ | 13, 14 | Pick a whole town in one walk: waves by period + province/city/suburb grouped by SKU; consolidation/packing/dispatch as bins; scheduled counts of slow movers that warn when stock is in flight |
-| 14 | Order Management | 10, 13, 08c | Omnichannel orders, allocation, backorders, click & collect, returns — **IN_PROGRESS**, branch `stage-14-order-management`. **Amended (Rev 4):** COD settlement terms enforced at dispatch (ADR-111), geography snapshotted on the order for 13b's waves (ADR-113), and allocation goes through 08c's reservation ledger rather than a local one (ADR-103) |
+| 14 | [Order Management](stages/STAGE-14-order-management.md) | 10, 13, 08c | Omnichannel orders, allocation, backorders, click & collect, returns — **IN_PROGRESS**, branch `stage-14-order-management`. **Amended (Rev 4):** COD settlement terms enforced at dispatch (ADR-111), geography snapshotted on the order for 13b's waves (ADR-113), and allocation goes through 08c's reservation ledger rather than a local one (ADR-103) |
 | 14b | [Field Sales — the Rep Module](stages/STAGE-14b-field-sales.md) ◆ | 14, 10c, 08c, 05 | Reps on the road: pro forma orders and credit notes, live availability, management approval before anything becomes an invoice, rep performance per month with comparison |
-| 15 | Merchandise Planning, Forecasting & Replenishment ★ | 12, 13, 14 | Forecasting, MRP/DRP, safety stock, open-to-buy, markdown planning |
-| 16 | BOM Setup | 06 | Multi-level BOMs, versions, alternates, routings, rolled-up costing |
-| 17 | Manufacturing | 16, 13 | Work orders, issue/receipt, WIP, scrap, capacity, genealogy |
-| 18 | Quality Management ★ | 12, 17 | Inspection plans, NCR/CAPA, shelf life, certificates, recall management |
+| 15 | [Merchandise Planning, Forecasting & Replenishment](stages/STAGE-15-MERCHANDISE%20PLANNING,%20FORECASTING%20AND%20REPLENISHMENT.md) ★ | 12, 13, 14 | Forecasting, MRP/DRP, safety stock, open-to-buy, markdown planning |
+| 16 | [BOM Setup](stages/STAGE-16-bom-setup.md) | 06 | Multi-level BOMs, versions, alternates, routings, rolled-up costing |
+| 17 | [Manufacturing](stages/STAGE-17-manufacturing.md) | 16, 13 | Work orders, issue/receipt, WIP, scrap, capacity, genealogy |
+| 18 | [Quality Management](stages/STAGE-18-quality-management.md) ★ | 12, 17 | Inspection plans, NCR/CAPA, shelf life, certificates, recall management |
 
 ## Phase D — Customer & channels (19–24)
 
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
-| 19 | CRM | 10 | 360° customer view, leads, opportunities, activities, segments, consent |
-| 20 | Loyalty Programme & Public API ★ | 10, 19 | Earn/burn/tiers/rewards as a real module with an external API |
-| 21 | Ecommerce, Storefront API & Channels ★ | 14, 20 | Headless commerce API, PIM content, marketplace and EDI connectors |
+| 19 | [CRM](stages/STAGE-19-crm.md) | 10 | 360° customer view, leads, opportunities, activities, segments, consent |
+| 20 | [Loyalty Programme & Public API](stages/STAGE-20-loyalty-public-api.md) ★ | 10, 19 | Earn/burn/tiers/rewards as a real module with an external API |
+| 21 | [Ecommerce, Storefront API & Channels](stages/STAGE-21-ecommerce-channels.md) ★ | 14, 20 | Headless commerce API, PIM content, marketplace and EDI connectors |
 | 21b | [Vuma Connect: Supplier Network & B2B](stages/STAGE-21b-vuma-connect.md) ★ | 12, 14, 21, 07 | Suppliers publish prices, retailers order and pay in-app — the ecosystem |
-| 22 | Marketing Automation | 19 | Campaigns, journeys, email/SMS/WhatsApp, specials targeting, attribution |
+| 22 | [Marketing Automation](stages/STAGE-22-marketing-automation.md) | 19 | Campaigns, journeys, email/SMS/WhatsApp, specials targeting, attribution |
 | 22b | [Conversational Commerce](stages/STAGE-22b-conversational-commerce.md) ◆ | 22, 19, 14b, 10c, 07, 24 | The **WhatsApp and email assistant**: takes orders, sends statements, invoice copies, PODs and credit notes. Six intents, verified identity, and a model that classifies and phrases but never computes |
-| 23 | Service Management | 14 | Tickets, repairs/RMA, warranties, SLAs, service jobs and parts |
-| 24 | Logistics Management | 14, 13 | Shipments, carriers, routes, delivery runs, PODs, tracking |
+| 23 | [Service Management](stages/STAGE-23-service-management.md) | 14 | Tickets, repairs/RMA, warranties, SLAs, service jobs and parts |
+| 24 | [Logistics Management](stages/STAGE-24-logistics-management.md) | 14, 13 | Shipments, carriers, routes, delivery runs, PODs, tracking |
 
 ## Phase E — People & assets (25–28)
 
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
-| 25 | HR Management | 02 | Employees, contracts, leave, documents, disciplinary, payroll export |
-| 26 | Workforce Management | 25, 09 | Rosters, shift swaps, clock in/out, labour cost vs sales, compliance |
-| 27 | Assets, Maintenance & Store Operations ★ | 07, 25 | Fixed assets + depreciation, CMMS, leases, store tasks and compliance |
-| 28 | Projects, Contracts & Job Costing ★ | 07, 26 | Job costing, WIP, milestone billing, contract and rebate management |
+| 25 | [HR Management](stages/STAGE-25-hr-management.md) | 02 | Employees, contracts, leave, documents, disciplinary, payroll export |
+| 26 | [Workforce Management](stages/STAGE-26-workforce-management.md) | 25, 09 | Rosters, shift swaps, clock in/out, labour cost vs sales, compliance |
+| 27 | [Assets, Maintenance & Store Operations](stages/STAGE-27-assets-maintenance-store-operations.md) ★ | 07, 25 | Fixed assets + depreciation, CMMS, leases, store tasks and compliance |
+| 28 | [Projects, Contracts & Job Costing](stages/STAGE-28-projects-contracts-job-costing.md) ★ | 07, 26 | Job costing, WIP, milestone billing, contract and rebate management |
 
 ## Phase F — Intelligence & release (29–31)
 
 | # | Stage | Depends on | Why it matters |
 |---|---|---|---|
-| 29 | Reporting & Admin Dashboard API | all module stages | Read models, KPI cube, scheduled reports, the API the Android app consumes |
-| 30 | Android Admin App | 29 | Kotlin/Compose dashboards, approvals, stock lookup, push alerts |
+| 29 | [Reporting & Admin Dashboard API](stages/STAGE-29-reporting-admin-dashboard-api.md) | all module stages | Read models, KPI cube, scheduled reports, the API the Android app consumes |
+| 30 | [Android Admin App](stages/STAGE-30-android-admin-app.md) | 29 | Kotlin/Compose dashboards, approvals, stock lookup, push alerts |
 | 30b | [Vendor Control Plane, Metering & SaaS Billing](stages/STAGE-30b-control-plane.md) ★ | 04b, 29, 30 | Licence issuance, usage analytics, subscription billing, abuse queue, vendor console |
-| 31 | Hardening, DR, Packaging & Release | all | Security pass, load test, DR drill, installer, auto-update, docs, handover |
+| 31 | [Hardening, DR, Packaging & Release](stages/STAGE-31-hardening-dr-packaging-release.md) | all | Security pass, load test, DR drill, installer, auto-update, docs, handover |
 
 ★ = added in the Revision 3 gap-closing pass (ADR-055 – ADR-059).
 
