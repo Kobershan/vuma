@@ -1,0 +1,110 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 2011 >>
+stream
+BT
+/F1 9 Tf
+50 760 Td
+(VUMA: CONNECT LOCAL SYSTEM TO CLOUD) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(1. CREATE CLOUD DATABASES) Tj
+0 -16 Td
+(In Neon create: vuma_registry, vuma_cloud, and one database per company.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(2. CONFIGURE CLOUDAPI) Tj
+0 -16 Td
+(export ConnectionStrings__Registry='postgresql://USER:PASSWORD@HOST/vuma_registry?sslmode=require') Tj
+0 -16 Td
+(export ConnectionStrings__Vuma='postgresql://USER:PASSWORD@HOST/vuma_cloud?sslmode=require') Tj
+0 -16 Td
+(export Vuma__Jwt__SigningKey='LONG_RANDOM_PRODUCTION_SECRET') Tj
+0 -16 Td
+(export Vuma__Sync__Node__NodeId='cloud') Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Run:) Tj
+0 -16 Td
+(dotnet VumaRetail.CloudApi.dll --migrate) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(3. CONFIGURE EACH LOCAL STORESERVER) Tj
+0 -16 Td
+(export ConnectionStrings__Vuma='Host=localhost;Port=5432;Database=vuma;Username=vuma;Password=LOCAL_PASSWORD') Tj
+0 -16 Td
+(export Vuma__Sync__Node__NodeId='store:acme') Tj
+0 -16 Td
+(export Vuma__Sync__Peer__NodeId='cloud') Tj
+0 -16 Td
+(export Vuma__Sync__Peer__BaseAddress='https://api.yourdomain.com/') Tj
+0 -16 Td
+(export Vuma__Sync__Peer__AccessToken='STORE_SPECIFIC_SYNC_TOKEN') Tj
+0 -16 Td
+(export Vuma__Sync__Peer__Timeout='00:02:00') Tj
+0 -16 Td
+(export Vuma__Sync__Dispatcher__Enabled='true') Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Each store must use its own sync token.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(4. NETWORK RULES) Tj
+0 -16 Td
+(Local StoreServer needs outbound HTTPS access to https://api.yourdomain.com.) Tj
+0 -16 Td
+(Do not expose PostgreSQL publicly.) Tj
+0 -16 Td
+(Do not put Neon credentials on PCs, tills, desktop clients, or mobile devices.) Tj
+0 -16 Td
+(Only CloudApi connects to Neon.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(5. TEST) Tj
+0 -16 Td
+(curl https://api.yourdomain.com/health) Tj
+0 -16 Td
+(Expected: {"status":"ok"}) Tj
+0 -16 Td
+(Then create a test sale locally and confirm it reaches the cloud.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(FLOW) Tj
+0 -16 Td
+(PC / Mobile -> HTTPS -> StoreServer -> HTTPS sync -> CloudApi -> PostgreSQL -> Neon) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2374
+%%EOF
