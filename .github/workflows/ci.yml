@@ -29,6 +29,15 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      - name: Dependency vulnerability scan
+        run: |
+          set -o pipefail
+          dotnet list VumaRetail.sln package --vulnerable --include-transitive | tee vulnerability-scan.txt
+          if grep -q "has the following vulnerable packages" vulnerability-scan.txt; then
+            echo "::error::Vulnerable NuGet packages detected. Review and remediate before merging."
+            exit 1
+          fi
+
       # Stage 08b: generate WPF ResourceDictionaries, Android Compose themes, and CSS
       # custom properties from design/tokens.json. Deterministic — regenerating produces
       # byte-identical output (see DesignSystemRulesTests.Generated_files_are_deterministic).
@@ -81,7 +90,7 @@ jobs:
     # daemon in the loop, and the fixture takes VUMA_TEST_POSTGRES ahead of Docker (ADR-036).
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: vuma
           POSTGRES_PASSWORD: vuma
@@ -107,6 +116,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo \"$VERSION_CODENAME\")-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
 
       # Stage 04's backup tests are R4's evidence: they take a real snapshot with pg_dump and
       # restore it into an empty database. pg_dump refuses to dump from a server newer than itself,
@@ -237,7 +257,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: vuma
           POSTGRES_PASSWORD: vuma
@@ -328,8 +348,8 @@ jobs:
 
       - name: Fail on vulnerable packages
         run: |
-          dotnet list package --vulnerable --include-transitive 2>&1 | tee scan.log
-          if grep -q "has the following vulnerable packages" scan.log; then
+          dotnet list VumaRetail.sln package --vulnerable --include-transitive 2>&1 | tee scan.log
+          if grep -Eq "has the following vulnerable packages|error NU[0-9]+" scan.log; then
             echo "::error::Vulnerable packages found."
             exit 1
           fi
@@ -337,7 +357,7 @@ jobs:
   package:
     name: Package
     runs-on: windows-latest
-    needs: [test, architecture-tests, design-system-verification, migrate-check]
+    needs: [test, architecture-tests, design-system-verification, migrate-check, vulnerability-scan]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -376,8 +396,27 @@ jobs:
       - name: Build Android APK and Windows Flutter client
         working-directory: mobile
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:VUMA_ANDROID_KEYSTORE_B64) -or
+              [string]::IsNullOrWhiteSpace($env:VUMA_ANDROID_STORE_PASSWORD) -or
+              [string]::IsNullOrWhiteSpace($env:VUMA_ANDROID_KEY_ALIAS) -or
+              [string]::IsNullOrWhiteSpace($env:VUMA_ANDROID_KEY_PASSWORD)) {
+            throw "Android release signing secrets are not configured; refusing an unsigned/debug-signed package."
+          }
+          [IO.File]::WriteAllBytes("$pwd/vuma-release.jks", [Convert]::FromBase64String($env:VUMA_ANDROID_KEYSTORE_B64))
+          $env:ORG_GRADLE_PROJECT_vumaReleaseStoreFile = "$pwd/vuma-release.jks"
+          $env:ORG_GRADLE_PROJECT_vumaReleaseStorePassword = $env:VUMA_ANDROID_STORE_PASSWORD
+          $env:ORG_GRADLE_PROJECT_vumaReleaseKeyAlias = $env:VUMA_ANDROID_KEY_ALIAS
+          $env:ORG_GRADLE_PROJECT_vumaReleaseKeyPassword = $env:VUMA_ANDROID_KEY_PASSWORD
+          # windows-latest ships Visual Studio 2022. Prevent Flutter/CMake from inheriting
+          # a stale Visual Studio 2019 generator that is not installed on the hosted runner.
+          $env:CMAKE_GENERATOR = 'Visual Studio 17 2022'
           flutter build apk --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
           flutter build windows --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
+        env:
+          VUMA_ANDROID_KEYSTORE_B64: ${{ secrets.VUMA_ANDROID_KEYSTORE_B64 }}
+          VUMA_ANDROID_STORE_PASSWORD: ${{ secrets.VUMA_ANDROID_STORE_PASSWORD }}
+          VUMA_ANDROID_KEY_ALIAS: ${{ secrets.VUMA_ANDROID_KEY_ALIAS }}
+          VUMA_ANDROID_KEY_PASSWORD: ${{ secrets.VUMA_ANDROID_KEY_PASSWORD }}
 
       # Run the token generator to ensure generated files are up to date.
       # PowerShell syntax: this job runs on windows-latest (bash subshell syntax fails here).
@@ -389,7 +428,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { echo "::error::Generated files differ from committed output"; exit 1 }
 
       - name: Package
-        run: echo "WPF .exe, Flutter APK, and Flutter Windows artifacts are built; installer signing remains deployment-specific."
+        run: echo "WPF .exe, signed Flutter APK, and Flutter Windows artifacts are built; installer signing remains deployment-specific."
 
       - name: Upload client artifacts
         uses: actions/upload-artifact@v4
