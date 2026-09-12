@@ -61,6 +61,11 @@ public sealed class LoyaltyMember : Entity
     /// <summary>Last successful Orbit sync, UTC.</summary>
     public DateTimeOffset? LastSyncAt { get; private set; }
 
+    /// <summary>Last provider webhook identity and monotonic version accepted for this member.</summary>
+    public string? LastWebhookEventId { get; private set; }
+    /// <summary>Last provider event version accepted for this member.</summary>
+    public long? LastWebhookVersion { get; private set; }
+
     /// <summary>Records a confirmed sync from Orbit.</summary>
     /// <param name="balance">Orbit's reported balance.</param>
     /// <param name="tierId">Orbit's reported tier, if any.</param>
@@ -71,5 +76,21 @@ public sealed class LoyaltyMember : Entity
         BalanceCacheAsAt = syncedAt;
         TierId = tierId;
         LastSyncAt = syncedAt;
+    }
+
+    /// <summary>Applies a provider event only once and never moves its version backwards.</summary>
+    public bool RecordWebhook(string eventId, long? version, decimal balance, string? tierId, DateTimeOffset receivedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventId);
+        if (string.Equals(LastWebhookEventId, eventId, StringComparison.Ordinal)
+            || (version is { } incoming && LastWebhookVersion is { } current && incoming <= current))
+        {
+            return false;
+        }
+
+        RecordSync(balance, tierId, receivedAt);
+        LastWebhookEventId = eventId.Trim();
+        LastWebhookVersion = version;
+        return true;
     }
 }

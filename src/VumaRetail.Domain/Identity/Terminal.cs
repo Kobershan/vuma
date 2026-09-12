@@ -85,6 +85,12 @@ public sealed class Terminal : Entity
     /// <summary>When the terminal last authenticated.</summary>
     public DateTimeOffset? LastSeenAt { get; private set; }
 
+    /// <summary>Consecutive failed PIN attempts received by this terminal.</summary>
+    public int FailedPinAttempts { get; private set; }
+
+    /// <summary>When unmatched PIN attempts stop blocking this terminal.</summary>
+    public DateTimeOffset? PinLockedUntil { get; private set; }
+
     /// <summary>Why the terminal was revoked, recorded for the audit trail.</summary>
     public string? RevocationReason { get; private set; }
 
@@ -168,6 +174,32 @@ public sealed class Terminal : Entity
             // more than the piracy it would have caught.
             HasFingerprintDrift = true;
         }
+    }
+
+    /// <summary>True while unmatched PIN attempts have locked this terminal.</summary>
+    public bool IsPinLockedOut(DateTimeOffset now) => PinLockedUntil > now;
+
+    /// <summary>Records an unmatched PIN attempt against the authenticated terminal.</summary>
+    /// <param name="now">The current instant.</param>
+    /// <param name="policy">The server-side failure policy.</param>
+    public void RecordFailedPinAttempt(DateTimeOffset now, CredentialPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+
+        FailedPinAttempts++;
+        if (FailedPinAttempts >= policy.MaxFailedAttempts)
+        {
+            PinLockedUntil = now + policy.LockoutDuration;
+        }
+    }
+
+    /// <summary>Clears the terminal-level unmatched PIN counter after a successful PIN sign-in.</summary>
+    /// <param name="now">The current instant.</param>
+    public void RecordSuccessfulPinAttempt(DateTimeOffset now)
+    {
+        LastSeenAt = now;
+        FailedPinAttempts = 0;
+        PinLockedUntil = null;
     }
 
     /// <summary>Revokes the terminal. Its certificate stops authenticating immediately.</summary>

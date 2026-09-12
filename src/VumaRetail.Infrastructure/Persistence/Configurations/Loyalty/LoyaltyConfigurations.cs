@@ -21,6 +21,8 @@ internal sealed class LoyaltyMemberConfiguration : EntityConfiguration<LoyaltyMe
         builder.Property(member => member.BalanceCache).IsRequired().HasColumnType("numeric(18,4)");
         builder.Property(member => member.BalanceCacheAsAt).IsRequired();
         builder.Property(member => member.LastSyncAt);
+        builder.Property(member => member.LastWebhookEventId).HasMaxLength(200);
+        builder.Property(member => member.LastWebhookVersion);
 
         // One enrolment per customer per company.
         builder.HasIndex(member => new { member.TenantId, member.CompanyId, member.CustomerId })

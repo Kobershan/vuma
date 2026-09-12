@@ -149,6 +149,7 @@ internal sealed class TerminalConfiguration : EntityConfiguration<Terminal>
         builder.Property(terminal => terminal.CertificateThumbprint).HasMaxLength(64).IsFixedLength();
         builder.Property(terminal => terminal.DeviceFingerprint).HasMaxLength(256);
         builder.Property(terminal => terminal.HasFingerprintDrift).IsRequired();
+        builder.Property(terminal => terminal.FailedPinAttempts).IsRequired();
         builder.Property(terminal => terminal.RevocationReason).HasMaxLength(256);
         builder.Ignore(terminal => terminal.CanAuthenticate);
 
