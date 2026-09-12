@@ -7,6 +7,7 @@ using VumaRetail.Application.Hr;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
 
 namespace VumaRetail.Web.Hr;
 
