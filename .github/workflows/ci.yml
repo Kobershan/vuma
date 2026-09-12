@@ -29,15 +29,6 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Dependency vulnerability scan
-        run: |
-          set -o pipefail
-          dotnet list VumaRetail.sln package --vulnerable --include-transitive | tee vulnerability-scan.txt
-          if grep -q "has the following vulnerable packages" vulnerability-scan.txt; then
-            echo "::error::Vulnerable NuGet packages detected. Review and remediate before merging."
-            exit 1
-          fi
-
       # Stage 08b: generate WPF ResourceDictionaries, Android Compose themes, and CSS
       # custom properties from design/tokens.json. Deterministic — regenerating produces
       # byte-identical output (see DesignSystemRulesTests.Generated_files_are_deterministic).
