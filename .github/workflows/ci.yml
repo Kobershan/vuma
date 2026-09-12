@@ -399,9 +399,15 @@ jobs:
           $env:ORG_GRADLE_PROJECT_vumaReleaseStorePassword = $env:VUMA_ANDROID_STORE_PASSWORD
           $env:ORG_GRADLE_PROJECT_vumaReleaseKeyAlias = $env:VUMA_ANDROID_KEY_ALIAS
           $env:ORG_GRADLE_PROJECT_vumaReleaseKeyPassword = $env:VUMA_ANDROID_KEY_PASSWORD
-          # windows-latest ships Visual Studio 2022. Prevent Flutter/CMake from inheriting
-          # a stale Visual Studio 2019 generator that is not installed on the hosted runner.
-          $env:CMAKE_GENERATOR = 'Visual Studio 17 2022'
+          # Flutter 3.35 can fall back to its retired VS 2019 generator when the hosted
+          # runner's Visual Studio probe is inconclusive. Patch only the ephemeral SDK copy;
+          # windows-latest ships VS 2022 and the repository must never carry SDK modifications.
+          $flutterWindowsTool = Join-Path $env:FLUTTER_ROOT 'packages/flutter_tools/lib/src/windows'
+          Get-ChildItem -Path $flutterWindowsTool -Filter '*.dart' -File | ForEach-Object {
+            $content = Get-Content -Raw $_.FullName
+            $updated = $content.Replace('Visual Studio 16 2019', 'Visual Studio 17 2022')
+            if ($updated -ne $content) { Set-Content -Path $_.FullName -Value $updated -NoNewline }
+          }
           flutter build apk --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
           flutter build windows --release --dart-define=VUMA_API_BASE_URL=${{ secrets.VUMA_API_BASE_URL }}
         env:
