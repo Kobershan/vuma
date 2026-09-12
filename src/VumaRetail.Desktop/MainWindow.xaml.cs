@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         var configured = Environment.GetEnvironmentVariable("VUMA_API_BASE_URL");
-        if (!string.IsNullOrWhiteSpace(configured)) ApiUrlInput.Text = configured;
+        if (!string.IsNullOrWhiteSpace(configured)) _api.BaseUrl = configured.TrimEnd('/');
     }
 
     private async void SignIn_Click(object sender, RoutedEventArgs e)
@@ -37,7 +37,6 @@ public partial class MainWindow : Window
         LoginError.Text = string.Empty;
         try
         {
-            _api.BaseUrl = ApiUrlInput.Text.Trim().TrimEnd('/');
             await _api.SignInAsync(UsernameInput.Text.Trim(), PasswordInput.Password);
             ConnectedEndpoint.Text = _api.BaseUrl;
             LoginView.Visibility = Visibility.Collapsed;
@@ -82,7 +81,22 @@ public partial class MainWindow : Window
             OverviewPanel.Visibility = Visibility.Visible;
             ActivityPanel.Visibility = Visibility.Visible;
             ModulePanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Collapsed;
             _ = RefreshOverviewAsync();
+            return;
+        }
+
+        if (key == "Settings")
+        {
+            PageEyebrow.Text = "CONTROL";
+            PageTitle.Text = "Settings";
+            PageSubtitle.Text = "Configure this client after authentication.";
+            OverviewPanel.Visibility = Visibility.Collapsed;
+            ActivityPanel.Visibility = Visibility.Collapsed;
+            ModulePanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Visible;
+            SettingsApiUrl.Text = _api.BaseUrl;
+            StatusText.Text = "Connection settings are available only after sign-in.";
             return;
         }
 
@@ -93,6 +107,7 @@ public partial class MainWindow : Window
         OverviewPanel.Visibility = Visibility.Collapsed;
         ActivityPanel.Visibility = Visibility.Collapsed;
         ModulePanel.Visibility = Visibility.Visible;
+        SettingsPanel.Visibility = Visibility.Collapsed;
         ModuleTitle.Text = module.Title;
         ModuleDescription.Text = module.Description;
         ModuleCapabilities.Text = module.Capabilities;
@@ -102,6 +117,20 @@ public partial class MainWindow : Window
     private void NewSale_Click(object sender, RoutedEventArgs e)
     {
         Navigate_Click(new Button { Tag = "POS" }, e);
+    }
+
+    private void SaveSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var value = SettingsApiUrl.Text.Trim().TrimEnd('/');
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            StatusText.Text = "Enter a valid HTTP or HTTPS API endpoint.";
+            return;
+        }
+
+        _api.BaseUrl = value;
+        ConnectedEndpoint.Text = value;
+        StatusText.Text = "API endpoint saved for this session. Sign in again if the endpoint changed.";
     }
 
     private sealed class DesktopApi
