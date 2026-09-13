@@ -1,4 +1,7 @@
 using FluentAssertions;
+using NSubstitute;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Service;
 using VumaRetail.Domain.Service;
 
 namespace VumaRetail.UnitTests.Service;
@@ -8,6 +11,25 @@ public sealed class ServiceDomainTests
     private static readonly Guid TenantId = Guid.NewGuid();
     private static readonly Guid CompanyId = Guid.NewGuid();
     private static readonly Guid CustomerId = Guid.NewGuid();
+
+    [Fact]
+    public async Task Sla_creation_is_company_scoped_and_rejects_duplicate_names()
+    {
+        IServiceRepository services = Substitute.For<IServiceRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        CreateServiceSlaCommandHandler handler = new(services, tenant);
+        CreateServiceSlaCommand command = new(CompanyId, "Standard", 4m, 24m);
+
+        Guid id = await handler.HandleAsync(command);
+        id.Should().NotBeEmpty();
+        await services.Received(1).FindSlaByNameAsync(CompanyId, "Standard", Arg.Any<CancellationToken>());
+        services.Received(1).Add(Arg.Is<ServiceSla>(x => x.CompanyId == CompanyId && x.Name == "Standard"));
+
+        ServiceSla existing = ServiceSla.Create(TenantId, CompanyId, "Standard", 4m, 24m);
+        services.FindSlaByNameAsync(CompanyId, "Standard", Arg.Any<CancellationToken>()).Returns(existing);
+        await FluentActions.Invoking(() => handler.HandleAsync(command)).Should().ThrowAsync<InvalidOperationException>();
+    }
 
     [Fact]
     public void Customer_custody_is_a_record_and_does_not_change_stock()

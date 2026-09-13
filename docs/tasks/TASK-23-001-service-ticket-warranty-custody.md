@@ -16,8 +16,8 @@
 
 ## Remaining
 
-Add persistence mappings and migration, scoped application commands and permissions, API contracts,
-custody query/export controls, and real PostgreSQL tenant/company isolation evidence.
+Add custody export controls and real PostgreSQL tenant/company isolation evidence. SLA policy creation
+is now covered by TASK-23-004.
 
 Persistence mapping and migrations `20260913163837_Stage23_ServiceManagement` and
 `20260913164736_Stage23_ServiceTicketOperationId` are now present; the PostgreSQL Up/Down test

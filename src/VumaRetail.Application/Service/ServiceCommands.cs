@@ -9,6 +9,25 @@ using VumaRetail.Domain.Service;
 namespace VumaRetail.Application.Service;
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record CreateServiceSlaCommand(Guid CompanyId, string Name, decimal ResponseHours, decimal ResolutionHours) : ICommand<Guid>;
+
+public sealed class CreateServiceSlaCommandHandler(IServiceRepository services, ITenantContext tenant)
+    : ICommandHandler<CreateServiceSlaCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(CreateServiceSlaCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.CompanyId == Guid.Empty) throw new ArgumentException("Company is required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Name);
+        if (await services.FindSlaByNameAsync(command.CompanyId, command.Name, cancellationToken).ConfigureAwait(false) is not null)
+            throw new InvalidOperationException("An SLA with this name already exists for the company.");
+        ServiceSla sla = ServiceSla.Create(tenant.TenantId, command.CompanyId, command.Name, command.ResponseHours, command.ResolutionHours);
+        services.Add(sla);
+        return sla.Id;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record OpenServiceTicketCommand(Guid OperationId, Guid CompanyId, Guid CustomerId, string Subject) : ICommand<Guid>;
 
 public sealed class OpenServiceTicketCommandHandler(IServiceRepository services, ITenantContext tenant,

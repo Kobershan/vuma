@@ -26,7 +26,7 @@ Add mappings/repositories for the listed types under `src/VumaRetail.Infrastruct
 
 ### API
 
-`/api/v1/service/tickets`, `/warranties`, `/repairs`, `/parts`, `/custody`; own-ticket public DTOs only via the public host. These are planned contracts: publish OpenAPI examples, permissions, idempotency, concurrency and error codes before client implementation. For server modules, routes live in `src/VumaRetail.Web/`; customer-facing DTOs stay in `src/VumaRetail.PublicApi/`. Preserve route compatibility where an endpoint exists already.
+`/api/v1/service/tickets`, `/warranties`, `/repairs`, `/parts`, `/slas`, `/custody`; own-ticket public DTOs only via the public host. These are planned contracts: publish OpenAPI examples, permissions, idempotency, concurrency and error codes before client implementation. For server modules, routes live in `src/VumaRetail.Web/`; customer-facing DTOs stay in `src/VumaRetail.PublicApi/`. Preserve route compatibility where an endpoint exists already.
 
 ### Permissions and entitlement
 
@@ -56,6 +56,8 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 - 2026-09-13: Added `ServiceTicket`, `WarrantyClaim`, and append-only `ServiceCustodyEvent`
   domain records under `src/VumaRetail.Domain/Service/`. The warranty serial is a frozen sale
   snapshot; customer custody is not a stock ledger entry; ticket closure is lifecycle-gated.
+- 2026-09-13: Added persisted SLA policy creation with duplicate-name protection and the permissioned
+  `POST /api/v1/service/slas` route. Service-focused unit tests: **28/28 passed**.
 - Focused domain tests: **3/3 passed** in `ServiceDomainTests`.
 - Remaining: EF mappings/migration, repositories, commands, permissions/entitlements, API routes,
   parts and financial integration, SLA clock, PostgreSQL acceptance, and specialist review.

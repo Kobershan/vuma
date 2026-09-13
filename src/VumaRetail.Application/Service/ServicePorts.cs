@@ -13,10 +13,12 @@ public interface IServiceRepository
     Task<WarrantyClaim?> FindWarrantyAsync(Guid id, CancellationToken cancellationToken = default);
     Task<RepairJob?> FindRepairAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServicePartUsage?> FindPartUsageByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    Task<ServiceSla?> FindSlaByNameAsync(Guid companyId, string name, CancellationToken cancellationToken = default);
     void Add(ServiceTicket ticket);
     void Add(WarrantyClaim claim);
     void Add(RepairJob job);
     void Add(ServicePartUsage usage);
+    void Add(ServiceSla sla);
 }
 
 /// <summary>Calculates elapsed service time using the configured working calendar.</summary>

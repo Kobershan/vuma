@@ -25,6 +25,7 @@ public static class ServiceEndpoints
         service.MapPost("/repairs", OpenRepairAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapPost("/repairs/{id:guid}/complete", CompleteRepairAsync).RequirePermission(ServicePermissions.Manage).Produces(StatusCodes.Status204NoContent);
         service.MapPost("/parts", IssuePartAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        service.MapPost("/slas", CreateSlaAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapGet("/custody", ListCustodyAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceCustodyResult>>();
         return endpoints;
     }
@@ -103,10 +104,20 @@ public static class ServiceEndpoints
         return Results.Created($"/api/v1/service/parts/{id:D}", id);
     }
 
+    private static async Task<IResult> CreateSlaAsync(CreateSlaRequest request, ICompanyContext company,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(request.CompanyId);
+        Guid id = await dispatcher.SendAsync(new CreateServiceSlaCommand(request.CompanyId, request.Name,
+            request.ResponseHours, request.ResolutionHours), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/service/slas/{id:D}", id);
+    }
+
     public sealed record OpenTicketRequest(Guid OperationId, Guid CompanyId, Guid CustomerId, string Subject);
     public sealed record SubmitWarrantyRequest(Guid CompanyId, Guid TicketId, Guid CustomerId, string SaleReference, DateOnly SaleDate, string SerialNumber);
     public sealed record ApproveWarrantyRequest(string SoldSerialNumber);
     public sealed record OpenRepairRequest(Guid CompanyId, Guid TicketId, string ItemReference);
     public sealed record IssuePartRequest(Guid OperationId, Guid CompanyId, Guid RepairJobId, Guid LocationId,
         Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure);
+    public sealed record CreateSlaRequest(Guid CompanyId, string Name, decimal ResponseHours, decimal ResolutionHours);
 }
