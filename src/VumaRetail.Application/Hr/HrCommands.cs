@@ -1,7 +1,10 @@
  #pragma warning disable CS1591, IDE0011, CA1062
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace VumaRetail.Application.Hr;
 
@@ -37,6 +40,8 @@ public sealed record GetEmployeeAvailabilityQuery(Guid EmployeeId, DateTimeOffse
 public sealed record RequestShiftSwapCommand(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt) : ICommand<Guid>;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approved) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record PublishRosterCommand(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId = null) : ICommand<Guid>;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
@@ -131,6 +136,20 @@ public sealed class RequestShiftSwapCommandHandler(IEmployeeRepository employees
         return request.Id;
     }
 }
+public sealed class PublishRosterCommandHandler(IShiftRepository shifts, IRosterPublicationRepository publications, ITenantContext tenant, ICompanyContext company, IClock clock) : ICommandHandler<PublishRosterCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(PublishRosterCommand c, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        if (company.CompanyId is not { } active || active != c.CompanyId) throw new InvalidOperationException("The roster company is not the active company.");
+        IReadOnlyList<Shift> roster = await shifts.ListAsync(c.From, c.To, null, token).ConfigureAwait(false);
+        var rows = roster.Where(x => c.StoreId is null || x.StoreId == c.StoreId).OrderBy(x => x.StartsAt).ThenBy(x => x.Id).Select(x => $"{x.Id:D}|{x.EmployeeId:D}|{x.StartsAt:O}|{x.EndsAt:O}|{x.Role}|{x.Status}");
+        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n", rows))));
+        var publication = RosterPublication.Publish(tenant.TenantId, c.StoreId, c.CompanyId, c.From, c.To, roster.Count, hash, clock.UtcNow);
+        publications.Add(publication);
+        return publication.Id;
+    }
+}
 public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts) : ICommandHandler<DecideShiftSwapCommand, Unit>
 {
     public async Task<Unit> HandleAsync(DecideShiftSwapCommand c, CancellationToken token = default)
@@ -153,6 +172,7 @@ public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, Cancel
 public interface IEmploymentContractRepository { void Add(EmploymentContract contract); Task<IReadOnlyList<EmploymentContract>> ListAsync(Guid employeeId, CancellationToken token = default); }
 public interface IShiftRepository { void Add(Shift shift); Task<Shift?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Shift>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); }
 public interface IShiftSwapRequestRepository { void Add(ShiftSwapRequest request); Task<ShiftSwapRequest?> FindAsync(Guid id, CancellationToken token = default); }
+public interface IRosterPublicationRepository { void Add(RosterPublication publication); }
 public interface IAttendanceRepository { void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }

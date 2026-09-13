@@ -35,6 +35,7 @@ public static class HrEndpoints
         workforce.MapPost("/shifts", async (CreateShiftRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shifts", await d.SendAsync(new CreateShiftCommand(r.EmployeeId, r.StartsAt, r.EndsAt, r.Role, r.StoreId), ct))).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/shift-swaps", async (RequestShiftSwapRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shift-swaps", await d.SendAsync(new RequestShiftSwapCommand(r.ShiftId, r.FromEmployeeId, r.ToEmployeeId, r.RequestedAt), ct))).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/shift-swaps/{id:guid}/decision", async (Guid id, ShiftSwapDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideShiftSwapCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(WorkforcePermissions.Manage);
+        workforce.MapPost("/rosters/publish", async (PublishRosterRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/rosters", await d.SendAsync(new PublishRosterCommand(r.CompanyId, r.From, r.To, r.StoreId), ct))).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/attendance", async (RecordAttendanceRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/attendance", await d.SendAsync(new RecordAttendanceCommand(r.EmployeeId, r.ShiftId, r.EventType, r.OccurredAt, r.Source), ct))).RequirePermission(WorkforcePermissions.AttendanceRecord);
         return endpoints;
     }
@@ -48,4 +49,5 @@ public static class HrEndpoints
     public sealed record RecordAttendanceRequest(Guid EmployeeId, Guid? ShiftId, AttendanceEventType EventType, DateTimeOffset OccurredAt, string? Source);
     public sealed record RequestShiftSwapRequest(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt);
     public sealed record ShiftSwapDecisionRequest(bool Approved);
+    public sealed record PublishRosterRequest(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId);
 }

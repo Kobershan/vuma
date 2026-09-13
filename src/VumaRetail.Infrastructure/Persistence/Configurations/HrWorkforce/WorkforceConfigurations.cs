@@ -20,3 +20,9 @@ internal sealed class ShiftSwapRequestConfiguration : EntityConfiguration<ShiftS
     protected override void ConfigureEntity(EntityTypeBuilder<ShiftSwapRequest> b)
     { b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); b.HasIndex(x => new { x.TenantId, x.ShiftId, x.Status }); b.HasIndex(x => new { x.TenantId, x.FromEmployeeId, x.RequestedAt }); }
 }
+internal sealed class RosterPublicationConfiguration : EntityConfiguration<RosterPublication>
+{
+    protected override string Schema => Schemas.HrWorkforce; protected override string TableName => "roster_publications";
+    protected override void ConfigureEntity(EntityTypeBuilder<RosterPublication> b)
+    { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.SnapshotHash).HasMaxLength(64).IsRequired(); b.Property(x => x.ShiftCount).IsRequired(); b.Property(x => x.PublishedAt).IsRequired(); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.From, x.To }); }
+}

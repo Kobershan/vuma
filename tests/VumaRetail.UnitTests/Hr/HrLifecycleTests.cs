@@ -2,6 +2,7 @@ using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Application.Hr;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using NSubstitute;
 
 namespace VumaRetail.UnitTests.Hr;
@@ -156,5 +157,27 @@ public sealed class HrLifecycleTests
 
         request.Status.Should().Be(ShiftSwapStatus.Approved);
         shift.EmployeeId.Should().Be(request.ToEmployeeId);
+    }
+
+    [Fact]
+    public async Task Roster_publication_captures_a_deterministic_hash_and_scope()
+    {
+        var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+        var shifts = Substitute.For<IShiftRepository>();
+        shifts.ListAsync(start, start.AddDays(1), null, Arg.Any<CancellationToken>()).Returns(new[] { shift });
+        var publications = Substitute.For<IRosterPublicationRepository>();
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(start);
+
+        var id = await new PublishRosterCommandHandler(shifts, publications, tenant, company, clock)
+            .HandleAsync(new PublishRosterCommand(company.CompanyId!.Value, start, start.AddDays(1)));
+
+        id.Should().NotBeEmpty();
+        publications.Received(1).Add(Arg.Is<RosterPublication>(publication => publication.ShiftCount == 1 && publication.SnapshotHash.Length == 64));
     }
 }
