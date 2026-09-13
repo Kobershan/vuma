@@ -23,4 +23,19 @@ public sealed class ServiceSlaClockTests
             new DateTimeOffset(2026, 9, 13, 17, 0, 0, TimeSpan.Zero)).Should().Be(0m);
         clock.WorkingHoursBetween(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(-1)).Should().Be(0m);
     }
+
+    [Fact]
+    public void Adds_working_hours_across_close_and_weekend_boundaries()
+    {
+        DateTimeOffset start = new(2026, 9, 18, 16, 0, 0, TimeSpan.Zero); // Friday
+
+        clock.AddWorkingHours(start, 2m).Should().Be(new DateTimeOffset(2026, 9, 21, 10, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Rejects_negative_sla_duration()
+    {
+        var action = () => clock.AddWorkingHours(DateTimeOffset.UtcNow, -1m);
+        action.Should().Throw<ArgumentOutOfRangeException>();
+    }
 }

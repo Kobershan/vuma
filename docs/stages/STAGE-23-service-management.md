@@ -75,6 +75,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - `Part_retry_does_not_double_issue`: issue two parts at ZAR 30 each, retry; usage is 2 and cost is ZAR 60.
 - `Warranty_serial_must_match`: serial B cannot claim against serial A's sale.
 - `Paused_sla_excludes_wait`: 8-hour SLA, 2 working hours elapsed plus 24 hours waiting-for-customer; 6 working hours remain.
+
+- 2026-09-13: `BusinessHoursServiceSlaClock` now also computes deterministic SLA deadlines across
+  closing times and weekends; focused service tests cover forward deadline calculation and negative
+  duration refusal. Worker execution and waiting-for-customer pause accounting remain open.
 - `Other_tenant_and_unauthorized_company_are_denied`: authenticated tenant A/company A cannot read, mutate, export or enqueue for tenant B/company B by changing an ID.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.

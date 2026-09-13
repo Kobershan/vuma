@@ -25,6 +25,7 @@ public interface IServiceRepository
 public interface IServiceSlaClock
 {
     decimal WorkingHoursBetween(DateTimeOffset startUtc, DateTimeOffset endUtc);
+    DateTimeOffset AddWorkingHours(DateTimeOffset startUtc, decimal workingHours);
 }
 
 /// <summary>UTC weekday business-hours calculator used by service SLA policies.</summary>
@@ -68,5 +69,39 @@ public sealed class BusinessHoursServiceSlaClock : IServiceSlaClock
             cursor = new DateTimeOffset(cursor.Date.AddDays(1), TimeSpan.Zero);
         }
         return totalHours;
+    }
+
+    public DateTimeOffset AddWorkingHours(DateTimeOffset startUtc, decimal workingHours)
+    {
+        if (workingHours < 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(workingHours));
+        }
+        if (workingHours == 0m)
+        {
+            return startUtc.ToUniversalTime();
+        }
+
+        DateTimeOffset cursor = startUtc.ToUniversalTime();
+        decimal remaining = workingHours;
+        while (true)
+        {
+            if (cursor.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+            {
+                DateTimeOffset dayOpen = new(cursor.Date.Add(openingTime.ToTimeSpan()), TimeSpan.Zero);
+                DateTimeOffset dayClose = new(cursor.Date.Add(closingTime.ToTimeSpan()), TimeSpan.Zero);
+                DateTimeOffset from = cursor < dayOpen ? dayOpen : cursor;
+                if (from < dayClose)
+                {
+                    decimal available = (decimal)(dayClose - from).TotalHours;
+                    if (remaining <= available)
+                    {
+                        return from.AddHours((double)remaining);
+                    }
+                    remaining -= available;
+                }
+            }
+            cursor = new DateTimeOffset(cursor.Date.AddDays(1), TimeSpan.Zero);
+        }
     }
 }
