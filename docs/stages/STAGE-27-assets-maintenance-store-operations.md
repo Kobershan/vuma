@@ -1,6 +1,6 @@
 # STAGE 27 — Assets, Maintenance and Store Operations
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 07, 25; integration with 05, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [HR stage](STAGE-25-hr-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — asset lifecycle and depreciation calculation foundation implemented; persistence, API, finance posting and acceptance remain · **Depends on:** 07, 25; integration with 05, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [HR stage](STAGE-25-hr-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,13 +44,17 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
 
 ## Parts — the build list
 
-- [ ] 27-P01: Implement asset books, capitalization, custody and depreciation schedules.
+- [~] 27-P01: Implement asset books, capitalization, custody and depreciation schedules. Domain lifecycle,
+  book invariants, residual floor and useful-life calculation are implemented; persistence and period
+  idempotency remain.
 - [ ] 27-P02: Integrate maintenance, leases, procurement and Finance posting events.
 - [ ] 27-P03: Implement local checklist queue APIs, evidence attachments and period-close acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
+
+Progress evidence: `AssetTests.Depreciation_stops_at_residual_after_useful_life` passes **1/1**.
 
 - `Depreciation_stops_at_residual`: cost ZAR 12,000, residual zero, useful life 12 months, straight-line monthly policy; 12 charges of ZAR 1,000, no thirteenth charge.
 - `Depreciation_period_retry_is_noop`: run the same asset-book-period twice; one journal only.
@@ -70,4 +74,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
