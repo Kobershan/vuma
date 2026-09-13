@@ -13,7 +13,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913174706_Stage27AssetBooks").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913180901_Stage27DepreciationRuns").ConfigureAwait(false);
 
         IReadOnlyList<string> assetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -21,7 +21,16 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             WHERE table_schema = 'assets'
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
-        assetTables.Should().BeEquivalentTo(["asset_books", "fixed_assets"], options => options.WithStrictOrdering());
+        assetTables.Should().BeEquivalentTo(["asset_books", "depreciation_runs", "fixed_assets"], options => options.WithStrictOrdering());
+
+        await context.Database.MigrateAsync("20260913174706_Stage27AssetBooks").ConfigureAwait(false);
+        IReadOnlyList<string> remainingAssetTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'assets'
+            ORDER BY table_name
+            """).ToListAsync().ConfigureAwait(false);
+        remainingAssetTables.Should().BeEquivalentTo(["asset_books", "fixed_assets"], options => options.WithStrictOrdering());
 
         await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
         IReadOnlyList<string> revertedAssetTables = await context.Database.SqlQuery<string>($"""

@@ -60,6 +60,31 @@ public sealed class AssetBook : Entity
 
 public sealed record DepreciationCharge(Guid AssetId, Guid AssetBookId, DateOnly Period, Money Amount, Money ClosingNetBookValue);
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
+public sealed class DepreciationRun : Entity
+{
+    private DepreciationRun(Guid tenantId, Guid? storeId, Guid companyId, Guid assetId, Guid assetBookId,
+        DateOnly period, Money amount, Money closingNetBookValue) : base(tenantId, storeId)
+    {
+        AssignCompany(companyId); AssetId = assetId; AssetBookId = assetBookId; Period = period;
+        Amount = amount; ClosingNetBookValue = closingNetBookValue;
+    }
+    private DepreciationRun() { }
+    public Guid AssetId { get; private set; }
+    public Guid AssetBookId { get; private set; }
+    public DateOnly Period { get; private set; }
+    public Money Amount { get; private set; }
+    public Money ClosingNetBookValue { get; private set; }
+
+    public static DepreciationRun Record(Guid tenantId, Guid? storeId, Guid companyId, DepreciationCharge charge)
+    {
+        ArgumentNullException.ThrowIfNull(charge);
+        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        return new DepreciationRun(tenantId, storeId, companyId, charge.AssetId, charge.AssetBookId,
+            charge.Period, charge.Amount, charge.ClosingNetBookValue);
+    }
+}
+
 public static class DepreciationCalculator
 {
     public static DepreciationCharge Calculate(FixedAsset asset, AssetBook book, DateOnly period)

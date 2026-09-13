@@ -578,6 +578,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Fixed assets and company-specific depreciation books (Stage 27).</summary>
     public DbSet<Domain.Assets.FixedAsset> FixedAssets => Set<Domain.Assets.FixedAsset>();
     public DbSet<Domain.Assets.AssetBook> AssetBooks => Set<Domain.Assets.AssetBook>();
+    /// <summary>Idempotent asset-book depreciation periods (Stage 27).</summary>
+    public DbSet<Domain.Assets.DepreciationRun> DepreciationRuns => Set<Domain.Assets.DepreciationRun>();
 
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();

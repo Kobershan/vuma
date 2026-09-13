@@ -8,6 +8,8 @@ public interface IAssetRepository
     Task<FixedAsset?> FindAssetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AssetBook?> FindBookAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AssetBook?> FindBookAsync(Guid assetId, string bookName, CancellationToken cancellationToken = default);
+    Task<DepreciationRun?> FindDepreciationRunAsync(Guid assetBookId, DateOnly period, CancellationToken cancellationToken = default);
     void Add(FixedAsset asset);
     void Add(AssetBook book);
+    void Add(DepreciationRun run);
 }
