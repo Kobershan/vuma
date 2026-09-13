@@ -42,6 +42,21 @@ namespace VumaRetail.Infrastructure.Migrations
                 type: "jsonb",
                 nullable: false,
                 defaultValue: "");
+
+            migrationBuilder.AddColumn<string>(
+                name: "last_webhook_event_id",
+                schema: "loyalty",
+                table: "members",
+                type: "character varying(200)",
+                maxLength: 200,
+                nullable: true);
+
+            migrationBuilder.AddColumn<long>(
+                name: "last_webhook_version",
+                schema: "loyalty",
+                table: "members",
+                type: "bigint",
+                nullable: true);
         }
 
         /// <inheritdoc />
@@ -66,6 +81,16 @@ namespace VumaRetail.Infrastructure.Migrations
                 name: "scrap_records",
                 schema: "manufacturing",
                 table: "production_orders");
+
+            migrationBuilder.DropColumn(
+                name: "last_webhook_event_id",
+                schema: "loyalty",
+                table: "members");
+
+            migrationBuilder.DropColumn(
+                name: "last_webhook_version",
+                schema: "loyalty",
+                table: "members");
         }
     }
 }
