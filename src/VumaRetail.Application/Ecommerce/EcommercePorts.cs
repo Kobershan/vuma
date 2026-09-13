@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Ecommerce;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 
 namespace VumaRetail.Application.Ecommerce;
 
@@ -45,5 +46,59 @@ public sealed class ListStorefrontProductsQueryHandler(
         return (await products.ListAsync(channel.Id, limit, cancellationToken).ConfigureAwait(false))
             .Select(x => new StorefrontProductResult(x.Id, x.Sku, x.Name, x.Description, x.Price, x.Currency,
                 x.Available, x.AvailabilityAsAt, x.Version)).ToList();
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RegisterChannelCommand(Guid CompanyId, string Code, string Host) : ICommand<Guid>;
+
+public sealed class RegisterChannelCommandHandler(IChannelConnectionRepository channels, ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<RegisterChannelCommand, Guid>
+{
+    public Task<Guid> HandleAsync(RegisterChannelCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        EnsureCompany(company, command.CompanyId, "channel");
+        ChannelConnection channel = ChannelConnection.Register(tenant.TenantId, command.CompanyId, command.Code, command.Host);
+        channel.Activate();
+        channels.Add(channel);
+        return Task.FromResult(channel.Id);
+    }
+
+    internal static void EnsureCompany(ICompanyContext company, Guid expected, string resource)
+    {
+        if (company.CompanyId is not { } active || active != expected)
+        {
+            throw new InvalidOperationException($"The {resource} company is not the active company.");
+        }
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record PublishProductCommand(Guid ChannelId, Guid CompanyId, Guid? ItemId, Guid? ItemVariantId,
+    string Sku, string Name, string? Description, decimal Price, string Currency, decimal Available,
+    DateTimeOffset AvailabilityAsAt, int Version) : ICommand<Guid>;
+
+public sealed class PublishProductCommandHandler(
+    IChannelConnectionRepository channels, IPublishedProductRepository products, ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<PublishProductCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(PublishProductCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "product");
+        // The repository is tenant-filtered, and the company check prevents a caller from using an
+        // otherwise valid channel id while another company is active.
+        ChannelConnection channel = await channels.FindAsync(command.ChannelId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Storefront channel not found.");
+        if (channel.CompanyId != command.CompanyId || channel.Status != ChannelConnectionStatus.Active)
+        {
+            throw new InvalidOperationException("Storefront channel is not active for the selected company.");
+        }
+        PublishedProduct product = PublishedProduct.Publish(tenant.TenantId, command.CompanyId, channel.Id,
+            command.ItemId, command.ItemVariantId, command.Sku, command.Name, command.Description, command.Price,
+            command.Currency, command.Available, command.AvailabilityAsAt, command.Version);
+        products.Add(product);
+        return product.Id;
     }
 }
