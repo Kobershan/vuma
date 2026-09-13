@@ -8,6 +8,7 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Quality;
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record PlaceQualityHoldCommand(
     Guid OperationId,
     Guid CompanyId,
@@ -71,6 +72,7 @@ public sealed class PlaceQualityHoldCommandHandler(
     }
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ReleaseQualityHoldCommand(Guid HoldId, string Reason) : ICommand;
 
 public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, IClock clock)

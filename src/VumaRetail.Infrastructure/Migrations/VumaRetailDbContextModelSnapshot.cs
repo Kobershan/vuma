@@ -25735,45 +25735,6 @@ namespace VumaRetail.Infrastructure.Migrations
 
             modelBuilder.Entity("VumaRetail.Domain.Orders.SalesOrder", b =>
                 {
-                    b.OwnsOne("VumaRetail.Domain.Orders.DeliveryGeography", "DeliveryGeography", b1 =>
-                        {
-                            b1.Property<Guid>("SalesOrderId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("id");
-
-                            b1.Property<string>("City")
-                                .IsRequired()
-                                .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
-                                .HasColumnName("delivery_city");
-
-                            b1.Property<string>("PostalCode")
-                                .IsRequired()
-                                .HasMaxLength(16)
-                                .HasColumnType("character varying(16)")
-                                .HasColumnName("delivery_postal_code");
-
-                            b1.Property<string>("Province")
-                                .IsRequired()
-                                .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
-                                .HasColumnName("delivery_province");
-
-                            b1.Property<string>("Suburb")
-                                .IsRequired()
-                                .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
-                                .HasColumnName("delivery_suburb");
-
-                            b1.HasKey("SalesOrderId");
-
-                            b1.ToTable("sales_orders", "orders");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SalesOrderId")
-                                .HasConstraintName("fk_sales_orders_sales_orders_id");
-                        });
-
                     b.OwnsOne("VumaRetail.Domain.Primitives.Address", "DeliveryAddress", b1 =>
                         {
                             b1.Property<Guid>("SalesOrderId")
@@ -25810,6 +25771,45 @@ namespace VumaRetail.Infrastructure.Migrations
                                 .HasMaxLength(128)
                                 .HasColumnType("character varying(128)")
                                 .HasColumnName("delivery_address_region");
+
+                            b1.HasKey("SalesOrderId");
+
+                            b1.ToTable("sales_orders", "orders");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SalesOrderId")
+                                .HasConstraintName("fk_sales_orders_sales_orders_id");
+                        });
+
+                    b.OwnsOne("VumaRetail.Domain.Orders.DeliveryGeography", "DeliveryGeography", b1 =>
+                        {
+                            b1.Property<Guid>("SalesOrderId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("delivery_city");
+
+                            b1.Property<string>("PostalCode")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("delivery_postal_code");
+
+                            b1.Property<string>("Province")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("delivery_province");
+
+                            b1.Property<string>("Suburb")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("delivery_suburb");
 
                             b1.HasKey("SalesOrderId");
 
