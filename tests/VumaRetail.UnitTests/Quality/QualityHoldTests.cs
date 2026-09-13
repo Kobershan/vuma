@@ -85,4 +85,17 @@ public sealed class QualityHoldTests
         Assert.Equal(QualityHoldStatus.Rejected, hold.Status);
         Assert.Throws<InvalidOperationException>(() => hold.Release(DateTimeOffset.UtcNow, "pass"));
     }
+
+    [Fact]
+    public void Non_conformance_requires_corrective_action_before_closure()
+    {
+        NonConformance issue = NonConformance.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            NonConformanceSeverity.Major, "seal broken", DateTimeOffset.UtcNow);
+
+        Assert.Throws<InvalidOperationException>(() => issue.Close(DateTimeOffset.UtcNow, "discarded"));
+        issue.StartCorrectiveAction();
+        issue.Close(DateTimeOffset.UtcNow, "discarded and supplier notified");
+
+        Assert.Equal(NonConformanceStatus.Closed, issue.Status);
+    }
 }

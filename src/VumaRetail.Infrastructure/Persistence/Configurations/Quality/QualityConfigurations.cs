@@ -53,3 +53,22 @@ internal sealed class InspectionResultConfiguration : EntityConfiguration<Inspec
             .HasDatabaseName("ix_inspection_results_tenant_company_hold").HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class NonConformanceConfiguration : EntityConfiguration<NonConformance>
+{
+    protected override string Schema => Schemas.Quality;
+    protected override string TableName => "non_conformances";
+    protected override void ConfigureEntity(EntityTypeBuilder<NonConformance> builder)
+    {
+        builder.Property(x => x.HoldId).IsRequired();
+        builder.Property(x => x.OperationId).IsRequired();
+        builder.Property(x => x.Severity).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24);
+        builder.Property(x => x.Description).IsRequired().HasMaxLength(2000);
+        builder.Property(x => x.Resolution).HasMaxLength(2000);
+        builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique()
+            .HasDatabaseName("ux_non_conformances_tenant_operation").HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status })
+            .HasDatabaseName("ix_non_conformances_tenant_company_status").HasFilter("deleted_at IS NULL");
+    }
+}

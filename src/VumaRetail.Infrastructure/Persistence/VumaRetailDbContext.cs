@@ -545,6 +545,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Immutable inspection evidence for quality holds (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionResult> InspectionResults => Set<Domain.Quality.InspectionResult>();
 
+    /// <summary>Non-conformance and corrective-action records (Stage 18).</summary>
+    public DbSet<Domain.Quality.NonConformance> NonConformances => Set<Domain.Quality.NonConformance>();
+
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
 

@@ -53,3 +53,14 @@ public sealed class InspectionResultRepository(VumaRetailDbContext context) : II
 
     public void Add(InspectionResult result) => context.InspectionResults.Add(result);
 }
+
+public sealed class NonConformanceRepository(VumaRetailDbContext context) : INonConformanceRepository
+{
+    public Task<NonConformance?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.NonConformances.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+    public Task<NonConformance?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
+        => context.NonConformances.FirstOrDefaultAsync(item => item.OperationId == operationId, cancellationToken);
+
+    public void Add(NonConformance nonConformance) => context.NonConformances.Add(nonConformance);
+}

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Quality;
+using VumaRetail.Domain.Quality;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -19,6 +20,9 @@ public static class QualityEndpoints
             .Produces<Guid>(StatusCodes.Status201Created);
         endpoints.MapVumaApi().MapGroup("/quality/inspections").WithTags("Quality").RequireModule("quality")
             .MapPost("/", RecordInspectionAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces<Guid>(StatusCodes.Status201Created);
+        endpoints.MapVumaApi().MapGroup("/quality/non-conformances").WithTags("Quality").RequireModule("quality")
+            .MapPost("/", OpenNonConformanceAsync).RequirePermission(QualityPermissions.Manage)
             .Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{id:guid}/release", ReleaseAsync).RequirePermission(QualityPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent);
@@ -53,7 +57,15 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> OpenNonConformanceAsync(OpenNonConformanceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new OpenNonConformanceCommand(request.OperationId, request.CompanyId, request.HoldId,
+            request.Severity, request.Description), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/quality/non-conformances/{id:D}", id);
+    }
+
     public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
     public sealed record ReleaseQualityHoldRequest(string Reason);
     public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence);
+    public sealed record OpenNonConformanceRequest(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description);
 }

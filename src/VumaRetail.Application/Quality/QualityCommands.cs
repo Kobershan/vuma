@@ -150,3 +150,40 @@ public sealed class RecordInspectionCommandHandler(
         return result.Id;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record OpenNonConformanceCommand(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description) : ICommand<Guid>;
+
+public sealed class OpenNonConformanceCommandHandler(
+    INonConformanceRepository nonConformances, IQualityHoldRepository holds, ITenantContext tenant,
+    ICompanyContext company, IClock clock) : ICommandHandler<OpenNonConformanceCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(OpenNonConformanceCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        NonConformance? existing = await nonConformances.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.CompanyId != command.CompanyId || existing.HoldId != command.HoldId || existing.Severity != command.Severity
+                || !string.Equals(existing.Description, command.Description.Trim(), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("The non-conformance operation was replayed with different content.");
+            }
+            return existing.Id;
+        }
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The non-conformance company is not the active company.");
+        }
+        QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Quality hold not found.");
+        if (hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
+        {
+            throw new InvalidOperationException("A non-conformance requires an active hold in the selected company.");
+        }
+        NonConformance result = NonConformance.Open(tenant.TenantId, null, command.CompanyId, command.OperationId,
+            command.HoldId, command.Severity, command.Description, clock.UtcNow);
+        nonConformances.Add(result);
+        return result.Id;
+    }
+}

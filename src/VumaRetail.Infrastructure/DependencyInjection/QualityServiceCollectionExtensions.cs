@@ -14,6 +14,7 @@ public static class QualityServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<IQualityHoldRepository, QualityHoldRepository>();
         services.AddScoped<IInspectionResultRepository, InspectionResultRepository>();
+        services.AddScoped<INonConformanceRepository, NonConformanceRepository>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, QualityPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, QualityModuleManifest>());
         return services;

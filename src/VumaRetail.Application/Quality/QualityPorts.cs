@@ -16,3 +16,10 @@ public interface IInspectionResultRepository
     Task<InspectionResult?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     void Add(InspectionResult result);
 }
+
+public interface INonConformanceRepository
+{
+    Task<NonConformance?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<NonConformance?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    void Add(NonConformance nonConformance);
+}
