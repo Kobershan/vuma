@@ -103,14 +103,14 @@ public static class EcommerceEndpoints
     }
 
     private static async Task<IResult> SubmitCheckoutAsync(
-        SubmitCheckoutRequest request, HttpRequest http, IDispatcher dispatcher, CancellationToken cancellationToken)
+        SubmitCheckoutRequest request, HttpRequest http, IDispatcher dispatcher, IClock clock, CancellationToken cancellationToken)
     {
         string idempotencyKey = http.Headers["Idempotency-Key"].ToString();
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             return Results.BadRequest(new { error = "Idempotency-Key is required." });
         Guid id = await dispatcher.SendAsync(new SubmitCheckoutCommand(request.BasketId, request.CompanyId,
             request.OwnerKey, idempotencyKey, request.ContentFingerprint), cancellationToken).ConfigureAwait(false);
-        return Results.Accepted($"/api/v1/storefront/checkouts/{id:D}", new CheckoutAcceptedResponse(id, "Pending", DateTimeOffset.UtcNow.AddHours(24)));
+        return Results.Accepted($"/api/v1/storefront/checkouts/{id:D}", new CheckoutAcceptedResponse(id, "Pending", clock.UtcNow.AddHours(24)));
     }
 
     private static async Task<IResult> GetCheckoutStatusAsync(
