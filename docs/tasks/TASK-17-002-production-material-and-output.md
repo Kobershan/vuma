@@ -35,3 +35,8 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   validate the aggregate operation first and skip the poster on exact replay, preventing duplicate
   stock and valuation events; changed payloads remain conflicts. Infrastructure and focused unit
   builds pass locally. Scrap accounting and PostgreSQL stock/financial scenarios remain open.
+- 2026-09-13: added the production reservation boundary. A new `ReservationSource.Production` hold
+  is taken at the requested stock location, shortfall releases the partial hold and fails without
+  issuing stock, successful issues consume the hold, and poster failures release it. This is covered
+  by the application build; the real-PostgreSQL shortage/issue/replay and financial-event scenarios
+  remain required before task closure.

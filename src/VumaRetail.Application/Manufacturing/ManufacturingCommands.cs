@@ -177,7 +177,7 @@ public sealed class ReleaseProductionOrderCommandHandler(
 public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent material issue.</summary>
-public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster)
+public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IReservationService reservations, IStockLedgerPoster poster)
     : ICommandHandler<IssueProductionMaterialCommand, Unit>
 {
     /// <inheritdoc />
@@ -194,7 +194,35 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         }
         StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.LocationId);
-        await poster.IssueForProductionAsync(location, command.ComponentItemId, command.ComponentVariantId, quantity, order.Id, cancellationToken).ConfigureAwait(false);
+        ReserveOutcome hold = await reservations.ReserveAsync(
+            location.Id,
+            command.ComponentItemId,
+            command.ComponentVariantId,
+            quantity,
+            ReservationSource.Production,
+            order.Id,
+            intentId: command.OperationId,
+            legId: command.OperationId,
+            reason: "Production material issue",
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (hold.Shortfall.Value > 0m || hold.ReservationId is null)
+        {
+            if (hold.ReservationId is Guid reservationId)
+            {
+                await reservations.ReleaseAsync(reservationId, "Production issue shortfall", cancellationToken).ConfigureAwait(false);
+            }
+            throw InventoryRuleException.InsufficientAvailable(hold.Held, quantity);
+        }
+        try
+        {
+            await poster.IssueForProductionAsync(location, command.ComponentItemId, command.ComponentVariantId, quantity, order.Id, cancellationToken).ConfigureAwait(false);
+            await reservations.ConsumeAsync(hold.ReservationId.Value, command.OperationId, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await reservations.ReleaseAsync(hold.ReservationId.Value, "Production issue failed", cancellationToken).ConfigureAwait(false);
+            throw;
+        }
         return Unit.Value;
     }
 }

@@ -29,6 +29,9 @@ public enum ReservationSource
     /// owning company from completion-leg start, consumed on posting, released on void or
     /// compensation (ADR-125).</summary>
     MixedBasket = 6,
+
+    /// <summary>A manufacturing order reserving components before issue.</summary>
+    Production = 7,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>
