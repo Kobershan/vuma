@@ -24,4 +24,12 @@ if "$(dirname "$0")/../verify-release-manifest.sh" <(printf '# comments only\n')
   echo "empty manifest was accepted" >&2
   exit 1
 fi
+
+printf 'outside payload\n' > "$test_root/outside.txt"
+ln -s ../outside.txt "$test_root/payload/linked.txt"
+linked_hash=$(sha256sum "$test_root/outside.txt" | awk '{print $1}')
+if "$(dirname "$0")/../verify-release-manifest.sh" <(printf '%s  payload/linked.txt\n' "$linked_hash") "$test_root" >/dev/null 2>&1; then
+  echo "symlink payload was accepted" >&2
+  exit 1
+fi
 echo "verify-release-manifest tests passed"
