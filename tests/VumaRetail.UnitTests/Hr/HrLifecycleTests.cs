@@ -1,5 +1,7 @@
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
+using VumaRetail.Application.Hr;
+using NSubstitute;
 
 namespace VumaRetail.UnitTests.Hr;
 
@@ -69,6 +71,25 @@ public sealed class HrLifecycleTests
 
         shift.Overlaps(start.AddHours(7), start.AddHours(9)).Should().BeTrue();
         shift.Overlaps(start.AddHours(8), start.AddHours(10)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Availability_excludes_cancelled_shifts_and_inactive_employees()
+    {
+        var hired = new DateTimeOffset(2026, 1, 1, 8, 0, 0, TimeSpan.Zero);
+        var employee = Employee.Create(TenantId, "E-003", "Katherine", "Johnson", hired, EmploymentType.Permanent);
+        var from = hired.AddDays(1);
+        var shift = Shift.Create(TenantId, employee.Id, from, from.AddHours(8), "Analyst");
+        var employees = Substitute.For<IEmployeeRepository>();
+        var shifts = Substitute.For<IShiftRepository>();
+        employees.FindAsync(employee.Id, Arg.Any<CancellationToken>()).Returns(employee);
+        shifts.ListAsync(from, from.AddHours(2), employee.Id, Arg.Any<CancellationToken>()).Returns(new[] { shift });
+
+        var result = await new GetEmployeeAvailabilityQueryHandler(employees, shifts)
+            .HandleAsync(new GetEmployeeAvailabilityQuery(employee.Id, from, from.AddHours(2)));
+
+        result.Available.Should().BeFalse();
+        result.ScheduledShifts.Should().ContainSingle();
     }
 
     [Fact]

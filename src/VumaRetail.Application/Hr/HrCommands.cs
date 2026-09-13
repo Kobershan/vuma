@@ -32,7 +32,9 @@ public sealed record ListEmployeesQuery : IQuery<IReadOnlyList<Employee>>;
 public sealed record ListEmploymentContractsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmploymentContract>>;
 public sealed record ListLeaveRequestsQuery(Guid? EmployeeId = null) : IQuery<IReadOnlyList<LeaveRequest>>;
 public sealed record ListShiftsQuery(DateTimeOffset From, DateTimeOffset To, Guid? EmployeeId = null) : IQuery<IReadOnlyList<Shift>>;
+public sealed record GetEmployeeAvailabilityQuery(Guid EmployeeId, DateTimeOffset From, DateTimeOffset To) : IQuery<EmployeeAvailability>;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
+public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
 public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant, IClock clock) : ICommandHandler<CreateEmployeeCommand, Guid>
 {
@@ -100,6 +102,18 @@ public sealed class ListEmployeesQueryHandler(IEmployeeRepository employees) : I
 public sealed class ListEmploymentContractsQueryHandler(IEmploymentContractRepository contracts) : IQueryHandler<ListEmploymentContractsQuery, IReadOnlyList<EmploymentContract>> { public Task<IReadOnlyList<EmploymentContract>> HandleAsync(ListEmploymentContractsQuery q, CancellationToken t = default) => contracts.ListAsync(q.EmployeeId, t); }
 public sealed class ListLeaveRequestsQueryHandler(ILeaveRepository leaves) : IQueryHandler<ListLeaveRequestsQuery, IReadOnlyList<LeaveRequest>> { public Task<IReadOnlyList<LeaveRequest>> HandleAsync(ListLeaveRequestsQuery q, CancellationToken t = default) => leaves.ListAsync(q.EmployeeId, t); }
 public sealed class ListShiftsQueryHandler(IShiftRepository shifts) : IQueryHandler<ListShiftsQuery, IReadOnlyList<Shift>> { public Task<IReadOnlyList<Shift>> HandleAsync(ListShiftsQuery q, CancellationToken t = default) => shifts.ListAsync(q.From, q.To, q.EmployeeId, t); }
+public sealed class GetEmployeeAvailabilityQueryHandler(IEmployeeRepository employees, IShiftRepository shifts) : IQueryHandler<GetEmployeeAvailabilityQuery, EmployeeAvailability>
+{
+    public async Task<EmployeeAvailability> HandleAsync(GetEmployeeAvailabilityQuery query, CancellationToken token = default)
+    {
+        if (query.To <= query.From) throw new ArgumentException("Availability window must end after it starts.", nameof(query));
+        Employee employee = await employees.FindAsync(query.EmployeeId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Employee was not found.");
+        IReadOnlyList<Shift> scheduled = await shifts.ListAsync(query.From, query.To, query.EmployeeId, token).ConfigureAwait(false);
+        var activeShifts = scheduled.Where(shift => shift.Status != ShiftStatus.Cancelled && shift.Overlaps(query.From, query.To)).ToArray();
+        return new EmployeeAvailability(employee.Id, employee.Status, employee.Status == EmploymentStatus.Active && activeShifts.Length == 0, activeShifts);
+    }
+}
 public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocument>> { public Task<IReadOnlyList<EmployeeDocument>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default) => documents.ListAsync(q.EmployeeId, t); }
 
 public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token = default); void Add(Employee employee); }
