@@ -2,6 +2,7 @@ using NSubstitute;
 using VumaRetail.Application.Crm;
 using VumaRetail.Application.Marketing;
 using VumaRetail.Domain.Crm;
+using VumaRetail.Domain.Marketing;
 
 namespace VumaRetail.UnitTests.Marketing;
 
@@ -45,5 +46,26 @@ public sealed class MarketingDeliveryPolicyTests
     {
         DateTimeOffset actual = MarketingSendWindow.NextAllowed(DateTimeOffset.Parse(scheduled), TimeZoneInfo.Utc);
         actual.Should().Be(DateTimeOffset.Parse(expected));
+    }
+
+    [Fact]
+    public void Campaign_scheduling_and_suppression_are_explicit_states()
+    {
+        var scheduled = DateTimeOffset.UtcNow.AddHours(1);
+        var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "September sale", "sale-v1", scheduled);
+        campaign.Schedule(DateTimeOffset.UtcNow);
+        var message = OutboundMessage.Queue(campaign.TenantId, campaign.StoreId, campaign.CompanyId!.Value,
+            campaign.Id, Guid.NewGuid(), "campaign-1-recipient-1", scheduled);
+        message.Suppress();
+        campaign.Status.Should().Be(MarketingCampaignStatus.Scheduled);
+        message.Status.Should().Be(OutboundMessageStatus.Suppressed);
+    }
+
+    [Fact]
+    public void Campaign_scheduling_rejects_past_delivery_time()
+    {
+        var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Old", "old-v1", DateTimeOffset.UtcNow.AddMinutes(-1));
+        var action = () => campaign.Schedule(DateTimeOffset.UtcNow);
+        action.Should().Throw<InvalidOperationException>();
     }
 }
