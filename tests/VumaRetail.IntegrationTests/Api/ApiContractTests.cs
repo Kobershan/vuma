@@ -319,6 +319,38 @@ public sealed class ApiContractTests(PostgresFixture fixture)
         (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().Be(ApiErrorCodes.Forbidden);
     }
 
+    [Theory]
+    [InlineData("/api/v1/assets/")]
+    [InlineData("/api/v1/assets/{0}/place-in-service")]
+    [InlineData("/api/v1/assets/{0}/dispose")]
+    [InlineData("/api/v1/assets/{0}/books")]
+    [InlineData("/api/v1/assets/books/{0}/depreciation")]
+    [InlineData("/api/v1/maintenance/orders/")]
+    [InlineData("/api/v1/maintenance/orders/{0}/start")]
+    [InlineData("/api/v1/maintenance/orders/{0}/complete")]
+    [InlineData("/api/v1/maintenance/orders/{0}/cancel")]
+    public async Task A_caller_without_asset_permissions_is_forbidden_from_every_asset_write_route(string pathTemplate)
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("asset-viewer");
+        using HttpClient signedIn = await harness.SignInAsync("asset-viewer");
+
+        string path = string.Format(CultureInfo.InvariantCulture, pathTemplate, Guid.NewGuid());
+        object body = pathTemplate switch
+        {
+            "/api/v1/assets/" => new { companyId = Guid.NewGuid(), assetNumber = "A-1", description = "Till", acquiredOn = "2026-01-01", cost = 100m, currency = "ZAR" },
+            "/api/v1/assets/{0}/dispose" => new { companyId = Guid.NewGuid(), disposedOn = "2026-02-01" },
+            "/api/v1/assets/{0}/books" => new { companyId = Guid.NewGuid(), bookName = "Local", inServiceOn = "2026-01-01", residualValue = 0m, currency = "ZAR", usefulLifeMonths = 12 },
+            "/api/v1/assets/books/{0}/depreciation" => new { companyId = Guid.NewGuid(), period = "2026-02-01" },
+            "/api/v1/maintenance/orders/" => new { companyId = Guid.NewGuid(), assetId = Guid.NewGuid(), description = "Inspect", scheduledOn = "2026-02-01" },
+            _ => new { companyId = Guid.NewGuid() },
+        };
+        HttpResponseMessage response = await signedIn.PostAsync(new Uri(path, UriKind.Relative), JsonContent.Create(body));
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.UnprocessableEntity);
+        (await ReadProblemAsync(response)).GetProperty("code").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
     [Fact]
     public async Task Every_orders_operation_reaches_the_openapi_document()
     {
