@@ -8,6 +8,75 @@ public enum AssetStatus { Draft, InService, Disposed }
 
 public enum MaintenanceOrderStatus { Open, InProgress, Completed, Cancelled }
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
+public sealed class StoreChecklist : Entity
+{
+    private StoreChecklist(Guid tenantId, Guid? storeId, Guid companyId, string code, string name, string itemCodes)
+        : base(tenantId, storeId)
+    {
+        AssignCompany(companyId);
+        Code = code.Trim().ToUpperInvariant();
+        Name = name.Trim();
+        ItemCodes = itemCodes;
+    }
+
+    private StoreChecklist() { }
+    public string Code { get; private set; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
+    public string ItemCodes { get; private set; } = string.Empty;
+
+    public static StoreChecklist Create(Guid tenantId, Guid? storeId, Guid companyId, string code,
+        string name, IReadOnlyCollection<string> itemCodes)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (itemCodes is null || itemCodes.Count == 0) throw new ArgumentException("At least one checklist item is required.", nameof(itemCodes));
+        string[] normalized = itemCodes.Select(item => item.Trim().ToUpperInvariant()).ToArray();
+        if (normalized.Any(string.IsNullOrWhiteSpace) || normalized.Distinct(StringComparer.Ordinal).Count() != normalized.Length)
+            throw new ArgumentException("Checklist item codes must be unique and non-empty.", nameof(itemCodes));
+        return new StoreChecklist(tenantId, storeId, companyId, code, name, string.Join('|', normalized));
+    }
+}
+
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
+public sealed class ChecklistExecution : Entity, IImmutableRecord
+{
+    private ChecklistExecution(Guid tenantId, Guid? storeId, Guid companyId, Guid checklistId, Guid operationId,
+        string deviceId, DateTimeOffset capturedAt, DateTimeOffset submittedAt, string evidenceReference)
+        : base(tenantId, storeId)
+    {
+        AssignCompany(companyId);
+        ChecklistId = checklistId;
+        OperationId = operationId;
+        DeviceId = deviceId.Trim();
+        CapturedAt = capturedAt;
+        SubmittedAt = submittedAt;
+        EvidenceReference = evidenceReference.Trim();
+    }
+
+    private ChecklistExecution() { }
+    public Guid ChecklistId { get; private set; }
+    public Guid OperationId { get; private set; }
+    public string DeviceId { get; private set; } = string.Empty;
+    public DateTimeOffset CapturedAt { get; private set; }
+    public DateTimeOffset SubmittedAt { get; private set; }
+    public string EvidenceReference { get; private set; } = string.Empty;
+
+    public static ChecklistExecution Submit(Guid tenantId, Guid? storeId, Guid companyId, Guid checklistId,
+        Guid operationId, string deviceId, DateTimeOffset capturedAt, DateTimeOffset submittedAt,
+        string evidenceReference)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || checklistId == Guid.Empty || operationId == Guid.Empty)
+            throw new ArgumentException("Checklist identities are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(evidenceReference);
+        if (submittedAt < capturedAt) throw new ArgumentException("Submission cannot precede capture.", nameof(submittedAt));
+        return new ChecklistExecution(tenantId, storeId, companyId, checklistId, operationId, deviceId,
+            capturedAt, submittedAt, evidenceReference);
+    }
+}
+
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.LastWriterWins)]
 public sealed class MaintenanceOrder : Entity
 {
