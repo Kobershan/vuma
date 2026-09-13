@@ -590,6 +590,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Reporting definitions and replay-safe projection checkpoints (Stage 29).</summary>
     public DbSet<Domain.Reporting.ReportDefinition> ReportDefinitions => Set<Domain.Reporting.ReportDefinition>();
     public DbSet<Domain.Reporting.ProjectionCheckpoint> ProjectionCheckpoints => Set<Domain.Reporting.ProjectionCheckpoint>();
+    public DbSet<Domain.Reporting.ReportExport> ReportExports => Set<Domain.Reporting.ReportExport>();
 
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();

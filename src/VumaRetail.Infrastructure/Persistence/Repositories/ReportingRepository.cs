@@ -9,6 +9,9 @@ public sealed class ReportingRepository(VumaRetailDbContext context) : IReportin
     public Task<ReportDefinition?> FindDefinitionAsync(Guid id, CancellationToken cancellationToken = default) => context.ReportDefinitions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ReportDefinition?> FindPublishedDefinitionByCodeAsync(string code, CancellationToken cancellationToken = default) => context.ReportDefinitions.FirstOrDefaultAsync(x => x.Code == code.Trim().ToUpperInvariant() && x.Status == ReportDefinitionStatus.Published, cancellationToken);
     public Task<ProjectionCheckpoint?> FindCheckpointAsync(Guid companyId, string source, CancellationToken cancellationToken = default) => context.ProjectionCheckpoints.FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Source == source.Trim(), cancellationToken);
+    public Task<ReportExport?> FindExportByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default) => context.ReportExports.FirstOrDefaultAsync(x => x.OperationId == operationId, cancellationToken);
+    public Task<ReportExport?> FindExportAsync(Guid id, CancellationToken cancellationToken = default) => context.ReportExports.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public void Add(ReportDefinition definition) => context.ReportDefinitions.Add(definition);
     public void Add(ProjectionCheckpoint checkpoint) => context.ProjectionCheckpoints.Add(checkpoint);
+    public void Add(ReportExport export) => context.ReportExports.Add(export);
 }

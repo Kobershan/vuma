@@ -50,7 +50,9 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
 - [~] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
   definitions and projection checkpoints are persisted, and a permission/module-scoped report-definition
   API is mapped; projection adapters, aggregate dashboard freshness queries and export execution remain.
-- [ ] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance.
+- [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
+  idempotent export requests and status routes are implemented; worker execution, scheduling, rebuild
+  and full acceptance remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -64,6 +66,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   `GET /api/v1/reports/{code}` on StoreServer and CloudApi.
 - 2026-09-13: Restricted the report-definition read path to published definitions and added a
   regression test proving drafts/retired definitions are not exposed. Focused tests: **4/4 passed**.
+- 2026-09-13: Added durable `ReportExport` requests, published-report validation, idempotency and
+  POST/status API routes. Reporting tests: **5/5 passed**; PostgreSQL migration Up/Down: **1/1 passed**.
 
 ## Tests / acceptance
 

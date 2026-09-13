@@ -17,3 +17,18 @@ internal sealed class ProjectionCheckpointConfiguration : EntityConfiguration<Pr
     protected override void ConfigureEntity(EntityTypeBuilder<ProjectionCheckpoint> b)
     { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.Source).IsRequired().HasMaxLength(128); b.Property(x => x.Generation).IsRequired(); b.Property(x => x.Cursor).IsRequired().HasMaxLength(256); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Source }).IsUnique().HasFilter("deleted_at IS NULL"); }
 }
+
+internal sealed class ReportExportConfiguration : EntityConfiguration<ReportExport>
+{
+    protected override string Schema => Schemas.Reporting; protected override string TableName => "report_exports";
+    protected override void ConfigureEntity(EntityTypeBuilder<ReportExport> b)
+    {
+        b.Property(x => x.CompanyId).IsRequired();
+        b.Property(x => x.OperationId).IsRequired();
+        b.Property(x => x.ReportCode).IsRequired().HasMaxLength(64);
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        b.Property(x => x.FailureReason).HasMaxLength(512);
+        b.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique().HasFilter("deleted_at IS NULL");
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ReportCode, x.RequestedAtUtc }).HasFilter("deleted_at IS NULL");
+    }
+}

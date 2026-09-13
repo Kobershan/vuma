@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Reporting;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Reporting;
 
 namespace VumaRetail.UnitTests.Reporting;
@@ -45,4 +46,35 @@ public sealed class ReportingDomainTests
         (await handler.HandleAsync(new GetReportDefinitionQuery("sales"))).Should().BeNull();
         await repository.Received(1).FindPublishedDefinitionByCodeAsync("sales", Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Export_request_requires_a_published_report_and_is_idempotent()
+    {
+        IReportingRepository repository = Substitute.For<IReportingRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        IClock clock = Substitute.For<IClock>();
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid operationId = Guid.NewGuid();
+        tenant.TenantId.Returns(tenantId);
+        tenant.StoreId.Returns((Guid?)null);
+        company.CompanyId.Returns(companyId);
+        clock.UtcNow.Returns(DateTimeOffset.Parse("2026-09-13T12:00:00Z"));
+        ReportDefinition definition = ReportDefinition.Create(tenantId, null, "sales", "Sales");
+        definition.Publish();
+        repository.FindPublishedDefinitionByCodeAsync("sales", Arg.Any<CancellationToken>()).Returns(definition);
+        ReportExport? captured = null;
+        repository.When(x => x.Add(Arg.Any<ReportExport>())).Do(call => captured = call.Arg<ReportExport>());
+        RequestReportExportCommandHandler handler = new(repository, tenant, company, clock);
+
+        Guid id = await handler.HandleAsync(new RequestReportExportCommand(companyId, operationId, "sales"));
+        id.Should().NotBeEmpty();
+        captured.Should().NotBeNull();
+        ReportExport created = captured!;
+        repository.FindExportByOperationIdAsync(operationId, Arg.Any<CancellationToken>()).Returns(created);
+        (await handler.HandleAsync(new RequestReportExportCommand(companyId, operationId, "SALES"))).Should().Be(id);
+        repository.Received(1).Add(Arg.Any<ReportExport>());
+    }
+
 }

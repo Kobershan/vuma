@@ -13,7 +13,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913184733_Stage28ProjectCosts").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913192159_Stage29ReportExports").ConfigureAwait(false);
 
         IReadOnlyList<string> assetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -38,23 +38,29 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
         costColumns.Should().Contain("reverses_entry_id");
 
-        await context.Database.MigrateAsync("20260913183155_Stage29Reporting").ConfigureAwait(false);
-
         IReadOnlyList<string> reportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'reporting'
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
-        reportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions"], options => options.WithStrictOrdering());
+        reportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions", "report_exports"], options => options.WithStrictOrdering());
 
-        await context.Database.MigrateAsync("20260913182228_Stage28Projects").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913183155_Stage29Reporting").ConfigureAwait(false);
         IReadOnlyList<string> revertedReportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'reporting'
             """).ToListAsync().ConfigureAwait(false);
-        revertedReportingTables.Should().BeEmpty();
+        revertedReportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions"], options => options.WithStrictOrdering());
+
+        await context.Database.MigrateAsync("20260913182228_Stage28Projects").ConfigureAwait(false);
+        IReadOnlyList<string> revertedAllReportingTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'reporting'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedAllReportingTables.Should().BeEmpty();
 
         await context.Database.MigrateAsync("20260913180901_Stage27DepreciationRuns").ConfigureAwait(false);
         IReadOnlyList<string> revertedProjectTables = await context.Database.SqlQuery<string>($"""
