@@ -26,6 +26,18 @@ public sealed class EcommerceDomainTests
     }
 
     [Fact]
+    public void Checkout_decision_boundary_expires_pending_intent_without_a_background_job()
+    {
+        DateTimeOffset created = new(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
+        CheckoutIntent intent = CheckoutIntent.Submit(TenantId, CompanyId, ChannelId, BasketId, "customer-1", "key-1", "fingerprint", created);
+
+        FluentActions.Invoking(() => intent.Reject("store offline", created.AddHours(24)))
+            .Should().Throw<InvalidOperationException>();
+        intent.Status.Should().Be(CheckoutIntentStatus.Expired);
+        intent.DecidedAtUtc.Should().Be(created.AddHours(24));
+    }
+
+    [Fact]
     public void Payment_webhook_signature_is_constant_time_verified_and_tamper_safe()
     {
         const string body = "{\"eventId\":\"evt-1\"}";

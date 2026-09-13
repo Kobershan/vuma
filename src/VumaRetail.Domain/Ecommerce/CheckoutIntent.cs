@@ -51,14 +51,14 @@ public sealed class CheckoutIntent : Entity
 
     public void Confirm(DateTimeOffset at)
     {
-        EnsurePending();
+        EnsurePending(at);
         Status = CheckoutIntentStatus.Confirmed;
         DecidedAtUtc = at;
     }
 
     public void Reject(string reason, DateTimeOffset at)
     {
-        EnsurePending();
+        EnsurePending(at);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         Status = CheckoutIntentStatus.Rejected;
         DecisionReason = reason.Trim();
@@ -80,11 +80,17 @@ public sealed class CheckoutIntent : Entity
         Status = CheckoutIntentStatus.CompensationPending;
     }
 
-    private void EnsurePending()
+    private void EnsurePending(DateTimeOffset? at = null)
     {
         if (Status != CheckoutIntentStatus.Pending)
         {
             throw new InvalidOperationException("Only a pending checkout intent can be decided.");
+        }
+
+        if (at is { } decisionAt && decisionAt >= ExpiresAtUtc)
+        {
+            Expire(decisionAt);
+            throw new InvalidOperationException("An expired checkout intent cannot be decided.");
         }
     }
 }
