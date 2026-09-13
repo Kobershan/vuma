@@ -44,7 +44,9 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 ## Parts — the build list
 
 - [~] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — [TASK-23-001](../tasks/TASK-23-001-service-ticket-warranty-custody.md) is in progress; domain, persistence, commands, and initial API routes are implemented, while reads, parts integration, and isolation acceptance remain.
-- [ ] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA.
+- [~] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA. Reservation-backed
+  service-part issue, dedicated stock movement/reference, API route, and replay test are implemented;
+  invoicing/RMA and full PostgreSQL availability acceptance remain.
 - [ ] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance.
 
 ## Progress evidence
@@ -55,6 +57,9 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 - Focused domain tests: **3/3 passed** in `ServiceDomainTests`.
 - Remaining: EF mappings/migration, repositories, commands, permissions/entitlements, API routes,
   parts and financial integration, SLA clock, PostgreSQL acceptance, and specialist review.
+- 2026-09-13: Service-part issue now reserves availability, posts `ServicePartIssue`/`ServicePart`
+  inventory facts, consumes the hold, and rejects changed-content operation replays; focused command
+  tests pass **3/3**.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
