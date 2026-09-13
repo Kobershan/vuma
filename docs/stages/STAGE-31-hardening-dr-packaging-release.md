@@ -1,8 +1,12 @@
 # STAGE 31 — Hardening, Disaster Recovery, Packaging and Release
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** all in-scope stages, including 30b; release-blocking audit findings closed · **Reference reading:** [audit](../REPOSITORY-AUDIT-2026-09-12.md), [protection plan](../OFFLINE-CLOUD-API-AND-PROTECTION.md), [sync/backup](../SYNC_AND_BACKUP.md) §§8–12, [licensing](../LICENSING.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — deterministic SHA-256 release-manifest verification is implemented and locally tested; signed manifests, atomic activation/rollback, installer packaging, restore drill and full acceptance remain · **Depends on:** all in-scope stages, including 30b; release-blocking audit findings closed · **Reference reading:** [audit](../REPOSITORY-AUDIT-2026-09-12.md), [protection plan](../OFFLINE-CLOUD-API-AND-PROTECTION.md), [sync/backup](../SYNC_AND_BACKUP.md) §§8–12, [licensing](../LICENSING.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
+
+The first operator-safe release primitive is `scripts/verify-release-manifest.sh`: it validates every
+listed payload file before activation and fails closed on malformed rows, missing files or mismatched
+SHA-256 checksums. The script has a self-test at `scripts/tests/verify-release-manifest.test.sh`.
 
 Produce a signed, recoverable release with measured security, availability and offline behavior. Prove trading from local infrastructure, controlled cloud/mobile access and vendor monitoring without making vendor uptime a transaction dependency.
 
