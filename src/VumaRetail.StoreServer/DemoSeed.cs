@@ -121,6 +121,7 @@ public static class DemoSeed
 
         Tenant tenant = await EnsureTenantAsync(context, tenantContext, unitOfWork, cancellationToken).ConfigureAwait(false);
         tenantContext.SetTenant(tenant.Id);
+        await EnsureDemoCompanyAsync(registry, cancellationToken).ConfigureAwait(false);
 
         Store johannesburg = await EnsureStoreAsync(context, unitOfWork, tenant.Id, "JHB01", "Vuma Sandton", cancellationToken)
             .ConfigureAwait(false);
@@ -235,6 +236,56 @@ public static class DemoSeed
             .ConfigureAwait(false);
         await SeedManufacturingAsync(provider, context, giftPack, milk, shirt, shirtMedRed, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Registers the fixed company identity used by the single-database demo before any registry
+    /// projection is published. The demo predates company provisioning, but routing entries still
+    /// require a real registry owner (the same invariant enforced in production by
+    /// <see cref="IBarcodeResolver"/>).
+    /// </summary>
+    private static async Task EnsureDemoCompanyAsync(
+        VumaRegistryDbContext registry,
+        CancellationToken cancellationToken)
+    {
+        Company? company = await registry.Companies
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(candidate => candidate.Id == DemoCompanyId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (company is null)
+        {
+            company = Company.CreateFromIssuedIdentity(
+                DemoCompanyId,
+                DemoTenantId,
+                "DEMO-A",
+                "Vuma Demo Company",
+                "Vuma Demo",
+                "ZAR",
+                "en-ZA",
+                "DEMO");
+            registry.Companies.Add(company);
+        }
+
+        // The demo company is intentionally co-located with the store database. Refer to the
+        // host's configured Vuma connection so company-aware services can still exercise their
+        // production routing path during a seed rehearsal.
+        company.SetConnectionSecretRef("Vuma");
+        company.SetMigration(1, "Current");
+        if (company.LifecycleState == CompanyLifecycleState.Provisioning)
+        {
+            company.SetLifecycle(CompanyLifecycleState.Seeding);
+        }
+        if (company.LifecycleState == CompanyLifecycleState.Seeding)
+        {
+            company.SetLifecycle(CompanyLifecycleState.Registered);
+        }
+        if (company.LifecycleState == CompanyLifecycleState.Registered)
+        {
+            company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
+        }
+
+        await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Seeds a small, idempotent Stage 15 planning history and current snapshots.</summary>
@@ -680,7 +731,9 @@ public static class DemoSeed
         reps.AddRep(rep2);
         await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken).ConfigureAwait(false);
 
-        DateOnly periodStart = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        // Performance snapshots are historical close records; the current month is still open.
+        DateOnly periodStart = new DateOnly(clock.UtcNow.UtcDateTime.Year, clock.UtcNow.UtcDateTime.Month, 1)
+            .AddMonths(-1);
         string currency = "ZAR";
 
         // Pro forma 1: approved into a split invoice.

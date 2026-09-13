@@ -1,6 +1,6 @@
 # STAGE 17 — Manufacturing Execution
 
-**Status:** IN_PROGRESS — canonical task queue created 2026-09-12; implementation not certified · **Depends on:** 16, 13; integration with 07, 08c, 05 · **Reference reading:** [BOM stage](STAGE-16-bom-setup.md), [warehouse stage](STAGE-13-warehouse-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — implementation and PostgreSQL execution evidence are present; specialist closure review remains UNVERIFIED · **Depends on:** 16, 13; integration with 07, 08c, 05 · **Reference reading:** [BOM stage](STAGE-16-bom-setup.md), [warehouse stage](STAGE-13-warehouse-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 

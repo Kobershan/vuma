@@ -55,3 +55,9 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
 - 2026-09-13: exact issue replay is now proven by the PostgreSQL API scenario. A second defect found
   by that assertion was fixed by declaring `Money`'s JSON constructor, preserving currency through
   reload so unchanged operations remain idempotent instead of being rejected as conflicts.
+- 2026-09-13: the authorized PostgreSQL API scenario now proves an exhausted-location shortage is
+  rejected without leaving an issue on the order, and records a half-unit output plus half-unit
+  scrap against the issued unit. Exact scrap replay leaves one scrap record and one balanced
+  `manufacturing.scrap.recorded` journal after the configured Finance posting rule. The focused
+  manufacturing suite is 20/20 unit and 9/9 integration tests green; backup/seed and specialist
+  closure evidence remain assigned to TASK-17-003.

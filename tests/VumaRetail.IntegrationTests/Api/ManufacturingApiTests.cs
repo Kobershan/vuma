@@ -14,6 +14,8 @@ using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
+using VumaRetail.Domain.Finance;
+using VumaRetail.Finance.Commands;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Harness;
@@ -164,13 +166,43 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         HttpResponseMessage issueReplay = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", issueRequest);
         string issueReplayBody = await issueReplay.Content.ReadAsStringAsync();
         issueReplay.StatusCode.Should().Be(HttpStatusCode.NoContent, issueReplayBody);
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 1m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // The stock is now exhausted. A second order must fail atomically at the reservation
+        // boundary, leaving its aggregate without a phantom issue.
+        Guid shortageOrderId = Guid.NewGuid();
+        (await client.PostAsJsonAsync("/api/v1/manufacturing/production-orders/", new CreateProductionOrderRequest(shortageOrderId, companyId, finishedItemId, 1m, "EA", "PROD-API-SHORT", bom.Id))).StatusCode.Should().Be(HttpStatusCode.Created);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/release", new ReleaseProductionOrderRequest(Guid.NewGuid(), bom.Id))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        HttpResponseMessage shortage = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/issues", new IssueProductionMaterialRequest(locationId, Guid.NewGuid(), componentItemId, null, 1m, "EA", 5m, "ZAR"));
+        shortage.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        ProductionOrderResponse shortageOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}"))!;
+        shortageOrder.Issues.Should().BeEmpty();
+
+        Guid wipAccount = await harness.SendAsync(new CreateAccountCommand("1450", "Production WIP", AccountType.Asset, "ZAR"));
+        Guid scrapAccount = await harness.SendAsync(new CreateAccountCommand("1350", "Scrap inventory", AccountType.Asset, "ZAR"));
+        await harness.SendAsync(new OpenAccountingPeriodCommand(new DateOnly(2020, 1, 1), new DateOnly(2035, 12, 31)));
+        await harness.SendAsync(new DefinePostingRuleCommand(
+            "manufacturing.scrap.recorded",
+            [
+                new PostingRuleLineInput(wipAccount, NormalBalance.Debit, "Value", InheritDimensions: false, "Production scrap WIP"),
+                new PostingRuleLineInput(scrapAccount, NormalBalance.Credit, "Value", InheritDimensions: false, "Production scrap offset"),
+            ],
+            "Production scrap"));
+
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        Guid scrapOperationId = Guid.NewGuid();
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await client.PostAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/close", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         ProductionOrderResponse order = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}"))!;
         order.Status.Should().Be("Closed");
         order.Issues.Should().ContainSingle();
         order.Receipts.Should().ContainSingle();
+        order.Scrap.Should().ContainSingle();
+        List<Journal> scrapJournals = await harness.InScopeAsync(async services => await services.GetRequiredService<VumaRetailDbContext>().Journals
+            .Where(journal => journal.SourceEventType == "manufacturing.scrap.recorded")
+            .ToListAsync());
+        scrapJournals.Should().ContainSingle();
         ProductionCapacityResponse capacity = (await client.GetFromJsonAsync<ProductionCapacityResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/capacity"))!;
         capacity.TotalMinutes.Should().Be(0m);
         ProductionOrderResponse genealogy = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/genealogy"))!;

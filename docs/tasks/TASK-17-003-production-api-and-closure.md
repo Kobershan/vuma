@@ -49,3 +49,13 @@ TASK-17-002.
 - 2026-09-13: the same PostgreSQL scenario now proves issue replay, genealogy and capacity readback;
   the focused manufacturing integration suite passes 9/9. Backup/seed rehearsal, shortage/journal
   assertions and specialist closure review remain open.
+- 2026-09-13: the scenario was extended with PostgreSQL evidence for atomic shortage refusal,
+  exact scrap replay and one balanced scrap journal. Focused manufacturing evidence is now 20/20
+  unit tests and 9/9 integration tests. Backup/seed rehearsal and specialist closure review remain
+  the final open verification items for this task.
+- 2026-09-13: disposable PostgreSQL seed rehearsal now completes after fixing two pre-existing
+  seed defects: the demo company is registered before routing publication and uses the configured
+  Vuma connection for company-aware reservation paths; field-sales performance snapshots target
+  the previous closed month. Encrypted filesystem backup completed (1,157,770 bytes) and
+  `--verify-backup` confirmed snapshot `01a09b3a-d920-7000-87c0-69eb813ad5af` checksum integrity.
+  Specialist review remains UNVERIFIED because no specialist-agent runtime is exposed.
