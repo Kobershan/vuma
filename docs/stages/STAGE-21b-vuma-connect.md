@@ -15,7 +15,7 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 ## Task index
 
-Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, and settlement-replay foundations are implemented and verified. Closure remains for the supplier portal surface and independent portal/API permission evidence.
+Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, settlement-replay, supplier-portal route, OpenAPI and permission-boundary foundations are implemented and verified. Full portal acceptance remains.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
