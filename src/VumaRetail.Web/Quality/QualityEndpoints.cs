@@ -59,7 +59,8 @@ public static class QualityEndpoints
     private static async Task<IResult> PlaceAsync(PlaceQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         Guid id = await dispatcher.SendAsync(new PlaceQualityHoldCommand(request.OperationId, request.CompanyId, request.LocationId,
-            request.ItemId, request.ItemVariantId, request.Quantity, request.UnitOfMeasure, request.Reason), cancellationToken).ConfigureAwait(false);
+            request.ItemId, request.ItemVariantId, request.Quantity, request.UnitOfMeasure, request.Reason,
+            request.BatchReference, request.ExpiryDate, request.SerialNumber), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/holds/{id:D}", id);
     }
 
@@ -146,7 +147,8 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
-    public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
+    public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason,
+        string? BatchReference = null, DateOnly? ExpiryDate = null, string? SerialNumber = null);
     public sealed record ReleaseQualityHoldRequest(string Reason);
     public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, Guid? PlanId, bool Passed, int SampleSize, string Evidence);
     public sealed record CreateInspectionPlanRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version, string Name, int SampleSize, string AcceptanceCriteria);

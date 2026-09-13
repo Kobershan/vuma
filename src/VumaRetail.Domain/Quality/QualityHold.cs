@@ -20,7 +20,10 @@ public sealed class QualityHold : Entity, IImmutableRecord
         Quantity quantity,
         string reason,
         DateTimeOffset heldAt,
-        Guid reservationId)
+        Guid reservationId,
+        string? batchReference,
+        DateOnly? expiryDate,
+        string? serialNumber)
         : base(tenantId, storeId)
     {
         AssignCompany(companyId);
@@ -32,6 +35,9 @@ public sealed class QualityHold : Entity, IImmutableRecord
         Reason = reason;
         HeldAt = heldAt;
         ReservationId = reservationId;
+        BatchReference = batchReference;
+        ExpiryDate = expiryDate;
+        SerialNumber = serialNumber;
         Status = QualityHoldStatus.Held;
     }
 
@@ -44,6 +50,9 @@ public sealed class QualityHold : Entity, IImmutableRecord
     public Quantity Quantity { get; private set; }
     public string Reason { get; private set; } = string.Empty;
     public Guid ReservationId { get; private set; }
+    public string? BatchReference { get; private set; }
+    public DateOnly? ExpiryDate { get; private set; }
+    public string? SerialNumber { get; private set; }
     public QualityHoldStatus Status { get; private set; }
     public DateTimeOffset HeldAt { get; private set; }
     public DateTimeOffset? DisposedAt { get; private set; }
@@ -60,7 +69,10 @@ public sealed class QualityHold : Entity, IImmutableRecord
         Quantity quantity,
         string reason,
         DateTimeOffset heldAt,
-        Guid reservationId)
+        Guid reservationId,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         if (tenantId == Guid.Empty || companyId == Guid.Empty || operationId == Guid.Empty
             || locationId == Guid.Empty || reservationId == Guid.Empty)
@@ -77,7 +89,9 @@ public sealed class QualityHold : Entity, IImmutableRecord
         {
             throw new ArgumentException("A quality hold reason must be 256 characters or fewer.", nameof(reason));
         }
-        return new QualityHold(tenantId, storeId, companyId, operationId, locationId, itemId, itemVariantId, quantity, reason.Trim(), heldAt, reservationId);
+        (batchReference, expiryDate, serialNumber) = StockTracking.Validate(quantity.Value, batchReference, expiryDate, serialNumber);
+        return new QualityHold(tenantId, storeId, companyId, operationId, locationId, itemId, itemVariantId, quantity, reason.Trim(), heldAt, reservationId,
+            batchReference, expiryDate, serialNumber);
     }
 
     public void Release(DateTimeOffset at, string reason)

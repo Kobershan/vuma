@@ -115,6 +115,12 @@ public sealed class InventoryRuleException(string code, string message) : Domain
             "INVENTORY_RESERVATION_EXPIRY_INVALID",
             "A reservation expiry must be a real instant or omitted entirely.");
 
+    /// <summary>A tracked lot is already expired and cannot be promised or dispatched.</summary>
+    public static InventoryRuleException ExpiredLotCannotBeReserved(DateOnly expiryDate)
+        => new(
+            "INVENTORY_EXPIRED_LOT",
+            $"Lot stock with expiry date {expiryDate:yyyy-MM-dd} cannot be reserved or dispatched.");
+
     /// <summary>A hold was asked for more than is available at its location.</summary>
     /// <param name="available">What is available to promise.</param>
     /// <param name="requested">What was asked to be held.</param>

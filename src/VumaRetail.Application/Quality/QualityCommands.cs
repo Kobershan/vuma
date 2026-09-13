@@ -177,7 +177,10 @@ public sealed record PlaceQualityHoldCommand(
     Guid? ItemVariantId,
     decimal Quantity,
     string UnitOfMeasure,
-    string Reason) : ICommand<Guid>;
+    string Reason,
+    string? BatchReference = null,
+    DateOnly? ExpiryDate = null,
+    string? SerialNumber = null) : ICommand<Guid>;
 
 public sealed class PlaceQualityHoldCommandHandler(
     IQualityHoldRepository holds,
@@ -199,7 +202,9 @@ public sealed class PlaceQualityHoldCommandHandler(
             if (existing.CompanyId != command.CompanyId || existing.LocationId != command.LocationId
                 || existing.ItemId != command.ItemId || existing.ItemVariantId != command.ItemVariantId
                 || existing.Quantity != new Quantity(command.Quantity, command.UnitOfMeasure)
-                || !string.Equals(existing.Reason, command.Reason.Trim(), StringComparison.Ordinal))
+                || !string.Equals(existing.Reason, command.Reason.Trim(), StringComparison.Ordinal)
+                || !string.Equals(existing.BatchReference, command.BatchReference?.Trim(), StringComparison.Ordinal)
+                || existing.ExpiryDate != command.ExpiryDate || !string.Equals(existing.SerialNumber, command.SerialNumber?.Trim(), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("The quality hold operation was replayed with different content.");
             }
@@ -214,7 +219,8 @@ public sealed class PlaceQualityHoldCommandHandler(
         ReserveOutcome reservation = await reservations.ReserveAsync(
             command.LocationId, command.ItemId, command.ItemVariantId, quantity,
             ReservationSource.QualityHold, command.OperationId,
-            reason: command.Reason, cancellationToken: cancellationToken).ConfigureAwait(false);
+            reason: command.Reason, cancellationToken: cancellationToken,
+            batchReference: command.BatchReference, expiryDate: command.ExpiryDate, serialNumber: command.SerialNumber).ConfigureAwait(false);
         if (!reservation.Shortfall.IsZero)
         {
             if (reservation.ReservationId is { } partial)
@@ -226,7 +232,8 @@ public sealed class PlaceQualityHoldCommandHandler(
 
         QualityHold hold = QualityHold.Place(tenant.TenantId, null, command.CompanyId, command.OperationId, command.LocationId,
             command.ItemId, command.ItemVariantId, quantity, command.Reason, clock.UtcNow,
-            reservation.ReservationId ?? throw new InvalidOperationException("The reservation did not return an identity."));
+            reservation.ReservationId ?? throw new InvalidOperationException("The reservation did not return an identity."),
+            command.BatchReference, command.ExpiryDate, command.SerialNumber);
         holds.Add(hold);
         return hold.Id;
     }

@@ -93,6 +93,9 @@ internal sealed class QualityHoldConfiguration : EntityConfiguration<QualityHold
             json => JsonSerializer.Deserialize<Quantity>(json, SerializerOptions));
         builder.Property(hold => hold.Reason).IsRequired().HasMaxLength(256);
         builder.Property(hold => hold.ReservationId).IsRequired();
+        builder.Property(hold => hold.BatchReference).HasMaxLength(128);
+        builder.Property(hold => hold.ExpiryDate);
+        builder.Property(hold => hold.SerialNumber).HasMaxLength(128);
         builder.Property(hold => hold.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
         builder.Property(hold => hold.DispositionReason).HasMaxLength(256);
         builder.HasIndex(hold => new { hold.TenantId, hold.OperationId }).IsUnique()

@@ -262,6 +262,11 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         (batchReference, expiryDate, serialNumber) = StockTracking.Validate(
             demanded.Value, batchReference, expiryDate, serialNumber);
 
+        if (expiryDate is { } lotExpiry && lotExpiry <= DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime))
+        {
+            throw InventoryRuleException.ExpiredLotCannotBeReserved(lotExpiry);
+        }
+
         await using var transaction = await db.Database
             .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
