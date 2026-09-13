@@ -94,6 +94,27 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
 }
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record RejectQualityHoldCommand(Guid HoldId, string Reason) : ICommand;
+
+public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, IClock clock)
+    : ICommandHandler<RejectQualityHoldCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(RejectQualityHoldCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Quality hold not found.");
+        if (hold.Status == QualityHoldStatus.Rejected)
+        {
+            return Unit.Value;
+        }
+        hold.Reject(clock.UtcNow, command.Reason);
+        await reservations.ConsumeAsync(hold.ReservationId, hold.Id, cancellationToken).ConfigureAwait(false);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RecordInspectionCommand(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence) : ICommand<Guid>;
 
 public sealed class RecordInspectionCommandHandler(

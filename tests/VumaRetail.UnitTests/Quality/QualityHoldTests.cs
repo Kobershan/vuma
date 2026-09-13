@@ -73,4 +73,16 @@ public sealed class QualityHoldTests
         result.Should().NotBeEmpty();
         inspections.Received(1).Add(Arg.Any<InspectionResult>());
     }
+
+    [Fact]
+    public void Rejected_hold_records_a_terminal_disposition()
+    {
+        QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null,
+            new Quantity(1m, "EA"), "failed inspection", DateTimeOffset.UtcNow, Guid.NewGuid());
+
+        hold.Reject(DateTimeOffset.UtcNow, "failed inspection");
+
+        Assert.Equal(QualityHoldStatus.Rejected, hold.Status);
+        Assert.Throws<InvalidOperationException>(() => hold.Release(DateTimeOffset.UtcNow, "pass"));
+    }
 }

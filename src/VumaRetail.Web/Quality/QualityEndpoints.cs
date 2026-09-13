@@ -22,6 +22,8 @@ public static class QualityEndpoints
             .Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{id:guid}/release", ReleaseAsync).RequirePermission(QualityPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/{id:guid}/reject", RejectAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent);
         return endpoints;
     }
 
@@ -43,6 +45,12 @@ public static class QualityEndpoints
         Guid id = await dispatcher.SendAsync(new RecordInspectionCommand(request.OperationId, request.CompanyId, request.HoldId,
             request.Passed, request.SampleSize, request.Evidence), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/inspections/{id:D}", id);
+    }
+
+    private static async Task<IResult> RejectAsync(Guid id, ReleaseQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new RejectQualityHoldCommand(id, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
     }
 
     public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
