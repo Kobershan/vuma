@@ -226,6 +226,7 @@ builder.Services.AddVumaPlanning();
 builder.Services.AddVumaManufacturing();
 builder.Services.AddVumaQuality();
 builder.Services.AddVumaEcommerce();
+builder.Services.AddVumaServiceManagement();
 
 // Stage 19. CRM: leads, opportunities, activities, segments and consent. After AddVumaPartners
 // (conversion verifies the partner link through the partners read port — a Guid reference,

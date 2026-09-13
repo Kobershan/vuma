@@ -23,3 +23,6 @@ Persistence mapping and migrations `20260913163837_Stage23_ServiceManagement` an
 `20260913164736_Stage23_ServiceTicketOperationId` are now present; the PostgreSQL Up/Down test
 passes **1/1** against the local disposable PostgreSQL database, including the operation-key column
 rollback.
+
+The application port/repository and first scoped commands are wired into both API hosts. The
+service-filtered unit suite passes **23/23** and the StoreServer Release build has **0 errors**.

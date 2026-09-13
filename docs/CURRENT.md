@@ -65,3 +65,7 @@ immutable warranty sale/serial snapshot, and append-only customer custody domain
 tests pass 5/5. Added five `service` schema tables with reversible migration
 `20260913163837_Stage23_ServiceManagement`; PostgreSQL migration Up/Down passes 1/1. APIs,
 parts/accounting, SLA worker, and full isolation acceptance remain open.
+
+Stage 23 application seams now include an EF service repository, idempotent ticket-opening,
+company-scoped warranty approval and repair completion handlers, registered in StoreServer and
+CloudApi. Service command/domain tests pass 23/23; StoreServer Release build passes with 0 errors.
