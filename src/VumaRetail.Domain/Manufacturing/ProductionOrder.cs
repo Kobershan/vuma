@@ -8,6 +8,9 @@ namespace VumaRetail.Domain.Manufacturing;
 public sealed class ProductionOrder : Entity
 {
     private readonly List<ProductionMaterialRequirement> _materials = [];
+    private readonly List<ProductionMaterialIssue> _issues = [];
+    private readonly List<ProductionOutputReceipt> _receipts = [];
+    private readonly List<ProductionScrap> _scrap = [];
 
     private ProductionOrder(Guid id, Guid tenantId, Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber, Guid billOfMaterialsId)
         : base(id, tenantId, null)
@@ -74,6 +77,82 @@ public sealed class ProductionOrder : Entity
     /// <summary>Material requirements captured at release.</summary>
     public IReadOnlyList<ProductionMaterialRequirement> Materials => _materials;
 
+    /// <summary>Material ledger operations already accepted for this order.</summary>
+    public IReadOnlyList<ProductionMaterialIssue> Issues => _issues;
+
+    /// <summary>Finished output receipts already accepted for this order.</summary>
+    public IReadOnlyList<ProductionOutputReceipt> Receipts => _receipts;
+
+    /// <summary>Scrap records already accepted for this order.</summary>
+    public IReadOnlyList<ProductionScrap> Scrap => _scrap;
+
+    /// <summary>Records one material issue exactly once, rejecting a changed replay.</summary>
+    public void IssueMaterial(Guid operationId, Guid componentItemId, Guid? componentVariantId, Quantity quantity, Money unitCost)
+    {
+        EnsureExecutable();
+        EnsurePositiveOperation(operationId, quantity);
+        ProductionMaterialIssue? prior = _issues.SingleOrDefault(issue => issue.OperationId == operationId);
+        if (prior is not null)
+        {
+            if (prior.ComponentItemId != componentItemId || prior.ComponentVariantId != componentVariantId || prior.Quantity != quantity || prior.UnitCost != unitCost)
+            {
+                throw ManufacturingRuleException.OperationPayloadConflict(operationId);
+            }
+            return;
+        }
+        ProductionMaterialRequirement requirement = _materials.SingleOrDefault(material => material.ComponentItemId == componentItemId && material.ComponentVariantId == componentVariantId)
+            ?? throw ManufacturingRuleException.MaterialNotRequired(componentItemId);
+        Quantity consumed = _issues.Where(issue => issue.ComponentItemId == componentItemId && issue.ComponentVariantId == componentVariantId)
+            .Select(issue => issue.Quantity).Aggregate(Quantity.Zero(quantity.UnitOfMeasure), (sum, value) => sum + value);
+        if (consumed + quantity > requirement.RequiredQuantity)
+        {
+            throw ManufacturingRuleException.MaterialOverIssue(componentItemId);
+        }
+        _issues.Add(new ProductionMaterialIssue(operationId, componentItemId, componentVariantId, quantity, unitCost));
+    }
+
+    /// <summary>Records one finished-output receipt exactly once.</summary>
+    public void ReceiveOutput(Guid operationId, Quantity quantity, Money unitCost)
+    {
+        EnsureExecutable();
+        EnsurePositiveOperation(operationId, quantity);
+        ProductionOutputReceipt? prior = _receipts.SingleOrDefault(receipt => receipt.OperationId == operationId);
+        if (prior is not null)
+        {
+            if (prior.Quantity != quantity || prior.UnitCost != unitCost)
+            {
+                throw ManufacturingRuleException.OperationPayloadConflict(operationId);
+            }
+            return;
+        }
+        if (TotalOutput() + quantity > PlannedQuantity)
+        {
+            throw ManufacturingRuleException.OutputOverPlan();
+        }
+        _receipts.Add(new ProductionOutputReceipt(operationId, quantity, unitCost));
+    }
+
+    /// <summary>Records one scrap quantity exactly once, bounded by the planned output.</summary>
+    public void RecordScrap(Guid operationId, Quantity quantity, Money unitCost)
+    {
+        EnsureExecutable();
+        EnsurePositiveOperation(operationId, quantity);
+        ProductionScrap? prior = _scrap.SingleOrDefault(entry => entry.OperationId == operationId);
+        if (prior is not null)
+        {
+            if (prior.Quantity != quantity || prior.UnitCost != unitCost)
+            {
+                throw ManufacturingRuleException.OperationPayloadConflict(operationId);
+            }
+            return;
+        }
+        if (TotalOutput() + TotalScrap() + quantity > PlannedQuantity)
+        {
+            throw ManufacturingRuleException.OutputOverPlan();
+        }
+        _scrap.Add(new ProductionScrap(operationId, quantity, unitCost));
+    }
+
     /// <summary>Releases the order against the current published BOM and copies its inputs.</summary>
     public void Release(BillOfMaterials bom, DateTimeOffset releasedAt)
     {
@@ -107,7 +186,14 @@ public sealed class ProductionOrder : Entity
     public void Start() => Transition(ProductionOrderStatus.Released, ProductionOrderStatus.InProgress);
 
     /// <summary>Marks execution complete after output, scrap and material reconcile.</summary>
-    public void Complete() => Transition(ProductionOrderStatus.InProgress, ProductionOrderStatus.Completed);
+    public void Complete()
+    {
+        if (TotalOutput() + TotalScrap() != PlannedQuantity)
+        {
+            throw ManufacturingRuleException.OutputReconciliationRequired();
+        }
+        Transition(ProductionOrderStatus.InProgress, ProductionOrderStatus.Completed);
+    }
 
     /// <summary>Closes a completed order.</summary>
     public void Close() => Transition(ProductionOrderStatus.Completed, ProductionOrderStatus.Closed);
@@ -120,6 +206,33 @@ public sealed class ProductionOrder : Entity
         }
         Status = next;
     }
+
+    private void EnsureExecutable()
+    {
+        if (Status == ProductionOrderStatus.Released)
+        {
+            Start();
+        }
+        else if (Status != ProductionOrderStatus.InProgress)
+        {
+            throw ManufacturingRuleException.InvalidProductionTransition(Status, ProductionOrderStatus.InProgress);
+        }
+    }
+
+    private static void EnsurePositiveOperation(Guid operationId, Quantity quantity)
+    {
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("A production operation identity is required.", nameof(operationId));
+        }
+        if (quantity.Value <= 0m)
+        {
+            throw ManufacturingRuleException.PositiveQuantityRequired();
+        }
+    }
+
+    private Quantity TotalOutput() => _receipts.Select(receipt => receipt.Quantity).Aggregate(Quantity.Zero(PlannedQuantity.UnitOfMeasure), (sum, value) => sum + value);
+    private Quantity TotalScrap() => _scrap.Select(entry => entry.Quantity).Aggregate(Quantity.Zero(PlannedQuantity.UnitOfMeasure), (sum, value) => sum + value);
 }
 
 /// <summary>Lifecycle of a production order.</summary>
@@ -152,3 +265,12 @@ public sealed record ProductionMaterialRequirement(
     Quantity RequiredQuantity,
     decimal ScrapPercent,
     string? AlternateGroup);
+
+/// <summary>One idempotent material consumption operation.</summary>
+public sealed record ProductionMaterialIssue(Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, Quantity Quantity, Money UnitCost);
+
+/// <summary>One idempotent finished-output receipt.</summary>
+public sealed record ProductionOutputReceipt(Guid OperationId, Quantity Quantity, Money UnitCost);
+
+/// <summary>One idempotent scrap record.</summary>
+public sealed record ProductionScrap(Guid OperationId, Quantity Quantity, Money UnitCost);

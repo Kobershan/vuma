@@ -48,4 +48,28 @@ public sealed class ProductionOrderTests
 
         action.Should().Throw<ManufacturingRuleException>();
     }
+
+    [Fact]
+    public void Material_issue_output_and_scrap_are_idempotent_and_reconcile()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(tenantId, itemId, 1, "Widget");
+        Guid componentId = Guid.NewGuid();
+        bom.AddLine(componentId, new Quantity(2m, "EA"));
+        bom.Publish();
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), tenantId, companyId, itemId, new Quantity(10m, "EA"), "PROD-002", bom.Id);
+        order.Release(bom, DateTimeOffset.UtcNow);
+        Money cost = new(10m, "ZAR");
+        Guid issueId = Guid.NewGuid();
+        order.IssueMaterial(issueId, componentId, null, new Quantity(20m, "EA"), cost);
+        order.IssueMaterial(issueId, componentId, null, new Quantity(20m, "EA"), cost);
+        order.ReceiveOutput(Guid.NewGuid(), new Quantity(9m, "EA"), cost);
+        order.RecordScrap(Guid.NewGuid(), new Quantity(1m, "EA"), cost);
+        order.Complete();
+
+        order.Status.Should().Be(ProductionOrderStatus.Completed);
+        order.Issues.Should().ContainSingle();
+    }
 }

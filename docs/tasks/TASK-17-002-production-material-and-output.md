@@ -1,6 +1,6 @@
 # TASK-17-002 — Production material, output and scrap accounting
 
-**Status:** NOT_STARTED · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
 
 ## Objective
 
@@ -21,4 +21,12 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
 ## Work log
 
 - 2026-09-12: canonicalized from Stage 17 part 17-P02. Implementation not yet started.
-
+- 2026-09-13: added idempotent aggregate records for material issues, finished output and scrap,
+  including changed-payload rejection, requirement/over-issue protection and exact output-plus-scrap
+  reconciliation before completion. Focused manufacturing tests pass 18/18 locally. Stock ledger,
+  reservation, financial event, persistence and PostgreSQL scenario evidence remain open.
+- 2026-09-13: the first pushed checkpoint exposed that the generated request-identity migration was
+  incorrectly a duplicate table-create migration. It was removed and regenerated as additive
+  migration `20260913053229_Stage17_ProductionExecutionRecords`, adding the BOM identity and three
+  JSON execution-record columns to the existing production-order table. The failed workflow was
+  `34740105395`; no replacement is pushed until migration validation is green.

@@ -46,6 +46,22 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     public static ManufacturingRuleException OperationPayloadConflict(Guid id)
         => new("PRODUCTION_OPERATION_CONFLICT", $"Production operation {id} was already received with different content.");
 
+    /// <summary>The issue names a component absent from the release snapshot.</summary>
+    public static ManufacturingRuleException MaterialNotRequired(Guid itemId)
+        => new("PRODUCTION_MATERIAL_NOT_REQUIRED", $"Component {itemId} is not required by the released BOM.");
+
+    /// <summary>An issue would consume more than the release snapshot allows.</summary>
+    public static ManufacturingRuleException MaterialOverIssue(Guid itemId)
+        => new("PRODUCTION_MATERIAL_OVER_ISSUE", $"Component {itemId} would be consumed beyond the released requirement.");
+
+    /// <summary>Output and scrap must not exceed the planned quantity.</summary>
+    public static ManufacturingRuleException OutputOverPlan()
+        => new("PRODUCTION_OUTPUT_OVER_PLAN", "Finished output and scrap cannot exceed the planned quantity.");
+
+    /// <summary>Closing requires output and scrap to reconcile to the plan.</summary>
+    public static ManufacturingRuleException OutputReconciliationRequired()
+        => new("PRODUCTION_OUTPUT_RECONCILIATION", "Finished output and scrap must reconcile exactly to the planned quantity before completion.");
+
     /// <summary>A definition version already exists.</summary>
     public static ManufacturingRuleException DuplicateVersion(Guid itemId, int version)
         => new("BOM_DUPLICATE_VERSION", $"BOM version {version} already exists for item {itemId}.");

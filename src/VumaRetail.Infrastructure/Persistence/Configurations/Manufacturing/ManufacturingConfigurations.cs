@@ -90,6 +90,18 @@ internal sealed class ProductionOrderConfiguration : EntityConfiguration<Product
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<List<ProductionMaterialRequirement>>(json, SerializerOptions)
                 ?? new List<ProductionMaterialRequirement>());
+        builder.Property(order => order.Issues).HasColumnName("material_issues").HasColumnType("jsonb").IsRequired().HasConversion(
+            value => JsonSerializer.Serialize(value, SerializerOptions),
+            json => JsonSerializer.Deserialize<List<ProductionMaterialIssue>>(json, SerializerOptions)
+                ?? new List<ProductionMaterialIssue>());
+        builder.Property(order => order.Receipts).HasColumnName("output_receipts").HasColumnType("jsonb").IsRequired().HasConversion(
+            value => JsonSerializer.Serialize(value, SerializerOptions),
+            json => JsonSerializer.Deserialize<List<ProductionOutputReceipt>>(json, SerializerOptions)
+                ?? new List<ProductionOutputReceipt>());
+        builder.Property(order => order.Scrap).HasColumnName("scrap_records").HasColumnType("jsonb").IsRequired().HasConversion(
+            value => JsonSerializer.Serialize(value, SerializerOptions),
+            json => JsonSerializer.Deserialize<List<ProductionScrap>>(json, SerializerOptions)
+                ?? new List<ProductionScrap>());
         builder.HasIndex(order => new { order.TenantId, order.CompanyId, order.OrderNumber })
             .IsUnique().HasDatabaseName("ux_production_orders_tenant_company_number")
             .HasFilter("deleted_at IS NULL");

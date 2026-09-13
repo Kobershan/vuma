@@ -14200,6 +14200,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid>("BillOfMaterialsId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bill_of_materials_id");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
                         .HasColumnName("company_id");
@@ -14227,6 +14231,11 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("finished_item_id");
 
+                    b.Property<string>("Issues")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("material_issues");
+
                     b.Property<string>("Materials")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -14243,11 +14252,21 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("planned_quantity");
 
+                    b.Property<string>("Receipts")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("output_receipts");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .HasColumnType("bytea")
                         .HasColumnName("row_version");
+
+                    b.Property<string>("Scrap")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("scrap_records");
 
                     b.Property<string>("Snapshot")
                         .HasColumnType("jsonb")
