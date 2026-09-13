@@ -4,9 +4,10 @@
 
 ## Objective
 
-The first operator-safe release primitive is `scripts/verify-release-manifest.sh`: it validates every
-listed payload file before activation and fails closed on malformed rows, missing files or mismatched
-SHA-256 checksums. The script has a self-test at `scripts/tests/verify-release-manifest.test.sh`.
+The first operator-safe release primitives are `scripts/verify-release-manifest.sh` and
+`scripts/activate-release.sh`: the former validates every listed payload file before activation and
+the latter switches a release through same-filesystem renames while retaining the previous target for
+rollback. Both have self-tests under `scripts/tests/`.
 
 Produce a signed, recoverable release with measured security, availability and offline behavior. Prove trading from local infrastructure, controlled cloud/mobile access and vendor monitoring without making vendor uptime a transaction dependency.
 
