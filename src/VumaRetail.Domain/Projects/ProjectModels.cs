@@ -29,6 +29,7 @@ public sealed class Project : Entity
     public void Close() { if (Status != ProjectStatus.Active) throw new InvalidOperationException("Only an active project can be closed."); Status = ProjectStatus.Closed; }
 }
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class ProjectBudget : Entity
 {
     private ProjectBudget(Guid tenantId, Guid? storeId, Guid companyId, Guid projectId, int version, Money amount) : base(tenantId, storeId)
@@ -58,6 +59,7 @@ public sealed class ProjectBudget : Entity
     public Money Available => new(Math.Max(0m, Amount.Amount - Committed.Amount - Actual.Amount), Amount.Currency);
 }
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class ProjectContract : Entity
 {
     private ProjectContract(Guid tenantId, Guid? storeId, Guid companyId, Guid projectId, string number, Money originalValue) : base(tenantId, storeId)
@@ -79,6 +81,7 @@ public sealed class ProjectContract : Entity
     }
 }
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class ContractVariation : Entity
 {
     private ContractVariation(Guid tenantId, Guid? storeId, Guid companyId, Guid contractId, string reason, Money amount) : base(tenantId, storeId)
@@ -94,6 +97,7 @@ public sealed class ContractVariation : Entity
     public void Reject() { if (Status != ContractVariationStatus.Proposed) throw new InvalidOperationException("Only a proposed variation can be rejected."); Status = ContractVariationStatus.Rejected; }
 }
 
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class BillingMilestone : Entity
 {
     private BillingMilestone(Guid tenantId, Guid? storeId, Guid companyId, Guid contractId, string name, Money amount) : base(tenantId, storeId)
