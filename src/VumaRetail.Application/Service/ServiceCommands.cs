@@ -107,3 +107,21 @@ public sealed class CompleteRepairCommandHandler(IServiceRepository services, IC
         return Unit.Value;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CloseServiceTicketCommand(Guid TicketId) : ICommand;
+
+public sealed class CloseServiceTicketCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+    : ICommandHandler<CloseServiceTicketCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CloseServiceTicketCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ServiceTicket ticket = await services.FindTicketAsync(command.TicketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Service ticket not found.");
+        if (company.CompanyId is not { } active || ticket.CompanyId != active)
+            throw new InvalidOperationException("The service company is not the active company.");
+        ticket.Close(clock.UtcNow);
+        return Unit.Value;
+    }
+}

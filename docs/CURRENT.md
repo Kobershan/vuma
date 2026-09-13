@@ -74,3 +74,5 @@ as CloudToStore/CloudWins. Latest fix is queued in GitHub CI.
 
 Stage 23 service routes are now mapped in both hosts for tickets, warranties, and repairs, with
 granular service permissions. Real-host OpenAPI plus service migration verification passes 2/2.
+Ticket close is now a company-scoped command/route; the real-host OpenAPI check remains green after
+the addition.

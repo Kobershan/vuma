@@ -18,6 +18,7 @@ public static class ServiceEndpoints
         RouteGroupBuilder service = endpoints.MapVumaApi().MapGroup("/service")
             .WithTags("Service").RequireModule("service");
         service.MapPost("/tickets", OpenTicketAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        service.MapPost("/tickets/{id:guid}/close", CloseTicketAsync).RequirePermission(ServicePermissions.Manage).Produces(StatusCodes.Status204NoContent);
         service.MapPost("/warranties", SubmitWarrantyAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapPost("/warranties/{id:guid}/approve", ApproveWarrantyAsync).RequirePermission(ServicePermissions.ApproveWarranty).Produces(StatusCodes.Status204NoContent);
         service.MapPost("/repairs", OpenRepairAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
@@ -41,6 +42,12 @@ public static class ServiceEndpoints
         Guid id = await dispatcher.SendAsync(new SubmitWarrantyClaimCommand(request.CompanyId, request.TicketId,
             request.CustomerId, request.SaleReference, request.SaleDate, request.SerialNumber), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/service/warranties/{id:D}", id);
+    }
+
+    private static async Task<IResult> CloseTicketAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new CloseServiceTicketCommand(id), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ApproveWarrantyAsync(Guid id, ApproveWarrantyRequest request,
