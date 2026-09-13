@@ -15,6 +15,8 @@ public sealed class HrPermissions : IModulePermissions
     public const string LeaveView = "hr.leave.view";
     /// <summary>Manage leave requests.</summary>
     public const string LeaveManage = "hr.leave.manage";
+    /// <summary>Manage disciplinary cases, a high-risk personnel action.</summary>
+    public const string DisciplinaryManage = "hr.disciplinary.manage";
 
     /// <inheritdoc />
     public string Module => "hr";
@@ -26,5 +28,6 @@ public sealed class HrPermissions : IModulePermissions
         new(PermissionKey.Parse(Manage), "Create employees and employment contracts.", IsHighRisk: true),
         new(PermissionKey.Parse(LeaveView), "View employee leave requests."),
         new(PermissionKey.Parse(LeaveManage), "Create and decide employee leave requests.", IsHighRisk: true),
+        new(PermissionKey.Parse(DisciplinaryManage), "Open and decide disciplinary cases.", IsHighRisk: true),
     ];
 }

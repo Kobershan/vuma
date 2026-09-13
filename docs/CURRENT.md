@@ -55,6 +55,10 @@ WORK LOG (2026-09-13): Stage 25 disciplinary case listing now enforces the activ
 available through the HR view-protected query/API surface. `DisciplinaryCaseTests` passes 4/4;
 payroll export, acceptance and specialist review remain open.
 
+WORK LOG (2026-09-13): Stage 25 disciplinary mutations now use the dedicated high-risk
+`hr.disciplinary.manage` permission rather than the general employee-management permission;
+disciplinary regression tests remain green at 4/4.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle
