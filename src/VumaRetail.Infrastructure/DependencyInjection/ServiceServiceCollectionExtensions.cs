@@ -15,6 +15,8 @@ public static class ServiceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IServiceRepository, ServiceRepository>();
+        services.TryAddSingleton<IServiceSlaClock>(_ =>
+            new BusinessHoursServiceSlaClock(new TimeOnly(9, 0), new TimeOnly(17, 0)));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ServicePermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ServiceModuleManifest>());
         return services;

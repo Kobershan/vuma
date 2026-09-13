@@ -47,7 +47,9 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 - [~] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA. Reservation-backed
   service-part issue, dedicated stock movement/reference, API route, and replay test are implemented;
   invoicing/RMA and full PostgreSQL availability acceptance remain.
-- [ ] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance.
+- [~] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance. Deterministic
+  weekday business-hours calculation is implemented and unit-tested; policy persistence, pause
+  events, worker execution and API acceptance remain.
 
 ## Progress evidence
 
@@ -60,6 +62,8 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 - 2026-09-13: Service-part issue now reserves availability, posts `ServicePartIssue`/`ServicePart`
   inventory facts, consumes the hold, and rejects changed-content operation replays; focused command
   tests pass **3/3**.
+- 2026-09-13: Added `IServiceSlaClock` and `BusinessHoursServiceSlaClock`; weekday 09:00–17:00 UTC
+  elapsed-time boundaries pass **2/2**. Waiting-for-customer pause accounting and SLA worker remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

@@ -18,3 +18,53 @@ public interface IServiceRepository
     void Add(RepairJob job);
     void Add(ServicePartUsage usage);
 }
+
+/// <summary>Calculates elapsed service time using the configured working calendar.</summary>
+public interface IServiceSlaClock
+{
+    decimal WorkingHoursBetween(DateTimeOffset startUtc, DateTimeOffset endUtc);
+}
+
+/// <summary>UTC weekday business-hours calculator used by service SLA policies.</summary>
+public sealed class BusinessHoursServiceSlaClock : IServiceSlaClock
+{
+    private readonly TimeOnly openingTime;
+    private readonly TimeOnly closingTime;
+
+    public BusinessHoursServiceSlaClock(TimeOnly openingTime, TimeOnly closingTime)
+    {
+        if (closingTime <= openingTime)
+        {
+            throw new ArgumentException("Closing time must follow opening time.");
+        }
+        this.openingTime = openingTime;
+        this.closingTime = closingTime;
+    }
+
+    public decimal WorkingHoursBetween(DateTimeOffset startUtc, DateTimeOffset endUtc)
+    {
+        if (endUtc <= startUtc)
+        {
+            return 0m;
+        }
+        DateTimeOffset cursor = startUtc.ToUniversalTime();
+        DateTimeOffset end = endUtc.ToUniversalTime();
+        decimal totalHours = 0m;
+        while (cursor < end)
+        {
+            if (cursor.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+            {
+                DateTimeOffset dayOpen = new(cursor.Date.Add(openingTime.ToTimeSpan()), TimeSpan.Zero);
+                DateTimeOffset dayClose = new(cursor.Date.Add(closingTime.ToTimeSpan()), TimeSpan.Zero);
+                DateTimeOffset from = cursor > dayOpen ? cursor : dayOpen;
+                DateTimeOffset to = end < dayClose ? end : dayClose;
+                if (to > from)
+                {
+                    totalHours += (decimal)(to - from).TotalHours;
+                }
+            }
+            cursor = new DateTimeOffset(cursor.Date.AddDays(1), TimeSpan.Zero);
+        }
+        return totalHours;
+    }
+}
