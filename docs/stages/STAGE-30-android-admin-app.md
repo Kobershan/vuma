@@ -1,6 +1,6 @@
 # STAGE 30 — Android Admin App
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — Android Compose baseline and strict HTTPS/session/action models implemented; durable Room storage, secure token persistence, API flows and acceptance remain · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,11 +44,19 @@ Declare granular `mobile_admin.view`, `mobile_admin.manage` and distinct high-ri
 
 ## Parts — the build list
 
-- [ ] 30-P01: Implement endpoint enrollment, secure login/refresh and tenant-scoped Room storage.
+- [~] 30-P01: Implement endpoint enrollment, secure login/refresh and tenant-scoped Room storage. Strict
+  HTTPS enrollment and tenant-scoped in-memory models are implemented; secure storage, Room schema and
+  authentication flows remain.
 - [ ] 30-P02: Deliver dashboard/stock/approval flows with persistent intent queue and freshness labels.
 - [ ] 30-P03: Add push, accessibility, release signing and physical-device outage/security tests.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
+
+## Progress evidence
+
+- 2026-09-13: Added `EndpointProfile`, `TenantSession` and `PendingAction` Kotlin models. Enrollment
+  rejects non-HTTPS endpoints, userinfo URLs and missing hosts; pending actions remain explicitly queued
+  intents rather than completed approvals. Android SDK/Gradle verification remains required.
 
 ## Tests / acceptance
 
