@@ -314,5 +314,9 @@ public interface IRosterPublicationRepository { void Add(RosterPublication publi
 public interface IAttendanceRepository { Task<IReadOnlyList<AttendanceRecord>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); Task<EmployeeDocument?> FindAsync(Guid employeeId, Guid documentId, CancellationToken token = default); void Add(EmployeeDocument document); }
-public interface IEmployeeDocumentDownloadAuthorizer { string Create(EmployeeDocument document, DateTimeOffset expiresAtUtc); }
+public interface IEmployeeDocumentDownloadAuthorizer
+{
+    string Create(EmployeeDocument document, DateTimeOffset expiresAtUtc);
+    bool Validate(string token, Guid documentId, DateTimeOffset asOfUtc);
+}
 public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<DisciplinaryCase>> ListAsync(Guid companyId, Guid? employeeId, CancellationToken token = default); void Add(DisciplinaryCase @case); }
