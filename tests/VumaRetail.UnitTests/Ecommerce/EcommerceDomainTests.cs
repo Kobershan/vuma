@@ -58,4 +58,12 @@ public sealed class EcommerceDomainTests
         line.AdvisoryUnitPrice.Should().Be(1m);
         line.AuthoritativeUnitPrice.Should().Be(100m);
     }
+
+    [Theory]
+    [InlineData(PaymentAttemptStatus.Authorised, PaymentAttemptStatus.Captured, true)]
+    [InlineData(PaymentAttemptStatus.Captured, PaymentAttemptStatus.Authorised, false)]
+    [InlineData(PaymentAttemptStatus.Failed, PaymentAttemptStatus.Captured, false)]
+    [InlineData(PaymentAttemptStatus.Captured, PaymentAttemptStatus.Reversed, true)]
+    public void Payment_status_transitions_are_monotonic(PaymentAttemptStatus current, PaymentAttemptStatus next, bool allowed)
+        => PaymentAttempt.IsAllowedTransition(current, next).Should().Be(allowed);
 }

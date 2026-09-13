@@ -55,6 +55,9 @@ public sealed class PaymentAttemptRepository(VumaRetailDbContext context) : IPay
 {
     public Task<PaymentAttempt?> FindByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
         => context.PaymentAttempts.FirstOrDefaultAsync(x => x.EventId == eventId.Trim(), cancellationToken);
+    public Task<PaymentAttempt?> FindLatestForCheckoutAsync(Guid checkoutId, string providerPaymentId, CancellationToken cancellationToken = default)
+        => context.PaymentAttempts.Where(x => x.CheckoutIntentId == checkoutId && x.ProviderPaymentId == providerPaymentId.Trim())
+            .OrderByDescending(x => x.ReceivedAtUtc).FirstOrDefaultAsync(cancellationToken);
 
     public void Add(PaymentAttempt attempt) => context.PaymentAttempts.Add(attempt);
 }

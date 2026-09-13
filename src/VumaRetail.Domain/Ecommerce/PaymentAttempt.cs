@@ -44,6 +44,15 @@ public sealed class PaymentAttempt : Entity
         return new PaymentAttempt(tenantId, companyId, checkoutId, eventId, payloadFingerprint,
             providerPaymentId, status, providerReference, receivedAt);
     }
+
+    public static bool IsAllowedTransition(PaymentAttemptStatus current, PaymentAttemptStatus next)
+        => current == next || current switch
+        {
+            PaymentAttemptStatus.Authorised => next is PaymentAttemptStatus.Captured or PaymentAttemptStatus.Failed or PaymentAttemptStatus.Reversed,
+            PaymentAttemptStatus.Captured => next == PaymentAttemptStatus.Reversed,
+            PaymentAttemptStatus.Failed or PaymentAttemptStatus.Reversed => false,
+            _ => false,
+        };
 }
 
 public enum PaymentAttemptStatus

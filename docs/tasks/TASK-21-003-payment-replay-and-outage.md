@@ -8,6 +8,8 @@
 - HMAC-SHA256 verification rejects missing, malformed and tampered signatures.
 - Payment attempts persist provider status, event ID and content fingerprint; same-event retries are
   idempotent and changed replays are rejected.
+- Payment notifications now enforce monotonic provider state transitions: authorization may capture,
+  fail or reverse; captured payments may only reverse, and terminal states cannot move forward.
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work
@@ -18,3 +20,6 @@
 - Add signed webhook integration tests proving ten replays create one transition/posting.
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
+
+Ecommerce unit tests pass **8/8**, including the payment transition matrix. Gateway calls, capture/
+void/refund execution and end-to-end PostgreSQL webhook replay remain open.

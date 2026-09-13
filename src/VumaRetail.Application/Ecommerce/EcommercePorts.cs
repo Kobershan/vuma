@@ -44,6 +44,7 @@ public interface ICheckoutIntentRepository
 public interface IPaymentAttemptRepository
 {
     Task<PaymentAttempt?> FindByEventIdAsync(string eventId, CancellationToken cancellationToken = default);
+    Task<PaymentAttempt?> FindLatestForCheckoutAsync(Guid checkoutId, string providerPaymentId, CancellationToken cancellationToken = default);
     void Add(PaymentAttempt attempt);
 }
 
@@ -78,6 +79,11 @@ public sealed class ApplyPaymentNotificationCommandHandler(
         if (!Enum.TryParse<PaymentAttemptStatus>(command.Status, true, out PaymentAttemptStatus status))
         {
             throw new ArgumentException("Unknown payment status.", nameof(command));
+        }
+        PaymentAttempt? latest = await attempts.FindLatestForCheckoutAsync(checkout.Id, command.ProviderPaymentId, cancellationToken).ConfigureAwait(false);
+        if (latest is not null && !PaymentAttempt.IsAllowedTransition(latest.Status, status))
+        {
+            throw new InvalidOperationException("Payment status cannot move backwards or change after reversal.");
         }
         PaymentAttempt attempt = PaymentAttempt.Record(tenant.TenantId, command.CompanyId, checkout.Id,
             command.EventId, command.PayloadFingerprint, command.ProviderPaymentId, status,

@@ -59,6 +59,9 @@ Verified 2026-09-13: Ecommerce unit tests **4/4** and real-host OpenAPI contract
 The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
 outage integration is exercised end to end.
 
+Payment state transition rules are now covered by the Ecommerce unit suite, which passes **8/8**;
+provider gateway orchestration and end-to-end webhook replay remain open.
+
 The basket-line price boundary is now covered by a dedicated test: the submitted advisory total is
 retained for audit, while the published product price is stored as the authoritative value.
 
