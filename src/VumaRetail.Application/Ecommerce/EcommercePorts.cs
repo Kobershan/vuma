@@ -64,6 +64,10 @@ public sealed class ApplyPaymentNotificationCommandHandler(
         PaymentAttempt? existing = await attempts.FindByEventIdAsync(command.EventId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
+            if (existing.CompanyId != command.CompanyId)
+            {
+                throw new InvalidOperationException("Payment event belongs to another company.");
+            }
             if (!string.Equals(existing.PayloadFingerprint, command.PayloadFingerprint.Trim(), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Payment event was replayed with different content.");

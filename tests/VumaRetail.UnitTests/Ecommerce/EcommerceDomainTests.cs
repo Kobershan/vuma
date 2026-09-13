@@ -1,7 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
+using NSubstitute;
 using VumaRetail.Application.Ecommerce;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Ecommerce;
 
 namespace VumaRetail.UnitTests.Ecommerce;
@@ -66,4 +69,26 @@ public sealed class EcommerceDomainTests
     [InlineData(PaymentAttemptStatus.Captured, PaymentAttemptStatus.Reversed, true)]
     public void Payment_status_transitions_are_monotonic(PaymentAttemptStatus current, PaymentAttemptStatus next, bool allowed)
         => PaymentAttempt.IsAllowedTransition(current, next).Should().Be(allowed);
+
+    [Fact]
+    public async Task Payment_event_replay_from_another_company_is_refused()
+    {
+        var companyId = Guid.NewGuid();
+        var existing = PaymentAttempt.Record(Guid.NewGuid(), companyId, Guid.NewGuid(), "evt-1", "fingerprint",
+            "provider-1", PaymentAttemptStatus.Authorised, null, DateTimeOffset.UtcNow);
+        var attempts = Substitute.For<IPaymentAttemptRepository>();
+        attempts.FindByEventIdAsync("evt-1", Arg.Any<CancellationToken>()).Returns(existing);
+        var company = Substitute.For<ICompanyContext>();
+        Guid otherCompanyId = Guid.NewGuid();
+        company.CompanyId.Returns((Guid?)otherCompanyId);
+
+        var action = () => new ApplyPaymentNotificationCommandHandler(
+            Substitute.For<ICheckoutIntentRepository>(), attempts,
+            Substitute.For<ITenantContext>(), company,
+            Substitute.For<IClock>()).HandleAsync(new ApplyPaymentNotificationCommand(
+                Guid.NewGuid(), otherCompanyId, "evt-1", "fingerprint", "provider-1", "Authorised", null));
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Payment event belongs to another company.");
+    }
 }

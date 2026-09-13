@@ -10,6 +10,8 @@
   idempotent and changed replays are rejected.
 - Payment notifications now enforce monotonic provider state transitions: authorization may capture,
   fail or reverse; captured payments may only reverse, and terminal states cannot move forward.
+- Payment notification replay now verifies the existing event's company before returning an idempotent
+  result, preventing cross-company event-ID replay.
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work
@@ -21,5 +23,6 @@
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
-Ecommerce unit tests pass **8/8**, including the payment transition matrix. Gateway calls, capture/
+Ecommerce unit tests pass **9/9**, including the payment transition matrix and cross-company replay
+guard. Gateway calls, capture/
 void/refund execution and end-to-end PostgreSQL webhook replay remain open.
