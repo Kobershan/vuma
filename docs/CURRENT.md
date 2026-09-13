@@ -52,3 +52,8 @@ SIDE-QUEST (2026-09-11): Stage 14b implementation and verification are complete.
 SIDE-QUEST (2026-09-10): Stage 13b’s implementation tasks and migration are covered by the current suite; its stale stage header is now reconciled to COMPLETE.
 
 SIDE-QUEST (2026-09-11): Stage 07c is complete. Leg dispatch, clearing/allocation links, retry behavior, and reconciliation pass the focused PostgreSQL suite and the full 568-test integration suite; ADRs 151–152 document the remaining outbound-payment deferral.
+
+WORK LOG (2026-09-13): Storefront checkout expiry was hardened at the domain decision boundary.
+`CheckoutIntent.Confirm` and `.Reject` now transition an overdue pending intent to `Expired` and
+refuse the decision even when the background expiry sweep has not run. Ecommerce domain regression
+tests pass 3/3. Change pushed as `21f8b73`; GitHub CI run `34767903821` is in progress.
