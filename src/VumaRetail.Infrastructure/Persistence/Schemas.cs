@@ -177,6 +177,7 @@ public static class Schemas
 
     /// <summary>Storefront channels and published sell-facing product projections. Stage 21.</summary>
     public const string Ecommerce = "ecommerce";
+    public const string Service = "service";
 
     /// <summary>
     /// Customer relationships: leads, opportunities, activities, segments, memberships and

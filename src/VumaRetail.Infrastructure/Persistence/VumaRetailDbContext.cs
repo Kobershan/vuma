@@ -567,6 +567,13 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Non-conformance and corrective-action records (Stage 18).</summary>
     public DbSet<Domain.Quality.NonConformance> NonConformances => Set<Domain.Quality.NonConformance>();
 
+    /// <summary>Service tickets, repairs, custody events, part usage and SLA definitions.</summary>
+    public DbSet<Domain.Service.ServiceTicket> ServiceTickets => Set<Domain.Service.ServiceTicket>();
+    public DbSet<Domain.Service.WarrantyClaim> WarrantyClaims => Set<Domain.Service.WarrantyClaim>();
+    public DbSet<Domain.Service.RepairJob> RepairJobs => Set<Domain.Service.RepairJob>();
+    public DbSet<Domain.Service.ServicePartUsage> ServicePartUsages => Set<Domain.Service.ServicePartUsage>();
+    public DbSet<Domain.Service.ServiceSla> ServiceSlas => Set<Domain.Service.ServiceSla>();
+
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
 

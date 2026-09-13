@@ -18,3 +18,6 @@
 
 Add persistence mappings and migration, scoped application commands and permissions, API contracts,
 custody query/export controls, and real PostgreSQL tenant/company isolation evidence.
+
+Persistence mapping and migration `20260913163837_Stage23_ServiceManagement` are now present; the
+PostgreSQL Up/Down test passes **1/1** against the local disposable PostgreSQL database.

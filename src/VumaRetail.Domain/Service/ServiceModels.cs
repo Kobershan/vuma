@@ -229,13 +229,12 @@ public sealed class ServicePartUsage : Entity
 }
 
 /// <summary>Configured service SLA duration, expressed in working hours.</summary>
-public sealed class ServiceSla
+public sealed class ServiceSla : Entity
 {
     private ServiceSla() { }
     private ServiceSla(Guid tenantId, Guid companyId, string name, decimal responseHours, decimal resolutionHours)
-    { TenantId = tenantId; CompanyId = companyId; Name = name.Trim(); ResponseHours = responseHours; ResolutionHours = resolutionHours; }
-    public Guid TenantId { get; private set; }
-    public Guid CompanyId { get; private set; }
+        : base(tenantId)
+    { AssignCompany(companyId); Name = name.Trim(); ResponseHours = responseHours; ResolutionHours = resolutionHours; }
     public string Name { get; private set; } = string.Empty;
     public decimal ResponseHours { get; private set; }
     public decimal ResolutionHours { get; private set; }

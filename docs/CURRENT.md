@@ -62,4 +62,6 @@ GitHub CI run is verifying the checkpoint.
 
 WORK LOG (2026-09-13): Stage 23-P01 service-management foundation started. Added ticket lifecycle,
 immutable warranty sale/serial snapshot, and append-only customer custody domain records; focused
-tests pass 3/3. Persistence, APIs, parts/accounting, SLA, and PostgreSQL acceptance remain open.
+tests pass 5/5. Added five `service` schema tables with reversible migration
+`20260913163837_Stage23_ServiceManagement`; PostgreSQL migration Up/Down passes 1/1. APIs,
+parts/accounting, SLA worker, and full isolation acceptance remain open.
