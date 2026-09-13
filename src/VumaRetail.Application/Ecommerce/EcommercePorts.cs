@@ -47,6 +47,7 @@ public interface IPaymentAttemptRepository
     void Add(PaymentAttempt attempt);
 }
 
+[CommandSideEffect(SideEffect.Write)]
 public sealed record ApplyPaymentNotificationCommand(Guid CheckoutId, Guid CompanyId, string EventId,
     string PayloadFingerprint, string ProviderPaymentId, string Status, string? ProviderReference) : ICommand<Guid>;
 
