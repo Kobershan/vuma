@@ -89,4 +89,32 @@ public sealed class ProductionOrderTests
         order.Status.Should().Be(ProductionOrderStatus.Completed);
         order.Issues.Should().ContainSingle();
     }
+
+    [Fact]
+    public void Rolled_back_external_effect_can_be_retried_without_false_idempotency()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        Guid componentId = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(tenantId, itemId, 1, "Widget");
+        bom.AddLine(componentId, new Quantity(2m, "EA"));
+        bom.Publish();
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), tenantId, companyId, itemId, new Quantity(10m, "EA"), "PROD-003", bom.Id);
+        order.Release(Guid.NewGuid(), bom, DateTimeOffset.UtcNow);
+        Guid issueId = Guid.NewGuid();
+        Money cost = new(10m, "ZAR");
+
+        order.IssueMaterial(issueId, componentId, null, new Quantity(2m, "EA"), cost);
+        order.RollbackMaterialIssue(issueId);
+        order.ReceiveOutput(issueId, new Quantity(1m, "EA"), cost);
+        order.RollbackOutputReceipt(issueId);
+        order.RecordScrap(issueId, new Quantity(1m, "EA"), cost);
+        order.RollbackScrap(issueId);
+
+        order.Issues.Should().BeEmpty();
+        order.Receipts.Should().BeEmpty();
+        order.Scrap.Should().BeEmpty();
+        order.IssueMaterial(issueId, componentId, null, new Quantity(2m, "EA"), cost).Should().BeTrue();
+    }
 }

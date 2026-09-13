@@ -112,6 +112,9 @@ public sealed class ProductionOrder : Entity
         return true;
     }
 
+    /// <summary>Removes a newly recorded material issue when its external stock effect failed.</summary>
+    public void RollbackMaterialIssue(Guid operationId) => _issues.RemoveAll(issue => issue.OperationId == operationId);
+
     /// <summary>Records one finished-output receipt exactly once.</summary>
     public bool ReceiveOutput(Guid operationId, Quantity quantity, Money unitCost)
     {
@@ -134,6 +137,9 @@ public sealed class ProductionOrder : Entity
         return true;
     }
 
+    /// <summary>Removes a newly recorded output when its external stock effect failed.</summary>
+    public void RollbackOutputReceipt(Guid operationId) => _receipts.RemoveAll(receipt => receipt.OperationId == operationId);
+
     /// <summary>Records one scrap quantity exactly once, bounded by the planned output.</summary>
     public bool RecordScrap(Guid operationId, Quantity quantity, Money unitCost)
     {
@@ -155,6 +161,9 @@ public sealed class ProductionOrder : Entity
         _scrap.Add(new ProductionScrap(operationId, quantity, unitCost));
         return true;
     }
+
+    /// <summary>Removes a newly recorded scrap event when its external accounting effect failed.</summary>
+    public void RollbackScrap(Guid operationId) => _scrap.RemoveAll(entry => entry.OperationId == operationId);
 
     /// <summary>Releases the order against the current published BOM and copies its inputs.</summary>
     public bool Release(Guid operationId, BillOfMaterials bom, DateTimeOffset releasedAt)

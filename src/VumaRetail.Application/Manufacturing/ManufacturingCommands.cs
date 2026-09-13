@@ -209,6 +209,7 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
             cancellationToken: cancellationToken).ConfigureAwait(false);
         if (hold.Shortfall.Value > 0m || hold.ReservationId is null)
         {
+            order.RollbackMaterialIssue(command.OperationId);
             if (hold.ReservationId is Guid reservationId)
             {
                 await reservations.ReleaseAsync(reservationId, "Production issue shortfall", cancellationToken).ConfigureAwait(false);
@@ -222,6 +223,7 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         }
         catch
         {
+            order.RollbackMaterialIssue(command.OperationId);
             await reservations.ReleaseAsync(hold.ReservationId.Value, "Production issue failed", cancellationToken).ConfigureAwait(false);
             throw;
         }
@@ -251,7 +253,15 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
         }
         StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.LocationId);
-        await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            order.RollbackOutputReceipt(command.OperationId);
+            throw;
+        }
         return Unit.Value;
     }
 }
@@ -276,14 +286,22 @@ public sealed class RecordProductionScrapCommandHandler(IProductionOrderReposito
         {
             return Unit.Value;
         }
-        await accounting.PublishScrapAsync(new ProductionScrapAccountingEvent(
-            order.TenantId,
-            order.CompanyId ?? throw new InvalidOperationException("Production order has no company."),
-            order.Id,
-            command.OperationId,
-            quantity,
-            unitCost * quantity.Value,
-            clock.UtcNow), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await accounting.PublishScrapAsync(new ProductionScrapAccountingEvent(
+                order.TenantId,
+                order.CompanyId ?? throw new InvalidOperationException("Production order has no company."),
+                order.Id,
+                command.OperationId,
+                quantity,
+                unitCost * quantity.Value,
+                clock.UtcNow), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            order.RollbackScrap(command.OperationId);
+            throw;
+        }
         return Unit.Value;
     }
 }
