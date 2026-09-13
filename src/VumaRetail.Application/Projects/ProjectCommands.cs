@@ -9,6 +9,10 @@ namespace VumaRetail.Application.Projects;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateProjectCommand(Guid CompanyId, string Code, string Name, string Currency) : ICommand<Guid>;
 
+[CommandSideEffect(SideEffect.Write)]
+public sealed record AllocateProjectCostCommand(Guid CompanyId, Guid ProjectId, string SourceReference,
+    ProjectCostKind Kind, decimal Amount, string Currency) : ICommand<Guid>;
+
 public sealed class CreateProjectCommandHandler(IProjectRepository projects, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateProjectCommand, Guid>
 {
@@ -22,6 +26,30 @@ public sealed class CreateProjectCommandHandler(IProjectRepository projects, ITe
     internal static void EnsureCompany(ICompanyContext company, Guid expected)
     {
         if (company.CompanyId is not { } active || active != expected) throw new InvalidOperationException("The project company is not the active company.");
+    }
+}
+
+public sealed class AllocateProjectCostCommandHandler(IProjectRepository projects, ITenantContext tenant,
+    ICompanyContext company) : ICommandHandler<AllocateProjectCostCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(AllocateProjectCostCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        Project project = await projects.FindProjectAsync(command.ProjectId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Project not found.");
+        if (project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project company is not the active company.");
+        ProjectCostEntry? existing = await projects.FindCostBySourceAsync(command.ProjectId, command.SourceReference, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.Kind != command.Kind || existing.Amount != new Money(command.Amount, command.Currency))
+                throw new InvalidOperationException("The cost source was already allocated with different content.");
+            return existing.Id;
+        }
+        ProjectCostEntry entry = ProjectCostEntry.Record(tenant.TenantId, null, command.CompanyId, command.ProjectId,
+            command.SourceReference, command.Kind, new Money(command.Amount, command.Currency));
+        projects.Add(entry);
+        return entry.Id;
     }
 }
 

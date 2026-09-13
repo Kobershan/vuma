@@ -12,6 +12,8 @@ public sealed class ProjectRepository(VumaRetailDbContext context) : IProjectRep
     public Task<ContractVariation?> FindVariationAsync(Guid id, CancellationToken cancellationToken = default) => context.ContractVariations.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default) => context.BillingMilestones.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectCostEntry?> FindCostEntryAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public Task<ProjectCostEntry?> FindCostBySourceAsync(Guid projectId, string sourceReference, CancellationToken cancellationToken = default)
+        => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.SourceReference == sourceReference.Trim(), cancellationToken);
     public void Add(Project project) => context.Projects.Add(project);
     public void Add(ProjectBudget budget) => context.ProjectBudgets.Add(budget);
     public void Add(ProjectContract contract) => context.ProjectContracts.Add(contract);

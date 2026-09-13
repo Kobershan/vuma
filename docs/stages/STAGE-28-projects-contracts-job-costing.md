@@ -63,6 +63,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   the `project_cost_entries` table and rollback.
 - 2026-09-13: Added scoped project creation, budget/variation approval and milestone billing routes
   to both API hosts. StoreServer and CloudApi Release builds pass with **0 errors**.
+- 2026-09-13: Added company-scoped project cost allocation with immutable source-reference
+  idempotency and changed-content conflict refusal at `/api/v1/projects/{projectId}/costs`;
+  focused Project tests pass **5/5**.
 
 ## Tests / acceptance
 
