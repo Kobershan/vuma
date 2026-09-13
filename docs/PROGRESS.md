@@ -409,7 +409,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 14b | Field sales — the rep module | **COMPLETE and verified** — PostgreSQL approval/API/replay/credit/sourcing/territory evidence recorded | 2026-09-11 |
 | 15 | Merchandise planning, forecasting & replenishment | **COMPLETE and verified** — coverage collection remains environment-limited | 2026-09-11 |
 | 16 | BOM setup | **COMPLETE and verified** — domain, persistence, graph loading/costing, API, seed and migration evidence | 2026-09-11 |
-| 17 | Manufacturing | **IN PROGRESS** — production lifecycle, stock-backed issue/output, replay protection, API, genealogy and capacity readback implemented; shortage/journal, backup/seed and specialist closure evidence remain | 2026-09-13 |
+| 17 | Manufacturing | **IN PROGRESS** — production lifecycle, stock-backed issue/output, shortage refusal, replay protection, scrap journal, API, genealogy/capacity, seed and encrypted backup verification pass; specialist closure review remains UNVERIFIED | 2026-09-13 |
 | 18 | Quality management | **IN PROGRESS** — holds, inspection evidence, NCR/CAPA, versioned inspection plans, certificate revocation, recall traceability and shelf-life enforcement implemented; full acceptance evidence remains | 2026-09-13 |
 | 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
