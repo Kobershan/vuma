@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace VumaRetail.Domain.Primitives;
 
 /// <summary>
@@ -29,6 +31,7 @@ public readonly record struct Quantity : IComparable<Quantity>
     /// <param name="value">The amount. Rounded to <see cref="Scale"/> decimal places.</param>
     /// <param name="unitOfMeasure">Unit-of-measure code, for example <c>EA</c>, <c>KG</c> or <c>CASE</c>.</param>
     /// <exception cref="ArgumentException">The unit of measure is missing.</exception>
+    [JsonConstructor]
     public Quantity(decimal value, string unitOfMeasure)
     {
         if (string.IsNullOrWhiteSpace(unitOfMeasure))

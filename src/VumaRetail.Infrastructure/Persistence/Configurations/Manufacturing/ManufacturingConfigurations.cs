@@ -68,6 +68,17 @@ internal sealed class ProductionOrderConfiguration : EntityConfiguration<Product
 {
     private static readonly JsonSerializerOptions SerializerOptions = new();
 
+    private static readonly ValueComparer<IReadOnlyList<ProductionMaterialRequirement>> MaterialsComparer = CreateComparer<ProductionMaterialRequirement>();
+    private static readonly ValueComparer<IReadOnlyList<ProductionMaterialIssue>> IssuesComparer = CreateComparer<ProductionMaterialIssue>();
+    private static readonly ValueComparer<IReadOnlyList<ProductionOutputReceipt>> ReceiptsComparer = CreateComparer<ProductionOutputReceipt>();
+    private static readonly ValueComparer<IReadOnlyList<ProductionScrap>> ScrapComparer = CreateComparer<ProductionScrap>();
+
+    private static ValueComparer<IReadOnlyList<T>> CreateComparer<T>()
+        => new(
+            (left, right) => (left ?? Array.Empty<T>()).SequenceEqual(right ?? Array.Empty<T>()),
+            values => (values ?? Array.Empty<T>()).Aggregate(0, (hash, value) => HashCode.Combine(hash, value.GetHashCode())),
+            values => (values ?? Array.Empty<T>()).ToList());
+
     protected override string Schema => Schemas.Manufacturing;
 
     protected override string TableName => "production_orders";
@@ -86,22 +97,26 @@ internal sealed class ProductionOrderConfiguration : EntityConfiguration<Product
         builder.Property(order => order.Snapshot).HasColumnType("jsonb").HasConversion(
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<ProductionSnapshot>(json, SerializerOptions));
-        builder.Property(order => order.Materials).HasColumnType("jsonb").IsRequired().HasConversion(
+        PropertyBuilder<IReadOnlyList<ProductionMaterialRequirement>> materials = builder.Property(order => order.Materials).HasColumnType("jsonb").IsRequired().HasConversion(
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<List<ProductionMaterialRequirement>>(json, SerializerOptions)
                 ?? new List<ProductionMaterialRequirement>());
-        builder.Property(order => order.Issues).HasColumnName("material_issues").HasColumnType("jsonb").IsRequired().HasConversion(
+        materials.Metadata.SetValueComparer(MaterialsComparer);
+        PropertyBuilder<IReadOnlyList<ProductionMaterialIssue>> issues = builder.Property(order => order.Issues).HasColumnName("material_issues").HasColumnType("jsonb").IsRequired().HasConversion(
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<List<ProductionMaterialIssue>>(json, SerializerOptions)
                 ?? new List<ProductionMaterialIssue>());
-        builder.Property(order => order.Receipts).HasColumnName("output_receipts").HasColumnType("jsonb").IsRequired().HasConversion(
+        issues.Metadata.SetValueComparer(IssuesComparer);
+        PropertyBuilder<IReadOnlyList<ProductionOutputReceipt>> receipts = builder.Property(order => order.Receipts).HasColumnName("output_receipts").HasColumnType("jsonb").IsRequired().HasConversion(
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<List<ProductionOutputReceipt>>(json, SerializerOptions)
                 ?? new List<ProductionOutputReceipt>());
-        builder.Property(order => order.Scrap).HasColumnName("scrap_records").HasColumnType("jsonb").IsRequired().HasConversion(
+        receipts.Metadata.SetValueComparer(ReceiptsComparer);
+        PropertyBuilder<IReadOnlyList<ProductionScrap>> scrap = builder.Property(order => order.Scrap).HasColumnName("scrap_records").HasColumnType("jsonb").IsRequired().HasConversion(
             value => JsonSerializer.Serialize(value, SerializerOptions),
             json => JsonSerializer.Deserialize<List<ProductionScrap>>(json, SerializerOptions)
                 ?? new List<ProductionScrap>());
+        scrap.Metadata.SetValueComparer(ScrapComparer);
         builder.HasIndex(order => new { order.TenantId, order.CompanyId, order.OrderNumber })
             .IsUnique().HasDatabaseName("ux_production_orders_tenant_company_number")
             .HasFilter("deleted_at IS NULL");

@@ -1,5 +1,6 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Inventory;
@@ -177,7 +178,7 @@ public sealed class ReleaseProductionOrderCommandHandler(
 public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent material issue.</summary>
-public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IReservationService reservations, IStockLedgerPoster poster)
+public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company)
     : ICommandHandler<IssueProductionMaterialCommand, Unit>
 {
     /// <inheritdoc />
@@ -186,6 +187,7 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        company.SetCompany(order.CompanyId ?? throw new InvalidOperationException("Production order has no company."));
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
         Money unitCost = new(command.UnitCost, command.Currency);
         if (!order.IssueMaterial(command.OperationId, command.ComponentItemId, command.ComponentVariantId, quantity, unitCost))

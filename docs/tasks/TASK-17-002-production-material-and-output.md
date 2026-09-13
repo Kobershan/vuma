@@ -48,3 +48,7 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   manufacturing suite pass 19/19; PostgreSQL shortage/replay and journal assertions remain open.
 - 2026-09-13: CI run `34746409342` passed Build, Test, Architecture, Vulnerability, Migration,
   Design System and Windows/Android packaging after the accounting boundary was wired.
+- 2026-09-13: production issue execution now binds the order's owning company before opening the
+  reservation context, and the authorized end-to-end PostgreSQL test proves stock-backed issue and
+  output receipt can complete through the API. The shortage/replay and journal assertions remain
+  required for final task closure.

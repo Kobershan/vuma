@@ -42,3 +42,7 @@ TASK-17-002.
 - 2026-09-13: CI run `34743485288` passed the full required workflow, including the production API
   build and OpenAPI test. End-to-end authorized execution, capacity/genealogy queries, backup/seed
   evidence and specialist closure review remain open.
+- 2026-09-13: added a real PostgreSQL authorized execution scenario covering company/catalogue seed,
+  BOM publish, production release, material issue, output receipt, close and genealogy readback.
+  The test passes locally; capacity readback, replay/shortage assertions, backup/seed evidence and
+  specialist closure review remain open, so this task is intentionally still IN_PROGRESS.
