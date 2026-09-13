@@ -172,6 +172,9 @@ public static class Schemas
     /// <summary>Manufacturing definitions: versioned bills of materials and routings. Stage 16.</summary>
     public const string Manufacturing = "manufacturing";
 
+    /// <summary>Quality inspection and disposition records.</summary>
+    public const string Quality = "quality";
+
     /// <summary>
     /// Customer relationships: leads, opportunities, activities, segments, memberships and
     /// consent. Stage 19. Declaring the schema puts the module into the daily metering rollup

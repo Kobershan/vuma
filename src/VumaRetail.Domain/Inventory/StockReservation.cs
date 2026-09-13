@@ -32,6 +32,9 @@ public enum ReservationSource
 
     /// <summary>A manufacturing order reserving components before issue.</summary>
     Production = 7,
+
+    /// <summary>A quality hold removing stock from sellable availability pending disposition.</summary>
+    QualityHold = 8,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>
