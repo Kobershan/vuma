@@ -29,6 +29,27 @@ internal sealed class InspectionPlanConfiguration : EntityConfiguration<Inspecti
     }
 }
 
+internal sealed class QualityCertificateConfiguration : EntityConfiguration<QualityCertificate>
+{
+    protected override string Schema => Schemas.Quality;
+    protected override string TableName => "quality_certificates";
+    protected override void ConfigureEntity(EntityTypeBuilder<QualityCertificate> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.CertificateNumber).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.Issuer).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.Evidence).IsRequired().HasMaxLength(2000);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(x => x.RevocationReason).HasMaxLength(512);
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.CertificateNumber })
+            .IsUnique().HasDatabaseName("ux_quality_certificates_tenant_company_number")
+            .HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status })
+            .HasDatabaseName("ix_quality_certificates_tenant_company_status")
+            .HasFilter("deleted_at IS NULL");
+    }
+}
+
 internal sealed class QualityHoldConfiguration : EntityConfiguration<QualityHold>
 {
     private static readonly JsonSerializerOptions SerializerOptions = new();

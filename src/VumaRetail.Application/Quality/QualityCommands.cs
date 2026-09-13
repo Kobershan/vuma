@@ -9,6 +9,47 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Application.Quality;
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record IssueQualityCertificateCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string CertificateNumber,
+    string Issuer, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt, string Evidence) : ICommand<Guid>;
+
+public sealed class IssueQualityCertificateCommandHandler(IQualityCertificateRepository certificates, ITenantContext tenant)
+    : ICommandHandler<IssueQualityCertificateCommand, Guid>
+{
+    public Task<Guid> HandleAsync(IssueQualityCertificateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        QualityCertificate certificate = QualityCertificate.Issue(tenant.TenantId, null, command.CompanyId, command.ItemId, command.ItemVariantId,
+            command.CertificateNumber, command.Issuer, command.IssuedAt, command.ExpiresAt, command.Evidence);
+        certificates.Add(certificate);
+        return Task.FromResult(certificate.Id);
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RevokeQualityCertificateCommand(Guid CertificateId, string Reason) : ICommand;
+
+public sealed class RevokeQualityCertificateCommandHandler(IQualityCertificateRepository certificates, ICompanyContext company, IClock clock)
+    : ICommandHandler<RevokeQualityCertificateCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(RevokeQualityCertificateCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        QualityCertificate certificate = await certificates.FindAsync(command.CertificateId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Quality certificate not found.");
+        if (company.CompanyId is not { } activeCompany || certificate.CompanyId != activeCompany)
+        {
+            throw new InvalidOperationException("The quality certificate company is not the active company.");
+        }
+        if (certificate.Status == QualityCertificateStatus.Revoked)
+        {
+            return Unit.Value;
+        }
+        certificate.Revoke(clock.UtcNow, command.Reason);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CreateInspectionPlanCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version,
     string Name, int SampleSize, string AcceptanceCriteria) : ICommand<Guid>;
 

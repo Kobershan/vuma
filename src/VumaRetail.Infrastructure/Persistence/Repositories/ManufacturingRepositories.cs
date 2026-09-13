@@ -48,6 +48,14 @@ public sealed class InspectionPlanRepository(VumaRetailDbContext context) : IIns
     public void Add(InspectionPlan plan) => context.InspectionPlans.Add(plan);
 }
 
+public sealed class QualityCertificateRepository(VumaRetailDbContext context) : IQualityCertificateRepository
+{
+    public Task<QualityCertificate?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.QualityCertificates.FirstOrDefaultAsync(certificate => certificate.Id == id, cancellationToken);
+
+    public void Add(QualityCertificate certificate) => context.QualityCertificates.Add(certificate);
+}
+
 /// <summary>EF Core repository for Stage 18 quality holds.</summary>
 public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualityHoldRepository
 {

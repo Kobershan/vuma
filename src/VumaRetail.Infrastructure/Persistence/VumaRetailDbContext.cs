@@ -545,6 +545,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Versioned inspection requirements (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionPlan> InspectionPlans => Set<Domain.Quality.InspectionPlan>();
 
+    /// <summary>Quality certificates and their revocation state (Stage 18).</summary>
+    public DbSet<Domain.Quality.QualityCertificate> QualityCertificates => Set<Domain.Quality.QualityCertificate>();
+
     /// <summary>Immutable inspection evidence for quality holds (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionResult> InspectionResults => Set<Domain.Quality.InspectionResult>();
 

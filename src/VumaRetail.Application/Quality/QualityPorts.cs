@@ -10,6 +10,12 @@ public interface IInspectionPlanRepository
     void Add(InspectionPlan plan);
 }
 
+public interface IQualityCertificateRepository
+{
+    Task<QualityCertificate?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    void Add(QualityCertificate certificate);
+}
+
 /// <summary>Persistence boundary for tenant/company-scoped quality holds.</summary>
 public interface IQualityHoldRepository
 {

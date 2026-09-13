@@ -27,6 +27,21 @@ public sealed class QualityHoldTests
     }
 
     [Fact]
+    public void Certificate_revocation_is_terminal_and_audit_stamped()
+    {
+        DateTimeOffset issued = DateTimeOffset.UtcNow;
+        QualityCertificate certificate = QualityCertificate.Issue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), null,
+            "CERT-001", "Lab", issued, issued.AddYears(1), "result attachment hash");
+
+        certificate.Revoke(issued.AddDays(1), "failed follow-up inspection");
+
+        certificate.Status.Should().Be(QualityCertificateStatus.Revoked);
+        certificate.RevokedAt.Should().Be(issued.AddDays(1));
+        certificate.RevocationReason.Should().Be("failed follow-up inspection");
+        Assert.Throws<InvalidOperationException>(() => certificate.Revoke(issued.AddDays(2), "duplicate"));
+    }
+
+    [Fact]
     public void A_hold_can_only_be_disposed_once()
     {
         QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
