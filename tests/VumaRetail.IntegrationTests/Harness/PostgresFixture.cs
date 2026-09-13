@@ -62,7 +62,13 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <returns>A connection string to a database nothing else is using.</returns>
     public async Task<string> CreateDatabaseAsync()
     {
-        string name = DatabaseName($"vuma_test_{Interlocked.Increment(ref _databaseCounter)}");
+        int sequence = Interlocked.Increment(ref _databaseCounter);
+        if (sequence % 20 == 0 && sequence > 200)
+        {
+            await CleanupTestDatabasesAsync(sequence - 200).ConfigureAwait(false);
+        }
+
+        string name = DatabaseName($"vuma_test_{sequence}");
 
         await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" TEMPLATE "{TemplateDatabase}" """)
             .ConfigureAwait(false);
@@ -74,6 +80,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <returns>A connection string to a database nothing else is using.</returns>
     public async Task<string> CreateEmptyDatabaseAsync()
     {
+        int sequence = Volatile.Read(ref _databaseCounter);
+        if (sequence % 20 == 0 && sequence > 200)
+        {
+            await CleanupTestDatabasesAsync(sequence - 200).ConfigureAwait(false);
+        }
+
         string name = DatabaseName("vuma_migrate");
 
         await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """).ConfigureAwait(false);
@@ -95,6 +107,48 @@ public sealed class PostgresFixture : IAsyncLifetime
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = sql;
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reclaims only databases created by this fixture. Tests intentionally use independent databases,
+    /// but PostgreSQL database cloning copies the full template and the suite can otherwise exhaust a
+    /// small CI/container filesystem before the fixture is disposed.
+    /// </summary>
+    private async Task CleanupTestDatabasesAsync(int olderThanSequence)
+    {
+        await using NpgsqlConnection connection = new(_adminConnectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+
+        List<string> names = [];
+        await using (NpgsqlCommand list = connection.CreateCommand())
+        {
+            list.CommandText = """
+                SELECT datname
+                FROM pg_database
+                WHERE datname LIKE 'vuma_test_%'
+                  AND split_part(datname, '_', 3)::integer < $1
+                """;
+            list.Parameters.AddWithValue(olderThanSequence);
+            await using NpgsqlDataReader reader = await list.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                names.Add(reader.GetString(0));
+            }
+        }
+
+        foreach (string name in names)
+        {
+            await using NpgsqlCommand drop = connection.CreateCommand();
+            drop.CommandText = $"DROP DATABASE IF EXISTS \"{name.Replace("\"", "\"\"")}\"";
+            try
+            {
+                await drop.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+            catch (PostgresException exception) when (exception.SqlState == "55006")
+            {
+                // A concurrently-running test still owns the database; reclaim it on the next pass.
+            }
+        }
     }
 
     /// <summary>
@@ -155,7 +209,10 @@ public sealed class PostgresFixture : IAsyncLifetime
         try
         {
             _container = new PostgreSqlBuilder()
-                .WithImage("postgres:16-alpine")
+                // Keep the Testcontainers server on the same major version as CI. Newer client
+                // tools emit server settings that older PostgreSQL versions do not understand
+                // (for example transaction_timeout during restore).
+                .WithImage("postgres:17-alpine")
                 .WithDatabase("postgres")
                 .Build();
 
