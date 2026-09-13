@@ -21,6 +21,8 @@ public sealed class Shift : Entity
         => StartsAt < end && EndsAt > start;
     public void Cancel() { if (Status == ShiftStatus.Completed) throw new InvalidOperationException("Completed shifts cannot be cancelled."); Status = ShiftStatus.Cancelled; }
     public void Complete() { if (Status == ShiftStatus.Cancelled) throw new InvalidOperationException("Cancelled shifts cannot be completed."); Status = ShiftStatus.Completed; }
+    public void TransferTo(Guid employeeId)
+    { if (employeeId == Guid.Empty) throw new ArgumentException("Employee is required.", nameof(employeeId)); if (Status != ShiftStatus.Planned) throw new InvalidOperationException("Only planned shifts can be transferred."); EmployeeId = employeeId; }
 }
 /// <summary>Shift state.</summary>
 public enum ShiftStatus

@@ -145,10 +145,16 @@ public sealed class HrLifecycleTests
     {
         var request = ShiftSwapRequest.Request(TenantId, Guid.NewGuid(), EmployeeId, Guid.NewGuid(), DateTimeOffset.UtcNow);
         var swaps = Substitute.For<IShiftSwapRequestRepository>();
+        var shifts = Substitute.For<IShiftRepository>();
         swaps.FindAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
 
-        await new DecideShiftSwapCommandHandler(swaps).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
+        var shift = Shift.Create(TenantId, request.FromEmployeeId, DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow.AddHours(2), "Cashier");
+        shifts.FindAsync(request.ShiftId, Arg.Any<CancellationToken>()).Returns(shift);
+        shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, Arg.Any<CancellationToken>()).Returns(Array.Empty<Shift>());
+
+        await new DecideShiftSwapCommandHandler(swaps, shifts).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
 
         request.Status.Should().Be(ShiftSwapStatus.Approved);
+        shift.EmployeeId.Should().Be(request.ToEmployeeId);
     }
 }

@@ -131,10 +131,21 @@ public sealed class RequestShiftSwapCommandHandler(IEmployeeRepository employees
         return request.Id;
     }
 }
-public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps) : ICommandHandler<DecideShiftSwapCommand, Unit>
+public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts) : ICommandHandler<DecideShiftSwapCommand, Unit>
 {
     public async Task<Unit> HandleAsync(DecideShiftSwapCommand c, CancellationToken token = default)
-    { var request = await swaps.FindAsync(c.ShiftSwapRequestId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift swap request was not found."); if (c.Approved) request.Approve(); else request.Reject(); return Unit.Value; }
+    {
+        var request = await swaps.FindAsync(c.ShiftSwapRequestId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift swap request was not found.");
+        if (!c.Approved) { request.Reject(); return Unit.Value; }
+        Shift shift = await shifts.FindAsync(request.ShiftId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift was not found.");
+        if (shift.EmployeeId != request.FromEmployeeId) throw new InvalidOperationException("The shift owner changed while the swap was pending.");
+        if ((await shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, token).ConfigureAwait(false))
+            .Any(existing => existing.Id != shift.Id && existing.Status != ShiftStatus.Cancelled && existing.Overlaps(shift.StartsAt, shift.EndsAt)))
+            throw new InvalidOperationException("The target employee has an overlapping shift.");
+        request.Approve();
+        shift.TransferTo(request.ToEmployeeId);
+        return Unit.Value;
+    }
 }
 public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocument>> { public Task<IReadOnlyList<EmployeeDocument>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default) => documents.ListAsync(q.EmployeeId, t); }
 
