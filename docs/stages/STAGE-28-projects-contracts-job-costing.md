@@ -47,7 +47,9 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
 - [~] 28-P01: Implement projects/contracts, budget versions and approval transitions. Domain invariants
   for budget measures, approved variations and milestone billing are implemented and tested; persistence,
   commands and authorization remain.
-- [ ] 28-P02: Integrate labour/procurement cost allocation, WIP and milestone billing.
+- [~] 28-P02: Integrate labour/procurement cost allocation, WIP and milestone billing. Project
+  creation, approval and milestone billing commands are now exposed through the scoped
+  `/api/v1/projects` API; labour/procurement allocation and invoice integration remain.
 - [ ] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -59,6 +61,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-13: Added append-only project cost entries with explicit source references and immutable
   negative reversal entries; focused reversal test passes and the PostgreSQL migration chain verifies
   the `project_cost_entries` table and rollback.
+- 2026-09-13: Added scoped project creation, budget/variation approval and milestone billing routes
+  to both API hosts. StoreServer and CloudApi Release builds pass with **0 errors**.
 
 ## Tests / acceptance
 
