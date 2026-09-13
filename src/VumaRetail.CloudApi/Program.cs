@@ -16,6 +16,7 @@ using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Quality;
 using VumaRetail.Web.Ecommerce;
 using VumaRetail.Web.Service;
+using VumaRetail.Web.Reporting;
 using VumaRetail.PublicApi.Loyalty;
 
 // The cloud tier: the replica of every store, tenant-keyed, and the backup vault's home. Source of
@@ -112,6 +113,7 @@ app.MapVumaIdentity();
 app.MapVumaCompanies();
 app.MapVumaSync();
 app.MapVumaDashboard();
+app.MapVumaReporting();
 app.MapVumaInventory();
 app.MapVumaQuality();
 app.MapVumaEcommerce();

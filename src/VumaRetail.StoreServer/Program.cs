@@ -22,6 +22,7 @@ using VumaRetail.Web.Conversations;
 using VumaRetail.Web.Quality;
 using VumaRetail.Web.Ecommerce;
 using VumaRetail.Web.Service;
+using VumaRetail.Web.Reporting;
 using VumaRetail.PublicApi.Loyalty;
 using VumaRetail.Application.CustomerAccounts.Hosting;
 using VumaRetail.Application.Planning.Hosting;
@@ -382,6 +383,7 @@ app.MapVumaRegistry();
 app.MapGroupReceiptEndpoints();
 app.MapConsolidationEndpoints();
 app.MapVumaDashboard();
+app.MapVumaReporting();
 
 // Deliberately un-versioned, and on the closed list in VumaApi.UnversionedRoutes: a health probe is
 // infrastructure, not API surface, and a load balancer should never have to be reconfigured because

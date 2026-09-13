@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Reporting;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
@@ -11,6 +13,8 @@ public static class ReportingServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IReportingRepository, ReportingRepository>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
         return services;
     }
 }

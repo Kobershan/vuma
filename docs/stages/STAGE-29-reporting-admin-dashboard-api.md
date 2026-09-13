@@ -48,8 +48,8 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
   lifecycle, replay-safe projection checkpoints and stale-contributor dashboard semantics are implemented
   and tested; persistence and module adapters remain.
 - [~] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
-  definitions and projection checkpoints are persisted with a reversible PostgreSQL migration; projection
-  adapters, dashboard queries, APIs and export execution remain.
+  definitions and projection checkpoints are persisted, and a permission/module-scoped report-definition
+  API is mapped; projection adapters, aggregate dashboard freshness queries and export execution remain.
 - [ ] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -60,6 +60,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   freshness records. Focused domain tests: **3/3 passed**.
 - 2026-09-13: Added reporting schema persistence and repository registration. PostgreSQL migration-chain
   test passes through Stage 29 and rolls back to Stage 28 with both reporting tables removed.
+- 2026-09-13: Added `reporting.view`/`reporting.manage`, report-definition query handling and
+  `GET /api/v1/reports/{code}` on StoreServer and CloudApi.
 
 ## Tests / acceptance
 
