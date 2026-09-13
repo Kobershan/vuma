@@ -35,6 +35,11 @@ public static class EcommerceEndpoints
             .Produces<CheckoutAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithSummary("Submits a durable checkout intent; store confirmation remains pending.");
+        storefront.MapGet("/checkouts/{id:guid}", GetCheckoutStatusAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
+            .Produces<CheckoutStatusResult>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("Reads checkout status for its owning customer.");
 
         RouteGroupBuilder channels = endpoints.MapVumaApi().MapGroup("/channels")
             .WithTags("Storefront Channels").RequireModule("ecommerce");
@@ -99,6 +104,14 @@ public static class EcommerceEndpoints
         return Results.Accepted($"/api/v1/storefront/checkouts/{id:D}", new CheckoutAcceptedResponse(id, "Pending", DateTimeOffset.UtcNow.AddHours(24)));
     }
 
+    private static async Task<IResult> GetCheckoutStatusAsync(
+        Guid id, [AsParameters] GetCheckoutStatusRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        CheckoutStatusResult? result = await dispatcher.QueryAsync(
+            new GetCheckoutStatusQuery(id, request.CompanyId, request.OwnerKey), cancellationToken).ConfigureAwait(false);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    }
+
     public sealed record RegisterChannelRequest(Guid CompanyId, string Code, string Host);
     public sealed record PublishProductRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string Sku, string Name,
         string? Description, decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);
@@ -107,4 +120,5 @@ public static class EcommerceEndpoints
         decimal Quantity, decimal AdvisoryUnitPrice, string Currency);
     public sealed record SubmitCheckoutRequest(Guid BasketId, Guid CompanyId, string OwnerKey, string ContentFingerprint);
     public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
+    public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
 }

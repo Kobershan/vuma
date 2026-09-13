@@ -79,6 +79,34 @@ public sealed class SubmitCheckoutCommandHandler(
     }
 }
 
+public sealed record GetCheckoutStatusQuery(Guid CheckoutId, Guid CompanyId, string OwnerKey)
+    : IQuery<CheckoutStatusResult?>;
+
+public sealed record CheckoutStatusResult(Guid OperationId, string Status, DateTimeOffset ExpiresAt,
+    DateTimeOffset? DecidedAt, string? DecisionReason);
+
+public sealed class GetCheckoutStatusQueryHandler(ICheckoutIntentRepository intents, ICompanyContext company, IClock clock)
+    : IQueryHandler<GetCheckoutStatusQuery, CheckoutStatusResult?>
+{
+    public async Task<CheckoutStatusResult?> HandleAsync(GetCheckoutStatusQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        RegisterChannelCommandHandler.EnsureCompany(company, query.CompanyId, "checkout");
+        CheckoutIntent? intent = await intents.FindAsync(query.CheckoutId, cancellationToken).ConfigureAwait(false);
+        if (intent is null || intent.CompanyId != query.CompanyId ||
+            !string.Equals(intent.OwnerKey, query.OwnerKey.Trim(), StringComparison.Ordinal))
+        {
+            return null;
+        }
+        string status = intent.Status.ToString();
+        if (intent.Status == CheckoutIntentStatus.Pending && clock.UtcNow >= intent.ExpiresAtUtc)
+        {
+            status = CheckoutIntentStatus.Expired.ToString();
+        }
+        return new CheckoutStatusResult(intent.Id, status, intent.ExpiresAtUtc, intent.DecidedAtUtc, intent.DecisionReason);
+    }
+}
+
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddBasketLineCommand(Guid BasketId, Guid CompanyId, string OwnerKey, Guid PublishedProductId,
     decimal Quantity, decimal AdvisoryUnitPrice, string Currency) : ICommand<Guid>;

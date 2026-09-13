@@ -11,7 +11,13 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
     public async Task Storefront_openapi_contains_the_published_products_route()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
-        using JsonDocument document = JsonDocument.Parse(await harness.Client.GetStringAsync("/openapi/v1.json"));
+        using HttpResponseMessage openApiResponse = await harness.Client.GetAsync("/openapi/v1.json");
+        if (!openApiResponse.IsSuccessStatusCode)
+        {
+            string body = await openApiResponse.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"OpenAPI returned {(int)openApiResponse.StatusCode}: {body}");
+        }
+        using JsonDocument document = JsonDocument.Parse(await openApiResponse.Content.ReadAsStringAsync());
         JsonElement paths = document.RootElement.GetProperty("paths");
 
         paths.TryGetProperty("/api/v1/storefront/products", out JsonElement route).Should().BeTrue();
@@ -25,5 +31,7 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
         lines.TryGetProperty("post", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/storefront/checkouts", out JsonElement checkouts).Should().BeTrue();
         checkouts.TryGetProperty("post", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/storefront/checkouts/{id}", out JsonElement checkout).Should().BeTrue();
+        checkout.TryGetProperty("get", out _).Should().BeTrue();
     }
 }
