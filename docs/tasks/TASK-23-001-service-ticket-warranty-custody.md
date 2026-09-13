@@ -26,3 +26,5 @@ rollback.
 
 The application port/repository and first scoped commands are wired into both API hosts. The
 service-filtered unit suite passes **23/23** and the StoreServer Release build has **0 errors**.
+Service routes for ticket opening, warranty submission/approval, and repair opening/completion are
+mapped in StoreServer and CloudApi. Real-host OpenAPI plus migration checks pass **2/2**.

@@ -71,3 +71,6 @@ company-scoped warranty approval and repair completion handlers, registered in S
 CloudApi. Service command/domain tests pass 23/23; StoreServer Release build passes with 0 errors.
 The replication architecture gate also passes 85/85 after explicitly declaring the SLA definition
 as CloudToStore/CloudWins. Latest fix is queued in GitHub CI.
+
+Stage 23 service routes are now mapped in both hosts for tickets, warranties, and repairs, with
+granular service permissions. Real-host OpenAPI plus service migration verification passes 2/2.

@@ -39,6 +39,42 @@ public sealed class OpenServiceTicketCommandHandler(IServiceRepository services,
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ApproveWarrantyClaimCommand(Guid ClaimId, string SoldSerialNumber) : ICommand;
 
+[CommandSideEffect(SideEffect.Write)]
+public sealed record SubmitWarrantyClaimCommand(Guid CompanyId, Guid TicketId, Guid CustomerId, string SaleReference,
+    DateOnly SaleDate, string SerialNumber) : ICommand<Guid>;
+
+public sealed class SubmitWarrantyClaimCommandHandler(IServiceRepository services, ITenantContext tenant,
+    ICompanyContext company, IClock clock) : ICommandHandler<SubmitWarrantyClaimCommand, Guid>
+{
+    public Task<Guid> HandleAsync(SubmitWarrantyClaimCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+            throw new InvalidOperationException("The warranty company is not the active company.");
+        WarrantyClaim claim = WarrantyClaim.Submit(tenant.TenantId, null, command.CompanyId, command.TicketId,
+            command.CustomerId, command.SaleReference, command.SaleDate, command.SerialNumber, clock.UtcNow);
+        services.Add(claim);
+        return Task.FromResult(claim.Id);
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record OpenRepairJobCommand(Guid CompanyId, Guid TicketId, string ItemReference) : ICommand<Guid>;
+
+public sealed class OpenRepairJobCommandHandler(IServiceRepository services, ITenantContext tenant,
+    ICompanyContext company, IClock clock) : ICommandHandler<OpenRepairJobCommand, Guid>
+{
+    public Task<Guid> HandleAsync(OpenRepairJobCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+            throw new InvalidOperationException("The repair company is not the active company.");
+        RepairJob job = RepairJob.Open(tenant.TenantId, null, command.CompanyId, command.TicketId, command.ItemReference, clock.UtcNow);
+        services.Add(job);
+        return Task.FromResult(job.Id);
+    }
+}
+
 public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
     : ICommandHandler<ApproveWarrantyClaimCommand, Unit>
 {

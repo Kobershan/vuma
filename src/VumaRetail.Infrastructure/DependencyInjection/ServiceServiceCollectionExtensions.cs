@@ -1,6 +1,8 @@
 #pragma warning disable CS1591
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Service;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
@@ -13,6 +15,8 @@ public static class ServiceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IServiceRepository, ServiceRepository>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ServicePermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ServiceModuleManifest>());
         return services;
     }
 }
