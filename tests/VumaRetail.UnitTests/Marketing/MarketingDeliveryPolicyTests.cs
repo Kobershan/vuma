@@ -107,4 +107,40 @@ public sealed class MarketingDeliveryPolicyTests
             .Should().ThrowAsync<InvalidOperationException>();
         campaigns.DidNotReceive().Add(Arg.Any<MarketingCampaign>());
     }
+
+    [Fact]
+    public async Task Queue_handler_rejects_idempotency_key_owned_by_another_company()
+    {
+        var tenantId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
+        var activeCompanyId = Guid.NewGuid();
+        var existing = OutboundMessage.Queue(tenantId, null, otherCompanyId, Guid.NewGuid(), Guid.NewGuid(), "shared-key", DateTimeOffset.UtcNow.AddHours(1));
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindByIdempotencyKeyAsync("shared-key", Arg.Any<CancellationToken>()).Returns(existing);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompanyId);
+
+        await FluentActions.Invoking(() => new QueueOutboundMessageCommandHandler(messages, tenant, company)
+            .HandleAsync(new QueueOutboundMessageCommand(activeCompanyId, null, existing.CampaignId, existing.CustomerId,
+                "shared-key", existing.ScheduledAt)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        messages.DidNotReceive().Add(Arg.Any<OutboundMessage>());
+    }
+
+    [Fact]
+    public async Task Suppress_handler_rejects_a_message_from_another_company()
+    {
+        var message = OutboundMessage.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "message-1", DateTimeOffset.UtcNow.AddHours(1));
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        await FluentActions.Invoking(() => new SuppressOutboundMessageCommandHandler(messages, company)
+            .HandleAsync(new SuppressOutboundMessageCommand(message.Id)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        message.Status.Should().Be(OutboundMessageStatus.Queued);
+    }
 }

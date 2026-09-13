@@ -37,9 +37,42 @@ public sealed class CancelMarketingCampaignCommandHandler(IMarketingCampaignRepo
 public sealed class QueueOutboundMessageCommandHandler(IOutboundMessageRepository messages, ITenantContext tenant, ICompanyContext company) : ICommandHandler<QueueOutboundMessageCommand, Guid>
 {
     public async Task<Guid> HandleAsync(QueueOutboundMessageCommand c, CancellationToken token = default)
-    { ArgumentNullException.ThrowIfNull(c); CreateMarketingCampaignCommandHandler.EnsureCompany(company, c.CompanyId); var existing = await messages.FindByIdempotencyKeyAsync(c.IdempotencyKey.Trim(), token).ConfigureAwait(false); if (existing is not null) { return existing.Id; } var message = OutboundMessage.Queue(tenant.TenantId, c.StoreId, c.CompanyId, c.CampaignId, c.CustomerId, c.IdempotencyKey, c.ScheduledAt); messages.Add(message); return message.Id; }
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        CreateMarketingCampaignCommandHandler.EnsureCompany(company, c.CompanyId);
+        var existing = await messages.FindByIdempotencyKeyAsync(c.IdempotencyKey.Trim(), token).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.CompanyId != c.CompanyId || existing.TenantId != tenant.TenantId)
+            {
+                throw new InvalidOperationException("The outbound message operation belongs to another company.");
+            }
+            return existing.Id;
+        }
+        var message = OutboundMessage.Queue(tenant.TenantId, c.StoreId, c.CompanyId, c.CampaignId, c.CustomerId, c.IdempotencyKey, c.ScheduledAt);
+        messages.Add(message);
+        return message.Id;
+    }
 }
-public sealed class SuppressOutboundMessageCommandHandler(IOutboundMessageRepository messages) : ICommandHandler<SuppressOutboundMessageCommand, Unit>
-{ public async Task<Unit> HandleAsync(SuppressOutboundMessageCommand c, CancellationToken token = default) { ArgumentNullException.ThrowIfNull(c); var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found."); message.Suppress(); return Unit.Value; } }
-public sealed class MarkOutboundMessageSentCommandHandler(IOutboundMessageRepository messages) : ICommandHandler<MarkOutboundMessageSentCommand, Unit>
-{ public async Task<Unit> HandleAsync(MarkOutboundMessageSentCommand c, CancellationToken token = default) { ArgumentNullException.ThrowIfNull(c); var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found."); message.MarkSent(); return Unit.Value; } }
+public sealed class SuppressOutboundMessageCommandHandler(IOutboundMessageRepository messages, ICompanyContext company) : ICommandHandler<SuppressOutboundMessageCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(SuppressOutboundMessageCommand c, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found.");
+        CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
+        message.Suppress();
+        return Unit.Value;
+    }
+}
+public sealed class MarkOutboundMessageSentCommandHandler(IOutboundMessageRepository messages, ICompanyContext company) : ICommandHandler<MarkOutboundMessageSentCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(MarkOutboundMessageSentCommand c, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found.");
+        CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
+        message.MarkSent();
+        return Unit.Value;
+    }
+}

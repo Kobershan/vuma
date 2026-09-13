@@ -38,6 +38,10 @@ WORK LOG (2026-09-13): Stage 27 checklist command coverage now verifies company-
 identical operation replay idempotency and changed-evidence replay refusal (`ChecklistCommandTests`
 3/3). Evidence attachment authorization and period-close acceptance remain open.
 
+WORK LOG (2026-09-13): Stage 22 marketing command authorization now rejects idempotency keys and
+message state changes crossing the active tenant/company boundary. `MarketingDeliveryPolicyTests`
+passes 12/12; durable transport, callbacks and attribution remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle
