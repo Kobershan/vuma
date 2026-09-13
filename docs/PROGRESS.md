@@ -410,7 +410,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 15 | Merchandise planning, forecasting & replenishment | **COMPLETE and verified** — coverage collection remains environment-limited | 2026-09-11 |
 | 16 | BOM setup | **COMPLETE and verified** — domain, persistence, graph loading/costing, API, seed and migration evidence | 2026-09-11 |
 | 17 | Manufacturing | **NEXT** — specification/task decomposition required before implementation | — |
-| 18 | Quality management | NOT_STARTED — after 17 | — |
+| 18 | Quality management | **IN PROGRESS** — holds, inspection evidence, NCR/CAPA and versioned inspection plans implemented; recall, certificates, shelf-life and full acceptance remain open | 2026-09-13 |
 | 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
 | 21 | Ecommerce, storefront API & channels | NOT_STARTED | — |

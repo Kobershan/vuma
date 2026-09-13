@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — quality holds, inspection evidence, NCR/CAPA and versioned inspection plans are implemented; recall, certificates, shelf-life and full acceptance remain open · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -69,4 +69,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
