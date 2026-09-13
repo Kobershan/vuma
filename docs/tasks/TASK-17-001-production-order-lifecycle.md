@@ -38,3 +38,10 @@ duplicate operation tests, migration reversibility and architecture classificati
   `20260912215016_Stage17_ProductionOrderLifecycle` migration. Infrastructure build passes with 0
   errors; local PostgreSQL migration execution is not available because the configured `vuma` user
   password is rejected. The preceding pushed commit `ef12f02` is green in CI run `34720055190`.
+- 2026-09-13: restored the durable terminal lockout/webhook migration chain in `aa96dcb`; CI run
+  `34721773841` has passed Build, Architecture, Vulnerability, Test, Design System and Migration
+  gates, with the Windows Package job still queued. Added the requested BOM identity to production
+  orders, company assignment for newly-created BOMs, changed-payload rejection for duplicate create
+  operations, and migration `20260913050239_Stage17_ProductionOrderRequestIdentity`. Focused
+  manufacturing tests pass 17/17. Material/output integration and API/closure work remain open, so
+  this task and Stage 17 are intentionally not marked complete.

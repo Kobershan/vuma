@@ -9,13 +9,14 @@ public sealed class ProductionOrder : Entity
 {
     private readonly List<ProductionMaterialRequirement> _materials = [];
 
-    private ProductionOrder(Guid id, Guid tenantId, Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber)
+    private ProductionOrder(Guid id, Guid tenantId, Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber, Guid billOfMaterialsId)
         : base(id, tenantId, null)
     {
         CompanyId = companyId;
         FinishedItemId = finishedItemId;
         PlannedQuantity = quantity;
         OrderNumber = orderNumber;
+        BillOfMaterialsId = billOfMaterialsId;
         Status = ProductionOrderStatus.Draft;
     }
 
@@ -25,9 +26,9 @@ public sealed class ProductionOrder : Entity
 
     /// <summary>Creates an offline-safe draft with a caller-supplied operation identity.</summary>
     public static ProductionOrder Create(
-        Guid id, Guid tenantId, Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber)
+        Guid id, Guid tenantId, Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber, Guid billOfMaterialsId)
     {
-        if (id == Guid.Empty || tenantId == Guid.Empty || companyId == Guid.Empty || finishedItemId == Guid.Empty)
+        if (id == Guid.Empty || tenantId == Guid.Empty || companyId == Guid.Empty || finishedItemId == Guid.Empty || billOfMaterialsId == Guid.Empty)
         {
             throw new ArgumentException("Production order identity and ownership are required.");
         }
@@ -40,7 +41,19 @@ public sealed class ProductionOrder : Entity
             throw new ArgumentException("A production order number is required.", nameof(orderNumber));
         }
 
-        return new ProductionOrder(id, tenantId, companyId, finishedItemId, quantity, orderNumber.Trim());
+        return new ProductionOrder(id, tenantId, companyId, finishedItemId, quantity, orderNumber.Trim(), billOfMaterialsId);
+    }
+
+    /// <summary>The BOM requested by the caller; the published version is snapshotted at release.</summary>
+    public Guid BillOfMaterialsId { get; private set; }
+
+    /// <summary>Checks whether a repeated client operation has the same immutable request.</summary>
+    public bool MatchesCreateRequest(Guid companyId, Guid finishedItemId, Quantity quantity, string orderNumber, Guid billOfMaterialsId)
+    {
+        ArgumentNullException.ThrowIfNull(orderNumber);
+        return CompanyId == companyId && FinishedItemId == finishedItemId && PlannedQuantity == quantity
+            && string.Equals(OrderNumber, orderNumber.Trim(), StringComparison.Ordinal)
+            && BillOfMaterialsId == billOfMaterialsId;
     }
 
     /// <summary>The finished item to be produced.</summary>
@@ -69,7 +82,7 @@ public sealed class ProductionOrder : Entity
         {
             throw ManufacturingRuleException.InvalidProductionTransition(Status, ProductionOrderStatus.Released);
         }
-        if (bom.Status is not BillOfMaterialsStatus.Published || bom.FinishedItemId != FinishedItemId)
+        if (bom.Status is not BillOfMaterialsStatus.Published || bom.FinishedItemId != FinishedItemId || bom.Id != BillOfMaterialsId || (bom.CompanyId.HasValue && bom.CompanyId != CompanyId))
         {
             throw ManufacturingRuleException.PublishedProductionBomRequired();
         }

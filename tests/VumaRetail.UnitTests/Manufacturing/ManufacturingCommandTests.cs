@@ -8,6 +8,25 @@ namespace VumaRetail.UnitTests.Manufacturing;
 public sealed class ManufacturingCommandTests
 {
     [Fact]
+    public async Task Create_production_command_rejects_changed_duplicate_payload()
+    {
+        IProductionOrderRepository repository = Substitute.For<IProductionOrderRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        Guid bomId = Guid.NewGuid();
+        Guid operationId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid finishedItemId = Guid.NewGuid();
+        ProductionOrder existing = ProductionOrder.Create(operationId, tenant.TenantId, companyId, finishedItemId, new(10m, "EA"), "PO-1", bomId);
+        repository.FindAsync(operationId, Arg.Any<CancellationToken>()).Returns(existing);
+        CreateProductionOrderCommand command = new(operationId, companyId, finishedItemId, 11m, "EA", "PO-1", bomId);
+
+        Func<Task> action = () => new CreateProductionOrderCommandHandler(repository, tenant).HandleAsync(command);
+
+        await action.Should().ThrowAsync<ManufacturingRuleException>();
+        repository.DidNotReceive().Add(Arg.Any<ProductionOrder>());
+    }
+    [Fact]
     public async Task Create_command_adds_a_draft_BOM_for_the_ambient_tenant()
     {
         IBillOfMaterialsRepository repository = Substitute.For<IBillOfMaterialsRepository>();

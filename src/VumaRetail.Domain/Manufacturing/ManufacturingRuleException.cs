@@ -42,6 +42,10 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     public static ManufacturingRuleException PublishedProductionBomRequired()
         => new("PRODUCTION_BOM_REQUIRED", "A production order must be released against its published finished-item BOM.");
 
+    /// <summary>A repeated client operation changed its original request.</summary>
+    public static ManufacturingRuleException OperationPayloadConflict(Guid id)
+        => new("PRODUCTION_OPERATION_CONFLICT", $"Production operation {id} was already received with different content.");
+
     /// <summary>A definition version already exists.</summary>
     public static ManufacturingRuleException DuplicateVersion(Guid itemId, int version)
         => new("BOM_DUPLICATE_VERSION", $"BOM version {version} already exists for item {itemId}.");

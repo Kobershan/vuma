@@ -47,6 +47,7 @@ public sealed class CreateBillOfMaterialsCommandHandler(IBillOfMaterialsReposito
         }
 
         BillOfMaterials bom = BillOfMaterials.Create(tenant.TenantId, command.FinishedItemId, command.Version, command.Name, command.FinishedVariantId);
+        bom.AssignCompany(command.CompanyId);
         foreach (BillOfMaterialsLineInput line in command.Lines)
         {
             bom.AddLine(line.ComponentItemId, new Quantity(line.Quantity, line.UnitOfMeasure), line.ScrapPercent, line.AlternateGroup, line.ComponentVariantId);
@@ -122,8 +123,14 @@ public sealed class CreateProductionOrderCommandHandler(
         {
             throw new ArgumentException("Production order identity and ownership are required.");
         }
-        if (await orders.FindAsync(command.OperationId, cancellationToken).ConfigureAwait(false) is not null)
+        ProductionOrder? existing = await orders.FindAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
         {
+            if (!existing.MatchesCreateRequest(command.CompanyId, command.FinishedItemId,
+                    new Quantity(command.Quantity, command.UnitOfMeasure), command.OrderNumber, command.BillOfMaterialsId))
+            {
+                throw ManufacturingRuleException.OperationPayloadConflict(command.OperationId);
+            }
             return command.OperationId;
         }
 
@@ -133,7 +140,8 @@ public sealed class CreateProductionOrderCommandHandler(
             command.CompanyId,
             command.FinishedItemId,
             new Quantity(command.Quantity, command.UnitOfMeasure),
-            command.OrderNumber);
+            command.OrderNumber,
+            command.BillOfMaterialsId);
         orders.Add(order);
         return order.Id;
     }

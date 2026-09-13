@@ -76,6 +76,7 @@ internal sealed class ProductionOrderConfiguration : EntityConfiguration<Product
     {
         builder.Property(order => order.CompanyId).IsRequired();
         builder.Property(order => order.FinishedItemId).IsRequired();
+        builder.Property(order => order.BillOfMaterialsId).IsRequired();
         builder.Property(order => order.OrderNumber).IsRequired().HasMaxLength(64);
         builder.Property(order => order.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
         builder.Property(order => order.PlannedQuantity).HasColumnName("planned_quantity").HasColumnType("jsonb")

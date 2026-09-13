@@ -16,7 +16,7 @@ public sealed class ProductionOrderTests
         bom.AddRoutingStep(1, "Assemble");
         bom.Publish();
         ProductionOrder order = ProductionOrder.Create(
-            Guid.NewGuid(), tenantId, companyId, finishedItemId, new Quantity(10m, "EA"), "PROD-001");
+            Guid.NewGuid(), tenantId, companyId, finishedItemId, new Quantity(10m, "EA"), "PROD-001", bom.Id);
 
         order.Release(bom, DateTimeOffset.UtcNow);
 
@@ -28,8 +28,9 @@ public sealed class ProductionOrderTests
     [Fact]
     public void Release_rejects_an_unpublished_or_wrong_finished_item_bom()
     {
+        Guid bomId = Guid.NewGuid();
         ProductionOrder order = ProductionOrder.Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new Quantity(1m, "EA"), "PROD-001");
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new Quantity(1m, "EA"), "PROD-001", bomId);
         BillOfMaterials draft = BillOfMaterials.Create(Guid.NewGuid(), Guid.NewGuid(), 1, "Draft");
 
         Action action = () => order.Release(draft, DateTimeOffset.UtcNow);
@@ -41,7 +42,7 @@ public sealed class ProductionOrderTests
     public void Lifecycle_refuses_skipping_states()
     {
         ProductionOrder order = ProductionOrder.Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new Quantity(1m, "EA"), "PROD-001");
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), new Quantity(1m, "EA"), "PROD-001", Guid.NewGuid());
 
         Action action = order.Complete;
 
