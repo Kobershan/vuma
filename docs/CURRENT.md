@@ -59,6 +59,11 @@ WORK LOG (2026-09-13): Stage 25 disciplinary mutations now use the dedicated hig
 `hr.disciplinary.manage` permission rather than the general employee-management permission;
 disciplinary regression tests remain green at 4/4.
 
+WORK LOG (2026-09-13): Stage 25 now provides a source-only payroll export query and protected API
+that pairs immutable attendance sessions with contract rates, subtracts explicit breaks, and fails
+closed on incomplete sessions or missing contracts. `PayrollExportTests` passes 2/2; statutory
+calculation, durable file delivery and provider integration remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle

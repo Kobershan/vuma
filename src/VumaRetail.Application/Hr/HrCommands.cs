@@ -50,6 +50,7 @@ public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approv
 public sealed record PublishRosterCommand(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId = null) : ICommand<Guid>;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
 public sealed record ListDisciplinaryCasesQuery(Guid CompanyId, Guid? EmployeeId = null) : IQuery<IReadOnlyList<DisciplinaryCase>>;
+public sealed record GeneratePayrollExportQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<PayrollExportRow>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
 public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant, IClock clock) : ICommandHandler<CreateEmployeeCommand, Guid>
@@ -216,13 +217,62 @@ public sealed class ListDisciplinaryCasesQueryHandler(IDisciplinaryCaseRepositor
         return await cases.ListAsync(query.CompanyId, query.EmployeeId, token).ConfigureAwait(false);
     }
 }
+public sealed record PayrollExportRow(Guid EmployeeId, string EmployeeNumber, decimal Hours, decimal HourlyRate, decimal GrossAmount, string Currency);
+public sealed class GeneratePayrollExportQueryHandler(IEmployeeRepository employees, IEmploymentContractRepository contracts, IAttendanceRepository attendance) : IQueryHandler<GeneratePayrollExportQuery, IReadOnlyList<PayrollExportRow>>
+{
+    public async Task<IReadOnlyList<PayrollExportRow>> HandleAsync(GeneratePayrollExportQuery query, CancellationToken token = default)
+    {
+        if (query.To < query.From) throw new ArgumentException("Payroll period cannot end before it starts.", nameof(query));
+        DateTimeOffset from = new(query.From.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        DateTimeOffset to = new(query.To.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var allEmployees = await employees.ListAsync(token).ConfigureAwait(false);
+        var events = await attendance.ListAsync(from, to, null, token).ConfigureAwait(false);
+        var rows = new List<PayrollExportRow>();
+        foreach (var employee in allEmployees)
+        {
+            var employeeEvents = events.Where(x => x.EmployeeId == employee.Id).OrderBy(x => x.OccurredAt).ToArray();
+            decimal hours = PayrollHoursCalculator.Calculate(employeeEvents);
+            var contract = (await contracts.ListAsync(employee.Id, token).ConfigureAwait(false))
+                .Where(x => x.StartsOn <= query.To && (x.EndsOn is null || x.EndsOn >= query.From))
+                .OrderByDescending(x => x.StartsOn).FirstOrDefault();
+            if (contract is null && hours > 0) throw new InvalidOperationException($"Employee {employee.EmployeeNumber} has no contract for the payroll period.");
+            if (contract is not null)
+                rows.Add(new PayrollExportRow(employee.Id, employee.EmployeeNumber, hours, contract.HourlyRate,
+                    decimal.Round(hours * contract.HourlyRate, 2, MidpointRounding.AwayFromZero), contract.Currency));
+        }
+        return rows;
+    }
+}
+internal static class PayrollHoursCalculator
+{
+    public static decimal Calculate(IReadOnlyList<AttendanceRecord> events)
+    {
+        DateTimeOffset? clockIn = null;
+        DateTimeOffset? breakStart = null;
+        TimeSpan worked = TimeSpan.Zero;
+        foreach (var item in events)
+        {
+            switch (item.EventType)
+            {
+                case AttendanceEventType.ClockIn when clockIn is null: clockIn = item.OccurredAt; break;
+                case AttendanceEventType.ClockOut when clockIn is not null && breakStart is null:
+                    worked += item.OccurredAt - clockIn.Value; clockIn = null; break;
+                case AttendanceEventType.BreakStart when clockIn is not null && breakStart is null: breakStart = item.OccurredAt; break;
+                case AttendanceEventType.BreakEnd when breakStart is not null: worked += breakStart.Value - clockIn!.Value; clockIn = item.OccurredAt; breakStart = null; break;
+                default: throw new InvalidOperationException("Attendance events are not in a valid payroll sequence.");
+            }
+        }
+        if (clockIn is not null || breakStart is not null) throw new InvalidOperationException("Payroll period contains an unclosed attendance session.");
+        return (decimal)worked.TotalHours;
+    }
+}
 
 public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token = default); void Add(Employee employee); }
 public interface IEmploymentContractRepository { void Add(EmploymentContract contract); Task<IReadOnlyList<EmploymentContract>> ListAsync(Guid employeeId, CancellationToken token = default); }
 public interface IShiftRepository { void Add(Shift shift); Task<Shift?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Shift>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); }
 public interface IShiftSwapRequestRepository { void Add(ShiftSwapRequest request); Task<ShiftSwapRequest?> FindAsync(Guid id, CancellationToken token = default); }
 public interface IRosterPublicationRepository { void Add(RosterPublication publication); }
-public interface IAttendanceRepository { void Add(AttendanceRecord record); }
+public interface IAttendanceRepository { Task<IReadOnlyList<AttendanceRecord>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }
 public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<DisciplinaryCase>> ListAsync(Guid companyId, Guid? employeeId, CancellationToken token = default); void Add(DisciplinaryCase @case); }
