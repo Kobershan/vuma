@@ -36,4 +36,14 @@ public sealed class MarketingDeliveryPolicyTests
         Func<Task> action = () => policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.WhatsApp, MessageClassification.Marketing, DateTimeOffset.UtcNow);
         await action.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Theory]
+    [InlineData("2026-09-13T19:59:00+00:00", "2026-09-13T19:59:00+00:00")]
+    [InlineData("2026-09-13T20:00:00+00:00", "2026-09-14T08:00:00+00:00")]
+    [InlineData("2026-09-14T07:59:00+00:00", "2026-09-14T08:00:00+00:00")]
+    public void Quiet_hours_defer_to_eight_in_the_recipient_timezone(string scheduled, string expected)
+    {
+        DateTimeOffset actual = MarketingSendWindow.NextAllowed(DateTimeOffset.Parse(scheduled), TimeZoneInfo.Utc);
+        actual.Should().Be(DateTimeOffset.Parse(expected));
+    }
 }

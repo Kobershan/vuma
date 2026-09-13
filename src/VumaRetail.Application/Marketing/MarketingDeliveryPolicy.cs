@@ -46,3 +46,24 @@ public sealed class MarketingDeliveryPolicy(IConsentService consents)
         return await consents.IsValidAsync(customerId, purpose, at, cancellationToken).ConfigureAwait(false);
     }
 }
+
+public static class MarketingSendWindow
+{
+    public static DateTimeOffset NextAllowed(DateTimeOffset scheduledAtUtc, TimeZoneInfo recipientZone)
+    {
+        ArgumentNullException.ThrowIfNull(recipientZone);
+        DateTime local = TimeZoneInfo.ConvertTime(scheduledAtUtc, recipientZone).DateTime;
+        if (local.TimeOfDay >= new TimeSpan(20, 0, 0))
+        {
+            return ToUtc(recipientZone, local.Date.AddDays(1).AddHours(8));
+        }
+        if (local.TimeOfDay < new TimeSpan(8, 0, 0))
+        {
+            return ToUtc(recipientZone, local.Date.AddHours(8));
+        }
+        return scheduledAtUtc.ToUniversalTime();
+    }
+
+    private static DateTimeOffset ToUtc(TimeZoneInfo zone, DateTime local)
+        => new(TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone));
+}

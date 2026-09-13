@@ -52,6 +52,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
+Implemented evidence: `MarketingDeliveryPolicyTests` passes 6/6, covering channel-specific consent,
+transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
+
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.
 - `Quiet_hours_follow_recipient_zone`: a marketing message scheduled at 21:00 local moves to 08:00 next day.
