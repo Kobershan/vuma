@@ -1,4 +1,5 @@
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Manufacturing;
 
@@ -23,4 +24,21 @@ public interface IProductionOrderRepository
 
     /// <summary>Adds a new order.</summary>
     void Add(ProductionOrder order);
+}
+
+/// <summary>Financial fact raised when production scrap is recorded.</summary>
+public sealed record ProductionScrapAccountingEvent(
+    Guid TenantId,
+    Guid CompanyId,
+    Guid ProductionOrderId,
+    Guid OperationId,
+    Quantity Quantity,
+    Money Value,
+    DateTimeOffset OccurredAt);
+
+/// <summary>Publishes production WIP/scrap facts through the finance boundary.</summary>
+public interface IProductionAccountingEventPublisher
+{
+    /// <summary>Raises one production scrap fact.</summary>
+    Task PublishScrapAsync(ProductionScrapAccountingEvent accountingEvent, CancellationToken cancellationToken = default);
 }

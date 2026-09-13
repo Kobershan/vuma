@@ -259,7 +259,7 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
 public sealed record RecordProductionScrapCommand(Guid ProductionOrderId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent scrap record.</summary>
-public sealed class RecordProductionScrapCommandHandler(IProductionOrderRepository orders)
+public sealed class RecordProductionScrapCommandHandler(IProductionOrderRepository orders, IProductionAccountingEventPublisher accounting, IClock clock)
     : ICommandHandler<RecordProductionScrapCommand, Unit>
 {
     /// <inheritdoc />
@@ -268,10 +268,20 @@ public sealed class RecordProductionScrapCommandHandler(IProductionOrderReposito
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
-        if (!order.RecordScrap(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency)))
+        Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
+        Money unitCost = new(command.UnitCost, command.Currency);
+        if (!order.RecordScrap(command.OperationId, quantity, unitCost))
         {
             return Unit.Value;
         }
+        await accounting.PublishScrapAsync(new ProductionScrapAccountingEvent(
+            order.TenantId,
+            order.CompanyId ?? throw new InvalidOperationException("Production order has no company."),
+            order.Id,
+            command.OperationId,
+            quantity,
+            unitCost * quantity.Value,
+            clock.UtcNow), cancellationToken).ConfigureAwait(false);
         return Unit.Value;
     }
 }
