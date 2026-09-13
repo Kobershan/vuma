@@ -60,6 +60,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   intents rather than completed approvals. Android SDK/Gradle verification remains required.
 - 2026-09-13: Added `PendingActionQueue` with tenant/user/company ownership checks and explicit retry,
   rejection, acceptance and reauthentication transitions. Android compilation remains UNVERIFIED locally.
+- 2026-09-13: Added `MobileSessionGuard` to clear bearer credentials when the enrolled endpoint changes
+  and to return authorization only for the exact endpoint/tenant profile. Android compilation remains
+  delegated to the GitHub package workflow.
 
 ## Tests / acceptance
 
