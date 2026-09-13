@@ -16,6 +16,14 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
+  release-manifest-verification:
+    name: Release manifest verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release manifest tooling
+        run: scripts/tests/verify-release-manifest.test.sh
+
   build:
     name: Build
     runs-on: ubuntu-latest
