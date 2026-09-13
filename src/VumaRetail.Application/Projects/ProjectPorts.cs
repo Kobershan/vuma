@@ -12,6 +12,7 @@ public interface IProjectRepository
     Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProjectCostEntry?> FindCostEntryAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProjectCostEntry?> FindCostBySourceAsync(Guid projectId, string sourceReference, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProjectCostEntry>> ListCostsAsync(Guid projectId, CancellationToken cancellationToken = default);
     void Add(Project project); void Add(ProjectBudget budget); void Add(ProjectContract contract);
     void Add(ContractVariation variation); void Add(BillingMilestone milestone);
     void Add(ProjectCostEntry entry);

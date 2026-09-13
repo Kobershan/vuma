@@ -7,10 +7,12 @@ namespace VumaRetail.Application.Projects;
 
 public sealed class ProjectPermissions : IModulePermissions
 {
+    public const string View = "projects.project.view";
     public const string Manage = "projects.project.manage";
     public string Module => "projects";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [
+        new(PermissionKey.Parse(View), "View company-scoped project and cost summaries."),
         new(PermissionKey.Parse(Manage), "Create projects and approve project commitments.", IsHighRisk: true),
     ];
 }

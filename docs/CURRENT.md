@@ -197,3 +197,8 @@ as `7dbdd94`; GitHub CI run `34778882152` is in progress.
 WORK LOG (2026-09-13): Stage 29 completed-export downloads now issue 15-minute company-scoped opaque
 HMAC grants; `ReportingDomainTests` passes 9/9 and the validation boundary rejects tampering/expiry.
 Renderer/storage consumption, scheduled worker execution, and rebuild remain open.
+WORK LOG (2026-09-13): Stage 28 now exposes a company-scoped project cost summary grouped by currency,
+including reversal entries without implicit FX conversion. `ProjectCostTests` passes 3/3; adapters,
+Finance posting and integration acceptance remain open.
+The new summary route is protected by `projects.project.view`, while mutations remain on the
+high-risk manage permission.

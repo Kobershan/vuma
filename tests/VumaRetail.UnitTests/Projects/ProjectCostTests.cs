@@ -24,11 +24,12 @@ public sealed class ProjectCostTests
     public async Task Cost_allocation_is_idempotent_and_rejects_changed_replay_content()
     {
         var tenant = Substitute.For<ITenantContext>();
-        tenant.TenantId.Returns(Guid.NewGuid());
+        Guid tenantId = Guid.NewGuid();
+        tenant.TenantId.Returns(tenantId);
         var company = Substitute.For<ICompanyContext>();
         var companyId = Guid.NewGuid();
         company.CompanyId.Returns(companyId);
-        var project = Project.Create(tenant.TenantId, null, companyId, "P-1", "Refit", "ZAR");
+        var project = Project.Create(tenantId, null, companyId, "P-1", "Refit", "ZAR");
         var repository = Substitute.For<IProjectRepository>();
         repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
         var source = "TIMESHEET-42";
@@ -44,5 +45,30 @@ public sealed class ProjectCostTests
         var changed = () => handler.HandleAsync(new AllocateProjectCostCommand(companyId, project.Id, source,
             ProjectCostKind.Labour, 250m, "ZAR"));
         await changed.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Cost_summary_is_company_scoped_and_keeps_currencies_separate()
+    {
+        var tenant = Substitute.For<ITenantContext>();
+        Guid tenantId = Guid.NewGuid();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        var companyId = Guid.NewGuid();
+        company.CompanyId.Returns(companyId);
+        var project = Project.Create(tenantId, null, companyId, "P-1", "Refit", "ZAR");
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+        ProjectCostEntry original = ProjectCostEntry.Record(tenantId, null, companyId, project.Id, "A", ProjectCostKind.Other, new Money(25m, "ZAR"));
+        repository.ListCostsAsync(project.Id, Arg.Any<CancellationToken>()).Returns([
+            ProjectCostEntry.Record(tenantId, null, companyId, project.Id, "B", ProjectCostKind.Other, new Money(100m, "ZAR")),
+            ProjectCostEntry.Record(tenantId, null, companyId, project.Id, "C", ProjectCostKind.Other, new Money(10m, "USD")),
+            ProjectCostEntry.Reverse(original, "D")]);
+
+        ProjectCostSummaryResult result = (await new GetProjectCostSummaryQueryHandler(repository, company)
+            .HandleAsync(new GetProjectCostSummaryQuery(companyId, project.Id)))!;
+
+        result.EntryCount.Should().Be(3);
+        result.Totals.Should().ContainInOrder(new ProjectCostTotal("USD", 10m), new ProjectCostTotal("ZAR", 75m));
     }
 }
