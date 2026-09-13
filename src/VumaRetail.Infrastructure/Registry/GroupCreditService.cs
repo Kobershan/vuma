@@ -78,11 +78,23 @@ public sealed class GroupCreditService : IGroupCreditService
             {
                 return await TryHoldOnceAsync(tenantId, creditGroupId, companyId, amount, currency.Trim().ToUpperInvariant(), documentReference.Trim(), expiry, cancellationToken);
             }
-            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure && attempt < 4)
+            catch (Exception exception) when (IsSerializationFailure(exception) && attempt < 4)
             {
                 _registry.ChangeTracker.Clear();
             }
         }
+    }
+
+    private static bool IsSerializationFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgres && postgres.SqlState == PostgresErrorCodes.SerializationFailure)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private async Task<HoldResult> TryHoldOnceAsync(
