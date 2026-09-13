@@ -2,6 +2,8 @@ using VumaRetail.Domain.HrManagement;
 using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Hr;
+using Microsoft.Extensions.Configuration;
+using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.UnitTests.Hr;
 
@@ -61,5 +63,20 @@ public sealed class EmployeeDocumentTests
 
         result.Token.Should().Be("opaque-grant");
         result.ExpiresAtUtc.Should().Be(clock.UtcNow.AddMinutes(15));
+    }
+
+    [Fact]
+    public void Download_grant_validation_rejects_tampering_and_expiry()
+    {
+        var configuration = new ConfigurationManager();
+        configuration["Security:EmployeeDocumentDownloadKey"] = new string('k', 32);
+        var authorizer = new EmployeeDocumentDownloadAuthorizer(configuration);
+        var document = EmployeeDocument.Record(Guid.NewGuid(), Guid.NewGuid(), "Contract", "private/key.pdf", new string('d', 64));
+        DateTimeOffset expiry = new(2026, 9, 13, 12, 15, 0, TimeSpan.Zero);
+        string token = authorizer.Create(document, expiry);
+
+        authorizer.Validate(token, document.Id, expiry.AddMinutes(-1)).Should().BeTrue();
+        authorizer.Validate(token + "x", document.Id, expiry.AddMinutes(-1)).Should().BeFalse();
+        authorizer.Validate(token, document.Id, expiry).Should().BeFalse();
     }
 }
