@@ -59,8 +59,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 ## Tests / acceptance
 
 Implemented evidence: `scripts/tests/verify-release-manifest.test.sh` passes, covering a valid
-payload, tampering, path traversal and an empty manifest. The verifier rejects absolute or parent
-paths and symlink payloads before hashing; signing, packaging and restore acceptance remain open.
+payload, tampering, path traversal and an empty manifest. `scripts/tests/verify-release-signature.test.sh`
+also passes for a generated RSA signature and tampering. The verifier rejects absolute or parent
+paths and symlink payloads before hashing; packaging and restore acceptance remain open.
 
 - `Store_survives_cloud_outage`: block cloud and vendor network for 24 hours; local cash trading completes and reconnect replay changes no totals.
 - `Fresh_hardware_restore_trades`: restore the pilot registry, all company databases and documents onto a fresh machine within 4 hours; reconcile stock/GL and complete a sale.

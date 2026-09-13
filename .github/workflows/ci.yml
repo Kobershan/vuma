@@ -24,6 +24,7 @@ jobs:
       - name: Verify release manifest tooling
         run: |
           scripts/tests/verify-release-manifest.test.sh
+          scripts/tests/verify-release-signature.test.sh
           scripts/tests/activate-release.test.sh
 
   build:
