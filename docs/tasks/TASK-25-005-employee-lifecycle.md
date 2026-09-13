@@ -43,5 +43,6 @@ remain open.
 
 2026-09-13: Disciplinary cases are now company-scoped and persisted through
 `Stage25DisciplinaryCases`; open, investigate and decide commands/routes are wired behind HR manage
-permission. `DisciplinaryCaseTests` passes 3/3 and the StoreServer build passes with 0 errors.
-Payroll export, case listing/acceptance and specialist/runtime review remain open.
+permission, and company-scoped listing is available behind HR view permission. `DisciplinaryCaseTests`
+passes 4/4 and the StoreServer build passes with 0 errors. Payroll export, acceptance and
+specialist/runtime review remain open.

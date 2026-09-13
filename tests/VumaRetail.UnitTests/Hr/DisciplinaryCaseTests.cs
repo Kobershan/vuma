@@ -60,4 +60,20 @@ public sealed class DisciplinaryCaseTests
         id.Should().NotBeEmpty();
         cases.Received(1).Add(Arg.Is<DisciplinaryCase>(x => x.Id == id && x.CompanyId == companyId));
     }
+
+    [Fact]
+    public async Task List_handler_requires_the_active_company()
+    {
+        var companyId = Guid.NewGuid();
+        var cases = Substitute.For<IDisciplinaryCaseRepository>();
+        cases.ListAsync(companyId, null, Arg.Any<CancellationToken>()).Returns(Array.Empty<DisciplinaryCase>());
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        var result = await new ListDisciplinaryCasesQueryHandler(cases, company)
+            .HandleAsync(new ListDisciplinaryCasesQuery(companyId));
+
+        result.Should().BeEmpty();
+        await cases.Received(1).ListAsync(companyId, null, Arg.Any<CancellationToken>());
+    }
 }

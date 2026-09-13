@@ -49,6 +49,7 @@ public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approv
 [CommandSideEffect(SideEffect.Write)]
 public sealed record PublishRosterCommand(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId = null) : ICommand<Guid>;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
+public sealed record ListDisciplinaryCasesQuery(Guid CompanyId, Guid? EmployeeId = null) : IQuery<IReadOnlyList<DisciplinaryCase>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
 public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant, IClock clock) : ICommandHandler<CreateEmployeeCommand, Guid>
@@ -206,6 +207,15 @@ public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository sw
     }
 }
 public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocument>> { public Task<IReadOnlyList<EmployeeDocument>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default) => documents.ListAsync(q.EmployeeId, t); }
+public sealed class ListDisciplinaryCasesQueryHandler(IDisciplinaryCaseRepository cases, ICompanyContext company) : IQueryHandler<ListDisciplinaryCasesQuery, IReadOnlyList<DisciplinaryCase>>
+{
+    public async Task<IReadOnlyList<DisciplinaryCase>> HandleAsync(ListDisciplinaryCasesQuery query, CancellationToken token = default)
+    {
+        if (company.CompanyId is not { } active || active != query.CompanyId)
+            throw new InvalidOperationException("The HR company is not the active company.");
+        return await cases.ListAsync(query.CompanyId, query.EmployeeId, token).ConfigureAwait(false);
+    }
+}
 
 public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token = default); void Add(Employee employee); }
 public interface IEmploymentContractRepository { void Add(EmploymentContract contract); Task<IReadOnlyList<EmploymentContract>> ListAsync(Guid employeeId, CancellationToken token = default); }
@@ -215,4 +225,4 @@ public interface IRosterPublicationRepository { void Add(RosterPublication publi
 public interface IAttendanceRepository { void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }
-public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); void Add(DisciplinaryCase @case); }
+public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<DisciplinaryCase>> ListAsync(Guid companyId, Guid? employeeId, CancellationToken token = default); void Add(DisciplinaryCase @case); }
