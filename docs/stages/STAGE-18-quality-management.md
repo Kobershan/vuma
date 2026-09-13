@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** IN_PROGRESS — quality holds, inspection evidence, NCR/CAPA, versioned inspection plans and certificate revocation are implemented; recall, shelf-life and full acceptance remain open · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — quality holds, inspection evidence, NCR/CAPA, versioned inspection plans, certificate revocation and recall traceability are implemented; shelf-life and full acceptance remain open · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
