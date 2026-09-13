@@ -1,6 +1,6 @@
 # TASK-27-003 — Store checklist execution metadata
 
-Status: IN_PROGRESS  
+Status: IN_PROGRESS — persistence, command handlers, API routes and replay tests implemented; evidence authorization and period-close acceptance remain  
 Stage: 27  
 Type: Domain
 
@@ -29,8 +29,8 @@ ordering tests.
 2026-09-13: Added tenant/company-scoped EF mappings and `Stage27ChecklistPersistence`, plus
 company-guarded checklist create/submit commands and `assets` manage-protected API routes. Execution
 replays with matching operation content return the existing identity; changed content is refused.
-StoreServer Release build passes with 0 errors. Evidence upload authorization and period-close
-acceptance remain open.
+`ChecklistCommandTests` passes 3/3 and StoreServer Release build passes with 0 errors. Evidence
+upload authorization and period-close acceptance remain open.
 
 ## Follow-up findings
 

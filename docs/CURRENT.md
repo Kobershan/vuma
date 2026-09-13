@@ -34,6 +34,10 @@ company-guarded create/submit commands and manage-protected API routes; matching
 are idempotent and changed content is refused. StoreServer Release builds with 0 errors; evidence
 authorization and period-close acceptance remain open.
 
+WORK LOG (2026-09-13): Stage 27 checklist command coverage now verifies company-scoped creation,
+identical operation replay idempotency and changed-evidence replay refusal (`ChecklistCommandTests`
+3/3). Evidence attachment authorization and period-close acceptance remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle
