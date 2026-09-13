@@ -68,9 +68,14 @@ WORK LOG (2026-09-13): Stage 25 payroll source rows are now also available throu
 CSV with escaping at `/api/v1/hr/payroll/export.csv`; `PayrollExportTests` passes 3/3.
 
 WORK LOG (2026-09-13): Stage 29 report exports now have guarded completion/failure handoff commands
-and a persisted artifact reference via `Stage29ReportExportArtifacts`; export requests require
+and a persisted artifact reference via `Stage29ReportExportArtifactsFix`; export requests require
 `reporting.report.manage`. `ReportingDomainTests` passes 8/8; renderer/storage, scheduling and
 expiring download authorization remain open.
+
+VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
+and replaced with `Stage29ReportExportArtifactsFix`, which adds
+`reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model
+verification are clean.
 
 VERIFICATION (2026-09-13): The post-payroll architecture suite passes 85/85 and
 `dotnet ef migrations has-pending-model-changes` reports no changes. GitHub CI for the latest

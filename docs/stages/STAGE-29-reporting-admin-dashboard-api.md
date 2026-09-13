@@ -61,7 +61,7 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
   and full acceptance remain.
 
 2026-09-13: Export completion/failure worker handoff commands now enforce company scope and persist
-artifact references through `Stage29ReportExportArtifacts`; requests use `reporting.report.manage`.
+artifact references through `Stage29ReportExportArtifactsFix`; requests use `reporting.report.manage`.
 Renderer/storage, scheduling, rebuild and expiring download authorization remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.

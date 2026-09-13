@@ -13,8 +13,8 @@ using VumaRetail.Infrastructure.Persistence;
 namespace VumaRetail.Infrastructure.Migrations
 {
     [DbContext(typeof(VumaRetailDbContext))]
-    [Migration("20260913231017_Stage29ReportExportArtifacts")]
-    partial class Stage29ReportExportArtifacts
+    [Migration("20260913231412_Stage29ReportExportArtifactsFix")]
+    partial class Stage29ReportExportArtifactsFix
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24145,6 +24145,11 @@ namespace VumaRetail.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("ArtifactReference")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("artifact_reference");
 
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid")
