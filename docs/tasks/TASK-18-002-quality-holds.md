@@ -18,6 +18,10 @@ available for allocation and partial shortages leave no persisted hold.
 
 - Unit coverage includes partial-shortfall release, terminal disposition and company-scope checks.
 - Real PostgreSQL migration evidence is recorded by the Stage 18 migration test.
+- Real PostgreSQL API evidence now covers the core availability invariant: holding 20 from 100
+  leaves 80 available, an 81-unit hold is refused without changing the projection, and retrying
+  the same operation returns the original hold without increasing held quantity (`QualityApiTests`
+  focused scenario, 2026-09-13).
 
 ## Remaining
 
