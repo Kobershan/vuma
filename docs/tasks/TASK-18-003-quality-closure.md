@@ -19,6 +19,7 @@ shelf-life enforcement, then close the stage with seed, backup and specialist ev
 - Domain unit coverage includes recall trace deduplication/closure, certificate revocation and NCR/CAPA
   lifecycle rules.
 - OpenAPI and quality permission integration tests pass; migration Up/Down passes on PostgreSQL.
+- Quality write-route company binding is covered by the authorized API suite (3/3 passed).
 
 ## Remaining
 

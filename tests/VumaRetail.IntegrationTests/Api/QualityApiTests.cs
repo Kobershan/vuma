@@ -54,4 +54,22 @@ public sealed class QualityApiTests(PostgresFixture fixture)
         certificate.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         recall.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
+
+    [Fact]
+    public async Task Authorized_quality_request_binds_the_company_for_creation()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("quality-manager", "CorrectHorseBattery1", QualityPermissions.Manage, QualityPermissions.View);
+        using HttpClient client = await harness.SignInAsync("quality-manager");
+
+        Guid companyId = Guid.NewGuid();
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/quality/inspection-plans", new
+        {
+            CompanyId = companyId, ItemId = Guid.NewGuid(), ItemVariantId = (Guid?)null,
+            Version = 1, Name = "Incoming goods", SampleSize = 3, AcceptanceCriteria = "No visible damage"
+        });
+
+        string body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.Created, body);
+    }
 }

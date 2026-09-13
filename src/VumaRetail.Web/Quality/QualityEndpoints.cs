@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Quality;
 using VumaRetail.Domain.Quality;
 using VumaRetail.Web.Api;
@@ -56,8 +57,9 @@ public static class QualityEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> PlaceAsync(PlaceQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> PlaceAsync(PlaceQualityHoldRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new PlaceQualityHoldCommand(request.OperationId, request.CompanyId, request.LocationId,
             request.ItemId, request.ItemVariantId, request.Quantity, request.UnitOfMeasure, request.Reason,
             request.BatchReference, request.ExpiryDate, request.SerialNumber), cancellationToken).ConfigureAwait(false);
@@ -70,22 +72,25 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> RecordInspectionAsync(RecordInspectionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> RecordInspectionAsync(RecordInspectionRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new RecordInspectionCommand(request.OperationId, request.CompanyId, request.HoldId, request.PlanId,
             request.Passed, request.SampleSize, request.Evidence), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/inspections/{id:D}", id);
     }
 
-    private static async Task<IResult> CreatePlanAsync(CreateInspectionPlanRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreatePlanAsync(CreateInspectionPlanRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateInspectionPlanCommand(request.CompanyId, request.ItemId, request.ItemVariantId,
             request.Version, request.Name, request.SampleSize, request.AcceptanceCriteria), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/inspection-plans/{id:D}", id);
     }
 
-    private static async Task<IResult> IssueCertificateAsync(IssueQualityCertificateRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> IssueCertificateAsync(IssueQualityCertificateRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new IssueQualityCertificateCommand(request.CompanyId, request.ItemId, request.ItemVariantId,
             request.CertificateNumber, request.Issuer, request.IssuedAt, request.ExpiresAt, request.Evidence), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/certificates/{id:D}", id);
@@ -97,8 +102,9 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> OpenRecallAsync(OpenRecallRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> OpenRecallAsync(OpenRecallRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new OpenRecallCommand(request.OperationId, request.CompanyId, request.CaseNumber,
             request.LotReference, request.Reason), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/recalls/{id:D}", id);
@@ -128,8 +134,9 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> OpenNonConformanceAsync(OpenNonConformanceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> OpenNonConformanceAsync(OpenNonConformanceRequest request, IDispatcher dispatcher, ICompanyContext company, CancellationToken cancellationToken)
     {
+        BindCompany(company, request.CompanyId);
         Guid id = await dispatcher.SendAsync(new OpenNonConformanceCommand(request.OperationId, request.CompanyId, request.HoldId,
             request.Severity, request.Description), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/non-conformances/{id:D}", id);
@@ -160,4 +167,29 @@ public static class QualityEndpoints
     public sealed record OpenNonConformanceRequest(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description);
     public sealed record CorrectiveActionRequest(Guid OperationId);
     public sealed record CloseNonConformanceRequest(Guid OperationId, string Resolution);
+
+    private static void BindCompany(ICompanyContext company, Guid companyId)
+    {
+        ArgumentNullException.ThrowIfNull(company);
+        if (companyId == Guid.Empty)
+        {
+            throw new ValidationFailedException(nameof(companyId), new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [nameof(companyId)] = ["A company is required."],
+            });
+        }
+
+        if (company.CompanyId is { } bound && bound != companyId)
+        {
+            throw new ValidationFailedException(nameof(companyId), new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [nameof(companyId)] = ["The request names a different company than the scope already holds."],
+            });
+        }
+
+        if (company.CompanyId is null)
+        {
+            company.SetCompany(companyId);
+        }
+    }
 }
