@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
@@ -144,7 +145,7 @@ public static class EcommerceEndpoints
     }
 
     private static async Task<IResult> ApplyPaymentWebhookAsync(
-        HttpRequest http, IConfiguration configuration, IDispatcher dispatcher, CancellationToken cancellationToken)
+        HttpRequest http, IConfiguration configuration, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         using StreamReader reader = new(http.Body);
         string body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
@@ -154,6 +155,7 @@ public static class EcommerceEndpoints
         PaymentWebhookRequest? request = JsonSerializer.Deserialize<PaymentWebhookRequest>(body);
         if (request is null)
             return Results.BadRequest();
+        company.SetCompany(request.CompanyId);
         string fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         Guid id = await dispatcher.SendAsync(new ApplyPaymentNotificationCommand(request.CheckoutId, request.CompanyId,
             request.EventId, fingerprint, request.ProviderPaymentId, request.Status, request.ProviderReference), cancellationToken).ConfigureAwait(false);

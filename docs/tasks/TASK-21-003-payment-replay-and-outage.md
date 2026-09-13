@@ -12,6 +12,8 @@
   fail or reverse; captured payments may only reverse, and terminal states cannot move forward.
 - Payment notification replay now verifies the existing event's company before returning an idempotent
   result, preventing cross-company event-ID replay.
+- The signed webhook endpoint now stamps the request company into the active company context before
+  dispatching the notification, so the application guard is enforced for real HTTP requests.
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work

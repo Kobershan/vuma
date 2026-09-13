@@ -91,6 +91,8 @@ remain open.
 WORK LOG (2026-09-13): Stage 21 payment notification replay now checks company ownership before
 returning an idempotent result. `EcommerceDomainTests` passes 9/9; provider orchestration, outage
 integration, and full checkout acceptance remain open.
+The signed payment webhook also now sets the active company context before dispatch, preserving the
+same company-isolation guard at the HTTP boundary; Store Web build passes with 0 errors.
 WORK LOG (2026-09-13): Stage 25 employee-document listings now expose metadata-only DTOs; external
 blob keys are no longer returned by the HR API. Expiring download authorization and retention remain
 open.
