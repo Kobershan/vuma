@@ -59,3 +59,7 @@ refuse the decision even when the background expiry sweep has not run. Ecommerce
 tests pass 3/3. The full Release unit suite passes 1,455/1,455 after aligning the quality shortfall
 assertion with its typed rule exception. Changes pushed as `21f8b73` and `3fa9049`; the latest
 GitHub CI run is verifying the checkpoint.
+
+WORK LOG (2026-09-13): Stage 23-P01 service-management foundation started. Added ticket lifecycle,
+immutable warranty sale/serial snapshot, and append-only customer custody domain records; focused
+tests pass 3/3. Persistence, APIs, parts/accounting, SLA, and PostgreSQL acceptance remain open.

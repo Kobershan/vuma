@@ -1,6 +1,6 @@
 # STAGE 23 — Service Management
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — Stage 23-P01 domain foundation implemented; persistence, application orchestration, API, and acceptance certification remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -47,6 +47,15 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 - [ ] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA.
 - [ ] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance.
 
+## Progress evidence
+
+- 2026-09-13: Added `ServiceTicket`, `WarrantyClaim`, and append-only `ServiceCustodyEvent`
+  domain records under `src/VumaRetail.Domain/Service/`. The warranty serial is a frozen sale
+  snapshot; customer custody is not a stock ledger entry; ticket closure is lifecycle-gated.
+- Focused domain tests: **3/3 passed** in `ServiceDomainTests`.
+- Remaining: EF mappings/migration, repositories, commands, permissions/entitlements, API routes,
+  parts and financial integration, SLA clock, PostgreSQL acceptance, and specialist review.
+
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
@@ -69,4 +78,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
