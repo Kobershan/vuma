@@ -33,6 +33,8 @@ public sealed record ListEmploymentContractsQuery(Guid EmployeeId) : IQuery<IRea
 public sealed record ListLeaveRequestsQuery(Guid? EmployeeId = null) : IQuery<IReadOnlyList<LeaveRequest>>;
 public sealed record ListShiftsQuery(DateTimeOffset From, DateTimeOffset To, Guid? EmployeeId = null) : IQuery<IReadOnlyList<Shift>>;
 public sealed record GetEmployeeAvailabilityQuery(Guid EmployeeId, DateTimeOffset From, DateTimeOffset To) : IQuery<EmployeeAvailability>;
+public sealed record RequestShiftSwapCommand(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt) : ICommand<Guid>;
+public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approved) : ICommand;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
@@ -114,11 +116,30 @@ public sealed class GetEmployeeAvailabilityQueryHandler(IEmployeeRepository empl
         return new EmployeeAvailability(employee.Id, employee.Status, employee.Status == EmploymentStatus.Active && activeShifts.Length == 0, activeShifts);
     }
 }
+public sealed class RequestShiftSwapCommandHandler(IEmployeeRepository employees, IShiftRepository shifts, IShiftSwapRequestRepository swaps, ITenantContext tenant) : ICommandHandler<RequestShiftSwapCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(RequestShiftSwapCommand c, CancellationToken token = default)
+    {
+        Shift shift = await shifts.FindAsync(c.ShiftId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift was not found.");
+        if (shift.EmployeeId != c.FromEmployeeId) throw new InvalidOperationException("The requesting employee does not own the shift.");
+        if (shift.Status != ShiftStatus.Planned) throw new InvalidOperationException("Only planned shifts can be swapped.");
+        if (await employees.FindAsync(c.ToEmployeeId, token).ConfigureAwait(false) is null) throw new KeyNotFoundException("Target employee was not found.");
+        var request = ShiftSwapRequest.Request(tenant.TenantId, c.ShiftId, c.FromEmployeeId, c.ToEmployeeId, c.RequestedAt);
+        swaps.Add(request);
+        return request.Id;
+    }
+}
+public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps) : ICommandHandler<DecideShiftSwapCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(DecideShiftSwapCommand c, CancellationToken token = default)
+    { var request = await swaps.FindAsync(c.ShiftSwapRequestId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift swap request was not found."); if (c.Approved) request.Approve(); else request.Reject(); return Unit.Value; }
+}
 public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocument>> { public Task<IReadOnlyList<EmployeeDocument>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default) => documents.ListAsync(q.EmployeeId, t); }
 
 public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token = default); void Add(Employee employee); }
 public interface IEmploymentContractRepository { void Add(EmploymentContract contract); Task<IReadOnlyList<EmploymentContract>> ListAsync(Guid employeeId, CancellationToken token = default); }
-public interface IShiftRepository { void Add(Shift shift); Task<IReadOnlyList<Shift>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); }
+public interface IShiftRepository { void Add(Shift shift); Task<Shift?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Shift>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); }
+public interface IShiftSwapRequestRepository { void Add(ShiftSwapRequest request); Task<ShiftSwapRequest?> FindAsync(Guid id, CancellationToken token = default); }
 public interface IAttendanceRepository { void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }

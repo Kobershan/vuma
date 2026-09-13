@@ -27,8 +27,10 @@ WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM c
 policy tests verify the consent check immediately before delivery.
 
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
-pending/approved/rejected transitions and same-employee refusal. HR lifecycle tests pass 7/7;
-applying approved swaps, persistence and authorization remain open.
+tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
+approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle
+tests pass 10/10 and StoreServer Release builds with 0 errors; applying approved swaps, conflict
+rechecking, roster publication and labour-cost integration remain open.
 
 STAGE 15: TASK-15-01 DONE — demand history rollup (weekly Mon–Sun, idempotent, gap zeros) + forecast engine (moving-average, exponential-smoothing, seasonal-naive behind IForecastEngine; MAPE/bias back-test; low-confidence flags) + weekly forecast run + read endpoints. TASK-15-02 DONE — safety stock (variance + 8-week fallback, horizon refusal), reorder via SafetyStockCalculation rows, ABC/XYZ snapshot runs, open-to-buy budgets with live commitments (warning only). TASK-15-03 DONE — replenishment run (ROP + forecast top-up, transfer-surplus preferred with SharedSourcing link checked at generation, 14-day expiry, backorder reattempt hook), accept/amend-accept (exactly-once)/reject through Stage 12 requisition + Stage 08 transfer commands. TASK-15-04 DONE — markdown plans (Draft→PendingApproval→Approved→Active, versioning amendments, cancel retires promotions) through IApprovalService + Stage 10 percentage-off promotions; activation sweep for missed dates. Domain (10 files) / Application (ports, 4 engines, 14 commands, 7 queries, 9 permissions, manifest, 4 hosted services) / Infrastructure (8 repos, EF configs, writers, DI) / Contracts / Web (19 endpoints) all new. Migration `20260909131616_Stage15_Planning` (9 tables, reversible, model/snapshot agree). ADR-149. Core projects (Domain/Application/Infrastructure/Contracts) build 0 errors.
 

@@ -154,6 +154,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.HrManagement.LeaveRequest> LeaveRequests => Set<Domain.HrManagement.LeaveRequest>();
     public DbSet<Domain.HrManagement.EmployeeDocument> EmployeeDocuments => Set<Domain.HrManagement.EmployeeDocument>();
     public DbSet<Domain.HrWorkforce.Shift> Shifts => Set<Domain.HrWorkforce.Shift>();
+    public DbSet<Domain.HrWorkforce.ShiftSwapRequest> ShiftSwapRequests => Set<Domain.HrWorkforce.ShiftSwapRequest>();
     public DbSet<Domain.HrWorkforce.AttendanceRecord> AttendanceRecords => Set<Domain.HrWorkforce.AttendanceRecord>();
 
     /// <summary>Physical places stock is held — warehouses, sales floors (Stage 08).</summary>

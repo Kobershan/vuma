@@ -37,6 +37,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- The exception handler maps PostgreSQL check/unique violations to coded refusals. -->
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Serilog.AspNetCore" />
     <!-- Stage 04: the OTLP sink CLAUDE.md §4 names, off unless an endpoint is configured. -->
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" />

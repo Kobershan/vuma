@@ -33,6 +33,8 @@ public static class HrEndpoints
         workforce.MapGet("/shifts", async (DateTimeOffset from, DateTimeOffset to, Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListShiftsQuery(from, to, employeeId), ct))).RequirePermission(WorkforcePermissions.View);
         workforce.MapGet("/employees/{employeeId:guid}/availability", async (Guid employeeId, DateTimeOffset from, DateTimeOffset to, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new GetEmployeeAvailabilityQuery(employeeId, from, to), ct))).RequirePermission(WorkforcePermissions.View);
         workforce.MapPost("/shifts", async (CreateShiftRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shifts", await d.SendAsync(new CreateShiftCommand(r.EmployeeId, r.StartsAt, r.EndsAt, r.Role, r.StoreId), ct))).RequirePermission(WorkforcePermissions.Manage);
+        workforce.MapPost("/shift-swaps", async (RequestShiftSwapRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shift-swaps", await d.SendAsync(new RequestShiftSwapCommand(r.ShiftId, r.FromEmployeeId, r.ToEmployeeId, r.RequestedAt), ct))).RequirePermission(WorkforcePermissions.Manage);
+        workforce.MapPost("/shift-swaps/{id:guid}/decision", async (Guid id, ShiftSwapDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideShiftSwapCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/attendance", async (RecordAttendanceRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/attendance", await d.SendAsync(new RecordAttendanceCommand(r.EmployeeId, r.ShiftId, r.EventType, r.OccurredAt, r.Source), ct))).RequirePermission(WorkforcePermissions.AttendanceRecord);
         return endpoints;
     }
@@ -44,4 +46,6 @@ public static class HrEndpoints
     public sealed record CreateLeaveRequest(Guid EmployeeId, DateOnly From, DateOnly To, string LeaveType, string? Reason);
     public sealed record CreateShiftRequest(Guid EmployeeId, DateTimeOffset StartsAt, DateTimeOffset EndsAt, string Role, Guid? StoreId);
     public sealed record RecordAttendanceRequest(Guid EmployeeId, Guid? ShiftId, AttendanceEventType EventType, DateTimeOffset OccurredAt, string? Source);
+    public sealed record RequestShiftSwapRequest(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt);
+    public sealed record ShiftSwapDecisionRequest(bool Approved);
 }

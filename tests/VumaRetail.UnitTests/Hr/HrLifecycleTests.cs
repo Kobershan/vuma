@@ -1,6 +1,7 @@
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Application.Hr;
+using VumaRetail.Application.Abstractions;
 using NSubstitute;
 
 namespace VumaRetail.UnitTests.Hr;
@@ -116,5 +117,38 @@ public sealed class HrLifecycleTests
 
         var invalid = () => AttendanceRecord.Record(TenantId, EmployeeId, null, AttendanceEventType.Unknown, at);
         invalid.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task Shift_swap_handler_requires_shift_owner_and_creates_request()
+    {
+        var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+        var target = Employee.Create(TenantId, "E-004", "Alan", "Turing", start, EmploymentType.Permanent);
+        var employees = Substitute.For<IEmployeeRepository>();
+        var shifts = Substitute.For<IShiftRepository>();
+        var swaps = Substitute.For<IShiftSwapRequestRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        shifts.FindAsync(shift.Id, Arg.Any<CancellationToken>()).Returns(shift);
+        employees.FindAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
+
+        var id = await new RequestShiftSwapCommandHandler(employees, shifts, swaps, tenant)
+            .HandleAsync(new RequestShiftSwapCommand(shift.Id, EmployeeId, target.Id, start));
+
+        id.Should().NotBeEmpty();
+        swaps.Received(1).Add(Arg.Is<ShiftSwapRequest>(request => request.ShiftId == shift.Id && request.ToEmployeeId == target.Id));
+    }
+
+    [Fact]
+    public async Task Shift_swap_decision_handler_applies_the_requested_decision()
+    {
+        var request = ShiftSwapRequest.Request(TenantId, Guid.NewGuid(), EmployeeId, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        var swaps = Substitute.For<IShiftSwapRequestRepository>();
+        swaps.FindAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
+
+        await new DecideShiftSwapCommandHandler(swaps).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
+
+        request.Status.Should().Be(ShiftSwapStatus.Approved);
     }
 }

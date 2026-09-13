@@ -11,11 +11,14 @@ is made.
 
 ## Scope
 
-Two-employee identity validation and pending → approved/rejected state transitions. Persistence,
-authorization, applying an approved swap to a roster, conflict rechecking and API wiring remain
-follow-up work.
+Two-employee identity validation and pending → approved/rejected state transitions. The request and
+decision APIs use the workforce manage permission, and requests are persisted in the tenant-scoped
+`hr_workforce.shift_swap_requests` table by migration `20260913220207_Stage26ShiftSwapPersistence`.
+Applying an approved swap to a roster, conflict rechecking and specialist review remain follow-up
+work.
 
 ## Verification
 
-2026-09-13: HR lifecycle unit tests pass 7/7, covering same-employee refusal and decide-once
-behavior.
+2026-09-13: HR lifecycle unit tests pass 10/10, covering same-employee refusal, decide-once behavior,
+handler ownership validation, persistence registration, and decision application. StoreServer
+Release build passes with 0 errors.
