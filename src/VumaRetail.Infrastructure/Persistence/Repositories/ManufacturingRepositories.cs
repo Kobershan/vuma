@@ -35,6 +35,20 @@ public sealed class ProductionOrderRepository(VumaRetailDbContext context) : IPr
 }
 
 /// <summary>EF Core repository for Stage 18 quality holds.</summary>
+public sealed class InspectionPlanRepository(VumaRetailDbContext context) : IInspectionPlanRepository
+{
+    public Task<InspectionPlan?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.InspectionPlans.FirstOrDefaultAsync(plan => plan.Id == id, cancellationToken);
+
+    public Task<InspectionPlan?> FindPublishedAsync(Guid companyId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default)
+        => context.InspectionPlans.Where(plan => plan.CompanyId == companyId && plan.Status == InspectionPlanStatus.Published
+            && plan.ItemId == itemId && plan.ItemVariantId == itemVariantId)
+            .OrderByDescending(plan => plan.Version).FirstOrDefaultAsync(cancellationToken);
+
+    public void Add(InspectionPlan plan) => context.InspectionPlans.Add(plan);
+}
+
+/// <summary>EF Core repository for Stage 18 quality holds.</summary>
 public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualityHoldRepository
 {
     public Task<QualityHold?> FindAsync(Guid id, CancellationToken cancellationToken = default)

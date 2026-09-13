@@ -3,6 +3,13 @@ using VumaRetail.Domain.Quality;
 
 namespace VumaRetail.Application.Quality;
 
+public interface IInspectionPlanRepository
+{
+    Task<InspectionPlan?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<InspectionPlan?> FindPublishedAsync(Guid companyId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default);
+    void Add(InspectionPlan plan);
+}
+
 /// <summary>Persistence boundary for tenant/company-scoped quality holds.</summary>
 public interface IQualityHoldRepository
 {

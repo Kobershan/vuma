@@ -542,6 +542,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Inventory quarantines awaiting quality disposition (Stage 18).</summary>
     public DbSet<Domain.Quality.QualityHold> QualityHolds => Set<Domain.Quality.QualityHold>();
 
+    /// <summary>Versioned inspection requirements (Stage 18).</summary>
+    public DbSet<Domain.Quality.InspectionPlan> InspectionPlans => Set<Domain.Quality.InspectionPlan>();
+
     /// <summary>Immutable inspection evidence for quality holds (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionResult> InspectionResults => Set<Domain.Quality.InspectionResult>();
 

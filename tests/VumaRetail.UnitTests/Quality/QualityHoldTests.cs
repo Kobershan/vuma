@@ -12,6 +12,21 @@ namespace VumaRetail.UnitTests.Quality;
 public sealed class QualityHoldTests
 {
     [Fact]
+    public void Inspection_plan_is_versioned_and_only_published_plans_are_usable()
+    {
+        InspectionPlan plan = InspectionPlan.Create(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), null,
+            2, "Incoming goods", 3, "No visible damage");
+
+        plan.Status.Should().Be(InspectionPlanStatus.Draft);
+        plan.Publish();
+
+        plan.Status.Should().Be(InspectionPlanStatus.Published);
+        plan.Version.Should().Be(2);
+        plan.Retire();
+        plan.Status.Should().Be(InspectionPlanStatus.Retired);
+    }
+
+    [Fact]
     public void A_hold_can_only_be_disposed_once()
     {
         QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
@@ -60,15 +75,16 @@ public sealed class QualityHoldTests
         IQualityHoldRepository holds = Substitute.For<IQualityHoldRepository>();
         holds.FindAsync(holdId, Arg.Any<CancellationToken>()).Returns(hold);
         IInspectionResultRepository inspections = Substitute.For<IInspectionResultRepository>();
+        IInspectionPlanRepository plans = Substitute.For<IInspectionPlanRepository>();
         ITenantContext tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(tenantId);
         ICompanyContext company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        RecordInspectionCommand command = new(operationId, companyId, holdId, true, 2, "seal intact");
+        RecordInspectionCommand command = new(operationId, companyId, holdId, null, true, 2, "seal intact");
 
-        Guid result = await new RecordInspectionCommandHandler(inspections, holds, tenant, company, clock).HandleAsync(command);
+        Guid result = await new RecordInspectionCommandHandler(inspections, plans, holds, tenant, company, clock).HandleAsync(command);
 
         result.Should().NotBeEmpty();
         inspections.Received(1).Add(Arg.Any<InspectionResult>());

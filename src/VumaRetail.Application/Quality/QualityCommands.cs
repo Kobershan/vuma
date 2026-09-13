@@ -9,6 +9,39 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Application.Quality;
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record CreateInspectionPlanCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version,
+    string Name, int SampleSize, string AcceptanceCriteria) : ICommand<Guid>;
+
+public sealed class CreateInspectionPlanCommandHandler(IInspectionPlanRepository plans, ITenantContext tenant)
+    : ICommandHandler<CreateInspectionPlanCommand, Guid>
+{
+    public Task<Guid> HandleAsync(CreateInspectionPlanCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        InspectionPlan plan = InspectionPlan.Create(tenant.TenantId, null, command.CompanyId, command.ItemId, command.ItemVariantId,
+            command.Version, command.Name, command.SampleSize, command.AcceptanceCriteria);
+        plans.Add(plan);
+        return Task.FromResult(plan.Id);
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record PublishInspectionPlanCommand(Guid PlanId) : ICommand;
+
+public sealed class PublishInspectionPlanCommandHandler(IInspectionPlanRepository plans)
+    : ICommandHandler<PublishInspectionPlanCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(PublishInspectionPlanCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        InspectionPlan plan = await plans.FindAsync(command.PlanId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Inspection plan not found.");
+        plan.Publish();
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record PlaceQualityHoldCommand(
     Guid OperationId,
     Guid CompanyId,
@@ -125,10 +158,10 @@ public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds
 }
 
 [CommandSideEffect(SideEffect.Write)]
-public sealed record RecordInspectionCommand(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence) : ICommand<Guid>;
+public sealed record RecordInspectionCommand(Guid OperationId, Guid CompanyId, Guid HoldId, Guid? PlanId, bool Passed, int SampleSize, string Evidence) : ICommand<Guid>;
 
 public sealed class RecordInspectionCommandHandler(
-    IInspectionResultRepository inspections, IQualityHoldRepository holds, ITenantContext tenant,
+    IInspectionResultRepository inspections, IInspectionPlanRepository plans, IQualityHoldRepository holds, ITenantContext tenant,
     ICompanyContext company, IClock clock) : ICommandHandler<RecordInspectionCommand, Guid>
 {
     public async Task<Guid> HandleAsync(RecordInspectionCommand command, CancellationToken cancellationToken = default)
@@ -154,8 +187,19 @@ public sealed class RecordInspectionCommandHandler(
         {
             throw new InvalidOperationException("Inspections require an active hold in the selected company.");
         }
+        InspectionPlan? plan = command.PlanId is { } planId
+            ? await plans.FindAsync(planId, cancellationToken).ConfigureAwait(false)
+            : null;
+        if (command.PlanId is not null && (plan is null || plan.CompanyId != command.CompanyId || plan.Status != InspectionPlanStatus.Published))
+        {
+            throw new InvalidOperationException("Inspection requires a published plan in the selected company.");
+        }
+        if (plan is not null && command.SampleSize < plan.SampleSize)
+        {
+            throw new InvalidOperationException("Inspection sample size is below the plan requirement.");
+        }
         InspectionResult result = InspectionResult.Record(tenant.TenantId, null, command.CompanyId, command.HoldId,
-            command.OperationId, command.Passed, command.SampleSize, command.Evidence, clock.UtcNow);
+            plan?.Id, plan?.Version ?? 0, command.OperationId, command.Passed, command.SampleSize, command.Evidence, clock.UtcNow);
         inspections.Add(result);
         return result.Id;
     }

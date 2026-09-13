@@ -12,6 +12,7 @@ public static class QualityServiceCollectionExtensions
     public static IServiceCollection AddVumaQuality(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddScoped<IInspectionPlanRepository, InspectionPlanRepository>();
         services.AddScoped<IQualityHoldRepository, QualityHoldRepository>();
         services.AddScoped<IInspectionResultRepository, InspectionResultRepository>();
         services.AddScoped<INonConformanceRepository, NonConformanceRepository>();

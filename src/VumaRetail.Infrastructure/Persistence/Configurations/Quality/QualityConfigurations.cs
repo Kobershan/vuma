@@ -6,6 +6,29 @@ using VumaRetail.Domain.Quality;
 
 namespace VumaRetail.Infrastructure.Persistence.Configurations.Quality;
 
+internal sealed class InspectionPlanConfiguration : EntityConfiguration<InspectionPlan>
+{
+    protected override string Schema => Schemas.Quality;
+    protected override string TableName => "inspection_plans";
+    protected override void ConfigureEntity(EntityTypeBuilder<InspectionPlan> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.ItemId);
+        builder.Property(x => x.ItemVariantId);
+        builder.Property(x => x.Version).IsRequired();
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.SampleSize).IsRequired();
+        builder.Property(x => x.AcceptanceCriteria).IsRequired().HasMaxLength(2000);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.ItemId, x.ItemVariantId, x.Version })
+            .IsUnique().HasDatabaseName("ux_inspection_plans_tenant_company_target_version")
+            .HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status })
+            .HasDatabaseName("ix_inspection_plans_tenant_company_status")
+            .HasFilter("deleted_at IS NULL");
+    }
+}
+
 internal sealed class QualityHoldConfiguration : EntityConfiguration<QualityHold>
 {
     private static readonly JsonSerializerOptions SerializerOptions = new();
@@ -43,6 +66,8 @@ internal sealed class InspectionResultConfiguration : EntityConfiguration<Inspec
     protected override void ConfigureEntity(EntityTypeBuilder<InspectionResult> builder)
     {
         builder.Property(x => x.HoldId).IsRequired();
+        builder.Property(x => x.PlanId);
+        builder.Property(x => x.PlanVersion).IsRequired();
         builder.Property(x => x.OperationId).IsRequired();
         builder.Property(x => x.SampleSize).IsRequired();
         builder.Property(x => x.Evidence).IsRequired().HasMaxLength(2000);

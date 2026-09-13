@@ -14,6 +14,11 @@ public static class QualityEndpoints
 {
     public static IEndpointRouteBuilder MapVumaQuality(this IEndpointRouteBuilder endpoints)
     {
+        RouteGroupBuilder plans = endpoints.MapVumaApi().MapGroup("/quality/inspection-plans")
+            .WithTags("Quality").RequireModule("quality");
+        plans.MapPost("/", CreatePlanAsync).RequirePermission(QualityPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        plans.MapPost("/{id:guid}/publish", PublishPlanAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent);
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/quality/holds")
             .WithTags("Quality").RequireModule("quality");
         group.MapPost("/", PlaceAsync).RequirePermission(QualityPermissions.Manage)
@@ -52,9 +57,22 @@ public static class QualityEndpoints
 
     private static async Task<IResult> RecordInspectionAsync(RecordInspectionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        Guid id = await dispatcher.SendAsync(new RecordInspectionCommand(request.OperationId, request.CompanyId, request.HoldId,
+        Guid id = await dispatcher.SendAsync(new RecordInspectionCommand(request.OperationId, request.CompanyId, request.HoldId, request.PlanId,
             request.Passed, request.SampleSize, request.Evidence), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/quality/inspections/{id:D}", id);
+    }
+
+    private static async Task<IResult> CreatePlanAsync(CreateInspectionPlanRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new CreateInspectionPlanCommand(request.CompanyId, request.ItemId, request.ItemVariantId,
+            request.Version, request.Name, request.SampleSize, request.AcceptanceCriteria), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/quality/inspection-plans/{id:D}", id);
+    }
+
+    private static async Task<IResult> PublishPlanAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new PublishInspectionPlanCommand(id), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> RejectAsync(Guid id, ReleaseQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
@@ -84,7 +102,8 @@ public static class QualityEndpoints
 
     public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
     public sealed record ReleaseQualityHoldRequest(string Reason);
-    public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence);
+    public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, Guid? PlanId, bool Passed, int SampleSize, string Evidence);
+    public sealed record CreateInspectionPlanRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version, string Name, int SampleSize, string AcceptanceCriteria);
     public sealed record OpenNonConformanceRequest(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description);
     public sealed record CorrectiveActionRequest(Guid OperationId);
     public sealed record CloseNonConformanceRequest(Guid OperationId, string Resolution);
