@@ -62,6 +62,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   test passes through Stage 29 and rolls back to Stage 28 with both reporting tables removed.
 - 2026-09-13: Added `reporting.view`/`reporting.manage`, report-definition query handling and
   `GET /api/v1/reports/{code}` on StoreServer and CloudApi.
+- 2026-09-13: Restricted the report-definition read path to published definitions and added a
+  regression test proving drafts/retired definitions are not exposed. Focused tests: **4/4 passed**.
 
 ## Tests / acceptance
 

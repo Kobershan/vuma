@@ -13,7 +13,7 @@ public sealed class GetReportDefinitionQueryHandler(IReportingRepository reports
     public async Task<ReportDefinitionResult?> HandleAsync(GetReportDefinitionQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        ReportDefinition? definition = await reports.FindDefinitionByCodeAsync(query.Code, cancellationToken).ConfigureAwait(false);
+        ReportDefinition? definition = await reports.FindPublishedDefinitionByCodeAsync(query.Code, cancellationToken).ConfigureAwait(false);
         return definition is null ? null : new(definition.Id, definition.Code, definition.Name, definition.Status.ToString(), clock.UtcNow);
     }
 }

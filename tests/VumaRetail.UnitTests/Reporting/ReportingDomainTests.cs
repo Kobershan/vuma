@@ -1,4 +1,7 @@
 using FluentAssertions;
+using NSubstitute;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Reporting;
 using VumaRetail.Domain.Reporting;
 
 namespace VumaRetail.UnitTests.Reporting;
@@ -29,5 +32,17 @@ public sealed class ReportingDomainTests
         ReportDefinition definition = ReportDefinition.Create(Guid.NewGuid(), null, "sales", "Sales");
         FluentActions.Invoking(definition.Retire).Should().Throw<InvalidOperationException>();
         definition.Publish(); definition.Retire(); definition.Status.Should().Be(ReportDefinitionStatus.Retired);
+    }
+
+    [Fact]
+    public async Task Report_definition_query_does_not_expose_draft_or_retired_reports()
+    {
+        IReportingRepository repository = Substitute.For<IReportingRepository>();
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.Parse("2026-09-13T12:00:00Z"));
+        GetReportDefinitionQueryHandler handler = new(repository, clock);
+
+        (await handler.HandleAsync(new GetReportDefinitionQuery("sales"))).Should().BeNull();
+        await repository.Received(1).FindPublishedDefinitionByCodeAsync("sales", Arg.Any<CancellationToken>());
     }
 }
