@@ -32,3 +32,54 @@ public enum ShiftStatus
     /// <summary>Completed.</summary>
     Completed = 3,
 }
+
+/// <summary>Approval state for a requested shift transfer.</summary>
+public enum ShiftSwapStatus { Pending, Approved, Rejected }
+
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
+public sealed class ShiftSwapRequest : Entity
+{
+    private ShiftSwapRequest(Guid tenantId, Guid shiftId, Guid fromEmployeeId, Guid toEmployeeId,
+        DateTimeOffset requestedAt) : base(tenantId)
+    {
+        ShiftId = shiftId;
+        FromEmployeeId = fromEmployeeId;
+        ToEmployeeId = toEmployeeId;
+        RequestedAt = requestedAt.ToUniversalTime();
+    }
+
+    private ShiftSwapRequest() { }
+    public Guid ShiftId { get; private set; }
+    public Guid FromEmployeeId { get; private set; }
+    public Guid ToEmployeeId { get; private set; }
+    public DateTimeOffset RequestedAt { get; private set; }
+    public ShiftSwapStatus Status { get; private set; } = ShiftSwapStatus.Pending;
+
+    public static ShiftSwapRequest Request(Guid tenantId, Guid shiftId, Guid fromEmployeeId, Guid toEmployeeId,
+        DateTimeOffset requestedAt)
+    {
+        if (tenantId == Guid.Empty || shiftId == Guid.Empty || fromEmployeeId == Guid.Empty || toEmployeeId == Guid.Empty)
+            throw new ArgumentException("Shift swap identities are required.");
+        if (fromEmployeeId == toEmployeeId)
+            throw new ArgumentException("A shift cannot be swapped with the same employee.", nameof(toEmployeeId));
+        return new ShiftSwapRequest(tenantId, shiftId, fromEmployeeId, toEmployeeId, requestedAt);
+    }
+
+    public void Approve()
+    {
+        EnsurePending();
+        Status = ShiftSwapStatus.Approved;
+    }
+
+    public void Reject()
+    {
+        EnsurePending();
+        Status = ShiftSwapStatus.Rejected;
+    }
+
+    private void EnsurePending()
+    {
+        if (Status != ShiftSwapStatus.Pending)
+            throw new InvalidOperationException("Only a pending shift swap can be decided.");
+    }
+}

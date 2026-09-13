@@ -93,6 +93,20 @@ public sealed class HrLifecycleTests
     }
 
     [Fact]
+    public void Shift_swap_requires_two_employees_and_is_decided_once()
+    {
+        var at = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var action = () => ShiftSwapRequest.Request(TenantId, Guid.NewGuid(), EmployeeId, EmployeeId, at);
+        action.Should().Throw<ArgumentException>();
+
+        var swap = ShiftSwapRequest.Request(TenantId, Guid.NewGuid(), EmployeeId, Guid.NewGuid(), at);
+        swap.Approve();
+        swap.Status.Should().Be(ShiftSwapStatus.Approved);
+        var reject = () => swap.Reject();
+        reject.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
     public void Attendance_is_append_only_and_requires_event_type()
     {
         var at = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
