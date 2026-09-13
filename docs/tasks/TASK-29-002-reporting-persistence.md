@@ -1,0 +1,11 @@
+# TASK-29-002 — Reporting definitions and checkpoints persistence
+
+**Status:** COMPLETE for persistence slice · **Stage:** 29 · **Type:** Application, infrastructure, migration
+
+Persisted `ReportDefinition` and `ProjectionCheckpoint` under the `reporting` schema, added scoped
+repository ports/implementation and registered them in StoreServer and CloudApi. Checkpoints remain
+monotonic in generation/cursor order and are suitable for replay-safe projection workers.
+
+Evidence: the PostgreSQL migration-chain test passes through Stage 29, verifies both reporting tables,
+and rolls back cleanly to Stage 28. Projection adapters, dashboard queries, export jobs and API
+acceptance remain open.

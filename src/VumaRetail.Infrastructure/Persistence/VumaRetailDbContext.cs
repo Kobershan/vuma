@@ -586,6 +586,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Projects.ProjectContract> ProjectContracts => Set<Domain.Projects.ProjectContract>();
     public DbSet<Domain.Projects.ContractVariation> ContractVariations => Set<Domain.Projects.ContractVariation>();
     public DbSet<Domain.Projects.BillingMilestone> BillingMilestones => Set<Domain.Projects.BillingMilestone>();
+    /// <summary>Reporting definitions and replay-safe projection checkpoints (Stage 29).</summary>
+    public DbSet<Domain.Reporting.ReportDefinition> ReportDefinitions => Set<Domain.Reporting.ReportDefinition>();
+    public DbSet<Domain.Reporting.ProjectionCheckpoint> ProjectionCheckpoints => Set<Domain.Reporting.ProjectionCheckpoint>();
 
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();

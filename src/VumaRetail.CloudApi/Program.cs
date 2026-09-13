@@ -89,6 +89,7 @@ builder.Services.AddVumaQuality();
 builder.Services.AddVumaEcommerce();
 builder.Services.AddVumaServiceManagement();
 builder.Services.AddVumaProjects();
+builder.Services.AddVumaReporting();
 builder.Services.AddSingleton(
     builder.Configuration.GetSection("Vuma:Loyalty:Public").Get<LoyaltyPublicOptions>()
         ?? new LoyaltyPublicOptions());
