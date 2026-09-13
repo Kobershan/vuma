@@ -113,3 +113,85 @@ public sealed class CreateAssetBookCommandHandler(IAssetRepository assets, ITena
         return book.Id;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateMaintenanceOrderCommand(Guid CompanyId, Guid AssetId, string Description,
+    DateOnly? ScheduledOn = null) : ICommand<Guid>;
+
+public sealed class CreateMaintenanceOrderCommandHandler(IAssetRepository assets, ITenantContext tenant,
+    ICompanyContext company) : ICommandHandler<CreateMaintenanceOrderCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(CreateMaintenanceOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
+        FixedAsset asset = await assets.FindAssetAsync(command.AssetId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Fixed asset not found.");
+        if (asset.CompanyId != command.CompanyId)
+            throw new InvalidOperationException("The asset company is not the active company.");
+        MaintenanceOrder order = MaintenanceOrder.Create(tenant.TenantId, null, command.CompanyId,
+            command.AssetId, command.Description, command.ScheduledOn);
+        assets.Add(order);
+        return order.Id;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record StartMaintenanceOrderCommand(Guid CompanyId, Guid OrderId) : ICommand;
+
+public sealed class StartMaintenanceOrderCommandHandler(IAssetRepository assets, ICompanyContext company)
+    : ICommandHandler<StartMaintenanceOrderCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(StartMaintenanceOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        MaintenanceOrder order = await GetAsync(command, cancellationToken).ConfigureAwait(false);
+        order.Start();
+        return Unit.Value;
+    }
+
+    private async Task<MaintenanceOrder> GetAsync(StartMaintenanceOrderCommand command, CancellationToken token)
+    {
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
+        MaintenanceOrder order = await assets.FindMaintenanceOrderAsync(command.OrderId, token).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Maintenance order not found.");
+        if (order.CompanyId != command.CompanyId) throw new InvalidOperationException("The order company is not active.");
+        return order;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CompleteMaintenanceOrderCommand(Guid CompanyId, Guid OrderId) : ICommand;
+
+public sealed class CompleteMaintenanceOrderCommandHandler(IAssetRepository assets, ICompanyContext company, IClock clock)
+    : ICommandHandler<CompleteMaintenanceOrderCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CompleteMaintenanceOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
+        MaintenanceOrder order = await assets.FindMaintenanceOrderAsync(command.OrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Maintenance order not found.");
+        if (order.CompanyId != command.CompanyId) throw new InvalidOperationException("The order company is not active.");
+        order.Complete(clock.UtcNow);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CancelMaintenanceOrderCommand(Guid CompanyId, Guid OrderId) : ICommand;
+
+public sealed class CancelMaintenanceOrderCommandHandler(IAssetRepository assets, ICompanyContext company)
+    : ICommandHandler<CancelMaintenanceOrderCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CancelMaintenanceOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
+        MaintenanceOrder order = await assets.FindMaintenanceOrderAsync(command.OrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Maintenance order not found.");
+        if (order.CompanyId != command.CompanyId) throw new InvalidOperationException("The order company is not active.");
+        order.Cancel();
+        return Unit.Value;
+    }
+}

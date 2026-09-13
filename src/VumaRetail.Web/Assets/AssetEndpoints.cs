@@ -20,6 +20,12 @@ public static class AssetEndpoints
         group.MapPost("/{id:guid}/dispose", DisposeAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
         group.MapPost("/{id:guid}/books", CreateBookAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/books/{id:guid}/depreciation", RunDepreciationAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
+        RouteGroupBuilder maintenance = endpoints.MapVumaApi().MapGroup("/maintenance/orders")
+            .WithTags("Maintenance").RequireModule("assets");
+        maintenance.MapPost("/", CreateMaintenanceAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
+        maintenance.MapPost("/{id:guid}/start", StartMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
+        maintenance.MapPost("/{id:guid}/complete", CompleteMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
+        maintenance.MapPost("/{id:guid}/cancel", CancelMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
         return endpoints;
     }
 
@@ -55,9 +61,26 @@ public static class AssetEndpoints
         return Results.Created($"/api/v1/assets/books/{id:D}/depreciation/{runId:D}", runId);
     }
 
+    private static async Task<IResult> CreateMaintenanceAsync(CreateMaintenanceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new CreateMaintenanceOrderCommand(request.CompanyId, request.AssetId,
+            request.Description, request.ScheduledOn), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/maintenance/orders/{id:D}", id);
+    }
+
+    private static async Task<IResult> StartMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { await dispatcher.SendAsync(new StartMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+
+    private static async Task<IResult> CompleteMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { await dispatcher.SendAsync(new CompleteMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+
+    private static async Task<IResult> CancelMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { await dispatcher.SendAsync(new CancelMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+
     public sealed record CreateAssetRequest(Guid CompanyId, string AssetNumber, string Description, DateOnly AcquiredOn, decimal Cost, string Currency);
     public sealed record AssetCompanyRequest(Guid CompanyId);
     public sealed record DisposeAssetRequest(Guid CompanyId, DateOnly DisposedOn);
     public sealed record CreateBookRequest(Guid CompanyId, string BookName, DateOnly InServiceOn, decimal ResidualValue, string Currency, int UsefulLifeMonths);
     public sealed record RunDepreciationRequest(Guid CompanyId, DateOnly Period);
+    public sealed record CreateMaintenanceRequest(Guid CompanyId, Guid AssetId, string Description, DateOnly? ScheduledOn);
 }

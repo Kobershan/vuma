@@ -57,8 +57,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-2026-09-13: Added the company-scoped asset command API under `/api/v1/assets`. StoreServer and CloudApi
-Release builds both pass with **0 errors**; full finance, maintenance and PostgreSQL API acceptance remains.
+2026-09-13: Added the company-scoped asset and maintenance command APIs under `/api/v1/assets` and
+`/api/v1/maintenance/orders`. StoreServer and CloudApi Release builds both pass with **0 errors**;
+the real OpenAPI contract test passes 1/1. Full finance, maintenance authorization and PostgreSQL
+command acceptance remains.
 
 Progress evidence: `AssetTests.Depreciation_stops_at_residual_after_useful_life` passes **1/1**.
 
