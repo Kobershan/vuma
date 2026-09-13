@@ -17,6 +17,15 @@ public sealed record CreateShiftCommand(Guid EmployeeId, DateTimeOffset StartsAt
 public sealed record RecordAttendanceCommand(Guid EmployeeId, Guid? ShiftId, AttendanceEventType EventType, DateTimeOffset OccurredAt, string? Source = null) : ICommand<Guid>;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record RecordEmployeeDocumentCommand(Guid EmployeeId, string DocumentType, string BlobKey, string ContentSha256, DateOnly? ExpiresOn = null) : ICommand<Guid>;
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record SuspendEmployeeCommand(Guid EmployeeId) : ICommand;
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ActivateEmployeeCommand(Guid EmployeeId) : ICommand;
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record TerminateEmployeeCommand(Guid EmployeeId, DateTimeOffset TerminatedAt) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record DecideLeaveCommand(Guid LeaveRequestId, bool Approved) : ICommand;
 public sealed record ListEmployeesQuery : IQuery<IReadOnlyList<Employee>>;
@@ -49,6 +58,39 @@ public sealed class RecordEmployeeDocumentCommandHandler(IEmployeeRepository emp
 {
     public async Task<Guid> HandleAsync(RecordEmployeeDocumentCommand c, CancellationToken token = default)
     { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var document = EmployeeDocument.Record(tenant.TenantId, c.EmployeeId, c.DocumentType, c.BlobKey, c.ContentSha256, c.ExpiresOn); documents.Add(document); return document.Id; }
+}
+
+public sealed class SuspendEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<SuspendEmployeeCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(SuspendEmployeeCommand command, CancellationToken token = default)
+    {
+        Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Employee was not found.");
+        employee.Suspend();
+        return Unit.Value;
+    }
+}
+
+public sealed class ActivateEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<ActivateEmployeeCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ActivateEmployeeCommand command, CancellationToken token = default)
+    {
+        Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Employee was not found.");
+        employee.Activate();
+        return Unit.Value;
+    }
+}
+
+public sealed class TerminateEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<TerminateEmployeeCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(TerminateEmployeeCommand command, CancellationToken token = default)
+    {
+        Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Employee was not found.");
+        employee.Terminate(command.TerminatedAt);
+        return Unit.Value;
+    }
 }
 public sealed class DecideLeaveCommandHandler(ILeaveRepository leaves, IClock clock) : ICommandHandler<DecideLeaveCommand, Unit>
 {

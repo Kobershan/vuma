@@ -6,6 +6,11 @@
 CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-13). Numbered stages 19, 20 and 24 are complete; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 expiry refusal, and Stage 30 endpoint-bound sessions.
 NEXT STAGE (roadmap order): Stage 17 closure evidence, then Stage 18 acceptance and the remaining Stage 21–31 task queues.
 
+WORK LOG (2026-09-13): Stage 25 employee lifecycle operations are now exposed as suspend, activate
+and terminate commands with HR manage-protected routes. StoreServer Release build passes with 0
+errors and the HR unit suite passes 9/9. Disciplinary workflows, payroll export, roster/availability
+and labour-cost integration remain open.
+
 STAGE 15: TASK-15-01 DONE — demand history rollup (weekly Mon–Sun, idempotent, gap zeros) + forecast engine (moving-average, exponential-smoothing, seasonal-naive behind IForecastEngine; MAPE/bias back-test; low-confidence flags) + weekly forecast run + read endpoints. TASK-15-02 DONE — safety stock (variance + 8-week fallback, horizon refusal), reorder via SafetyStockCalculation rows, ABC/XYZ snapshot runs, open-to-buy budgets with live commitments (warning only). TASK-15-03 DONE — replenishment run (ROP + forecast top-up, transfer-surplus preferred with SharedSourcing link checked at generation, 14-day expiry, backorder reattempt hook), accept/amend-accept (exactly-once)/reject through Stage 12 requisition + Stage 08 transfer commands. TASK-15-04 DONE — markdown plans (Draft→PendingApproval→Approved→Active, versioning amendments, cancel retires promotions) through IApprovalService + Stage 10 percentage-off promotions; activation sweep for missed dates. Domain (10 files) / Application (ports, 4 engines, 14 commands, 7 queries, 9 permissions, manifest, 4 hosted services) / Infrastructure (8 repos, EF configs, writers, DI) / Contracts / Web (19 endpoints) all new. Migration `20260909131616_Stage15_Planning` (9 tables, reversible, model/snapshot agree). ADR-149. Core projects (Domain/Application/Infrastructure/Contracts) build 0 errors.
 
 CURRENT TASK: —

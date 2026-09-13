@@ -7,4 +7,4 @@ references are identifiers or published contracts, never database foreign keys.
 
 Completed: TASK-25-001 employee core, TASK-25-002 contracts, TASK-25-003 leave management.
 
-Verification recorded 2026-09-13: `HrStagesRulesTests` (6/6), `HrLifecycleTests` (4/4), and `EmployeeDocumentTests` (4/4) pass. Employee documents store only validated external blob metadata and a checksum; disciplinary and payroll-export contracts remain open.
+Verification recorded 2026-09-13: `HrStagesRulesTests` (6/6), `HrLifecycleTests` (5/5), and `EmployeeDocumentTests` (4/4) pass. Employee documents store only validated external blob metadata and a checksum. Suspend, activate and terminate employee lifecycle commands/routes are now implemented; disciplinary and payroll-export contracts remain open.

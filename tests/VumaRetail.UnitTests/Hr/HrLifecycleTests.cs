@@ -20,6 +20,24 @@ public sealed class HrLifecycleTests
     }
 
     [Fact]
+    public void Employee_can_be_suspended_and_reactivated_before_termination()
+    {
+        var hired = new DateTimeOffset(2026, 1, 1, 8, 0, 0, TimeSpan.Zero);
+        var employee = Employee.Create(TenantId, "E-002", "Grace", "Hopper", hired, EmploymentType.Permanent);
+
+        employee.Suspend();
+        employee.Status.Should().Be(EmploymentStatus.Suspended);
+
+        employee.Activate();
+        employee.Status.Should().Be(EmploymentStatus.Active);
+
+        var terminatedAt = hired.AddDays(30);
+        employee.Terminate(terminatedAt);
+        employee.Status.Should().Be(EmploymentStatus.Terminated);
+        employee.TerminatedAt.Should().Be(terminatedAt);
+    }
+
+    [Fact]
     public void Leave_can_be_decided_once()
     {
         var leave = LeaveRequest.Create(TenantId, EmployeeId, new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 3), "Annual");
