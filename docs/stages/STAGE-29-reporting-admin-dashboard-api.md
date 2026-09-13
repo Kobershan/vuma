@@ -1,6 +1,6 @@
 # STAGE 29 — Reporting and Admin Dashboard API
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — report definition, projection checkpoint and dashboard freshness foundation implemented; persistence, projections, APIs, exports and acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,11 +44,18 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [ ] 29-P01: Specify financial/business-date definitions and per-module projection contracts.
+- [~] 29-P01: Specify financial/business-date definitions and per-module projection contracts. Report
+  lifecycle, replay-safe projection checkpoints and stale-contributor dashboard semantics are implemented
+  and tested; persistence and module adapters remain.
 - [ ] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs.
 - [ ] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
+
+## Progress evidence
+
+- 2026-09-13: Added report-definition lifecycle, monotonic projection checkpoints and explicit dashboard
+  freshness records. Focused domain tests: **3/3 passed**.
 
 ## Tests / acceptance
 
