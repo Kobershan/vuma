@@ -48,4 +48,14 @@ public sealed class EcommerceDomainTests
         PaymentWebhookSecurity.Verify(body + " ", signature, secret).Should().BeFalse();
         PaymentWebhookSecurity.Verify(body, signature, "wrong-secret").Should().BeFalse();
     }
+
+    [Fact]
+    public void Basket_line_keeps_server_authoritative_price_separate_from_browser_advisory_price()
+    {
+        CommerceBasketLine line = CommerceBasketLine.Add(TenantId, CompanyId, BasketId, Guid.NewGuid(),
+            2m, 1m, 100m, "ZAR");
+
+        line.AdvisoryUnitPrice.Should().Be(1m);
+        line.AuthoritativeUnitPrice.Should().Be(100m);
+    }
 }

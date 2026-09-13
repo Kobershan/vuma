@@ -247,7 +247,7 @@ public sealed class AddBasketLineCommandHandler(
             throw new InvalidOperationException("Basket currency does not match the published product.");
         }
         CommerceBasketLine line = CommerceBasketLine.Add(tenant.TenantId, command.CompanyId, basket.Id, product.Id,
-            command.Quantity, command.AdvisoryUnitPrice, command.Currency);
+            command.Quantity, command.AdvisoryUnitPrice, product.Price, product.Currency);
         lines.Add(line);
         return line.Id;
     }

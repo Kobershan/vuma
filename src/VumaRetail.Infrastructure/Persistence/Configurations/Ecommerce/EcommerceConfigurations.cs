@@ -78,6 +78,7 @@ internal sealed class CommerceBasketLineConfiguration : EntityConfiguration<Comm
         builder.Property(x => x.PublishedProductId).IsRequired();
         builder.Property(x => x.Quantity).HasPrecision(18, 4).IsRequired();
         builder.Property(x => x.AdvisoryUnitPrice).HasPrecision(18, 4).IsRequired();
+        builder.Property(x => x.AuthoritativeUnitPrice).HasPrecision(18, 4).IsRequired();
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.HasIndex(x => new { x.TenantId, x.BasketId, x.PublishedProductId })
             .IsUnique().HasFilter("deleted_at IS NULL");

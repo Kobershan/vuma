@@ -55,9 +55,12 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-Verified 2026-09-13: Ecommerce unit tests **3/3** and real-host OpenAPI contract test **1/1** passed.
+Verified 2026-09-13: Ecommerce unit tests **4/4** and real-host OpenAPI contract test **1/1** passed.
 The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
 outage integration is exercised end to end.
+
+The basket-line price boundary is now covered by a dedicated test: the submitted advisory total is
+retained for audit, while the published product price is stored as the authoritative value.
 
 - `Two_checkouts_one_last_item`: two customers request the last unit; exactly one store reservation succeeds; the other gets a pending/backorder/refusal outcome with no capture.
 - `Browser_total_is_not_trusted`: browser submits ZAR 1 for a ZAR 100 item; server prices ZAR 100.
