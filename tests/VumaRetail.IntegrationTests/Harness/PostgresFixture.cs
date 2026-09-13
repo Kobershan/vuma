@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Docker.DotNet;
 using Testcontainers.PostgreSql;
 
 namespace VumaRetail.IntegrationTests.Harness;
@@ -52,7 +53,16 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         if (_container is not null)
         {
-            await _container.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                await _container.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (DockerApiException exception) when (exception.Message.Contains("permission denied", StringComparison.OrdinalIgnoreCase))
+            {
+                // Some local rootless Docker daemons reject cleanup from the test process after
+                // the database assertions have completed. Do not turn a teardown limitation into
+                // a test failure; startup and every database assertion remain fatal.
+            }
         }
     }
 

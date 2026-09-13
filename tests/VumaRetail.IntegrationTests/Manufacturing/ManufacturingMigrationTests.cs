@@ -8,6 +8,32 @@ namespace VumaRetail.IntegrationTests.Manufacturing;
 public sealed class ManufacturingMigrationTests(PostgresFixture fixture)
 {
     [Fact]
+    public async Task Stage18_quality_migrations_up_and_down_are_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.For(connectionString);
+
+        await context.Database.MigrateAsync("20260913122618_Stage18RecallCases").ConfigureAwait(false);
+
+        IReadOnlyList<string> qualityTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'quality'
+            """).ToListAsync().ConfigureAwait(false);
+        qualityTables.Should().Contain(["quality_holds", "inspection_plans", "inspection_results", "non_conformances", "quality_certificates", "recall_cases"]);
+
+        await context.Database.MigrateAsync("20260913121916_Stage18QualityCertificates").ConfigureAwait(false);
+
+        IReadOnlyList<string> remainingTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'quality'
+            """).ToListAsync().ConfigureAwait(false);
+        remainingTables.Should().NotContain("recall_cases");
+        remainingTables.Should().Contain("quality_certificates");
+    }
+
+    [Fact]
     public async Task Stage16_migration_up_and_down_are_reversible()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
