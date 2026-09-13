@@ -182,6 +182,9 @@ public static class Schemas
     /// <summary>Fixed assets, asset books and depreciation schedules. Stage 27.</summary>
     public const string Assets = "assets";
 
+    /// <summary>Projects, contracts, budgets and job-cost records. Stage 28.</summary>
+    public const string Projects = "projects";
+
     /// <summary>
     /// Customer relationships: leads, opportunities, activities, segments, memberships and
     /// consent. Stage 19. Declaring the schema puts the module into the daily metering rollup

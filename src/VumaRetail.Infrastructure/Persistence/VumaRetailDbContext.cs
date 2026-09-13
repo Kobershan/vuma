@@ -580,6 +580,12 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Assets.AssetBook> AssetBooks => Set<Domain.Assets.AssetBook>();
     /// <summary>Idempotent asset-book depreciation periods (Stage 27).</summary>
     public DbSet<Domain.Assets.DepreciationRun> DepreciationRuns => Set<Domain.Assets.DepreciationRun>();
+    /// <summary>Project and contract job-cost records (Stage 28).</summary>
+    public DbSet<Domain.Projects.Project> Projects => Set<Domain.Projects.Project>();
+    public DbSet<Domain.Projects.ProjectBudget> ProjectBudgets => Set<Domain.Projects.ProjectBudget>();
+    public DbSet<Domain.Projects.ProjectContract> ProjectContracts => Set<Domain.Projects.ProjectContract>();
+    public DbSet<Domain.Projects.ContractVariation> ContractVariations => Set<Domain.Projects.ContractVariation>();
+    public DbSet<Domain.Projects.BillingMilestone> BillingMilestones => Set<Domain.Projects.BillingMilestone>();
 
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();

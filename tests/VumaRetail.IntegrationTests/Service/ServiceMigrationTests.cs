@@ -3,17 +3,17 @@ using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Service;
 
-/// <summary>Verifies the Stage 23 and 27 migrations can be applied and removed on PostgreSQL.</summary>
+/// <summary>Verifies the Stage 23, 27 and 28 migrations can be applied and removed on PostgreSQL.</summary>
 [Collection(PostgresCollection.Name)]
 public sealed class ServiceMigrationTests(PostgresFixture fixture)
 {
     [Fact]
-    public async Task Stage23_and_stage27_migrations_up_and_down_are_reversible()
+    public async Task Stage23_stage27_and_stage28_migrations_up_and_down_are_reversible()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913180901_Stage27DepreciationRuns").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913182228_Stage28Projects").ConfigureAwait(false);
 
         IReadOnlyList<string> assetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -22,6 +22,22 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
         assetTables.Should().BeEquivalentTo(["asset_books", "depreciation_runs", "fixed_assets"], options => options.WithStrictOrdering());
+
+        IReadOnlyList<string> projectTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'projects'
+            ORDER BY table_name
+            """).ToListAsync().ConfigureAwait(false);
+        projectTables.Should().BeEquivalentTo(["billing_milestones", "contract_variations", "project_budgets", "project_contracts", "projects"], options => options.WithStrictOrdering());
+
+        await context.Database.MigrateAsync("20260913180901_Stage27DepreciationRuns").ConfigureAwait(false);
+        IReadOnlyList<string> revertedProjectTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'projects'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedProjectTables.Should().BeEmpty();
 
         await context.Database.MigrateAsync("20260913174706_Stage27AssetBooks").ConfigureAwait(false);
         IReadOnlyList<string> remainingAssetTables = await context.Database.SqlQuery<string>($"""
