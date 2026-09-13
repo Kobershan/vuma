@@ -157,11 +157,23 @@ public sealed class ProductionOrder : Entity
     }
 
     /// <summary>Releases the order against the current published BOM and copies its inputs.</summary>
-    public void Release(BillOfMaterials bom, DateTimeOffset releasedAt)
+    public bool Release(Guid operationId, BillOfMaterials bom, DateTimeOffset releasedAt)
     {
         ArgumentNullException.ThrowIfNull(bom);
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("A production operation identity is required.", nameof(operationId));
+        }
         if (Status is not ProductionOrderStatus.Draft)
         {
+            if (Status == ProductionOrderStatus.Released && Snapshot is not null && Snapshot.ReleaseOperationId == operationId && Snapshot.BillOfMaterialsId == bom.Id)
+            {
+                return false;
+            }
+            if (Status == ProductionOrderStatus.Released && Snapshot is not null && Snapshot.ReleaseOperationId == operationId)
+            {
+                throw ManufacturingRuleException.OperationPayloadConflict(operationId);
+            }
             throw ManufacturingRuleException.InvalidProductionTransition(Status, ProductionOrderStatus.Released);
         }
         if (bom.Status is not BillOfMaterialsStatus.Published || bom.FinishedItemId != FinishedItemId || bom.Id != BillOfMaterialsId || (bom.CompanyId.HasValue && bom.CompanyId != CompanyId))
@@ -170,6 +182,7 @@ public sealed class ProductionOrder : Entity
         }
 
         Snapshot = new ProductionSnapshot(
+            operationId,
             bom.Id,
             bom.Version,
             bom.Name,
@@ -183,6 +196,7 @@ public sealed class ProductionOrder : Entity
             line.ScrapPercent,
             line.AlternateGroup)));
         Status = ProductionOrderStatus.Released;
+        return true;
     }
 
     /// <summary>Moves a released order into execution.</summary>
@@ -255,6 +269,7 @@ public enum ProductionOrderStatus
 
 /// <summary>Immutable release-time production inputs.</summary>
 public sealed record ProductionSnapshot(
+    Guid ReleaseOperationId,
     Guid BillOfMaterialsId,
     int BillOfMaterialsVersion,
     string BillOfMaterialsName,

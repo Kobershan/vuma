@@ -151,7 +151,7 @@ public sealed class CreateProductionOrderCommandHandler(
 
 /// <summary>Releases a production order against a published BOM snapshot.</summary>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record ReleaseProductionOrderCommand(Guid ProductionOrderId, Guid BillOfMaterialsId) : ICommand;
+public sealed record ReleaseProductionOrderCommand(Guid ProductionOrderId, Guid OperationId, Guid BillOfMaterialsId) : ICommand;
 
 /// <summary>Loads the order and BOM through tenant-scoped repositories before releasing it.</summary>
 public sealed class ReleaseProductionOrderCommandHandler(
@@ -167,7 +167,7 @@ public sealed class ReleaseProductionOrderCommandHandler(
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
         BillOfMaterials bom = await boms.FindAsync(command.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.BillOfMaterialsId);
-        order.Release(bom, clock.UtcNow);
+        order.Release(command.OperationId, bom, clock.UtcNow);
         return Unit.Value;
     }
 }

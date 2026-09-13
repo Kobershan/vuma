@@ -45,3 +45,8 @@ duplicate operation tests, migration reversibility and architecture classificati
   operations, and migration `20260913050239_Stage17_ProductionOrderRequestIdentity`. Focused
   manufacturing tests pass 17/17. Material/output integration and API/closure work remain open, so
   this task and Stage 17 are intentionally not marked complete.
+- 2026-09-13: aligned the production API with location-scoped stock operations in `f028ff9` and
+  made release replay-safe by persisting the release operation identity in the BOM snapshot. The
+  focused manufacturing unit suite now passes 19/19 and the Web project builds with 0 errors. The
+  required full CI workflow for `f028ff9` is still running; PostgreSQL migration and tenant-scope
+  acceptance evidence remain open.
