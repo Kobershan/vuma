@@ -16,10 +16,10 @@ public sealed record BillOfMaterialsIdResponse(Guid Id);
 public sealed record CreateProductionOrderRequest(Guid OperationId, Guid CompanyId, Guid FinishedItemId, decimal Quantity, string UnitOfMeasure, string OrderNumber, Guid BillOfMaterialsId);
 
 /// <summary>Records a production material issue.</summary>
-public sealed record IssueProductionMaterialRequest(Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+public sealed record IssueProductionMaterialRequest(Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
 
 /// <summary>Records finished output.</summary>
-public sealed record ReceiveProductionOutputRequest(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+public sealed record ReceiveProductionOutputRequest(Guid LocationId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
 
 /// <summary>Records production scrap.</summary>
 public sealed record RecordProductionScrapRequest(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);

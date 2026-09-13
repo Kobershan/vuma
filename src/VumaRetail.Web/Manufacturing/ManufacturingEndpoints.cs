@@ -70,13 +70,13 @@ public static class ManufacturingEndpoints
 
     private static async Task<IResult> IssueProductionAsync(Guid id, IssueProductionMaterialRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        await dispatcher.SendAsync(new IssueProductionMaterialCommand(id, request.OperationId, request.ComponentItemId, request.ComponentVariantId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new IssueProductionMaterialCommand(id, request.LocationId, request.OperationId, request.ComponentItemId, request.ComponentVariantId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
         return TypedResults.NoContent();
     }
 
     private static async Task<IResult> ReceiveProductionAsync(Guid id, ReceiveProductionOutputRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        await dispatcher.SendAsync(new ReceiveProductionOutputCommand(id, request.OperationId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new ReceiveProductionOutputCommand(id, request.LocationId, request.OperationId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
         return TypedResults.NoContent();
     }
 
