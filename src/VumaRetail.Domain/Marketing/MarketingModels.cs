@@ -1,5 +1,6 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Marketing;
 
@@ -19,19 +20,31 @@ public sealed class MarketingCampaign : Entity
     public MarketingCampaignStatus Status { get; private set; } = MarketingCampaignStatus.Draft;
     public static MarketingCampaign Create(Guid tenantId, Guid? storeId, Guid companyId, string name, string templateId, DateTimeOffset scheduledAt)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        if (tenantId == Guid.Empty || companyId == Guid.Empty)
+        {
+            throw new ArgumentException("Tenant and company are required.");
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentException.ThrowIfNullOrWhiteSpace(templateId);
         return new MarketingCampaign(tenantId, storeId, companyId, name, templateId, scheduledAt);
     }
     public void Schedule(DateTimeOffset now)
     {
-        if (Status != MarketingCampaignStatus.Draft) throw new InvalidOperationException("Only a draft campaign can be scheduled.");
-        if (ScheduledAt < now.ToUniversalTime()) throw new InvalidOperationException("A campaign cannot be scheduled in the past.");
+        if (Status != MarketingCampaignStatus.Draft)
+        {
+            throw new InvalidOperationException("Only a draft campaign can be scheduled.");
+        }
+        if (ScheduledAt < now.ToUniversalTime())
+        {
+            throw new InvalidOperationException("A campaign cannot be scheduled in the past.");
+        }
         Status = MarketingCampaignStatus.Scheduled;
     }
     public void Cancel()
     {
-        if (Status == MarketingCampaignStatus.Cancelled) throw new InvalidOperationException("The campaign is already cancelled.");
+        if (Status == MarketingCampaignStatus.Cancelled)
+        {
+            throw new InvalidOperationException("The campaign is already cancelled.");
+        }
         Status = MarketingCampaignStatus.Cancelled;
     }
 }
@@ -49,18 +62,27 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
     public OutboundMessageStatus Status { get; private set; } = OutboundMessageStatus.Queued;
     public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty || campaignId == Guid.Empty || customerId == Guid.Empty) throw new ArgumentException("Outbound message identities are required.");
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || campaignId == Guid.Empty || customerId == Guid.Empty)
+        {
+            throw new ArgumentException("Outbound message identities are required.");
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
         return new OutboundMessage(tenantId, storeId, companyId, campaignId, customerId, idempotencyKey, scheduledAt);
     }
     public void Suppress()
     {
-        if (Status != OutboundMessageStatus.Queued) throw new InvalidOperationException("Only a queued message can be suppressed.");
+        if (Status != OutboundMessageStatus.Queued)
+        {
+            throw new InvalidOperationException("Only a queued message can be suppressed.");
+        }
         Status = OutboundMessageStatus.Suppressed;
     }
     public void MarkSent()
     {
-        if (Status != OutboundMessageStatus.Queued) throw new InvalidOperationException("Only a queued message can be sent.");
+        if (Status != OutboundMessageStatus.Queued)
+        {
+            throw new InvalidOperationException("Only a queued message can be sent.");
+        }
         Status = OutboundMessageStatus.Sent;
     }
 }
