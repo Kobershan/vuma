@@ -42,4 +42,25 @@ public sealed class ServiceDomainTests
         ticket.Close(DateTimeOffset.UtcNow);
         ticket.Status.Should().Be(ServiceTicketStatus.Closed);
     }
+
+    [Fact]
+    public void Part_usage_is_operation_keyed_and_costed_without_mutating_stock()
+    {
+        ServicePartUsage usage = ServicePartUsage.Issue(TenantId, null, CompanyId, Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), null, 2m, 30m, "ZAR", DateTimeOffset.UtcNow);
+
+        usage.TotalCost.Should().Be(60m);
+        usage.Currency.Should().Be("ZAR");
+    }
+
+    [Fact]
+    public void Repair_must_be_started_before_completion()
+    {
+        RepairJob job = RepairJob.Open(TenantId, null, CompanyId, Guid.NewGuid(), "laptop-serial-A", DateTimeOffset.UtcNow);
+
+        FluentActions.Invoking(() => job.Complete(DateTimeOffset.UtcNow)).Should().Throw<InvalidOperationException>();
+        job.Start();
+        job.Complete(DateTimeOffset.UtcNow);
+        job.Status.Should().Be(RepairJobStatus.Completed);
+    }
 }

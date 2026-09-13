@@ -11,6 +11,8 @@
 - `ServiceCustodyEvent` is a separate append-only customer-goods record and therefore cannot inflate
   company-owned inventory or valuation.
 - Focused Release unit tests: **3/3 passed** (`ServiceDomainTests`).
+- Repair jobs now require an explicit start before completion, and service-part usage is immutable,
+  operation-keyed, company-scoped, and exposes calculated total cost. Focused tests: **5/5 passed**.
 
 ## Remaining
 

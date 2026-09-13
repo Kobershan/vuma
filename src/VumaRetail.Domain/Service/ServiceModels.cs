@@ -145,3 +145,105 @@ public sealed class ServiceCustodyEvent : Entity
         return new ServiceCustodyEvent(tenantId, storeId, companyId, ticketId, customerId, eventType, itemReference, occurredAt);
     }
 }
+
+/// <summary>Lifecycle of a repair performed under a service ticket.</summary>
+public enum RepairJobStatus { Planned, InProgress, Completed, Cancelled }
+
+/// <summary>A repair job for customer-owned goods; it does not represent saleable stock.</summary>
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
+public sealed class RepairJob : Entity
+{
+    private RepairJob(Guid tenantId, Guid? storeId, Guid companyId, Guid ticketId, string itemReference,
+        DateTimeOffset openedAt) : base(tenantId, storeId)
+    {
+        AssignCompany(companyId); TicketId = ticketId; ItemReference = itemReference.Trim();
+        OpenedAtUtc = openedAt; Status = RepairJobStatus.Planned;
+    }
+
+    private RepairJob() { }
+    public Guid TicketId { get; private set; }
+    public string ItemReference { get; private set; } = string.Empty;
+    public RepairJobStatus Status { get; private set; }
+    public DateTimeOffset OpenedAtUtc { get; private set; }
+    public DateTimeOffset? CompletedAtUtc { get; private set; }
+
+    public static RepairJob Open(Guid tenantId, Guid? storeId, Guid companyId, Guid ticketId,
+        string itemReference, DateTimeOffset openedAt)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || ticketId == Guid.Empty)
+            throw new ArgumentException("A repair job requires tenant, company and ticket identities.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemReference);
+        return new RepairJob(tenantId, storeId, companyId, ticketId, itemReference, openedAt);
+    }
+
+    public void Start()
+    {
+        if (Status != RepairJobStatus.Planned) throw new InvalidOperationException("Only a planned repair can start.");
+        Status = RepairJobStatus.InProgress;
+    }
+
+    public void Complete(DateTimeOffset at)
+    {
+        if (Status != RepairJobStatus.InProgress) throw new InvalidOperationException("Only an in-progress repair can complete.");
+        Status = RepairJobStatus.Completed; CompletedAtUtc = at;
+    }
+}
+
+/// <summary>One idempotent consumption of a service part against a repair job.</summary>
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
+public sealed class ServicePartUsage : Entity
+{
+    private ServicePartUsage(Guid tenantId, Guid? storeId, Guid companyId, Guid repairJobId, Guid operationId,
+        Guid? itemId, Guid? itemVariantId, decimal quantity, decimal unitCost, string currency,
+        DateTimeOffset issuedAt) : base(tenantId, storeId)
+    {
+        AssignCompany(companyId); RepairJobId = repairJobId; OperationId = operationId;
+        ItemId = itemId; ItemVariantId = itemVariantId; Quantity = quantity; UnitCost = unitCost;
+        Currency = currency.Trim(); IssuedAtUtc = issuedAt;
+    }
+
+    private ServicePartUsage() { }
+    public Guid RepairJobId { get; private set; }
+    public Guid OperationId { get; private set; }
+    public Guid? ItemId { get; private set; }
+    public Guid? ItemVariantId { get; private set; }
+    public decimal Quantity { get; private set; }
+    public decimal UnitCost { get; private set; }
+    public string Currency { get; private set; } = string.Empty;
+    public DateTimeOffset IssuedAtUtc { get; private set; }
+
+    public static ServicePartUsage Issue(Guid tenantId, Guid? storeId, Guid companyId, Guid repairJobId,
+        Guid operationId, Guid? itemId, Guid? itemVariantId, decimal quantity, decimal unitCost,
+        string currency, DateTimeOffset issuedAt)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || repairJobId == Guid.Empty || operationId == Guid.Empty)
+            throw new ArgumentException("A part usage requires tenant, company, repair and operation identities.");
+        if ((itemId is null) == (itemVariantId is null)) throw new ArgumentException("A part must identify an item or variant.");
+        if (quantity <= 0m || unitCost < 0m) throw new ArgumentOutOfRangeException(nameof(quantity));
+        ArgumentException.ThrowIfNullOrWhiteSpace(currency);
+        return new ServicePartUsage(tenantId, storeId, companyId, repairJobId, operationId, itemId,
+            itemVariantId, quantity, unitCost, currency, issuedAt);
+    }
+
+    public decimal TotalCost => Quantity * UnitCost;
+}
+
+/// <summary>Configured service SLA duration, expressed in working hours.</summary>
+public sealed class ServiceSla
+{
+    private ServiceSla() { }
+    private ServiceSla(Guid tenantId, Guid companyId, string name, decimal responseHours, decimal resolutionHours)
+    { TenantId = tenantId; CompanyId = companyId; Name = name.Trim(); ResponseHours = responseHours; ResolutionHours = resolutionHours; }
+    public Guid TenantId { get; private set; }
+    public Guid CompanyId { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public decimal ResponseHours { get; private set; }
+    public decimal ResolutionHours { get; private set; }
+    public static ServiceSla Create(Guid tenantId, Guid companyId, string name, decimal responseHours, decimal resolutionHours)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (responseHours <= 0m || resolutionHours <= 0m) throw new ArgumentOutOfRangeException(nameof(responseHours));
+        return new ServiceSla(tenantId, companyId, name, responseHours, resolutionHours);
+    }
+}
