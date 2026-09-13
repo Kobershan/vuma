@@ -91,8 +91,9 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
         {
             return Unit.Value;
         }
-        hold.Release(clock.UtcNow, command.Reason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
         await reservations.ReleaseAsync(hold.ReservationId, command.Reason, cancellationToken).ConfigureAwait(false);
+        hold.Release(clock.UtcNow, command.Reason);
         return Unit.Value;
     }
 }
@@ -116,8 +117,9 @@ public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds
         {
             return Unit.Value;
         }
-        hold.Reject(clock.UtcNow, command.Reason);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
         await reservations.ConsumeAsync(hold.ReservationId, hold.Id, cancellationToken).ConfigureAwait(false);
+        hold.Reject(clock.UtcNow, command.Reason);
         return Unit.Value;
     }
 }
