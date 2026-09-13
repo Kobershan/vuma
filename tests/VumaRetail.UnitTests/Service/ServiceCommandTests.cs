@@ -65,7 +65,8 @@ public sealed class ServiceCommandTests
         ICompanyContext company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
         var handler = new IssueServicePartCommandHandler(services, Substitute.For<IStockLocationRepository>(),
-            Substitute.For<IReservationService>(), Substitute.For<IStockLedgerPoster>(), company);
+            Substitute.For<IReservationService>(), Substitute.For<IStockLedgerPoster>(), company,
+            Substitute.For<IClock>());
         Guid result = await handler.HandleAsync(new IssueServicePartCommand(operationId, companyId, repairId,
             Guid.NewGuid(), usage.ItemId, null, 2m, "EA"));
         result.Should().Be(usage.Id);

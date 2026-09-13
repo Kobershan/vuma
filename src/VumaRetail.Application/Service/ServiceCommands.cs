@@ -133,10 +133,22 @@ public sealed class CloseServiceTicketCommandHandler(IServiceRepository services
 public sealed record IssueServicePartCommand(Guid OperationId, Guid CompanyId, Guid RepairJobId, Guid LocationId,
     Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure) : ICommand<Guid>;
 
-public sealed class IssueServicePartCommandHandler(IServiceRepository services, IStockLocationRepository locations,
-    IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company)
-    : ICommandHandler<IssueServicePartCommand, Guid>
+public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServicePartCommand, Guid>
 {
+    private readonly IServiceRepository services;
+    private readonly IStockLocationRepository locations;
+    private readonly IReservationService reservations;
+    private readonly IStockLedgerPoster poster;
+    private readonly ICompanyContext company;
+    private readonly IClock clock;
+
+    public IssueServicePartCommandHandler(IServiceRepository services, IStockLocationRepository locations,
+        IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company, IClock clock)
+    {
+        this.services = services; this.locations = locations; this.reservations = reservations;
+        this.poster = poster; this.company = company; this.clock = clock;
+    }
+
     public async Task<Guid> HandleAsync(IssueServicePartCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -172,7 +184,7 @@ public sealed class IssueServicePartCommandHandler(IServiceRepository services, 
             await reservations.ConsumeAsync(hold.ReservationId.Value, command.OperationId, cancellationToken).ConfigureAwait(false);
             ServicePartUsage usage = ServicePartUsage.Issue(location.TenantId, location.StoreId, command.CompanyId,
                 command.RepairJobId, command.OperationId, command.ItemId, command.ItemVariantId, quantity.Value,
-                entry.UnitCost.Amount, entry.UnitCost.Currency, DateTimeOffset.UtcNow);
+                entry.UnitCost.Amount, entry.UnitCost.Currency, clock.UtcNow);
             services.Add(usage);
             return usage.Id;
         }
