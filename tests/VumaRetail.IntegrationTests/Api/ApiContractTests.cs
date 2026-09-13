@@ -178,6 +178,23 @@ public sealed class ApiContractTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Employee_document_routes_reach_the_openapi_document()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        using JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        foreach (string path in new[]
+        {
+            "/api/v1/hr/employees/{employeeId}/documents",
+        })
+        {
+            paths.TryGetProperty(path, out _).Should().BeTrue($"{path} must appear in the document");
+        }
+    }
+
+    [Fact]
     public async Task Every_procurement_operation_reaches_the_openapi_document()
     {
         // R3 and CLAUDE.md §8: nothing exists in a UI that is not reachable over the versioned API
