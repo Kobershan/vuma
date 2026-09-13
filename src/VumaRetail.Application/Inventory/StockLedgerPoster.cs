@@ -69,6 +69,15 @@ public interface IStockLedgerPoster
         Guid productionOrderReferenceId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Posts a company-owned part consumed during a service repair.</summary>
+    Task<StockLedgerEntry> IssueForServicePartAsync(
+        StockLocation location,
+        Guid? itemId,
+        Guid? itemVariantId,
+        Quantity quantity,
+        Guid servicePartReferenceId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Posts finished output against a production order.</summary>
     Task<StockLedgerEntry> ReceiveForProductionAsync(
         StockLocation location,
@@ -452,6 +461,16 @@ public sealed class StockLedgerPoster(
         ArgumentNullException.ThrowIfNull(location);
         return PostIssueLikeAsync(location, binId: null, itemId, itemVariantId, StockMovementType.ProductionIssue,
             quantity, StockReferenceType.Production, productionOrderReferenceId, reasonCode: null, note: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<StockLedgerEntry> IssueForServicePartAsync(
+        StockLocation location, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        Guid servicePartReferenceId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        return PostIssueLikeAsync(location, binId: null, itemId, itemVariantId, StockMovementType.ServicePartIssue,
+            quantity, StockReferenceType.ServicePart, servicePartReferenceId, reasonCode: null, note: null, cancellationToken);
     }
 
     /// <inheritdoc />

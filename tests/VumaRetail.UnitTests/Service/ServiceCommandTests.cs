@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Service;
 using VumaRetail.Domain.Service;
 
@@ -49,5 +50,25 @@ public sealed class ServiceCommandTests
 
         await action.Should().ThrowAsync<InvalidOperationException>();
         claim.Status.Should().Be(WarrantyClaimStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Service_part_replay_returns_original_usage_without_issuing_again()
+    {
+        Guid operationId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid repairId = Guid.NewGuid();
+        ServicePartUsage usage = ServicePartUsage.Issue(Guid.NewGuid(), null, companyId, repairId, operationId,
+            Guid.NewGuid(), null, 2m, 30m, "ZAR", DateTimeOffset.UtcNow);
+        IServiceRepository services = Substitute.For<IServiceRepository>();
+        services.FindPartUsageByOperationIdAsync(operationId, Arg.Any<CancellationToken>()).Returns(usage);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        var handler = new IssueServicePartCommandHandler(services, Substitute.For<IStockLocationRepository>(),
+            Substitute.For<IReservationService>(), Substitute.For<IStockLedgerPoster>(), company);
+        Guid result = await handler.HandleAsync(new IssueServicePartCommand(operationId, companyId, repairId,
+            Guid.NewGuid(), usage.ItemId, null, 2m, "EA"));
+        result.Should().Be(usage.Id);
+        services.DidNotReceive().Add(Arg.Any<ServicePartUsage>());
     }
 }

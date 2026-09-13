@@ -46,6 +46,7 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
         paths.TryGetProperty("/api/v1/service/repairs", out JsonElement repairs).Should().BeTrue();
         repairs.TryGetProperty("post", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/service/custody", out JsonElement custody).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/service/parts", out _).Should().BeTrue();
         custody.TryGetProperty("get", out _).Should().BeTrue();
     }
 }

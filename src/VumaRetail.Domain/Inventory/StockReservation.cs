@@ -35,6 +35,9 @@ public enum ReservationSource
 
     /// <summary>A quality hold removing stock from sellable availability pending disposition.</summary>
     QualityHold = 8,
+
+    /// <summary>A service repair reserving a company-owned replacement part.</summary>
+    ServicePart = 9,
 }
 
 /// <summary>Where a <see cref="StockReservation"/> row sits in its chain.</summary>

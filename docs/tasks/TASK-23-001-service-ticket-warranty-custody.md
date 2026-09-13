@@ -33,3 +33,6 @@ real-host OpenAPI contract test passes with that route included.
 Scoped ticket and custody list queries/GET routes now enforce the active company boundary. Migration
 `20260913171313_Stage23_ServiceCustodyEvents` adds custody persistence; the expanded migration and
 OpenAPI verification passes **2/2** on PostgreSQL.
+Service-part consumption is now reserved, issued through the shared stock ledger, consumed against the
+hold, and protected by operation replay checks; parts integration remains subject to full end-to-end
+PostgreSQL availability and financial acceptance.

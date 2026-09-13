@@ -254,6 +254,9 @@ public enum StockMovementType
 
     /// <summary>Finished output received from a production order.</summary>
     ProductionReceipt = 8,
+
+    /// <summary>Stock issued as a consumed service part.</summary>
+    ServicePartIssue = 9,
 }
 
 /// <summary>What kind of document, if any, a <see cref="StockLedgerEntry"/> correlates to.</summary>
@@ -345,6 +348,9 @@ public enum StockReferenceType
 
     /// <summary>Correlates to a manufacturing production order.</summary>
     Production = 10,
+
+    /// <summary>Correlates to a service-part usage record.</summary>
+    ServicePart = 11,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

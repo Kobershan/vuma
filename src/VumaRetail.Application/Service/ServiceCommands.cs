@@ -1,6 +1,9 @@
 #pragma warning disable CS1591, IDE0011
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Inventory;
+using VumaRetail.Domain.Inventory;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Service;
 
 namespace VumaRetail.Application.Service;
@@ -123,5 +126,60 @@ public sealed class CloseServiceTicketCommandHandler(IServiceRepository services
             throw new InvalidOperationException("The service company is not the active company.");
         ticket.Close(clock.UtcNow);
         return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record IssueServicePartCommand(Guid OperationId, Guid CompanyId, Guid RepairJobId, Guid LocationId,
+    Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure) : ICommand<Guid>;
+
+public sealed class IssueServicePartCommandHandler(IServiceRepository services, IStockLocationRepository locations,
+    IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company)
+    : ICommandHandler<IssueServicePartCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(IssueServicePartCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ServicePartUsage? existing = await services.FindPartUsageByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.CompanyId != command.CompanyId || existing.RepairJobId != command.RepairJobId ||
+                existing.ItemId != command.ItemId || existing.ItemVariantId != command.ItemVariantId ||
+                existing.Quantity != command.Quantity)
+                throw new InvalidOperationException("The service-part operation was replayed with different content.");
+            return existing.Id;
+        }
+
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+            throw new InvalidOperationException("The service company is not the active company.");
+        if ((command.ItemId is null) == (command.ItemVariantId is null))
+            throw new ArgumentException("A service part must identify exactly one item or variant.");
+        Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
+        StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Service part stock location not found.");
+        ReserveOutcome hold = await reservations.ReserveAsync(location.Id, command.ItemId, command.ItemVariantId, quantity,
+            ReservationSource.ServicePart, command.RepairJobId, intentId: command.OperationId, legId: command.OperationId,
+            reason: "Service repair part", cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (hold.ReservationId is null || hold.Shortfall.Value > 0m)
+        {
+            if (hold.ReservationId is Guid partial) await reservations.ReleaseAsync(partial, "Service part shortfall", cancellationToken).ConfigureAwait(false);
+            throw InventoryRuleException.InsufficientAvailable(hold.Held, quantity);
+        }
+        try
+        {
+            StockLedgerEntry entry = await poster.IssueForServicePartAsync(location, command.ItemId, command.ItemVariantId,
+                quantity, command.OperationId, cancellationToken).ConfigureAwait(false);
+            await reservations.ConsumeAsync(hold.ReservationId.Value, command.OperationId, cancellationToken).ConfigureAwait(false);
+            ServicePartUsage usage = ServicePartUsage.Issue(location.TenantId, location.StoreId, command.CompanyId,
+                command.RepairJobId, command.OperationId, command.ItemId, command.ItemVariantId, quantity.Value,
+                entry.UnitCost.Amount, entry.UnitCost.Currency, DateTimeOffset.UtcNow);
+            services.Add(usage);
+            return usage.Id;
+        }
+        catch
+        {
+            await reservations.ReleaseAsync(hold.ReservationId.Value, "Service part issue failed", cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 }
