@@ -44,7 +44,10 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [ ] 22M-P01: Implement campaign/journey state, audience snapshots and consent/suppression rules.
+- [~] 22M-P01: Implement campaign/journey state, audience snapshots and consent/suppression rules.
+  Consent-aware campaign/outbound state, explicit WhatsApp consent, tenant/company persistence,
+  guarded commands, replay protection and suppression are implemented; audience snapshots and
+  durable delivery processing remain.
 - [ ] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
@@ -52,7 +55,7 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-Implemented evidence: `MarketingDeliveryPolicyTests` passes 6/6, covering channel-specific consent,
+Implemented evidence: `MarketingDeliveryPolicyTests` passes 12/12, covering channel-specific consent,
 transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
