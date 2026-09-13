@@ -39,6 +39,7 @@ public sealed record MeteringPayload(
     public static JsonSerializerOptions Json { get; } = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         WriteIndented = false,
     };
 

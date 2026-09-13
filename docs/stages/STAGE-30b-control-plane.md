@@ -1,6 +1,6 @@
 # STAGE 30b — Vendor Control Plane, Metering & SaaS Billing
 
-**Status:** NOT_STARTED · **Depends on:** 04b, 29, 30 · **Reference reading:** `docs/API_CONTROL_PLANE.md` (all of it), `docs/LICENSING.md` §6–§9, `docs/DECISIONS.md` ADR-024, ADR-025
+**Status:** IN_PROGRESS — device-side licensing client, heartbeat/metering contracts and an existing in-process control-plane test double are implemented; strict metering payload rejection is now verified; separate deployable control-plane APIs, vendor surfaces, billing and fleet operations remain · **Depends on:** 04b, 29, 30 · **Reference reading:** `docs/API_CONTROL_PLANE.md` (all of it), `docs/LICENSING.md` §6–§9, `docs/DECISIONS.md` ADR-024, ADR-025
 
 ## Task index
 ## Second-pass architecture and task map
