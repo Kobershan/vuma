@@ -15,3 +15,10 @@ public sealed class AssetPermissions : IModulePermissions
     ];
 }
 
+public sealed class AssetModuleManifest : IModuleManifest
+{
+    public string Module => "assets";
+    public string LicenceFlag => "assets";
+    public string Description => "Fixed assets, depreciation and maintenance orders.";
+    public bool IsCore => false;
+}

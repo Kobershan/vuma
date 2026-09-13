@@ -20,6 +20,7 @@ public static class ServiceServiceCollectionExtensions
         services.TryAddSingleton<IServiceSlaClock>(_ =>
             new BusinessHoursServiceSlaClock(new TimeOnly(9, 0), new TimeOnly(17, 0)));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, AssetPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, AssetModuleManifest>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ServicePermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ServiceModuleManifest>());
         return services;

@@ -15,3 +15,10 @@ public sealed class ProjectPermissions : IModulePermissions
     ];
 }
 
+public sealed class ProjectModuleManifest : IModuleManifest
+{
+    public string Module => "projects";
+    public string LicenceFlag => "projects";
+    public string Description => "Projects, contracts, budgets and job costing.";
+    public bool IsCore => false;
+}

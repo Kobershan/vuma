@@ -14,6 +14,7 @@ public static class ProjectsServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IProjectRepository, ProjectRepository>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ProjectPermissions>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ProjectModuleManifest>());
         return services;
     }
 }
