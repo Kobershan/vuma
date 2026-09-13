@@ -42,6 +42,21 @@ public sealed class QualityHoldTests
     }
 
     [Fact]
+    public void Recall_case_deduplicates_trace_references_and_closes_terminally()
+    {
+        RecallCase recall = RecallCase.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), "REC-001", "LOT-7",
+            "contamination", DateTimeOffset.UtcNow);
+
+        recall.AddTraceReference("shipment", "SHP-1");
+        recall.AddTraceReference("shipment", "SHP-1");
+        recall.Close(DateTimeOffset.UtcNow, "all affected stock accounted for");
+
+        recall.TraceReferences.Should().ContainSingle();
+        recall.Status.Should().Be(RecallCaseStatus.Closed);
+        Assert.Throws<InvalidOperationException>(() => recall.AddTraceReference("shipment", "SHP-2"));
+    }
+
+    [Fact]
     public void A_hold_can_only_be_disposed_once()
     {
         QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),

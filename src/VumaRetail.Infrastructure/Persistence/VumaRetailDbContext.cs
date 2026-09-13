@@ -548,6 +548,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Quality certificates and their revocation state (Stage 18).</summary>
     public DbSet<Domain.Quality.QualityCertificate> QualityCertificates => Set<Domain.Quality.QualityCertificate>();
 
+    /// <summary>Recall cases and trace references (Stage 18).</summary>
+    public DbSet<Domain.Quality.RecallCase> RecallCases => Set<Domain.Quality.RecallCase>();
+
     /// <summary>Immutable inspection evidence for quality holds (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionResult> InspectionResults => Set<Domain.Quality.InspectionResult>();
 

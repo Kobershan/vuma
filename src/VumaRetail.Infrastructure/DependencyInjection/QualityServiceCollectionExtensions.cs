@@ -14,6 +14,7 @@ public static class QualityServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<IInspectionPlanRepository, InspectionPlanRepository>();
         services.AddScoped<IQualityCertificateRepository, QualityCertificateRepository>();
+        services.AddScoped<IRecallCaseRepository, RecallCaseRepository>();
         services.AddScoped<IQualityHoldRepository, QualityHoldRepository>();
         services.AddScoped<IInspectionResultRepository, InspectionResultRepository>();
         services.AddScoped<INonConformanceRepository, NonConformanceRepository>();

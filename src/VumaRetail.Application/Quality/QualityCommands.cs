@@ -9,6 +9,80 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Application.Quality;
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record OpenRecallCommand(Guid OperationId, Guid CompanyId, string CaseNumber, string LotReference, string Reason) : ICommand<Guid>;
+
+public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ITenantContext tenant, ICompanyContext company, IClock clock)
+    : ICommandHandler<OpenRecallCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(OpenRecallCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RecallCase? existing = await recalls.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.CompanyId != command.CompanyId || existing.CaseNumber != command.CaseNumber.Trim()
+                || existing.LotReference != command.LotReference.Trim() || existing.Reason != command.Reason.Trim())
+            {
+                throw new InvalidOperationException("The recall operation was replayed with different content.");
+            }
+            return existing.Id;
+        }
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The recall company is not the active company.");
+        }
+        RecallCase recall = RecallCase.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CaseNumber,
+            command.LotReference, command.Reason, clock.UtcNow);
+        recalls.Add(recall);
+        return recall.Id;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record AddRecallTraceCommand(Guid RecallCaseId, string Kind, string Reference) : ICommand;
+
+public sealed class AddRecallTraceCommandHandler(IRecallCaseRepository recalls, ICompanyContext company)
+    : ICommandHandler<AddRecallTraceCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(AddRecallTraceCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RecallCase recall = await recalls.FindAsync(command.RecallCaseId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Recall case not found.");
+        if (company.CompanyId is not { } activeCompany || recall.CompanyId != activeCompany)
+        {
+            throw new InvalidOperationException("The recall company is not the active company.");
+        }
+        recall.AddTraceReference(command.Kind, command.Reference);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CloseRecallCommand(Guid RecallCaseId, string Reason) : ICommand;
+
+public sealed class CloseRecallCommandHandler(IRecallCaseRepository recalls, ICompanyContext company, IClock clock)
+    : ICommandHandler<CloseRecallCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CloseRecallCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RecallCase recall = await recalls.FindAsync(command.RecallCaseId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Recall case not found.");
+        if (company.CompanyId is not { } activeCompany || recall.CompanyId != activeCompany)
+        {
+            throw new InvalidOperationException("The recall company is not the active company.");
+        }
+        if (recall.Status == RecallCaseStatus.Closed)
+        {
+            return Unit.Value;
+        }
+        recall.Close(clock.UtcNow, command.Reason);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record IssueQualityCertificateCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string CertificateNumber,
     string Issuer, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt, string Evidence) : ICommand<Guid>;
 

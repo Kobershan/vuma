@@ -56,6 +56,17 @@ public sealed class QualityCertificateRepository(VumaRetailDbContext context) : 
     public void Add(QualityCertificate certificate) => context.QualityCertificates.Add(certificate);
 }
 
+public sealed class RecallCaseRepository(VumaRetailDbContext context) : IRecallCaseRepository
+{
+    public Task<RecallCase?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.RecallCases.FirstOrDefaultAsync(recall => recall.Id == id, cancellationToken);
+
+    public Task<RecallCase?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
+        => context.RecallCases.FirstOrDefaultAsync(recall => recall.OperationId == operationId, cancellationToken);
+
+    public void Add(RecallCase recall) => context.RecallCases.Add(recall);
+}
+
 /// <summary>EF Core repository for Stage 18 quality holds.</summary>
 public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualityHoldRepository
 {

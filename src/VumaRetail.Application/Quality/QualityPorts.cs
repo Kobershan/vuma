@@ -16,6 +16,13 @@ public interface IQualityCertificateRepository
     void Add(QualityCertificate certificate);
 }
 
+public interface IRecallCaseRepository
+{
+    Task<RecallCase?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<RecallCase?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    void Add(RecallCase recall);
+}
+
 /// <summary>Persistence boundary for tenant/company-scoped quality holds.</summary>
 public interface IQualityHoldRepository
 {

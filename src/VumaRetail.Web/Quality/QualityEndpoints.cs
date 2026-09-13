@@ -20,6 +20,14 @@ public static class QualityEndpoints
             .Produces<Guid>(StatusCodes.Status201Created);
         certificates.MapPost("/{id:guid}/revoke", RevokeCertificateAsync).RequirePermission(QualityPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent);
+        RouteGroupBuilder recalls = endpoints.MapVumaApi().MapGroup("/quality/recalls")
+            .WithTags("Quality").RequireModule("quality");
+        recalls.MapPost("/", OpenRecallAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces<Guid>(StatusCodes.Status201Created);
+        recalls.MapPost("/{id:guid}/trace", AddRecallTraceAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent);
+        recalls.MapPost("/{id:guid}/close", CloseRecallAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent);
         RouteGroupBuilder plans = endpoints.MapVumaApi().MapGroup("/quality/inspection-plans")
             .WithTags("Quality").RequireModule("quality");
         plans.MapPost("/", CreatePlanAsync).RequirePermission(QualityPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
@@ -88,6 +96,25 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> OpenRecallAsync(OpenRecallRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new OpenRecallCommand(request.OperationId, request.CompanyId, request.CaseNumber,
+            request.LotReference, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/quality/recalls/{id:D}", id);
+    }
+
+    private static async Task<IResult> AddRecallTraceAsync(Guid id, RecallTraceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new AddRecallTraceCommand(id, request.Kind, request.Reference), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> CloseRecallAsync(Guid id, CloseRecallRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new CloseRecallCommand(id, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> PublishPlanAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         await dispatcher.SendAsync(new PublishInspectionPlanCommand(id), cancellationToken).ConfigureAwait(false);
@@ -125,6 +152,9 @@ public static class QualityEndpoints
     public sealed record CreateInspectionPlanRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version, string Name, int SampleSize, string AcceptanceCriteria);
     public sealed record IssueQualityCertificateRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string CertificateNumber, string Issuer, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt, string Evidence);
     public sealed record RevokeQualityCertificateRequest(string Reason);
+    public sealed record OpenRecallRequest(Guid OperationId, Guid CompanyId, string CaseNumber, string LotReference, string Reason);
+    public sealed record RecallTraceRequest(string Kind, string Reference);
+    public sealed record CloseRecallRequest(string Reason);
     public sealed record OpenNonConformanceRequest(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description);
     public sealed record CorrectiveActionRequest(Guid OperationId);
     public sealed record CloseNonConformanceRequest(Guid OperationId, string Resolution);
