@@ -29,3 +29,6 @@ TASK-17-002.
 - 2026-09-13: added OpenAPI path coverage for all six production execution routes. The integration
   suite must still execute against a created production order once stock/financial boundaries are
   wired; current focused domain/API build evidence is not stage-closure evidence.
+- 2026-09-13: CI run `34743485288` passed the full required workflow, including the production API
+  build and OpenAPI test. End-to-end authorized execution, capacity/genealogy queries, backup/seed
+  evidence and specialist closure review remain open.

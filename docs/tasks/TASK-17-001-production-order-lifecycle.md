@@ -50,3 +50,6 @@ duplicate operation tests, migration reversibility and architecture classificati
   focused manufacturing unit suite now passes 19/19 and the Web project builds with 0 errors. The
   required full CI workflow for `f028ff9` is still running; PostgreSQL migration and tenant-scope
   acceptance evidence remain open.
+- 2026-09-13: CI run `34743485288` passed all required gates, including migration, architecture,
+  vulnerability, full test and Windows/Android packaging jobs. Release replay coverage is now 19/19
+  focused manufacturing tests; tenant/company PostgreSQL acceptance remains open.

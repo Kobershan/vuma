@@ -40,3 +40,5 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   issuing stock, successful issues consume the hold, and poster failures release it. This is covered
   by the application build; the real-PostgreSQL shortage/issue/replay and financial-event scenarios
   remain required before task closure.
+- 2026-09-13: CI run `34743485288` passed Build, Test, Architecture, Vulnerability, Migration,
+  Design System and Windows/Android packaging gates for the location and lifecycle boundary.
