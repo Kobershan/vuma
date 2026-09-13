@@ -11,10 +11,10 @@ public enum ServiceTicketStatus { Open, InProgress, WaitingForCustomer, Resolved
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class ServiceTicket : Entity
 {
-    private ServiceTicket(Guid tenantId, Guid? storeId, Guid companyId, Guid customerId, string subject,
+    private ServiceTicket(Guid tenantId, Guid? storeId, Guid companyId, Guid operationId, Guid customerId, string subject,
         DateTimeOffset openedAt) : base(tenantId, storeId)
     {
-        AssignCompany(companyId);
+        AssignCompany(companyId); OperationId = operationId;
         CustomerId = customerId;
         Subject = subject.Trim();
         OpenedAtUtc = openedAt;
@@ -24,19 +24,20 @@ public sealed class ServiceTicket : Entity
     private ServiceTicket() { }
 
     public Guid CustomerId { get; private set; }
+    public Guid OperationId { get; private set; }
     public string Subject { get; private set; } = string.Empty;
     public ServiceTicketStatus Status { get; private set; }
     public DateTimeOffset OpenedAtUtc { get; private set; }
     public DateTimeOffset? ClosedAtUtc { get; private set; }
 
-    public static ServiceTicket Open(Guid tenantId, Guid? storeId, Guid companyId, Guid customerId,
+    public static ServiceTicket Open(Guid tenantId, Guid? storeId, Guid companyId, Guid operationId, Guid customerId,
         string subject, DateTimeOffset openedAt)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty || customerId == Guid.Empty)
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || operationId == Guid.Empty || customerId == Guid.Empty)
             throw new ArgumentException("A service ticket requires tenant, company and customer identities.");
         ArgumentException.ThrowIfNullOrWhiteSpace(subject);
         if (subject.Trim().Length > 256) throw new ArgumentException("A service subject must be 256 characters or fewer.", nameof(subject));
-        return new ServiceTicket(tenantId, storeId, companyId, customerId, subject, openedAt);
+        return new ServiceTicket(tenantId, storeId, companyId, operationId, customerId, subject, openedAt);
     }
 
     public void Start(DateTimeOffset at) => Move(ServiceTicketStatus.InProgress, at);

@@ -11,11 +11,14 @@ internal sealed class ServiceTicketConfiguration : EntityConfiguration<ServiceTi
     protected override void ConfigureEntity(EntityTypeBuilder<ServiceTicket> builder)
     {
         builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.OperationId).IsRequired();
         builder.Property(x => x.CustomerId).IsRequired();
         builder.Property(x => x.Subject).IsRequired().HasMaxLength(256);
         builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
         builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status })
             .HasDatabaseName("ix_service_tickets_tenant_company_customer_status").HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique()
+            .HasDatabaseName("ux_service_tickets_tenant_operation").HasFilter("deleted_at IS NULL");
     }
 }
 

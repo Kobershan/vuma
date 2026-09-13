@@ -1,0 +1,73 @@
+#pragma warning disable CS1591, IDE0011
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Service;
+
+namespace VumaRetail.Application.Service;
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record OpenServiceTicketCommand(Guid OperationId, Guid CompanyId, Guid CustomerId, string Subject) : ICommand<Guid>;
+
+public sealed class OpenServiceTicketCommandHandler(IServiceRepository services, ITenantContext tenant,
+    ICompanyContext company, IClock clock) : ICommandHandler<OpenServiceTicketCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(OpenServiceTicketCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ServiceTicket? existing = await services.FindTicketByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.CompanyId != command.CompanyId || existing.CustomerId != command.CustomerId ||
+                !string.Equals(existing.Subject, command.Subject.Trim(), StringComparison.Ordinal))
+                throw new InvalidOperationException("The service ticket operation was replayed with different content.");
+            return existing.Id;
+        }
+        EnsureCompany(company, command.CompanyId);
+        ServiceTicket ticket = ServiceTicket.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CustomerId,
+            command.Subject, clock.UtcNow);
+        services.Add(ticket);
+        return ticket.Id;
+    }
+
+    private static void EnsureCompany(ICompanyContext company, Guid expected)
+    {
+        if (company.CompanyId is not { } active || active != expected)
+            throw new InvalidOperationException("The service company is not the active company.");
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ApproveWarrantyClaimCommand(Guid ClaimId, string SoldSerialNumber) : ICommand;
+
+public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+    : ICommandHandler<ApproveWarrantyClaimCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ApproveWarrantyClaimCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        WarrantyClaim claim = await services.FindWarrantyAsync(command.ClaimId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Warranty claim not found.");
+        if (company.CompanyId is not { } active || claim.CompanyId != active)
+            throw new InvalidOperationException("The warranty company is not the active company.");
+        claim.Approve(command.SoldSerialNumber, clock.UtcNow);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CompleteRepairCommand(Guid RepairJobId) : ICommand;
+
+public sealed class CompleteRepairCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+    : ICommandHandler<CompleteRepairCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CompleteRepairCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RepairJob job = await services.FindRepairAsync(command.RepairJobId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Repair job not found.");
+        if (company.CompanyId is not { } active || job.CompanyId != active)
+            throw new InvalidOperationException("The repair company is not the active company.");
+        job.Complete(clock.UtcNow);
+        return Unit.Value;
+    }
+}

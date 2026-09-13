@@ -13,7 +13,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913163837_Stage23_ServiceManagement").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913164736_Stage23_ServiceTicketOperationId").ConfigureAwait(false);
 
         IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -24,6 +24,22 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         tables.Should().BeEquivalentTo(
             ["repair_jobs", "service_part_usages", "service_slas", "service_tickets", "warranty_claims"],
             options => options.WithStrictOrdering());
+
+        IReadOnlyList<string> ticketColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'service' AND table_name = 'service_tickets'
+            """).ToListAsync().ConfigureAwait(false);
+        ticketColumns.Should().Contain("operation_id");
+
+        await context.Database.MigrateAsync("20260913163837_Stage23_ServiceManagement").ConfigureAwait(false);
+
+        IReadOnlyList<string> revertedTicketColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'service' AND table_name = 'service_tickets'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedTicketColumns.Should().NotContain("operation_id");
 
         await context.Database.MigrateAsync("20260913134232_Stage21PaymentAttempts").ConfigureAwait(false);
 
