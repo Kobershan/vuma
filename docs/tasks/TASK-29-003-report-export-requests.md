@@ -10,5 +10,11 @@ Evidence: reporting unit tests **6/6 passed**; PostgreSQL migration Up/Down chai
 `report_exports` is removed independently before the existing reporting tables are rolled back.
 Worker execution, file storage, scheduling and full export authorization acceptance remain open.
 
+2026-09-13: Completion/failure commands now provide the worker handoff boundary, enforce the active
+company, and persist an artifact reference for completed exports. Export requests now require the
+high-risk `reporting.report.manage` permission; `ReportingDomainTests` passes 8/8. Migration
+`Stage29ReportExportArtifacts` adds the durable artifact reference. Actual renderer, storage adapter,
+scheduled worker and expiring download authorization remain open.
+
 The status query additionally requires the active company to match the export company; a regression
 test prevents same-tenant cross-company status disclosure.

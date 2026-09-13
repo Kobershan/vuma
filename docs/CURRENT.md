@@ -67,6 +67,11 @@ calculation, durable file delivery and provider integration remain open.
 WORK LOG (2026-09-13): Stage 25 payroll source rows are now also available through deterministic
 CSV with escaping at `/api/v1/hr/payroll/export.csv`; `PayrollExportTests` passes 3/3.
 
+WORK LOG (2026-09-13): Stage 29 report exports now have guarded completion/failure handoff commands
+and a persisted artifact reference via `Stage29ReportExportArtifacts`; export requests require
+`reporting.report.manage`. `ReportingDomainTests` passes 8/8; renderer/storage, scheduling and
+expiring download authorization remain open.
+
 VERIFICATION (2026-09-13): The post-payroll architecture suite passes 85/85 and
 `dotnet ef migrations has-pending-model-changes` reports no changes. GitHub CI for the latest
 checkpoint remains in progress.

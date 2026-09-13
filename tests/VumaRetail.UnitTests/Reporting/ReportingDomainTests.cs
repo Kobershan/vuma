@@ -48,6 +48,41 @@ public sealed class ReportingDomainTests
     }
 
     [Fact]
+    public async Task Export_completion_requires_the_active_company_and_records_artifact()
+    {
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var export = ReportExport.Queue(tenantId, null, companyId, Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
+        var reports = Substitute.For<IReportingRepository>();
+        reports.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        var clock = Substitute.For<IClock>();
+        var completedAt = new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
+        clock.UtcNow.Returns(completedAt);
+
+        await new CompleteReportExportCommandHandler(reports, company, clock)
+            .HandleAsync(new CompleteReportExportCommand(companyId, export.Id, "blob/report.csv"));
+
+        export.Status.Should().Be(ReportExportStatus.Completed);
+        export.ArtifactReference.Should().Be("blob/report.csv");
+    }
+
+    [Fact]
+    public async Task Export_failure_from_another_company_is_refused()
+    {
+        var export = ReportExport.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
+        var reports = Substitute.For<IReportingRepository>();
+        reports.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        await FluentActions.Invoking(() => new FailReportExportCommandHandler(reports, company)
+            .HandleAsync(new FailReportExportCommand(company.CompanyId!.Value, export.Id, "provider unavailable")))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task Export_request_requires_a_published_report_and_is_idempotent()
     {
         IReportingRepository repository = Substitute.For<IReportingRepository>();

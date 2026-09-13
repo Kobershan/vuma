@@ -20,12 +20,14 @@ public static class ReportingEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Returns a published tenant-scoped report definition and its AsAt timestamp.");
         group.MapPost("/exports", RequestExportAsync)
-            .RequirePermission(ReportingPermissions.View)
+            .RequirePermission(ReportingPermissions.Manage)
             .Produces<Guid>(StatusCodes.Status202Accepted);
         group.MapGet("/exports/{id:guid}", GetExportAsync)
             .RequirePermission(ReportingPermissions.View)
             .Produces<ReportExportResult>()
             .ProducesProblem(StatusCodes.Status404NotFound);
+        group.MapPost("/exports/{id:guid}/complete", async (Guid id, CompleteExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new CompleteReportExportCommand(request.CompanyId, id, request.ArtifactReference), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
+        group.MapPost("/exports/{id:guid}/fail", async (Guid id, FailExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new FailReportExportCommand(request.CompanyId, id, request.Reason), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
         return endpoints;
     }
 
@@ -42,6 +44,8 @@ public static class ReportingEndpoints
     }
 
     public sealed record RequestExportRequest(Guid CompanyId, Guid OperationId, string ReportCode);
+    public sealed record CompleteExportRequest(Guid CompanyId, string ArtifactReference);
+    public sealed record FailExportRequest(Guid CompanyId, string Reason);
 
     private static async Task<IResult> GetDefinitionAsync(string code, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
