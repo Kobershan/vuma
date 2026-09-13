@@ -9,6 +9,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Inventory.Commands;
+using VumaRetail.Application.Inventory.Permissions;
 using VumaRetail.Application.Quality;
 using VumaRetail.Application.Registry;
 using VumaRetail.Contracts.Inventory;

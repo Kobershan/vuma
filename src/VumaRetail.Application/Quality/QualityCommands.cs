@@ -227,7 +227,7 @@ public sealed class PlaceQualityHoldCommandHandler(
             {
                 await reservations.ReleaseAsync(partial, "Quality hold shortfall", cancellationToken).ConfigureAwait(false);
             }
-            throw new InvalidOperationException("The requested quality hold exceeds available stock.");
+            throw QualityRuleException.HoldExceedsAvailable();
         }
 
         QualityHold hold = QualityHold.Place(tenant.TenantId, null, command.CompanyId, command.OperationId, command.LocationId,

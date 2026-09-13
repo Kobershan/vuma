@@ -21,7 +21,8 @@ available for allocation and partial shortages leave no persisted hold.
 - Real PostgreSQL API evidence now covers the core availability invariant: holding 20 from 100
   leaves 80 available, an 81-unit hold is refused without changing the projection, and retrying
   the same operation returns the original hold without increasing held quantity (`QualityApiTests`
-  focused scenario, 2026-09-13).
+  focused scenario, 2026-09-13). The shortfall is mapped through the domain rule
+  `QUALITY_HOLD_EXCEEDS_AVAILABLE` to HTTP 422 rather than an unhandled 500.
 
 ## Remaining
 
