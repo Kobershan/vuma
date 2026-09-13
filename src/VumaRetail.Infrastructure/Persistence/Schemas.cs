@@ -179,6 +179,9 @@ public static class Schemas
     public const string Ecommerce = "ecommerce";
     public const string Service = "service";
 
+    /// <summary>Fixed assets, asset books and depreciation schedules. Stage 27.</summary>
+    public const string Assets = "assets";
+
     /// <summary>
     /// Customer relationships: leads, opportunities, activities, segments, memberships and
     /// consent. Stage 19. Declaring the schema puts the module into the daily metering rollup

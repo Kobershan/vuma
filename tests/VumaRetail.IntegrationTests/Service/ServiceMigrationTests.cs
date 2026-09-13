@@ -3,17 +3,33 @@ using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Service;
 
-/// <summary>Verifies the Stage 23 service schema can be applied and removed on PostgreSQL.</summary>
+/// <summary>Verifies the Stage 23 and 27 migrations can be applied and removed on PostgreSQL.</summary>
 [Collection(PostgresCollection.Name)]
 public sealed class ServiceMigrationTests(PostgresFixture fixture)
 {
     [Fact]
-    public async Task Stage23_service_migration_up_and_down_are_reversible()
+    public async Task Stage23_and_stage27_migrations_up_and_down_are_reversible()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
+        await context.Database.MigrateAsync("20260913174706_Stage27AssetBooks").ConfigureAwait(false);
+
+        IReadOnlyList<string> assetTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'assets'
+            ORDER BY table_name
+            """).ToListAsync().ConfigureAwait(false);
+        assetTables.Should().BeEquivalentTo(["asset_books", "fixed_assets"], options => options.WithStrictOrdering());
+
         await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
+        IReadOnlyList<string> revertedAssetTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'assets'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedAssetTables.Should().BeEmpty();
 
         IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
