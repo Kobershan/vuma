@@ -95,6 +95,8 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         JsonElement paths = document.RootElement.GetProperty("paths");
 
         paths.TryGetProperty("/api/v1/manufacturing/production-orders", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/capacity", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/release", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/issues", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/receipts", out _).Should().BeTrue();

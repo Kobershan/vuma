@@ -22,6 +22,8 @@ public static class ManufacturingEndpoints
         api.MapPost("/{id:guid}/publish", PublishAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         RouteGroupBuilder production = endpoints.MapVumaApi().MapGroup("/manufacturing/production-orders").WithTags("Manufacturing").RequireModule("manufacturing");
         production.MapPost("/", CreateProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces<BillOfMaterialsIdResponse>(StatusCodes.Status201Created);
+        production.MapGet("/{id:guid}", GetProductionAsync).RequirePermission(ManufacturingPermissions.View).Produces<ProductionOrderResponse>();
+        production.MapGet("/{id:guid}/capacity", GetProductionCapacityAsync).RequirePermission(ManufacturingPermissions.View).Produces<ProductionCapacityResponse>();
         production.MapPost("/{id:guid}/release", ReleaseProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         production.MapPost("/{id:guid}/issues", IssueProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         production.MapPost("/{id:guid}/receipts", ReceiveProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
@@ -66,6 +68,25 @@ public static class ManufacturingEndpoints
     {
         await dispatcher.SendAsync(new ReleaseProductionOrderCommand(id, request.OperationId, request.BillOfMaterialsId), cancellationToken).ConfigureAwait(false);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> GetProductionAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var order = await dispatcher.QueryAsync(new GetProductionOrderQuery(id), cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(new ProductionOrderResponse(
+            order.Id, order.CompanyId ?? throw new InvalidOperationException("Production order has no company."), order.FinishedItemId, order.PlannedQuantity.Value, order.PlannedQuantity.UnitOfMeasure,
+            order.OrderNumber, order.Status.ToString(), order.BillOfMaterialsId,
+            order.Snapshot?.RoutingSteps.Select(step => new ProductionRoutingStepResponse(step.Sequence, step.OperationName, step.SetupMinutes ?? 0m, step.RunMinutes ?? 0m)).ToArray() ?? [],
+            order.Materials.Select(material => new ProductionMaterialRequirementResponse(material.ComponentItemId, material.ComponentVariantId, material.RequiredQuantity.Value, material.RequiredQuantity.UnitOfMeasure, material.ScrapPercent, material.AlternateGroup)).ToArray(),
+            order.Issues.Select(issue => new ProductionMaterialIssueResponse(issue.OperationId, issue.ComponentItemId, issue.ComponentVariantId, issue.Quantity.Value, issue.Quantity.UnitOfMeasure, issue.UnitCost.Amount, issue.UnitCost.Currency)).ToArray(),
+            order.Receipts.Select(receipt => new ProductionOutputReceiptResponse(receipt.OperationId, receipt.Quantity.Value, receipt.Quantity.UnitOfMeasure, receipt.UnitCost.Amount, receipt.UnitCost.Currency)).ToArray(),
+            order.Scrap.Select(scrap => new ProductionScrapResponse(scrap.OperationId, scrap.Quantity.Value, scrap.Quantity.UnitOfMeasure, scrap.UnitCost.Amount, scrap.UnitCost.Currency)).ToArray()));
+    }
+
+    private static async Task<IResult> GetProductionCapacityAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var capacity = await dispatcher.QueryAsync(new GetProductionCapacityQuery(id), cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(new ProductionCapacityResponse(capacity.ProductionOrderId, capacity.PlannedQuantity, capacity.UnitOfMeasure, capacity.SetupMinutes, capacity.RunMinutes, capacity.TotalMinutes));
     }
 
     private static async Task<IResult> IssueProductionAsync(Guid id, IssueProductionMaterialRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
