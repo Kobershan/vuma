@@ -10,3 +10,9 @@ public interface IQualityHoldRepository
     Task<QualityHold?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     void Add(QualityHold hold);
 }
+
+public interface IInspectionResultRepository
+{
+    Task<InspectionResult?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    void Add(InspectionResult result);
+}

@@ -17,6 +17,9 @@ public static class QualityEndpoints
             .WithTags("Quality").RequireModule("quality");
         group.MapPost("/", PlaceAsync).RequirePermission(QualityPermissions.Manage)
             .Produces<Guid>(StatusCodes.Status201Created);
+        endpoints.MapVumaApi().MapGroup("/quality/inspections").WithTags("Quality").RequireModule("quality")
+            .MapPost("/", RecordInspectionAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{id:guid}/release", ReleaseAsync).RequirePermission(QualityPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent);
         return endpoints;
@@ -35,6 +38,14 @@ public static class QualityEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> RecordInspectionAsync(RecordInspectionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new RecordInspectionCommand(request.OperationId, request.CompanyId, request.HoldId,
+            request.Passed, request.SampleSize, request.Evidence), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/quality/inspections/{id:D}", id);
+    }
+
     public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
     public sealed record ReleaseQualityHoldRequest(string Reason);
+    public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence);
 }

@@ -92,3 +92,40 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
         return Unit.Value;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RecordInspectionCommand(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence) : ICommand<Guid>;
+
+public sealed class RecordInspectionCommandHandler(
+    IInspectionResultRepository inspections, IQualityHoldRepository holds, ITenantContext tenant,
+    ICompanyContext company, IClock clock) : ICommandHandler<RecordInspectionCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(RecordInspectionCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        InspectionResult? existing = await inspections.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.HoldId != command.HoldId || existing.CompanyId != command.CompanyId || existing.Passed != command.Passed
+                || existing.SampleSize != command.SampleSize || !string.Equals(existing.Evidence, command.Evidence.Trim(), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("The inspection operation was replayed with different content.");
+            }
+            return existing.Id;
+        }
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The inspection company is not the active company.");
+        }
+        QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Quality hold not found.");
+        if (hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
+        {
+            throw new InvalidOperationException("Inspections require an active hold in the selected company.");
+        }
+        InspectionResult result = InspectionResult.Record(tenant.TenantId, null, command.CompanyId, command.HoldId,
+            command.OperationId, command.Passed, command.SampleSize, command.Evidence, clock.UtcNow);
+        inspections.Add(result);
+        return result.Id;
+    }
+}

@@ -45,3 +45,11 @@ public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualit
 
     public void Add(QualityHold hold) => context.QualityHolds.Add(hold);
 }
+
+public sealed class InspectionResultRepository(VumaRetailDbContext context) : IInspectionResultRepository
+{
+    public Task<InspectionResult?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
+        => context.InspectionResults.FirstOrDefaultAsync(result => result.OperationId == operationId, cancellationToken);
+
+    public void Add(InspectionResult result) => context.InspectionResults.Add(result);
+}

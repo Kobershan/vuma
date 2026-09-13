@@ -35,3 +35,21 @@ internal sealed class QualityHoldConfiguration : EntityConfiguration<QualityHold
             .HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class InspectionResultConfiguration : EntityConfiguration<InspectionResult>
+{
+    protected override string Schema => Schemas.Quality;
+    protected override string TableName => "inspection_results";
+    protected override void ConfigureEntity(EntityTypeBuilder<InspectionResult> builder)
+    {
+        builder.Property(x => x.HoldId).IsRequired();
+        builder.Property(x => x.OperationId).IsRequired();
+        builder.Property(x => x.SampleSize).IsRequired();
+        builder.Property(x => x.Evidence).IsRequired().HasMaxLength(2000);
+        builder.Property(x => x.InspectedAt).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique()
+            .HasDatabaseName("ux_inspection_results_tenant_operation").HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.HoldId })
+            .HasDatabaseName("ix_inspection_results_tenant_company_hold").HasFilter("deleted_at IS NULL");
+    }
+}

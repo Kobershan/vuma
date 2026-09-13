@@ -47,4 +47,30 @@ public sealed class QualityHoldTests
         await reservations.Received(1).ReleaseAsync(Arg.Any<Guid>(), "Quality hold shortfall", Arg.Any<CancellationToken>());
         holds.DidNotReceive().Add(Arg.Any<QualityHold>());
     }
+
+    [Fact]
+    public async Task Inspection_is_idempotent_and_requires_an_active_hold()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid operationId = Guid.NewGuid();
+        QualityHold hold = QualityHold.Place(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null,
+            new Quantity(2m, "EA"), "inspection", DateTimeOffset.UtcNow, Guid.NewGuid());
+        Guid holdId = hold.Id;
+        IQualityHoldRepository holds = Substitute.For<IQualityHoldRepository>();
+        holds.FindAsync(holdId, Arg.Any<CancellationToken>()).Returns(hold);
+        IInspectionResultRepository inspections = Substitute.For<IInspectionResultRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        RecordInspectionCommand command = new(operationId, companyId, holdId, true, 2, "seal intact");
+
+        Guid result = await new RecordInspectionCommandHandler(inspections, holds, tenant, company, clock).HandleAsync(command);
+
+        result.Should().NotBeEmpty();
+        inspections.Received(1).Add(Arg.Any<InspectionResult>());
+    }
 }
