@@ -30,7 +30,7 @@ Add mappings/repositories for the listed types under `src/VumaRetail.Infrastruct
 
 ### Permissions and entitlement
 
-Declare granular `service.view`, `service.manage` and distinct high-risk approval/posting/export permissions as applicable; do not grant broad administrator access to a mobile/member credential. Register the module manifest, enforce effective company access and module entitlements at the authority, and whitelist aggregate metering. Platform maintenance/read/export must retain the licensing carve-outs documented in the shared requirements.
+Declare granular `service.ticket.view`, `service.ticket.manage` and distinct high-risk approval/posting/export permissions as applicable; do not grant broad administrator access to a mobile/member credential. Register the module manifest, enforce effective company access and module entitlements at the authority, and whitelist aggregate metering. Platform maintenance/read/export must retain the licensing carve-outs documented in the shared requirements.
 
 ## Business rules
 

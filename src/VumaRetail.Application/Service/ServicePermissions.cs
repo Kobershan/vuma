@@ -8,8 +8,8 @@ namespace VumaRetail.Application.Service;
 /// <summary>Granular permissions for service coordination.</summary>
 public sealed class ServicePermissions : IModulePermissions
 {
-    public const string View = "service.view";
-    public const string Manage = "service.manage";
+    public const string View = "service.ticket.view";
+    public const string Manage = "service.ticket.manage";
     public const string ApproveWarranty = "service.warranty.approve";
     public string Module => "service";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
