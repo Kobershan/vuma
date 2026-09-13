@@ -43,7 +43,7 @@ Declare granular `service.view`, `service.manage` and distinct high-risk approva
 
 ## Parts — the build list
 
-- [ ] 23-P01: Implement tickets, warranty snapshots and custody lifecycle.
+- [~] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — [TASK-23-001](../tasks/TASK-23-001-service-ticket-warranty-custody.md) is in progress; domain, persistence, commands, and initial API routes are implemented, while reads, parts integration, and isolation acceptance remain.
 - [ ] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA.
 - [ ] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance.
 
