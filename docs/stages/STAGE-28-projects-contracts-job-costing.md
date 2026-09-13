@@ -56,6 +56,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 - 2026-09-13: Added project, budget, contract variation and billing milestone domain records with
   approval state machines and explicit currency measures. Focused domain tests: **3/3 passed**.
+- 2026-09-13: Added append-only project cost entries with explicit source references and immutable
+  negative reversal entries; focused reversal test passes and the PostgreSQL migration chain verifies
+  the `project_cost_entries` table and rollback.
 
 ## Tests / acceptance
 

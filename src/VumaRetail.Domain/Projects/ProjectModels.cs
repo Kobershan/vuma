@@ -8,6 +8,7 @@ public enum ProjectStatus { Draft, Active, Closed }
 public enum ProjectBudgetStatus { Draft, Submitted, Approved }
 public enum ContractVariationStatus { Proposed, Approved, Rejected }
 public enum BillingMilestoneStatus { Planned, Approved, Billed }
+public enum ProjectCostKind { Labour, Procurement, Other, Reversal }
 
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class Project : Entity
@@ -57,6 +58,25 @@ public sealed class ProjectBudget : Entity
         Committed = committed; Actual = actual;
     }
     public Money Available => new(Math.Max(0m, Amount.Amount - Committed.Amount - Actual.Amount), Amount.Currency);
+}
+
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
+public sealed class ProjectCostEntry : Entity
+{
+    private ProjectCostEntry(Guid tenantId, Guid? storeId, Guid companyId, Guid projectId, string sourceReference,
+        ProjectCostKind kind, Money amount, Guid? reversesEntryId) : base(tenantId, storeId)
+    { AssignCompany(companyId); ProjectId = projectId; SourceReference = sourceReference.Trim(); Kind = kind; Amount = amount; ReversesEntryId = reversesEntryId; }
+    private ProjectCostEntry() { }
+    public Guid ProjectId { get; private set; }
+    public string SourceReference { get; private set; } = string.Empty;
+    public ProjectCostKind Kind { get; private set; }
+    public Money Amount { get; private set; }
+    public Guid? ReversesEntryId { get; private set; }
+    public static ProjectCostEntry Record(Guid tenantId, Guid? storeId, Guid companyId, Guid projectId,
+        string sourceReference, ProjectCostKind kind, Money amount)
+    { if (tenantId == Guid.Empty || companyId == Guid.Empty || projectId == Guid.Empty) throw new ArgumentException("Cost identity is required."); ArgumentException.ThrowIfNullOrWhiteSpace(sourceReference); if (amount.IsNegative) throw new ArgumentOutOfRangeException(nameof(amount)); return new(tenantId, storeId, companyId, projectId, sourceReference, kind, amount, null); }
+    public static ProjectCostEntry Reverse(ProjectCostEntry original, string sourceReference)
+    { ArgumentNullException.ThrowIfNull(original); ArgumentException.ThrowIfNullOrWhiteSpace(sourceReference); return new(original.TenantId, original.StoreId, original.CompanyId!.Value, original.ProjectId, sourceReference, ProjectCostKind.Reversal, -original.Amount, original.Id); }
 }
 
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]

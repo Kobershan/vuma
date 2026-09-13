@@ -583,6 +583,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Project and contract job-cost records (Stage 28).</summary>
     public DbSet<Domain.Projects.Project> Projects => Set<Domain.Projects.Project>();
     public DbSet<Domain.Projects.ProjectBudget> ProjectBudgets => Set<Domain.Projects.ProjectBudget>();
+    public DbSet<Domain.Projects.ProjectCostEntry> ProjectCostEntries => Set<Domain.Projects.ProjectCostEntry>();
     public DbSet<Domain.Projects.ProjectContract> ProjectContracts => Set<Domain.Projects.ProjectContract>();
     public DbSet<Domain.Projects.ContractVariation> ContractVariations => Set<Domain.Projects.ContractVariation>();
     public DbSet<Domain.Projects.BillingMilestone> BillingMilestones => Set<Domain.Projects.BillingMilestone>();

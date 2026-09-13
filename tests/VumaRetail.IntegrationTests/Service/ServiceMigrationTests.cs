@@ -13,7 +13,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913183155_Stage29Reporting").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913184733_Stage28ProjectCosts").ConfigureAwait(false);
 
         IReadOnlyList<string> assetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -29,7 +29,16 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             WHERE table_schema = 'projects'
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
-        projectTables.Should().BeEquivalentTo(["billing_milestones", "contract_variations", "project_budgets", "project_contracts", "projects"], options => options.WithStrictOrdering());
+        projectTables.Should().BeEquivalentTo(["billing_milestones", "contract_variations", "project_budgets", "project_contracts", "project_cost_entries", "projects"], options => options.WithStrictOrdering());
+
+        IReadOnlyList<string> costColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'projects' AND table_name = 'project_cost_entries'
+            """).ToListAsync().ConfigureAwait(false);
+        costColumns.Should().Contain("reverses_entry_id");
+
+        await context.Database.MigrateAsync("20260913183155_Stage29Reporting").ConfigureAwait(false);
 
         IReadOnlyList<string> reportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
