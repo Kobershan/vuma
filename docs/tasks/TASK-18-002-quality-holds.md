@@ -28,3 +28,11 @@ available for allocation and partial shortages leave no persisted hold.
 
 The 100/20 availability scenario, expiry boundary dispatch refusal, and real PostgreSQL reservation
 projection evidence remain open.
+
+## Work log
+
+- 2026-09-13: Added the real PostgreSQL API scenario for the 100/20 hold boundary, idempotent retry,
+  and atomic 81-unit shortfall refusal. The shortfall initially surfaced as HTTP 500; introduced
+  the typed `QUALITY_HOLD_EXCEEDS_AVAILABLE` domain rule so the central API error contract returns
+  HTTP 422 without persisting a hold. Focused integration evidence is now 13/13 green; expiry and
+  dispatch integration remain open.
