@@ -26,6 +26,10 @@ public static class AssetEndpoints
         maintenance.MapPost("/{id:guid}/start", StartMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         maintenance.MapPost("/{id:guid}/complete", CompleteMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         maintenance.MapPost("/{id:guid}/cancel", CancelMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        RouteGroupBuilder checklists = endpoints.MapVumaApi().MapGroup("/assets/checklists")
+            .WithTags("Assets").RequireModule("assets");
+        checklists.MapPost("/", CreateChecklistAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        checklists.MapPost("/{id:guid}/executions", SubmitChecklistAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         return endpoints;
     }
 
@@ -77,10 +81,18 @@ public static class AssetEndpoints
     private static async Task<IResult> CancelMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     { await dispatcher.SendAsync(new CancelMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
 
+    private static async Task<IResult> CreateChecklistAsync(CreateChecklistRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { Guid id = await dispatcher.SendAsync(new CreateStoreChecklistCommand(request.CompanyId, request.StoreId, request.Code, request.Name, request.ItemCodes), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}", id); }
+
+    private static async Task<IResult> SubmitChecklistAsync(Guid id, SubmitChecklistRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { Guid executionId = await dispatcher.SendAsync(new SubmitChecklistExecutionCommand(request.CompanyId, request.StoreId, id, request.OperationId, request.DeviceId, request.CapturedAt, request.SubmittedAt, request.EvidenceReference), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}/executions/{executionId:D}", executionId); }
+
     public sealed record CreateAssetRequest(Guid CompanyId, string AssetNumber, string Description, DateOnly AcquiredOn, decimal Cost, string Currency);
     public sealed record AssetCompanyRequest(Guid CompanyId);
     public sealed record DisposeAssetRequest(Guid CompanyId, DateOnly DisposedOn);
     public sealed record CreateBookRequest(Guid CompanyId, string BookName, DateOnly InServiceOn, decimal ResidualValue, string Currency, int UsefulLifeMonths);
     public sealed record RunDepreciationRequest(Guid CompanyId, DateOnly Period);
     public sealed record CreateMaintenanceRequest(Guid CompanyId, Guid AssetId, string Description, DateOnly? ScheduledOn);
+    public sealed record CreateChecklistRequest(Guid CompanyId, Guid? StoreId, string Code, string Name, IReadOnlyCollection<string> ItemCodes);
+    public sealed record SubmitChecklistRequest(Guid CompanyId, Guid? StoreId, Guid OperationId, string DeviceId, DateTimeOffset CapturedAt, DateTimeOffset SubmittedAt, string EvidenceReference);
 }

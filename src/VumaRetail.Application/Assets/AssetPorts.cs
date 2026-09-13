@@ -15,3 +15,11 @@ public interface IAssetRepository
     void Add(AssetBook book);
     void Add(DepreciationRun run);
 }
+
+public interface IChecklistRepository
+{
+    Task<StoreChecklist?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ChecklistExecution?> FindExecutionByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    void Add(StoreChecklist checklist);
+    void Add(ChecklistExecution execution);
+}

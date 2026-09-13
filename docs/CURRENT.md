@@ -29,6 +29,11 @@ state now has tenant/company-scoped EF mappings, repositories, company-guarded c
 manage-protected API routes in migration `20260913221156_Stage22MarketingPersistence`; durable
 delivery processing, provider transports and callbacks remain open.
 
+WORK LOG (2026-09-13): Stage 27 checklist execution now has tenant/company-scoped persistence,
+company-guarded create/submit commands and manage-protected API routes; matching operation replays
+are idempotent and changed content is refused. StoreServer Release builds with 0 errors; evidence
+authorization and period-close acceptance remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle

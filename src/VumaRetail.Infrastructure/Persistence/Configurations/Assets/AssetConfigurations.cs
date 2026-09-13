@@ -52,3 +52,27 @@ internal sealed class MaintenanceOrderConfiguration : EntityConfiguration<Mainte
             .HasDatabaseName("ix_maintenance_orders_tenant_company_asset_status");
     }
 }
+
+internal sealed class StoreChecklistConfiguration : EntityConfiguration<StoreChecklist>
+{
+    protected override string Schema => Schemas.Assets;
+    protected override string TableName => "store_checklists";
+    protected override void ConfigureEntity(EntityTypeBuilder<StoreChecklist> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired(); builder.Property(x => x.Code).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(256); builder.Property(x => x.ItemCodes).IsRequired().HasMaxLength(4000);
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.StoreId, x.Code }).IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}
+
+internal sealed class ChecklistExecutionConfiguration : EntityConfiguration<ChecklistExecution>
+{
+    protected override string Schema => Schemas.Assets;
+    protected override string TableName => "checklist_executions";
+    protected override void ConfigureEntity(EntityTypeBuilder<ChecklistExecution> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired(); builder.Property(x => x.DeviceId).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.EvidenceReference).IsRequired().HasMaxLength(512); builder.Property(x => x.CapturedAt).IsRequired(); builder.Property(x => x.SubmittedAt).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}

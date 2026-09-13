@@ -24,7 +24,14 @@ identity, capture time, submit time and external evidence reference.
 2026-09-13: Asset-focused unit suite passes 6/6, including offline replay metadata and timestamp
 ordering tests.
 
+## Verification update
+
+2026-09-13: Added tenant/company-scoped EF mappings and `Stage27ChecklistPersistence`, plus
+company-guarded checklist create/submit commands and `assets` manage-protected API routes. Execution
+replays with matching operation content return the existing identity; changed content is refused.
+StoreServer Release build passes with 0 errors. Evidence upload authorization and period-close
+acceptance remain open.
+
 ## Follow-up findings
 
-EF mappings/migration, local queue APIs, evidence upload/download authorization, replay idempotency,
-checklist submission API and period-close acceptance remain open.
+local queue APIs, evidence upload/download authorization and period-close acceptance remain open.

@@ -7,7 +7,7 @@ using VumaRetail.Domain.Service;
 namespace VumaRetail.Infrastructure.Persistence.Repositories;
 
 /// <summary>EF persistence boundary for the Stage 23 service coordination records.</summary>
-public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRepository, IAssetRepository
+public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRepository, IAssetRepository, IChecklistRepository
 {
     public async Task<IReadOnlyList<ServiceTicket>> ListTicketsAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default)
         => await context.ServiceTickets.AsNoTracking()
@@ -62,4 +62,8 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
     public void Add(AssetBook book) => context.AssetBooks.Add(book);
     public void Add(DepreciationRun run) => context.DepreciationRuns.Add(run);
     public void Add(MaintenanceOrder order) => context.MaintenanceOrders.Add(order);
+    public Task<StoreChecklist?> FindAsync(Guid id, CancellationToken cancellationToken = default) => context.StoreChecklists.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public Task<ChecklistExecution?> FindExecutionByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default) => context.ChecklistExecutions.FirstOrDefaultAsync(x => x.OperationId == operationId, cancellationToken);
+    public void Add(StoreChecklist checklist) => context.StoreChecklists.Add(checklist);
+    public void Add(ChecklistExecution execution) => context.ChecklistExecutions.Add(execution);
 }

@@ -585,6 +585,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Assets.DepreciationRun> DepreciationRuns => Set<Domain.Assets.DepreciationRun>();
     /// <summary>Company-scoped asset maintenance work orders (Stage 27).</summary>
     public DbSet<Domain.Assets.MaintenanceOrder> MaintenanceOrders => Set<Domain.Assets.MaintenanceOrder>();
+    public DbSet<Domain.Assets.StoreChecklist> StoreChecklists => Set<Domain.Assets.StoreChecklist>();
+    public DbSet<Domain.Assets.ChecklistExecution> ChecklistExecutions => Set<Domain.Assets.ChecklistExecution>();
     /// <summary>Project and contract job-cost records (Stage 28).</summary>
     public DbSet<Domain.Projects.Project> Projects => Set<Domain.Projects.Project>();
     public DbSet<Domain.Projects.ProjectBudget> ProjectBudgets => Set<Domain.Projects.ProjectBudget>();

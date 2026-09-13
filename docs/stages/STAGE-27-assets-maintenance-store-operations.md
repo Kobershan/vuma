@@ -1,6 +1,6 @@
 # STAGE 27 — Assets, Maintenance and Store Operations
 
-**Status:** IN_PROGRESS — asset lifecycle and depreciation calculation foundation implemented; persistence, API, finance posting and acceptance remain · asset writes use the registered `assets.asset.manage` permission and `assets` licensing manifest · **Depends on:** 07, 25; integration with 05, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [HR stage](STAGE-25-hr-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — asset lifecycle, depreciation, maintenance and checklist persistence/API foundations implemented; finance posting and acceptance remain · asset writes use the registered `assets.asset.manage` permission and `assets` licensing manifest · **Depends on:** 07, 25; integration with 05, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [HR stage](STAGE-25-hr-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
