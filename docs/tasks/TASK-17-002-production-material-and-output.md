@@ -46,3 +46,5 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   raises `manufacturing.scrap.recorded` through Stage 07's posting boundary, while exact replays are
   silent and finance-less hosts retain a logging fallback. Infrastructure builds and the focused
   manufacturing suite pass 19/19; PostgreSQL shortage/replay and journal assertions remain open.
+- 2026-09-13: CI run `34746409342` passed Build, Test, Architecture, Vulnerability, Migration,
+  Design System and Windows/Android packaging after the accounting boundary was wired.
