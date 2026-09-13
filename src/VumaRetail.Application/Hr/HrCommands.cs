@@ -1,4 +1,5 @@
- #pragma warning disable CS1591, IDE0011, CA1062
+#pragma warning disable CS1591, IDE0011, CA1062
+using System.Globalization;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.HrManagement;
@@ -265,6 +266,20 @@ internal static class PayrollHoursCalculator
         if (clockIn is not null || breakStart is not null) throw new InvalidOperationException("Payroll period contains an unclosed attendance session.");
         return (decimal)worked.TotalHours;
     }
+}
+public static class PayrollExportCsv
+{
+    public static string Serialize(IReadOnlyCollection<PayrollExportRow> rows)
+    {
+        var lines = new List<string> { "employee_id,employee_number,hours,hourly_rate,gross_amount,currency" };
+        lines.AddRange(rows.OrderBy(x => x.EmployeeNumber).Select(x => string.Join(",",
+            x.EmployeeId.ToString("D"), Escape(x.EmployeeNumber), x.Hours.ToString("0.####", CultureInfo.InvariantCulture),
+            x.HourlyRate.ToString("0.####", CultureInfo.InvariantCulture), x.GrossAmount.ToString("0.##", CultureInfo.InvariantCulture), Escape(x.Currency))));
+        return string.Join("\r\n", lines) + "\r\n";
+    }
+
+    private static string Escape(string value) => value.Contains(',', StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal)
+        ? $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"" : value;
 }
 
 public interface IEmployeeRepository { Task<Employee?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token = default); void Add(Employee employee); }

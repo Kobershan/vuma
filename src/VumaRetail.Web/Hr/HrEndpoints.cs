@@ -31,6 +31,11 @@ public static class HrEndpoints
         hr.MapPost("/disciplinary-cases/{id:guid}/decision", async (Guid id, DisciplinaryDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideDisciplinaryCaseCommand(id, r.Decision, r.DecidedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.DisciplinaryManage);
         hr.MapGet("/disciplinary-cases", async (Guid companyId, Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListDisciplinaryCasesQuery(companyId, employeeId), ct))).RequirePermission(HrPermissions.View);
         hr.MapGet("/payroll/export", async (DateOnly from, DateOnly to, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new GeneratePayrollExportQuery(from, to), ct))).RequirePermission(HrPermissions.PayrollExport);
+        hr.MapGet("/payroll/export.csv", async (DateOnly from, DateOnly to, IDispatcher d, CancellationToken ct) =>
+        {
+            var rows = await d.QueryAsync(new GeneratePayrollExportQuery(from, to), ct);
+            return Results.Text(PayrollExportCsv.Serialize(rows), "text/csv");
+        }).RequirePermission(HrPermissions.PayrollExport);
         hr.MapGet("/leave", async (Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListLeaveRequestsQuery(employeeId), ct))).RequirePermission(HrPermissions.LeaveView);
         hr.MapPost("/leave", async (CreateLeaveRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/leave", await d.SendAsync(new CreateLeaveRequestCommand(r.EmployeeId, r.From, r.To, r.LeaveType, r.Reason), ct))).RequirePermission(HrPermissions.LeaveManage);
         hr.MapPost("/leave/{id:guid}/decision", async (Guid id, LeaveDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideLeaveCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.LeaveManage);

@@ -64,6 +64,9 @@ that pairs immutable attendance sessions with contract rates, subtracts explicit
 closed on incomplete sessions or missing contracts. `PayrollExportTests` passes 2/2; statutory
 calculation, durable file delivery and provider integration remain open.
 
+WORK LOG (2026-09-13): Stage 25 payroll source rows are now also available through deterministic
+CSV with escaping at `/api/v1/hr/payroll/export.csv`; `PayrollExportTests` passes 3/3.
+
 VERIFICATION (2026-09-13): The post-payroll architecture suite passes 85/85 and
 `dotnet ef migrations has-pending-model-changes` reports no changes. GitHub CI for the latest
 checkpoint remains in progress.

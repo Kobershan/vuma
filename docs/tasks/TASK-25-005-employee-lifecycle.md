@@ -56,3 +56,8 @@ passes 2/2. Durable export files, payroll-provider integration and specialist/ru
 
 Architecture verification after the payroll repository-port extension passes **85/85**; the EF model
 also reports no pending migrations.
+
+The same source rows are now available as deterministic `text/csv` at
+`GET /api/v1/hr/payroll/export.csv`; `PayrollExportTests` passes 3/3 including comma escaping and
+stable formatting. Provider delivery and statutory calculations remain out of scope for this source
+export.

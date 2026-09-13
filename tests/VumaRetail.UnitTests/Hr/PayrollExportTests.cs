@@ -55,4 +55,14 @@ public sealed class PayrollExportTests
             .HandleAsync(new GeneratePayrollExportQuery(new DateOnly(2026, 9, 13), new DateOnly(2026, 9, 13))))
             .Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public void Csv_export_is_deterministic_and_escapes_fields()
+    {
+        var row = new PayrollExportRow(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "E,2026", 7m, 100m, 700m, "ZAR");
+
+        PayrollExportCsv.Serialize([row]).Should().Be(
+            "employee_id,employee_number,hours,hourly_rate,gross_amount,currency\r\n" +
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,\"E,2026\",7,100,700,ZAR\r\n");
+    }
 }
