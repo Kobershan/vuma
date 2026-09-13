@@ -67,6 +67,31 @@ public sealed class DisposeFixedAssetCommandHandler(IAssetRepository assets, ICo
 }
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record RunDepreciationCommand(Guid CompanyId, Guid AssetBookId, DateOnly Period) : ICommand<Guid>;
+
+public sealed class RunDepreciationCommandHandler(IAssetRepository assets, ITenantContext tenant,
+    ICompanyContext company) : ICommandHandler<RunDepreciationCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(RunDepreciationCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
+        AssetBook book = await assets.FindBookAsync(command.AssetBookId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Asset book not found.");
+        if (book.CompanyId != command.CompanyId) throw new InvalidOperationException("The asset-book company is not the active company.");
+        DepreciationRun? existing = await assets.FindDepreciationRunAsync(book.Id, command.Period, cancellationToken).ConfigureAwait(false);
+        if (existing is not null) return existing.Id;
+        FixedAsset asset = await assets.FindAssetAsync(book.AssetId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Fixed asset not found.");
+        if (asset.CompanyId != command.CompanyId) throw new InvalidOperationException("The asset company is not the active company.");
+        DepreciationRun run = DepreciationRun.Record(tenant.TenantId, null, command.CompanyId,
+            DepreciationCalculator.Calculate(asset, book, command.Period));
+        assets.Add(run);
+        return run.Id;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CreateAssetBookCommand(Guid CompanyId, Guid AssetId, string BookName, DateOnly InServiceOn,
     decimal ResidualValue, string Currency, int UsefulLifeMonths) : ICommand<Guid>;
 
