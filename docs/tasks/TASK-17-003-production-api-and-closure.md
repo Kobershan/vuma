@@ -46,3 +46,6 @@ TASK-17-002.
   BOM publish, production release, material issue, output receipt, close and genealogy readback.
   The test passes locally; capacity readback, replay/shortage assertions, backup/seed evidence and
   specialist closure review remain open, so this task is intentionally still IN_PROGRESS.
+- 2026-09-13: the same PostgreSQL scenario now proves issue replay, genealogy and capacity readback;
+  the focused manufacturing integration suite passes 9/9. Backup/seed rehearsal, shortage/journal
+  assertions and specialist closure review remain open.

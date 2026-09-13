@@ -3,8 +3,8 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stage 17 — Manufacturing Execution — IN PROGRESS (2026-09-12). Canonical task queue is created; production-order lifecycle implementation is next.
-NEXT STAGE (roadmap order): Stage 17 — Manufacturing execution — architecture/task specification is required before implementation.
+CURRENT STAGE: Stage 17 — Manufacturing Execution — IN PROGRESS (2026-09-13). Production lifecycle, stock-backed issue/output, replay protection, secured API, genealogy and capacity readback are implemented; closure evidence remains.
+NEXT STAGE (roadmap order): Stage 17 — Manufacturing execution — shortage/journal acceptance, backup/seed rehearsal and specialist closure review remain.
 
 STAGE 15: TASK-15-01 DONE — demand history rollup (weekly Mon–Sun, idempotent, gap zeros) + forecast engine (moving-average, exponential-smoothing, seasonal-naive behind IForecastEngine; MAPE/bias back-test; low-confidence flags) + weekly forecast run + read endpoints. TASK-15-02 DONE — safety stock (variance + 8-week fallback, horizon refusal), reorder via SafetyStockCalculation rows, ABC/XYZ snapshot runs, open-to-buy budgets with live commitments (warning only). TASK-15-03 DONE — replenishment run (ROP + forecast top-up, transfer-surplus preferred with SharedSourcing link checked at generation, 14-day expiry, backorder reattempt hook), accept/amend-accept (exactly-once)/reject through Stage 12 requisition + Stage 08 transfer commands. TASK-15-04 DONE — markdown plans (Draft→PendingApproval→Approved→Active, versioning amendments, cancel retires promotions) through IApprovalService + Stage 10 percentage-off promotions; activation sweep for missed dates. Domain (10 files) / Application (ports, 4 engines, 14 commands, 7 queries, 9 permissions, manifest, 4 hosted services) / Infrastructure (8 repos, EF configs, writers, DI) / Contracts / Web (19 endpoints) all new. Migration `20260909131616_Stage15_Planning` (9 tables, reversible, model/snapshot agree). ADR-149. Core projects (Domain/Application/Infrastructure/Contracts) build 0 errors.
 
@@ -19,10 +19,12 @@ TEST STATUS (Stage 15 — VERIFIED, coverage environment-limited):
   - Integration: Stage 15 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - Integration: Stage 16 migration Up/Down 1/1 passed against the local PostgreSQL harness
   - BOM explosion/costing unit tests: 4/4 passed
-  - Manufacturing focused unit tests (BOM lifecycle, routing, explosion/costing): 10/10 passed
+  - Manufacturing focused unit tests (BOM lifecycle, routing, explosion/costing and production execution): 20/20 passed
   - Manufacturing command handler tests: 3/3 passed
   - StoreServer build after manufacturing API wiring: PASSED — 0 errors
   - Canonical full suite: 1,340 unit, 77 architecture, and 552 integration tests passed
+  - Manufacturing focused integration suite: 9/9 passed against PostgreSQL, including authorized execution,
+    issue replay, genealogy and capacity readback
   - Migration `Down`: VERIFIED on real PostgreSQL; all 9 planning tables were removed
   - Focused planning unit coverage collection: BLOCKED — the existing XPlat collector hung twice without producing a report; no percentage is claimed
 
