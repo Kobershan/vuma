@@ -11,6 +11,34 @@ public sealed record ListServiceTicketsQuery(Guid CompanyId, Guid? CustomerId = 
 public sealed record ServiceTicketResult(Guid Id, Guid CompanyId, Guid CustomerId, string Subject,
     string Status, DateTimeOffset OpenedAtUtc, DateTimeOffset? ClosedAtUtc);
 
+public sealed record GetServiceSlaDeadlinesQuery(Guid CompanyId, Guid TicketId, string SlaName, DateTimeOffset AsOfUtc)
+    : IQuery<ServiceSlaDeadlineResult>;
+
+public sealed record ServiceSlaDeadlineResult(Guid TicketId, string SlaName, DateTimeOffset ResponseDueAtUtc,
+    DateTimeOffset ResolutionDueAtUtc, bool ResponseBreached, bool ResolutionBreached);
+
+public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository services, ICompanyContext company,
+    IServiceSlaClock slaClock) : IQueryHandler<GetServiceSlaDeadlinesQuery, ServiceSlaDeadlineResult>
+{
+    public async Task<ServiceSlaDeadlineResult> HandleAsync(GetServiceSlaDeadlinesQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
+        ServiceTicket ticket = await services.FindTicketAsync(query.TicketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Service ticket was not found.");
+        ListServiceTicketsQueryHandler.EnsureCompany(company, ticket.CompanyId!.Value);
+        ServiceSla sla = await services.FindSlaByNameAsync(query.CompanyId, query.SlaName, cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Service SLA was not found.");
+        DateTimeOffset asOf = query.AsOfUtc.ToUniversalTime();
+        DateTimeOffset responseDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResponseHours);
+        DateTimeOffset resolutionDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResolutionHours);
+        return new ServiceSlaDeadlineResult(ticket.Id, sla.Name, responseDue, resolutionDue,
+            ticket.Status == ServiceTicketStatus.Open && asOf > responseDue,
+            ticket.Status != ServiceTicketStatus.Closed && asOf > resolutionDue);
+    }
+}
+
 public sealed class ListServiceTicketsQueryHandler(IServiceRepository services, ICompanyContext company)
     : IQueryHandler<ListServiceTicketsQuery, IReadOnlyList<ServiceTicketResult>>
 {

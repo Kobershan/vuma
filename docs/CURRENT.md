@@ -68,6 +68,10 @@ VERIFICATION (2026-09-13): The post-payroll architecture suite passes 85/85 and
 `dotnet ef migrations has-pending-model-changes` reports no changes. GitHub CI for the latest
 checkpoint remains in progress.
 
+WORK LOG (2026-09-13): Stage 23 now exposes company-scoped SLA response/resolution deadlines and
+breach flags through the service query/API surface using configured weekday business hours.
+`ServiceSlaClockTests` passes 5/5; SLA worker scheduling and full acceptance remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle

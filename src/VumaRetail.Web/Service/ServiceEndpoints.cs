@@ -19,6 +19,7 @@ public static class ServiceEndpoints
             .WithTags("Service").RequireModule("service");
         service.MapPost("/tickets", OpenTicketAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapGet("/tickets", ListTicketsAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceTicketResult>>();
+        service.MapGet("/tickets/{id:guid}/sla", async (Guid id, Guid companyId, string slaName, DateTimeOffset asOfUtc, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new GetServiceSlaDeadlinesQuery(companyId, id, slaName, asOfUtc), ct))).RequirePermission(ServicePermissions.View);
         service.MapPost("/tickets/{id:guid}/close", CloseTicketAsync).RequirePermission(ServicePermissions.Manage).Produces(StatusCodes.Status204NoContent);
         service.MapPost("/warranties", SubmitWarrantyAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapPost("/warranties/{id:guid}/approve", ApproveWarrantyAsync).RequirePermission(ServicePermissions.ApproveWarranty).Produces(StatusCodes.Status204NoContent);

@@ -2,6 +2,10 @@
 
 **Status:** IN_PROGRESS — Stage 23-P01 domain foundation implemented; persistence, application orchestration, API, and acceptance certification remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
+2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
+use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
+as-of timestamp. `ServiceSlaClockTests` passes 5/5; SLA worker scheduling and full acceptance remain.
+
 ## Objective
 
 Handle customer tickets, warranty checks, repair jobs, RMA and service parts with traceable custody, SLA tracking and correct financial treatment.
