@@ -42,6 +42,10 @@ WORK LOG (2026-09-13): Stage 22 marketing command authorization now rejects idem
 message state changes crossing the active tenant/company boundary. `MarketingDeliveryPolicyTests`
 passes 12/12; durable transport, callbacks and attribution remain open.
 
+WORK LOG (2026-09-13): Stage 25 now has an auditable disciplinary-case domain state machine that
+requires investigation before a one-way decision and preserves event ordering. `DisciplinaryCaseTests`
+passes 2/2; HR persistence/workflow routes and payroll export remain open.
+
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/
 approved/rejected transitions, same-employee refusal, and handler ownership validation. HR lifecycle

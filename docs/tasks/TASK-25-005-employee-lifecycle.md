@@ -35,3 +35,8 @@ document tests.
 ## Follow-up findings
 
 Disciplinary case management, payroll export and specialist/runtime review remain open at Stage 25.
+
+2026-09-13: Added the disciplinary-case domain state machine as the foundation for the follow-up
+workflow. `DisciplinaryCaseTests` passes 2/2, covering investigation-before-decision, event ordering,
+and one-way decision state. Persistence, commands/routes, payroll export and specialist/runtime review
+remain open.
