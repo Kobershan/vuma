@@ -224,6 +224,7 @@ builder.Services.AddVumaPlanning();
 // Stage 16. Versioned BOM definitions and costing inputs. Production execution remains Stage 17.
 builder.Services.AddVumaManufacturing();
 builder.Services.AddVumaQuality();
+builder.Services.AddVumaEcommerce();
 
 // Stage 19. CRM: leads, opportunities, activities, segments and consent. After AddVumaPartners
 // (conversion verifies the partner link through the partners read port — a Guid reference,
