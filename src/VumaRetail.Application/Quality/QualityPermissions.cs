@@ -7,8 +7,8 @@ namespace VumaRetail.Application.Quality;
 
 public sealed class QualityPermissions : IModulePermissions
 {
-    public const string View = "quality.view";
-    public const string Manage = "quality.manage";
+    public const string View = "quality.inspection.view";
+    public const string Manage = "quality.inspection.manage";
     public string Module => "quality";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [

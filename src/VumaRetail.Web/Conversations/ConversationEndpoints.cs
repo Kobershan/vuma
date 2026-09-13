@@ -158,7 +158,7 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken, sender, loggers.CreateLogger("VumaRetail.Web.Conversations")).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken, sender, loggers).ConfigureAwait(false);
     }
 
     private static async Task<IResult> TwilioWhatsAppWebhookAsync(HttpContext context, IConfiguration configuration, CancellationToken cancellationToken)
@@ -170,7 +170,7 @@ public static class ConversationEndpoints
         if (!TwilioWebhookSecurity.Verify(url, parameters, context.Request.Headers["X-Twilio-Signature"].ToString(), options.AuthToken)) return Results.Unauthorized();
         if (!parameters.TryGetValue("From", out string? from) || !parameters.TryGetValue("Body", out string? body)) return Results.BadRequest(new { error = "Twilio From and Body are required." });
         var services = context.RequestServices;
-        return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken, services.GetRequiredService<IWhatsAppSender>(), services.GetRequiredService<ILoggerFactory>().CreateLogger("VumaRetail.Web.Conversations")).ConfigureAwait(false);
+        return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken, services.GetRequiredService<IWhatsAppSender>(), services.GetRequiredService<ILoggerFactory>()).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
@@ -187,7 +187,7 @@ public static class ConversationEndpoints
         ITenantContext tenant,
         CancellationToken cancellationToken,
         IWhatsAppSender? sender = null,
-        ILogger? logger = null)
+        ILoggerFactory? loggerFactory = null)
         => await InboundAsync(
             message with { Channel = ConversationChannel.Email },
             contacts,
@@ -202,7 +202,7 @@ public static class ConversationEndpoints
             tenant,
             cancellationToken,
             message.Channel == ConversationChannel.WhatsApp ? sender : null,
-            logger).ConfigureAwait(false);
+            loggerFactory).ConfigureAwait(false);
 
     private static async Task<IResult> InboundAsync(
         InboundMessage message,
@@ -218,7 +218,7 @@ public static class ConversationEndpoints
         ITenantContext tenant,
         CancellationToken cancellationToken,
         IWhatsAppSender? sender = null,
-        ILogger? logger = null)
+        ILoggerFactory? loggerFactory = null)
     {
         if (string.IsNullOrWhiteSpace(message.Address) || string.IsNullOrWhiteSpace(message.Text))
         {
@@ -300,7 +300,7 @@ public static class ConversationEndpoints
             }
             catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
             {
-                logger?.LogError(exception, "Conversation reply delivery failed for {ConversationId}.", conversation.Id);
+                loggerFactory?.CreateLogger("VumaRetail.Web.Conversations").LogError(exception, "Conversation reply delivery failed for {ConversationId}.", conversation.Id);
             }
         }
         return Results.Accepted(value: new
