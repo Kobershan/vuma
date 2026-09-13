@@ -230,6 +230,7 @@ public sealed class ServicePartUsage : Entity
 }
 
 /// <summary>Configured service SLA duration, expressed in working hours.</summary>
+[Replicated(ReplicationScope.CloudToStore, ConflictPolicy.CloudWins)]
 public sealed class ServiceSla : Entity
 {
     private ServiceSla() { }

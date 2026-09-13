@@ -35,7 +35,7 @@ public sealed class ServiceDomainTests
     [Fact]
     public void Ticket_close_requires_resolution_or_explicit_waiting_state()
     {
-        ServiceTicket ticket = ServiceTicket.Open(TenantId, null, CompanyId, CustomerId, "Repair laptop", DateTimeOffset.UtcNow);
+        ServiceTicket ticket = ServiceTicket.Open(TenantId, null, CompanyId, Guid.NewGuid(), CustomerId, "Repair laptop", DateTimeOffset.UtcNow);
 
         FluentActions.Invoking(() => ticket.Close(DateTimeOffset.UtcNow)).Should().Throw<InvalidOperationException>();
         ticket.Resolve(DateTimeOffset.UtcNow);

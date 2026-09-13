@@ -69,3 +69,5 @@ parts/accounting, SLA worker, and full isolation acceptance remain open.
 Stage 23 application seams now include an EF service repository, idempotent ticket-opening,
 company-scoped warranty approval and repair completion handlers, registered in StoreServer and
 CloudApi. Service command/domain tests pass 23/23; StoreServer Release build passes with 0 errors.
+The replication architecture gate also passes 85/85 after explicitly declaring the SLA definition
+as CloudToStore/CloudWins. Latest fix is queued in GitHub CI.
