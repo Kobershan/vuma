@@ -85,4 +85,20 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         paths.TryGetProperty("/api/v1/manufacturing/boms/{id}", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/boms/{id}/publish", out _).Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Openapi_describes_the_production_execution_routes()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        using JsonDocument document = JsonDocument.Parse(await harness.Client.GetStringAsync("/openapi/v1.json"));
+        JsonElement paths = document.RootElement.GetProperty("paths");
+
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/release", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/issues", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/receipts", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/scrap", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/close", out _).Should().BeTrue();
+    }
 }

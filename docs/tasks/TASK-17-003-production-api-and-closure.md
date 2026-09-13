@@ -26,3 +26,6 @@ TASK-17-002.
   `/api/v1/manufacturing/production-orders`, with manufacturing module entitlement and manage
   permission enforcement. OpenAPI examples, genealogy/capacity queries, offline replay evidence,
   backup/seed evidence and final specialist verification remain open.
+- 2026-09-13: added OpenAPI path coverage for all six production execution routes. The integration
+  suite must still execute against a created production order once stock/financial boundaries are
+  wired; current focused domain/API build evidence is not stage-closure evidence.
