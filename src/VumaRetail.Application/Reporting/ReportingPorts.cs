@@ -14,3 +14,9 @@ public interface IReportingRepository
     void Add(ProjectionCheckpoint checkpoint);
     void Add(ReportExport export);
 }
+
+public interface IReportExportDownloadAuthorizer
+{
+    string Create(ReportExport export, DateTimeOffset expiresAtUtc);
+    bool Validate(string token, Guid exportId, DateTimeOffset asOfUtc);
+}

@@ -125,4 +125,27 @@ public sealed class ReportingDomainTests
         (await new GetReportExportQueryHandler(repository, company).HandleAsync(new GetReportExportQuery(export.Id))).Should().BeNull();
     }
 
+    [Fact]
+    public async Task Export_download_grant_requires_completed_export_and_active_company()
+    {
+        var companyId = Guid.NewGuid();
+        var export = ReportExport.Queue(Guid.NewGuid(), null, companyId, Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
+        export.Complete(DateTimeOffset.UtcNow, "blob/report.csv");
+        var repository = Substitute.For<IReportingRepository>();
+        repository.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        var authorizer = Substitute.For<IReportExportDownloadAuthorizer>();
+        authorizer.Create(export, Arg.Any<DateTimeOffset>()).Returns("opaque-report-grant");
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero));
+
+        ReportExportDownloadResult? result = await new AuthorizeReportExportDownloadQueryHandler(repository, authorizer, company, clock)
+            .HandleAsync(new AuthorizeReportExportDownloadQuery(export.Id));
+
+        result.Should().NotBeNull();
+        result!.Token.Should().Be("opaque-report-grant");
+        result.ExpiresAtUtc.Should().Be(clock.UtcNow.AddMinutes(15));
+    }
+
 }

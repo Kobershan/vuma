@@ -4,6 +4,7 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Reporting;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -13,6 +14,7 @@ public static class ReportingServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IReportingRepository, ReportingRepository>();
+        services.TryAddScoped<IReportExportDownloadAuthorizer, ReportExportDownloadAuthorizer>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
         return services;

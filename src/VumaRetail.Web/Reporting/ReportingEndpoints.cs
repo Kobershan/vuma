@@ -26,6 +26,11 @@ public static class ReportingEndpoints
             .RequirePermission(ReportingPermissions.View)
             .Produces<ReportExportResult>()
             .ProducesProblem(StatusCodes.Status404NotFound);
+        group.MapPost("/exports/{id:guid}/download", async (Guid id, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            ReportExportDownloadResult? result = await dispatcher.QueryAsync(new AuthorizeReportExportDownloadQuery(id), cancellationToken).ConfigureAwait(false);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission(ReportingPermissions.View);
         group.MapPost("/exports/{id:guid}/complete", async (Guid id, CompleteExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new CompleteReportExportCommand(request.CompanyId, id, request.ArtifactReference), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
         group.MapPost("/exports/{id:guid}/fail", async (Guid id, FailExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new FailReportExportCommand(request.CompanyId, id, request.Reason), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
         return endpoints;

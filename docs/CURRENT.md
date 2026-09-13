@@ -194,3 +194,6 @@ Pushed as `0304de8`.
 WORK LOG (2026-09-13): Stage 31 now has `scripts/verify-release-manifest.sh`, a fail-closed SHA-256
 manifest verifier with a tamper regression self-test. The self-test passes and the change was pushed
 as `7dbdd94`; GitHub CI run `34778882152` is in progress.
+WORK LOG (2026-09-13): Stage 29 completed-export downloads now issue 15-minute company-scoped opaque
+HMAC grants; `ReportingDomainTests` passes 9/9 and the validation boundary rejects tampering/expiry.
+Renderer/storage consumption, scheduled worker execution, and rebuild remain open.

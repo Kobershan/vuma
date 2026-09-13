@@ -14,8 +14,9 @@ Worker execution, file storage, scheduling and full export authorization accepta
 company, and persist an artifact reference for completed exports. Export requests now require the
 high-risk `reporting.report.manage` permission; `ReportingDomainTests` passes 8/8. Migration
 `Stage29ReportExportArtifactsFix` adds the durable artifact reference (the earlier empty migration was
-removed before release). Actual renderer, storage adapter,
-scheduled worker and expiring download authorization remain open.
+removed before release). Completed exports now expose a company-scoped 15-minute opaque HMAC download
+grant through `POST /api/v1/reports/exports/{id}/download`; validation rejects tampering and exact
+expiry. Actual renderer, storage adapter and scheduled worker remain open.
 
 The status query additionally requires the active company to match the export company; a regression
 test prevents same-tenant cross-company status disclosure.
