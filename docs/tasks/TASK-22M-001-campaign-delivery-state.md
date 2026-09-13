@@ -19,7 +19,7 @@ repositories, company-guarded commands, and manage-protected API routes. The rev
 
 ## Verification
 
-2026-09-13: Marketing-focused unit tests pass 8/8, including future-only scheduling and explicit
+2026-09-13: Marketing-focused unit tests pass 10/10, including future-only scheduling, explicit
 suppression state. StoreServer and CloudApi builds pass with 0 errors; the migration contains the
 `marketing.campaigns` and `marketing.outbound_messages` tables with unique idempotency keys.
 

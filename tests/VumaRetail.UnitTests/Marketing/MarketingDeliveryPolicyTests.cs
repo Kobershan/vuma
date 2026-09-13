@@ -1,5 +1,7 @@
 using NSubstitute;
 using VumaRetail.Application.Crm;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Marketing;
 using VumaRetail.Domain.Crm;
 using VumaRetail.Domain.Marketing;
@@ -69,5 +71,40 @@ public sealed class MarketingDeliveryPolicyTests
         var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Old", "old-v1", DateTimeOffset.UtcNow.AddMinutes(-1));
         var action = () => campaign.Schedule(DateTimeOffset.UtcNow);
         action.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Queue_handler_replays_identical_idempotency_key_without_adding_a_message()
+    {
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var existing = OutboundMessage.Queue(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), "same-key", DateTimeOffset.UtcNow.AddHours(1));
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindByIdempotencyKeyAsync("same-key", Arg.Any<CancellationToken>()).Returns(existing);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        var result = await new QueueOutboundMessageCommandHandler(messages, tenant, company)
+            .HandleAsync(new QueueOutboundMessageCommand(companyId, null, existing.CampaignId, existing.CustomerId, "same-key", existing.ScheduledAt));
+
+        result.Should().Be(existing.Id);
+        messages.DidNotReceive().Add(Arg.Any<OutboundMessage>());
+    }
+
+    [Fact]
+    public async Task Campaign_create_handler_rejects_a_non_active_company()
+    {
+        var campaigns = Substitute.For<IMarketingCampaignRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        await FluentAssertions.FluentActions.Invoking(() => new CreateMarketingCampaignCommandHandler(campaigns, tenant, company)
+            .HandleAsync(new CreateMarketingCampaignCommand(Guid.NewGuid(), null, "Sale", "sale-v1", DateTimeOffset.UtcNow.AddHours(1))))
+            .Should().ThrowAsync<InvalidOperationException>();
+        campaigns.DidNotReceive().Add(Arg.Any<MarketingCampaign>());
     }
 }
