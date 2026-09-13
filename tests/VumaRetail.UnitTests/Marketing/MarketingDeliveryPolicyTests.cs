@@ -1,0 +1,39 @@
+using NSubstitute;
+using VumaRetail.Application.Crm;
+using VumaRetail.Application.Marketing;
+using VumaRetail.Domain.Crm;
+
+namespace VumaRetail.UnitTests.Marketing;
+
+public sealed class MarketingDeliveryPolicyTests
+{
+    [Fact]
+    public async Task Marketing_email_requires_current_email_consent()
+    {
+        IConsentService consents = Substitute.For<IConsentService>();
+        consents.IsValidAsync(Arg.Any<Guid>(), ConsentType.MarketingEmail, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(true);
+        var policy = new MarketingDeliveryPolicy(consents);
+
+        (await policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.Email, MessageClassification.Marketing, DateTimeOffset.UtcNow)).Should().BeTrue();
+        await consents.Received(1).IsValidAsync(Arg.Any<Guid>(), ConsentType.MarketingEmail, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Transactional_messages_do_not_use_marketing_consent()
+    {
+        IConsentService consents = Substitute.For<IConsentService>();
+        var policy = new MarketingDeliveryPolicy(consents);
+
+        (await policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.Email, MessageClassification.Transactional, DateTimeOffset.UtcNow)).Should().BeTrue();
+        await consents.DidNotReceiveWithAnyArgs().IsValidAsync(default, default, default, default);
+    }
+
+    [Fact]
+    public async Task WhatsApp_marketing_fails_closed_until_its_consent_purpose_exists()
+    {
+        var policy = new MarketingDeliveryPolicy(Substitute.For<IConsentService>());
+
+        Func<Task> action = () => policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.WhatsApp, MessageClassification.Marketing, DateTimeOffset.UtcNow);
+        await action.Should().ThrowAsync<InvalidOperationException>();
+    }
+}

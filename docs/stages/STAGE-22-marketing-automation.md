@@ -1,6 +1,6 @@
 # STAGE 22 — Marketing Automation
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — consent-aware marketing delivery policy foundation implemented and tested; campaigns, journeys, durable outbox, provider transports, callbacks and APIs remain · **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -70,4 +70,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
