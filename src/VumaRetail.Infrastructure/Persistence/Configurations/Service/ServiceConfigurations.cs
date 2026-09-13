@@ -22,6 +22,22 @@ internal sealed class ServiceTicketConfiguration : EntityConfiguration<ServiceTi
     }
 }
 
+internal sealed class ServiceCustodyEventConfiguration : EntityConfiguration<ServiceCustodyEvent>
+{
+    protected override string Schema => Schemas.Service;
+    protected override string TableName => "service_custody_events";
+    protected override void ConfigureEntity(EntityTypeBuilder<ServiceCustodyEvent> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.TicketId).IsRequired();
+        builder.Property(x => x.CustomerId).IsRequired();
+        builder.Property(x => x.EventType).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.ItemReference).IsRequired().HasMaxLength(128);
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.OccurredAtUtc })
+            .HasDatabaseName("ix_service_custody_tenant_company_customer_time").HasFilter("deleted_at IS NULL");
+    }
+}
+
 internal sealed class WarrantyClaimConfiguration : EntityConfiguration<WarrantyClaim>
 {
     protected override string Schema => Schemas.Service;

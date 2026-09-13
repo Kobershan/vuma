@@ -13,7 +13,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260913164736_Stage23_ServiceTicketOperationId").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
 
         IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -22,7 +22,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
         tables.Should().BeEquivalentTo(
-            ["repair_jobs", "service_part_usages", "service_slas", "service_tickets", "warranty_claims"],
+            ["repair_jobs", "service_custody_events", "service_part_usages", "service_slas", "service_tickets", "warranty_claims"],
             options => options.WithStrictOrdering());
 
         IReadOnlyList<string> ticketColumns = await context.Database.SqlQuery<string>($"""
@@ -31,6 +31,14 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             WHERE table_schema = 'service' AND table_name = 'service_tickets'
             """).ToListAsync().ConfigureAwait(false);
         ticketColumns.Should().Contain("operation_id");
+
+        await context.Database.MigrateAsync("20260913164736_Stage23_ServiceTicketOperationId").ConfigureAwait(false);
+        IReadOnlyList<string> custodyColumns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'service' AND table_name = 'service_custody_events'
+            """).ToListAsync().ConfigureAwait(false);
+        custodyColumns.Should().BeEmpty();
 
         await context.Database.MigrateAsync("20260913163837_Stage23_ServiceManagement").ConfigureAwait(false);
 

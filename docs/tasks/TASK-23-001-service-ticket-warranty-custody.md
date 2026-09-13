@@ -30,3 +30,6 @@ Service routes for ticket opening, warranty submission/approval, and repair open
 mapped in StoreServer and CloudApi. Real-host OpenAPI plus migration checks pass **2/2**.
 Ticket closure is also exposed through a company-scoped command and permissioned route; the
 real-host OpenAPI contract test passes with that route included.
+Scoped ticket and custody list queries/GET routes now enforce the active company boundary. Migration
+`20260913171313_Stage23_ServiceCustodyEvents` adds custody persistence; the expanded migration and
+OpenAPI verification passes **2/2** on PostgreSQL.

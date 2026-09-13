@@ -6,6 +6,8 @@ namespace VumaRetail.Application.Service;
 /// <summary>Persistence boundary for service coordination records.</summary>
 public interface IServiceRepository
 {
+    Task<IReadOnlyList<ServiceTicket>> ListTicketsAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ServiceCustodyEvent>> ListCustodyAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default);
     Task<ServiceTicket?> FindTicketAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServiceTicket?> FindTicketByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     Task<WarrantyClaim?> FindWarrantyAsync(Guid id, CancellationToken cancellationToken = default);

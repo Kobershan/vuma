@@ -569,6 +569,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     /// <summary>Service tickets, repairs, custody events, part usage and SLA definitions.</summary>
     public DbSet<Domain.Service.ServiceTicket> ServiceTickets => Set<Domain.Service.ServiceTicket>();
+    public DbSet<Domain.Service.ServiceCustodyEvent> ServiceCustodyEvents => Set<Domain.Service.ServiceCustodyEvent>();
     public DbSet<Domain.Service.WarrantyClaim> WarrantyClaims => Set<Domain.Service.WarrantyClaim>();
     public DbSet<Domain.Service.RepairJob> RepairJobs => Set<Domain.Service.RepairJob>();
     public DbSet<Domain.Service.ServicePartUsage> ServicePartUsages => Set<Domain.Service.ServicePartUsage>();

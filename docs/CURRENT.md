@@ -76,3 +76,5 @@ Stage 23 service routes are now mapped in both hosts for tickets, warranties, an
 granular service permissions. Real-host OpenAPI plus service migration verification passes 2/2.
 Ticket close is now a company-scoped command/route; the real-host OpenAPI check remains green after
 the addition.
+Scoped ticket and custody list queries/GET routes are now available under `service`, with repository
+company/customer filters. Custody migration Up/Down plus service OpenAPI verification passes 2/2.
