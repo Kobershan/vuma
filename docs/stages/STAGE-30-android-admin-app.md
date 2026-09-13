@@ -47,7 +47,8 @@ Declare granular `mobile_admin.view`, `mobile_admin.manage` and distinct high-ri
 - [~] 30-P01: Implement endpoint enrollment, secure login/refresh and tenant-scoped Room storage. Strict
   HTTPS enrollment and tenant-scoped in-memory models are implemented; secure storage, Room schema and
   authentication flows remain.
-- [ ] 30-P02: Deliver dashboard/stock/approval flows with persistent intent queue and freshness labels.
+- [~] 30-P02: Deliver dashboard/stock/approval flows with persistent intent queue and freshness labels.
+  The queue contract and ownership/state transitions are implemented; Room persistence and client flows remain.
 - [ ] 30-P03: Add push, accessibility, release signing and physical-device outage/security tests.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -57,6 +58,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-13: Added `EndpointProfile`, `TenantSession` and `PendingAction` Kotlin models. Enrollment
   rejects non-HTTPS endpoints, userinfo URLs and missing hosts; pending actions remain explicitly queued
   intents rather than completed approvals. Android SDK/Gradle verification remains required.
+- 2026-09-13: Added `PendingActionQueue` with tenant/user/company ownership checks and explicit retry,
+  rejection, acceptance and reauthentication transitions. Android compilation remains UNVERIFIED locally.
 
 ## Tests / acceptance
 
