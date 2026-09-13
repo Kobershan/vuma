@@ -41,6 +41,44 @@ public sealed class Employee : Entity
     private static string? Optional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
+/// <summary>Immutable metadata for an employee document stored outside the business database.</summary>
+[Replicated(ReplicationScope.Bidirectional, ConflictPolicy.AppendOnly)]
+public sealed class EmployeeDocument : Entity, IImmutableRecord
+{
+    private EmployeeDocument(Guid tenantId, Guid employeeId, string documentType, string blobKey,
+        string contentSha256, DateOnly? expiresOn) : base(tenantId)
+    {
+        EmployeeId = employeeId;
+        DocumentType = documentType.Trim();
+        BlobKey = blobKey.Trim();
+        ContentSha256 = contentSha256.Trim().ToLowerInvariant();
+        ExpiresOn = expiresOn;
+    }
+
+    private EmployeeDocument() { }
+
+    public Guid EmployeeId { get; private set; }
+    public string DocumentType { get; private set; } = string.Empty;
+    public string BlobKey { get; private set; } = string.Empty;
+    public string ContentSha256 { get; private set; } = string.Empty;
+    public DateOnly? ExpiresOn { get; private set; }
+
+    public static EmployeeDocument Record(Guid tenantId, Guid employeeId, string documentType,
+        string blobKey, string contentSha256, DateOnly? expiresOn = null)
+    {
+        if (tenantId == Guid.Empty || employeeId == Guid.Empty)
+            throw new ArgumentException("Tenant and employee are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(blobKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentSha256);
+        if (contentSha256.Length != 64)
+            throw new ArgumentException("Document checksum must be SHA-256.", nameof(contentSha256));
+        try { Convert.FromHexString(contentSha256); }
+        catch (FormatException) { throw new ArgumentException("Document checksum must be hexadecimal.", nameof(contentSha256)); }
+        return new EmployeeDocument(tenantId, employeeId, documentType, blobKey, contentSha256, expiresOn);
+    }
+}
+
 /// <summary>How an employee is engaged.</summary>
 public enum EmploymentType
 {

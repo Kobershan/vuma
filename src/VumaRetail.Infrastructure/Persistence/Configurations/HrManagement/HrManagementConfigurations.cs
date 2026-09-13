@@ -14,6 +14,11 @@ internal sealed class LeaveRequestConfiguration : EntityConfiguration<LeaveReque
     protected override string Schema => Schemas.HrManagement; protected override string TableName => "leave_requests";
     protected override void ConfigureEntity(EntityTypeBuilder<LeaveRequest> b) { b.Property(x => x.EmployeeId).IsRequired(); b.Property(x => x.LeaveType).HasMaxLength(64).IsRequired(); b.Property(x => x.Reason).HasMaxLength(1000); b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); b.HasIndex(x => new { x.TenantId, x.EmployeeId, x.From }); }
 }
+internal sealed class EmployeeDocumentConfiguration : EntityConfiguration<EmployeeDocument>
+{
+    protected override string Schema => Schemas.HrManagement; protected override string TableName => "employee_documents";
+    protected override void ConfigureEntity(EntityTypeBuilder<EmployeeDocument> b) { b.Property(x => x.EmployeeId).IsRequired(); b.Property(x => x.DocumentType).HasMaxLength(64).IsRequired(); b.Property(x => x.BlobKey).HasMaxLength(512).IsRequired(); b.Property(x => x.ContentSha256).HasMaxLength(64).IsRequired(); b.HasIndex(x => new { x.TenantId, x.EmployeeId, x.ContentSha256 }).IsUnique().HasDatabaseName("ux_employee_documents_tenant_employee_checksum").HasFilter("deleted_at IS NULL"); }
+}
 internal sealed class EmployeeConfiguration : EntityConfiguration<Employee>
 {
     protected override string Schema => Schemas.HrManagement; protected override string TableName => "employees";

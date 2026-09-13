@@ -152,6 +152,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.HrManagement.Employee> Employees => Set<Domain.HrManagement.Employee>();
     public DbSet<Domain.HrManagement.EmploymentContract> EmploymentContracts => Set<Domain.HrManagement.EmploymentContract>();
     public DbSet<Domain.HrManagement.LeaveRequest> LeaveRequests => Set<Domain.HrManagement.LeaveRequest>();
+    public DbSet<Domain.HrManagement.EmployeeDocument> EmployeeDocuments => Set<Domain.HrManagement.EmployeeDocument>();
     public DbSet<Domain.HrWorkforce.Shift> Shifts => Set<Domain.HrWorkforce.Shift>();
     public DbSet<Domain.HrWorkforce.AttendanceRecord> AttendanceRecords => Set<Domain.HrWorkforce.AttendanceRecord>();
 

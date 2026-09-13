@@ -8,5 +8,5 @@ namespace VumaRetail.Infrastructure.DependencyInjection;
 public static class HrServiceCollectionExtensions
 {
     public static IServiceCollection AddVumaHr(this IServiceCollection services)
-    { services.AddScoped<IEmployeeRepository, EmployeeRepository>(); services.AddScoped<IEmploymentContractRepository, EmploymentContractRepository>(); services.AddScoped<IShiftRepository, ShiftRepository>(); services.AddScoped<IAttendanceRepository, AttendanceRepository>(); services.AddScoped<ILeaveRepository, LeaveRepository>(); return services; }
+    { services.AddScoped<IEmployeeRepository, EmployeeRepository>(); services.AddScoped<IEmploymentContractRepository, EmploymentContractRepository>(); services.AddScoped<IShiftRepository, ShiftRepository>(); services.AddScoped<IAttendanceRepository, AttendanceRepository>(); services.AddScoped<ILeaveRepository, LeaveRepository>(); services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>(); return services; }
 }
