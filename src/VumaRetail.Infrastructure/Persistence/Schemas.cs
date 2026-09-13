@@ -194,6 +194,7 @@ public static class Schemas
     /// the same way every schema since <see cref="Pos"/> does (counts only, R10).
     /// </summary>
     public const string Crm = "crm";
+    public const string Marketing = "marketing";
 
     /// <summary>
     /// Loyalty programme: members, the Vuma-side transaction log, cached tiers and rewards, and

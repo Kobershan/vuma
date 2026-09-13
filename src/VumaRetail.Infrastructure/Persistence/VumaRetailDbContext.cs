@@ -613,6 +613,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     /// <summary>CRM consent records. Stage 19.</summary>
     public DbSet<Domain.Crm.Consent> CrmConsents => Set<Domain.Crm.Consent>();
+    public DbSet<Domain.Marketing.MarketingCampaign> MarketingCampaigns => Set<Domain.Marketing.MarketingCampaign>();
+    public DbSet<Domain.Marketing.OutboundMessage> OutboundMessages => Set<Domain.Marketing.OutboundMessage>();
 
     /// <summary>Loyalty members. Stage 20.</summary>
     public DbSet<Domain.Loyalty.LoyaltyMember> LoyaltyMembers => Set<Domain.Loyalty.LoyaltyMember>();
