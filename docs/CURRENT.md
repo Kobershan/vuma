@@ -56,4 +56,6 @@ SIDE-QUEST (2026-09-11): Stage 07c is complete. Leg dispatch, clearing/allocatio
 WORK LOG (2026-09-13): Storefront checkout expiry was hardened at the domain decision boundary.
 `CheckoutIntent.Confirm` and `.Reject` now transition an overdue pending intent to `Expired` and
 refuse the decision even when the background expiry sweep has not run. Ecommerce domain regression
-tests pass 3/3. Change pushed as `21f8b73`; GitHub CI run `34767903821` is in progress.
+tests pass 3/3. The full Release unit suite passes 1,455/1,455 after aligning the quality shortfall
+assertion with its typed rule exception. Changes pushed as `21f8b73` and `3fa9049`; the latest
+GitHub CI run is verifying the checkpoint.

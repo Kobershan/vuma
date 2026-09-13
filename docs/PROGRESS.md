@@ -1646,3 +1646,7 @@ the 24-hour intent expiry inside the aggregate, making the boundary safe when th
 service is delayed or unavailable. Added a regression proving rejection at the exact expiry instant
 records `Expired` and cannot decide the checkout. Focused ecommerce unit tests: 3/3 passed. Commit
 `21f8b73` is pushed to `main`; CI run `34767903821` is verifying the change.
+
+The full Release unit suite then passed 1,455/1,455 after updating the quality shortfall regression
+to expect the deliberate typed `QualityRuleException` mapping. This test-only correction is pushed
+as `3fa9049`.
