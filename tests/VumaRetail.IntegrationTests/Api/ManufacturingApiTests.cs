@@ -61,6 +61,20 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task User_without_manufacturing_manage_permission_is_forbidden_for_production_create()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("production-viewer", "CorrectHorseBattery1", ManufacturingPermissions.View);
+        using HttpClient client = await harness.SignInAsync("production-viewer");
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/manufacturing/production-orders/",
+            new CreateProductionOrderRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1m, "EA", "PROD-DENIED", Guid.NewGuid()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Missing_bom_is_reported_as_a_domain_error()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);

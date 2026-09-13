@@ -33,6 +33,9 @@ TASK-17-002.
   surfaces at `GET /api/v1/manufacturing/production-orders/{id}` and `/capacity`, including the
   release-time routing/material snapshot and all idempotent issue, receipt and scrap records. Web
   build passes with 0 errors; end-to-end PostgreSQL execution and specialist closure review remain.
+- 2026-09-13: added an integration authorization assertion proving a view-only user cannot create
+  production orders. Every production command route remains protected by the manufacturing module
+  entitlement and manage permission; end-to-end execution and closure evidence remain open.
 - 2026-09-13: CI run `34743485288` passed the full required workflow, including the production API
   build and OpenAPI test. End-to-end authorized execution, capacity/genealogy queries, backup/seed
   evidence and specialist closure review remain open.
