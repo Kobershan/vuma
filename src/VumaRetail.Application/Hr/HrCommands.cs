@@ -33,7 +33,9 @@ public sealed record ListEmploymentContractsQuery(Guid EmployeeId) : IQuery<IRea
 public sealed record ListLeaveRequestsQuery(Guid? EmployeeId = null) : IQuery<IReadOnlyList<LeaveRequest>>;
 public sealed record ListShiftsQuery(DateTimeOffset From, DateTimeOffset To, Guid? EmployeeId = null) : IQuery<IReadOnlyList<Shift>>;
 public sealed record GetEmployeeAvailabilityQuery(Guid EmployeeId, DateTimeOffset From, DateTimeOffset To) : IQuery<EmployeeAvailability>;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record RequestShiftSwapCommand(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approved) : ICommand;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
