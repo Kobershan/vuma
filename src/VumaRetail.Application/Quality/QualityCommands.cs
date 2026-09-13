@@ -258,6 +258,10 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
         {
             return Unit.Value;
         }
+        if (hold.ExpiryDate is { } expiryDate && expiryDate <= DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
+        {
+            throw new QualityRuleException("QUALITY_HOLD_EXPIRED", "An expired batch cannot be released as saleable stock.");
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(command.Reason);
         await reservations.ReleaseAsync(hold.ReservationId, command.Reason, cancellationToken).ConfigureAwait(false);
         hold.Release(clock.UtcNow, command.Reason);

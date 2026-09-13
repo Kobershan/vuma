@@ -133,6 +133,28 @@ public sealed class QualityHoldTests
     }
 
     [Fact]
+    public async Task Expired_hold_cannot_be_released_as_saleable_stock()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        QualityHold hold = QualityHold.Place(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null,
+            new Quantity(1m, "EA"), "expired batch", DateTimeOffset.UtcNow.AddDays(-2), Guid.NewGuid(), "LOT-1", new DateOnly(2026, 9, 12));
+        IQualityHoldRepository holds = Substitute.For<IQualityHoldRepository>();
+        holds.FindAsync(hold.Id, Arg.Any<CancellationToken>()).Returns(hold);
+        IReservationService reservations = Substitute.For<IReservationService>();
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.Parse("2026-09-13T10:00:00Z"));
+
+        await FluentActions.Invoking(() => new ReleaseQualityHoldCommandHandler(holds, reservations, company, clock)
+            .HandleAsync(new ReleaseQualityHoldCommand(hold.Id, "release")))
+            .Should().ThrowAsync<QualityRuleException>();
+        hold.Status.Should().Be(QualityHoldStatus.Held);
+        await reservations.DidNotReceive().ReleaseAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Non_conformance_requires_corrective_action_before_closure()
     {
         NonConformance issue = NonConformance.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),

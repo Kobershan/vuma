@@ -17,6 +17,8 @@ available for allocation and partial shortages leave no persisted hold.
 ## Evidence
 
 - Unit coverage includes partial-shortfall release, terminal disposition and company-scope checks.
+- Unit coverage now also rejects releasing a hold whose persisted expiry date is at or before the
+  current UTC business date; quality-focused unit tests pass **11/11**.
 - Real PostgreSQL migration evidence is recorded by the Stage 18 migration test.
 - Real PostgreSQL API evidence now covers the core availability invariant: holding 20 from 100
   leaves 80 available, an 81-unit hold is refused without changing the projection, and retrying
@@ -26,8 +28,8 @@ available for allocation and partial shortages leave no persisted hold.
 
 ## Remaining
 
-The 100/20 availability scenario, expiry boundary dispatch refusal, and real PostgreSQL reservation
-projection evidence remain open.
+The expiry boundary dispatch refusal and real PostgreSQL reservation projection evidence remain open;
+the release command gate itself is covered by the unit test above.
 
 ## Work log
 

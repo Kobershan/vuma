@@ -44,12 +44,17 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
 ## Parts — the build list
 
 - [ ] 18-P01: Implement inspection plans/results and immutable evidence attachments through Stage 05.
-- [ ] 18-P02: Integrate quality holds and releases with stock/picking and approval policies.
+- [~] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
+  backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
+  integration remains.
 - [ ] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
 
 Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/STAGE-18-INDEX.md), with focused tasks [TASK-18-001](../tasks/TASK-18-001-quality-inspections.md), [TASK-18-002](../tasks/TASK-18-002-quality-holds.md), and [TASK-18-003](../tasks/TASK-18-003-quality-closure.md). Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
+
+Quality-focused unit tests pass **11/11** as of 2026-09-13, including the expired-hold release gate.
+The PostgreSQL dispatch/shelf-life acceptance scenario remains open.
 
 - `Held_stock_is_not_available`: receive 100 units and quarantine 20; available quantity is 80, and a request for 81 cannot allocate.
 - `Inspection_retry_is_single_effect`: retry the same 20-unit hold three times; held quantity remains 20.
