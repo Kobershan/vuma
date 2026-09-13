@@ -17,7 +17,7 @@ follow-up tasks.
 
 ## Verification
 
-2026-09-13: Marketing-focused unit tests pass 6/6, including future-only scheduling and explicit
+2026-09-13: Marketing-focused unit tests pass 8/8, including future-only scheduling and explicit
 suppression state.
 
 ## Follow-up findings

@@ -131,6 +131,9 @@ public enum ConsentType
     /// <summary>Marketing push notification.</summary>
     MarketingPush = 2,
 
+    /// <summary>Marketing WhatsApp.</summary>
+    MarketingWhatsApp = 6,
+
     /// <summary>Processing of personal data (gates cloud sync of loyalty data, Stage 20).</summary>
     DataProcessing = 3,
 

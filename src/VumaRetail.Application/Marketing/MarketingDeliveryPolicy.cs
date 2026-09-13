@@ -38,9 +38,7 @@ public sealed class MarketingDeliveryPolicy(IConsentService consents)
             MarketingChannel.Email => ConsentType.MarketingEmail,
             MarketingChannel.Sms => ConsentType.MarketingSms,
             MarketingChannel.Push => ConsentType.MarketingPush,
-            // CRM has no separate WhatsApp purpose yet; fail closed until the consent taxonomy is
-            // extended rather than silently treating another channel as email consent.
-            MarketingChannel.WhatsApp => throw new InvalidOperationException("WhatsApp marketing consent is not configured."),
+            MarketingChannel.WhatsApp => ConsentType.MarketingWhatsApp,
             _ => throw new ArgumentOutOfRangeException(nameof(channel)),
         };
         return await consents.IsValidAsync(customerId, purpose, at, cancellationToken).ConfigureAwait(false);

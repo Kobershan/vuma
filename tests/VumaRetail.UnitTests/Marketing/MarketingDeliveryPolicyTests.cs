@@ -30,12 +30,14 @@ public sealed class MarketingDeliveryPolicyTests
     }
 
     [Fact]
-    public async Task WhatsApp_marketing_fails_closed_until_its_consent_purpose_exists()
+    public async Task WhatsApp_marketing_requires_explicit_whatsapp_consent()
     {
-        var policy = new MarketingDeliveryPolicy(Substitute.For<IConsentService>());
+        IConsentService consents = Substitute.For<IConsentService>();
+        consents.IsValidAsync(Arg.Any<Guid>(), ConsentType.MarketingWhatsApp, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(true);
+        var policy = new MarketingDeliveryPolicy(consents);
 
-        Func<Task> action = () => policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.WhatsApp, MessageClassification.Marketing, DateTimeOffset.UtcNow);
-        await action.Should().ThrowAsync<InvalidOperationException>();
+        (await policy.MaySendAsync(Guid.NewGuid(), MarketingChannel.WhatsApp, MessageClassification.Marketing, DateTimeOffset.UtcNow)).Should().BeTrue();
+        await consents.Received(1).IsValidAsync(Arg.Any<Guid>(), ConsentType.MarketingWhatsApp, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]

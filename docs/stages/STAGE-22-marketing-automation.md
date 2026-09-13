@@ -57,7 +57,10 @@ transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quie
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
 metadata with per-recipient idempotency keys and suppression state. Marketing-focused tests now pass
-6/6; campaign persistence, audience snapshots, transports, signed callbacks and APIs remain open.
+8/8; campaign persistence, audience snapshots, transports, signed callbacks and APIs remain open.
+
+2026-09-13: Added a dedicated `MarketingWhatsApp` consent purpose; WhatsApp marketing now requires
+that explicit purpose immediately before delivery rather than being treated as another channel.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.
