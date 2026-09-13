@@ -51,6 +51,8 @@ public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approv
 public sealed record PublishRosterCommand(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId = null) : ICommand<Guid>;
 public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocumentResult>>;
 public sealed record EmployeeDocumentResult(Guid Id, Guid EmployeeId, string DocumentType, string ContentSha256, DateOnly? ExpiresOn);
+public sealed record AuthorizeEmployeeDocumentDownloadQuery(Guid EmployeeId, Guid DocumentId) : IQuery<EmployeeDocumentDownloadResult?>;
+public sealed record EmployeeDocumentDownloadResult(Guid DocumentId, string Token, DateTimeOffset ExpiresAtUtc);
 public sealed record ListDisciplinaryCasesQuery(Guid CompanyId, Guid? EmployeeId = null) : IQuery<IReadOnlyList<DisciplinaryCase>>;
 public sealed record GeneratePayrollExportQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<PayrollExportRow>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
@@ -216,6 +218,21 @@ public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepositor
             .Select(x => new EmployeeDocumentResult(x.Id, x.EmployeeId, x.DocumentType, x.ContentSha256, x.ExpiresOn))
             .ToArray();
 }
+
+public sealed class AuthorizeEmployeeDocumentDownloadQueryHandler(IEmployeeDocumentRepository documents,
+    IEmployeeDocumentDownloadAuthorizer authorizer, IClock clock)
+    : IQueryHandler<AuthorizeEmployeeDocumentDownloadQuery, EmployeeDocumentDownloadResult?>
+{
+    public async Task<EmployeeDocumentDownloadResult?> HandleAsync(AuthorizeEmployeeDocumentDownloadQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        EmployeeDocument? document = await documents.FindAsync(query.EmployeeId, query.DocumentId, cancellationToken).ConfigureAwait(false);
+        if (document is null || (document.ExpiresOn is { } expiresOn && expiresOn < DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)))
+            return null;
+        DateTimeOffset expiresAt = clock.UtcNow.AddMinutes(15);
+        return new EmployeeDocumentDownloadResult(document.Id, authorizer.Create(document, expiresAt), expiresAt);
+    }
+}
 public sealed class ListDisciplinaryCasesQueryHandler(IDisciplinaryCaseRepository cases, ICompanyContext company) : IQueryHandler<ListDisciplinaryCasesQuery, IReadOnlyList<DisciplinaryCase>>
 {
     public async Task<IReadOnlyList<DisciplinaryCase>> HandleAsync(ListDisciplinaryCasesQuery query, CancellationToken token = default)
@@ -296,5 +313,6 @@ public interface IShiftSwapRequestRepository { void Add(ShiftSwapRequest request
 public interface IRosterPublicationRepository { void Add(RosterPublication publication); }
 public interface IAttendanceRepository { Task<IReadOnlyList<AttendanceRecord>> ListAsync(DateTimeOffset from, DateTimeOffset to, Guid? employeeId, CancellationToken token = default); void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
-public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }
+public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); Task<EmployeeDocument?> FindAsync(Guid employeeId, Guid documentId, CancellationToken token = default); void Add(EmployeeDocument document); }
+public interface IEmployeeDocumentDownloadAuthorizer { string Create(EmployeeDocument document, DateTimeOffset expiresAtUtc); }
 public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<DisciplinaryCase>> ListAsync(Guid companyId, Guid? employeeId, CancellationToken token = default); void Add(DisciplinaryCase @case); }

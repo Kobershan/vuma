@@ -43,4 +43,23 @@ public sealed class EmployeeDocumentTests
         result.Should().NotBeNull();
         result.GetType().GetProperty("BlobKey").Should().BeNull();
     }
+
+    [Fact]
+    public async Task Download_authorization_issues_a_short_lived_opaque_grant()
+    {
+        var document = EmployeeDocument.Record(Guid.NewGuid(), Guid.NewGuid(), "Contract", "private/key.pdf", new string('c', 64),
+            new DateOnly(2026, 9, 30));
+        var repository = Substitute.For<IEmployeeDocumentRepository>();
+        var authorizer = Substitute.For<IEmployeeDocumentDownloadAuthorizer>();
+        var clock = Substitute.For<VumaRetail.Application.Abstractions.IClock>();
+        clock.UtcNow.Returns(new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero));
+        authorizer.Create(document, Arg.Any<DateTimeOffset>()).Returns("opaque-grant");
+        repository.FindAsync(document.EmployeeId, document.Id, Arg.Any<CancellationToken>()).Returns(document);
+
+        EmployeeDocumentDownloadResult result = (await new AuthorizeEmployeeDocumentDownloadQueryHandler(repository, authorizer, clock)
+            .HandleAsync(new AuthorizeEmployeeDocumentDownloadQuery(document.EmployeeId, document.Id)))!;
+
+        result.Token.Should().Be("opaque-grant");
+        result.ExpiresAtUtc.Should().Be(clock.UtcNow.AddMinutes(15));
+    }
 }

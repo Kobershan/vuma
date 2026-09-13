@@ -94,6 +94,9 @@ integration, and full checkout acceptance remain open.
 WORK LOG (2026-09-13): Stage 25 employee-document listings now expose metadata-only DTOs; external
 blob keys are no longer returned by the HR API. Expiring download authorization and retention remain
 open.
+WORK LOG (2026-09-13): Stage 25 now issues 15-minute opaque HMAC-signed document download grants
+through the HR API; expired metadata is refused and the blob key is excluded from the token payload.
+`EmployeeDocumentTests` passes 6/6. Storage-side validation and retention remain open.
 
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/

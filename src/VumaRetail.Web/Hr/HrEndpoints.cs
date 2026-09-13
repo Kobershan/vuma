@@ -22,6 +22,11 @@ public static class HrEndpoints
         hr.MapGet("/employees/{employeeId:guid}/contracts", async (Guid employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmploymentContractsQuery(employeeId), ct))).RequirePermission(HrPermissions.View);
         hr.MapPost("/employees/{employeeId:guid}/contracts", async (Guid employeeId, EmploymentContractRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/contracts", await d.SendAsync(new CreateEmploymentContractCommand(employeeId, r.StartsOn, r.EndsOn, r.HourlyRate, r.Currency), ct))).RequirePermission(HrPermissions.Manage);
         hr.MapGet("/employees/{employeeId:guid}/documents", async (Guid employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListEmployeeDocumentsQuery(employeeId), ct))).RequirePermission(HrPermissions.View);
+        hr.MapPost("/employees/{employeeId:guid}/documents/{documentId:guid}/download", async (Guid employeeId, Guid documentId, IDispatcher d, CancellationToken ct) =>
+        {
+            EmployeeDocumentDownloadResult? result = await d.QueryAsync(new AuthorizeEmployeeDocumentDownloadQuery(employeeId, documentId), ct);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission(HrPermissions.View);
         hr.MapPost("/employees/{employeeId:guid}/documents", async (Guid employeeId, EmployeeDocumentRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/documents", await d.SendAsync(new RecordEmployeeDocumentCommand(employeeId, r.DocumentType, r.BlobKey, r.ContentSha256, r.ExpiresOn), ct))).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/suspend", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new SuspendEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/activate", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ActivateEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);

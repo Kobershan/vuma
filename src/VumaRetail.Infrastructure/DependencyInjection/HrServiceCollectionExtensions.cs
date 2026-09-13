@@ -2,11 +2,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Hr;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
 public static class HrServiceCollectionExtensions
 {
     public static IServiceCollection AddVumaHr(this IServiceCollection services)
-    { services.AddScoped<IEmployeeRepository, EmployeeRepository>(); services.AddScoped<IEmploymentContractRepository, EmploymentContractRepository>(); services.AddScoped<IShiftRepository, ShiftRepository>(); services.AddScoped<IShiftSwapRequestRepository, ShiftSwapRequestRepository>(); services.AddScoped<IRosterPublicationRepository, RosterPublicationRepository>(); services.AddScoped<IAttendanceRepository, AttendanceRepository>(); services.AddScoped<ILeaveRepository, LeaveRepository>(); services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>(); services.AddScoped<IDisciplinaryCaseRepository, DisciplinaryCaseRepository>(); return services; }
+    { services.AddScoped<IEmployeeRepository, EmployeeRepository>(); services.AddScoped<IEmploymentContractRepository, EmploymentContractRepository>(); services.AddScoped<IShiftRepository, ShiftRepository>(); services.AddScoped<IShiftSwapRequestRepository, ShiftSwapRequestRepository>(); services.AddScoped<IRosterPublicationRepository, RosterPublicationRepository>(); services.AddScoped<IAttendanceRepository, AttendanceRepository>(); services.AddScoped<ILeaveRepository, LeaveRepository>(); services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>(); services.AddScoped<IEmployeeDocumentDownloadAuthorizer, EmployeeDocumentDownloadAuthorizer>(); services.AddScoped<IDisciplinaryCaseRepository, DisciplinaryCaseRepository>(); return services; }
 }
