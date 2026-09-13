@@ -50,3 +50,11 @@ public sealed class CheckoutIntentRepository(VumaRetailDbContext context) : IChe
 
     public void Add(CheckoutIntent intent) => context.CheckoutIntents.Add(intent);
 }
+
+public sealed class PaymentAttemptRepository(VumaRetailDbContext context) : IPaymentAttemptRepository
+{
+    public Task<PaymentAttempt?> FindByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+        => context.PaymentAttempts.FirstOrDefaultAsync(x => x.EventId == eventId.Trim(), cancellationToken);
+
+    public void Add(PaymentAttempt attempt) => context.PaymentAttempts.Add(attempt);
+}

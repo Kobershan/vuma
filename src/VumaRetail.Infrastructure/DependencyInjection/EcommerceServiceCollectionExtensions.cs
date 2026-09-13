@@ -21,6 +21,7 @@ public static class EcommerceServiceCollectionExtensions
         services.AddScoped<ICommerceBasketRepository, CommerceBasketRepository>();
         services.AddScoped<ICommerceBasketLineRepository, CommerceBasketLineRepository>();
         services.AddScoped<ICheckoutIntentRepository, CheckoutIntentRepository>();
+        services.AddScoped<IPaymentAttemptRepository, PaymentAttemptRepository>();
         return services;
     }
 }

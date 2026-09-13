@@ -2,6 +2,10 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Web.Api;
@@ -40,6 +44,11 @@ public static class EcommerceEndpoints
             .Produces<CheckoutStatusResult>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Reads checkout status for its owning customer.");
+        storefront.MapPost("/webhooks/payments", ApplyPaymentWebhookAsync)
+            .AllowAnonymous()
+            .Produces<Guid>(StatusCodes.Status202Accepted)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .WithSummary("Accepts a signed, replay-safe payment provider notification.");
 
         RouteGroupBuilder channels = endpoints.MapVumaApi().MapGroup("/channels")
             .WithTags("Storefront Channels").RequireModule("ecommerce");
@@ -112,6 +121,23 @@ public static class EcommerceEndpoints
         return result is null ? Results.NotFound() : Results.Ok(result);
     }
 
+    private static async Task<IResult> ApplyPaymentWebhookAsync(
+        HttpRequest http, IConfiguration configuration, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        using StreamReader reader = new(http.Body);
+        string body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        string secret = configuration["Vuma:Ecommerce:PaymentWebhookSecret"] ?? string.Empty;
+        if (!PaymentWebhookSecurity.Verify(body, http.Headers["X-Vuma-Payment-Signature"].ToString(), secret))
+            return Results.Unauthorized();
+        PaymentWebhookRequest? request = JsonSerializer.Deserialize<PaymentWebhookRequest>(body);
+        if (request is null)
+            return Results.BadRequest();
+        string fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
+        Guid id = await dispatcher.SendAsync(new ApplyPaymentNotificationCommand(request.CheckoutId, request.CompanyId,
+            request.EventId, fingerprint, request.ProviderPaymentId, request.Status, request.ProviderReference), cancellationToken).ConfigureAwait(false);
+        return Results.Accepted($"/api/v1/storefront/checkouts/{request.CheckoutId:D}", id);
+    }
+
     public sealed record RegisterChannelRequest(Guid CompanyId, string Code, string Host);
     public sealed record PublishProductRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string Sku, string Name,
         string? Description, decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);
@@ -121,4 +147,6 @@ public static class EcommerceEndpoints
     public sealed record SubmitCheckoutRequest(Guid BasketId, Guid CompanyId, string OwnerKey, string ContentFingerprint);
     public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
     public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
+    public sealed record PaymentWebhookRequest(Guid CheckoutId, Guid CompanyId, string EventId,
+        string ProviderPaymentId, string Status, string? ProviderReference);
 }

@@ -104,3 +104,23 @@ internal sealed class CheckoutIntentConfiguration : EntityConfiguration<Checkout
             .IsUnique().HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class PaymentAttemptConfiguration : EntityConfiguration<PaymentAttempt>
+{
+    protected override string Schema => Schemas.Ecommerce;
+    protected override string TableName => "payment_attempts";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<PaymentAttempt> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.CheckoutIntentId).IsRequired();
+        builder.Property(x => x.EventId).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.PayloadFingerprint).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.ProviderPaymentId).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.Property(x => x.ProviderReference).HasMaxLength(256);
+        builder.Property(x => x.ReceivedAtUtc).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.EventId }).IsUnique().HasFilter("deleted_at IS NULL");
+        builder.HasIndex(x => new { x.TenantId, x.CheckoutIntentId });
+    }
+}

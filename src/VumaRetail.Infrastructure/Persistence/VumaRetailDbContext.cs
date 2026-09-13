@@ -550,6 +550,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 
     public DbSet<Domain.Ecommerce.CheckoutIntent> CheckoutIntents => Set<Domain.Ecommerce.CheckoutIntent>();
 
+    public DbSet<Domain.Ecommerce.PaymentAttempt> PaymentAttempts => Set<Domain.Ecommerce.PaymentAttempt>();
+
     /// <summary>Versioned inspection requirements (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionPlan> InspectionPlans => Set<Domain.Quality.InspectionPlan>();
 

@@ -1,4 +1,6 @@
 #pragma warning disable CS1591
+using System.Security.Cryptography;
+using System.Text;
 using VumaRetail.Domain.Ecommerce;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
@@ -37,6 +39,73 @@ public interface ICheckoutIntentRepository
     Task<CheckoutIntent?> FindAsync(Guid id, CancellationToken cancellationToken = default);
     Task<CheckoutIntent?> FindByIdempotencyKeyAsync(string ownerKey, string idempotencyKey, CancellationToken cancellationToken = default);
     void Add(CheckoutIntent intent);
+}
+
+public interface IPaymentAttemptRepository
+{
+    Task<PaymentAttempt?> FindByEventIdAsync(string eventId, CancellationToken cancellationToken = default);
+    void Add(PaymentAttempt attempt);
+}
+
+public sealed record ApplyPaymentNotificationCommand(Guid CheckoutId, Guid CompanyId, string EventId,
+    string PayloadFingerprint, string ProviderPaymentId, string Status, string? ProviderReference) : ICommand<Guid>;
+
+public sealed class ApplyPaymentNotificationCommandHandler(
+    ICheckoutIntentRepository checkouts, IPaymentAttemptRepository attempts,
+    ITenantContext tenant, ICompanyContext company, IClock clock)
+    : ICommandHandler<ApplyPaymentNotificationCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(ApplyPaymentNotificationCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "payment");
+        PaymentAttempt? existing = await attempts.FindByEventIdAsync(command.EventId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (!string.Equals(existing.PayloadFingerprint, command.PayloadFingerprint.Trim(), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Payment event was replayed with different content.");
+            }
+            return existing.Id;
+        }
+        CheckoutIntent checkout = await checkouts.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (checkout.CompanyId != command.CompanyId)
+        {
+            throw new InvalidOperationException("Payment checkout is not in the active company.");
+        }
+        if (!Enum.TryParse<PaymentAttemptStatus>(command.Status, true, out PaymentAttemptStatus status))
+        {
+            throw new ArgumentException("Unknown payment status.", nameof(command));
+        }
+        PaymentAttempt attempt = PaymentAttempt.Record(tenant.TenantId, command.CompanyId, checkout.Id,
+            command.EventId, command.PayloadFingerprint, command.ProviderPaymentId, status,
+            command.ProviderReference, clock.UtcNow);
+        attempts.Add(attempt);
+        return attempt.Id;
+    }
+}
+
+public static class PaymentWebhookSecurity
+{
+    public static bool Verify(string body, string? presentedSignature, string secret)
+    {
+        if (string.IsNullOrWhiteSpace(body) || string.IsNullOrWhiteSpace(presentedSignature) || string.IsNullOrWhiteSpace(secret) ||
+            !presentedSignature.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        try
+        {
+            byte[] expected = HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(body));
+            byte[] actual = Convert.FromHexString(presentedSignature["sha256=".Length..]);
+            return CryptographicOperations.FixedTimeEquals(expected, actual);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
 }
 
 [CommandSideEffect(SideEffect.Write)]
