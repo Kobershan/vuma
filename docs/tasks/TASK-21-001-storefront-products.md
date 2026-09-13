@@ -61,4 +61,4 @@ committed/pushed. Remaining checkout/payment work is recorded in TASK-21-002.
 
 ## Work log
 
-- 2026-09-13: task decomposed from Stage 21-P01; implementation begins.
+- 2026-09-13: task decomposed from Stage 21-P01; channel identity, published-product persistence/read/publication routes and OpenAPI evidence implemented. Basket foundation begins in TASK-21-002.
