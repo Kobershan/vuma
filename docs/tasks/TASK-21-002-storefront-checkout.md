@@ -19,8 +19,8 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
   `202 Accepted` until the owning store confirms.
 - Store confirmation must use the existing Orders, Inventory, Sales and Finance ports; no false stock or
   payment promise is allowed during an outage.
-- Payment authorization/capture/void/refund must use stable operation keys and signed webhook inbox
-  deduplication, with owner-only status reads and cross-tenant isolation tests.
+- Payment notification recording now uses stable event IDs, payload fingerprints and signed webhook
+  verification; provider authorization/capture/void/refund orchestration and store order settlement remain.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
 
 ## Definition of done
