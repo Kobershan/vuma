@@ -55,7 +55,11 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
     public Task<DepreciationRun?> FindDepreciationRunAsync(Guid assetBookId, DateOnly period, CancellationToken cancellationToken = default)
         => context.DepreciationRuns.FirstOrDefaultAsync(x => x.AssetBookId == assetBookId && x.Period == period, cancellationToken);
 
+    public Task<MaintenanceOrder?> FindMaintenanceOrderAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.MaintenanceOrders.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public void Add(FixedAsset asset) => context.FixedAssets.Add(asset);
     public void Add(AssetBook book) => context.AssetBooks.Add(book);
     public void Add(DepreciationRun run) => context.DepreciationRuns.Add(run);
+    public void Add(MaintenanceOrder order) => context.MaintenanceOrders.Add(order);
 }

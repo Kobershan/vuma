@@ -37,3 +37,18 @@ internal sealed class AssetBookConfiguration : EntityConfiguration<AssetBook>
             .HasDatabaseName("ux_asset_books_tenant_asset_name").HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class MaintenanceOrderConfiguration : EntityConfiguration<MaintenanceOrder>
+{
+    protected override string Schema => Schemas.Assets;
+    protected override string TableName => "maintenance_orders";
+    protected override void ConfigureEntity(EntityTypeBuilder<MaintenanceOrder> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.AssetId).IsRequired();
+        builder.Property(x => x.Description).IsRequired().HasMaxLength(512);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(16);
+        builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.AssetId, x.Status })
+            .HasDatabaseName("ix_maintenance_orders_tenant_company_asset_status");
+    }
+}
