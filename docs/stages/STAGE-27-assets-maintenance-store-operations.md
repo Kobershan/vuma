@@ -46,13 +46,17 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
 
 - [~] 27-P01: Implement asset books, capitalization, custody and depreciation schedules. Domain lifecycle,
   book invariants, residual floor and useful-life calculation are implemented; persistence, lifecycle
-  command seams and period idempotency remain.
+  command seams, period idempotency and the initial command API are implemented; finance integration
+  and full acceptance remain.
 - [ ] 27-P02: Integrate maintenance, leases, procurement and Finance posting events.
 - [ ] 27-P03: Implement local checklist queue APIs, evidence attachments and period-close acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
+
+2026-09-13: Added the company-scoped asset command API under `/api/v1/assets`. StoreServer and CloudApi
+Release builds both pass with **0 errors**; full finance, maintenance and PostgreSQL API acceptance remains.
 
 Progress evidence: `AssetTests.Depreciation_stops_at_residual_after_useful_life` passes **1/1**.
 
