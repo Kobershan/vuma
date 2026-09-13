@@ -17,6 +17,8 @@ public sealed class Shift : Entity
     public ShiftStatus Status { get; private set; } = ShiftStatus.Planned;
     public static Shift Create(Guid tenantId, Guid employeeId, DateTimeOffset start, DateTimeOffset end, string role, Guid? storeId = null)
     { if (tenantId == Guid.Empty || employeeId == Guid.Empty) throw new ArgumentException("Tenant and employee are required."); if (end <= start) throw new ArgumentException("Shift must end after it starts.", nameof(end)); if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("Role is required.", nameof(role)); return new Shift(tenantId, employeeId, start, end, role.Trim(), storeId); }
+    public bool Overlaps(DateTimeOffset start, DateTimeOffset end)
+        => StartsAt < end && EndsAt > start;
     public void Cancel() { if (Status == ShiftStatus.Completed) throw new InvalidOperationException("Completed shifts cannot be cancelled."); Status = ShiftStatus.Cancelled; }
     public void Complete() { if (Status == ShiftStatus.Cancelled) throw new InvalidOperationException("Cancelled shifts cannot be completed."); Status = ShiftStatus.Completed; }
 }

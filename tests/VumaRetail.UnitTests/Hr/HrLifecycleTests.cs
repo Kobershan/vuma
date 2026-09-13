@@ -44,6 +44,16 @@ public sealed class HrLifecycleTests
     }
 
     [Fact]
+    public void Shift_overlap_is_detected_only_when_windows_intersect()
+    {
+        var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+
+        shift.Overlaps(start.AddHours(7), start.AddHours(9)).Should().BeTrue();
+        shift.Overlaps(start.AddHours(8), start.AddHours(10)).Should().BeFalse();
+    }
+
+    [Fact]
     public void Attendance_is_append_only_and_requires_event_type()
     {
         var at = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);

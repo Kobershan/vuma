@@ -39,7 +39,7 @@ public sealed class CreateLeaveRequestCommandHandler(IEmployeeRepository employe
 }
 public sealed class CreateShiftCommandHandler(IEmployeeRepository employees, IShiftRepository shifts, ITenantContext tenant) : ICommandHandler<CreateShiftCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(CreateShiftCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var s = Shift.Create(tenant.TenantId, c.EmployeeId, c.StartsAt, c.EndsAt, c.Role, c.StoreId); shifts.Add(s); return s.Id; }
+    public async Task<Guid> HandleAsync(CreateShiftCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var s = Shift.Create(tenant.TenantId, c.EmployeeId, c.StartsAt, c.EndsAt, c.Role, c.StoreId); if ((await shifts.ListAsync(c.StartsAt, c.EndsAt, c.EmployeeId, token)).Any(existing => existing.Overlaps(c.StartsAt, c.EndsAt) && existing.Status != ShiftStatus.Cancelled)) throw new InvalidOperationException("An employee cannot have overlapping shifts."); shifts.Add(s); return s.Id; }
 }
 public sealed class RecordAttendanceCommandHandler(IEmployeeRepository employees, IAttendanceRepository attendance, ITenantContext tenant) : ICommandHandler<RecordAttendanceCommand, Guid>
 {
