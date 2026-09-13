@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Projects;
+using VumaRetail.Domain.Projects;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
