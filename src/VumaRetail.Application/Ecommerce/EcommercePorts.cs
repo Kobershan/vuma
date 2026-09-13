@@ -178,6 +178,48 @@ public sealed class GetCheckoutStatusQueryHandler(ICheckoutIntentRepository inte
 }
 
 [CommandSideEffect(SideEffect.Write)]
+public sealed record ConfirmCheckoutCommand(Guid CheckoutId, Guid CompanyId) : ICommand;
+
+public sealed class ConfirmCheckoutCommandHandler(ICheckoutIntentRepository intents, ICompanyContext company, IClock clock)
+    : ICommandHandler<ConfirmCheckoutCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ConfirmCheckoutCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "checkout");
+        CheckoutIntent intent = await intents.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (intent.CompanyId != command.CompanyId)
+        {
+            throw new InvalidOperationException("Checkout intent is not in the active company.");
+        }
+        intent.Confirm(clock.UtcNow);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RejectCheckoutCommand(Guid CheckoutId, Guid CompanyId, string Reason) : ICommand;
+
+public sealed class RejectCheckoutCommandHandler(ICheckoutIntentRepository intents, ICompanyContext company, IClock clock)
+    : ICommandHandler<RejectCheckoutCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(RejectCheckoutCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "checkout");
+        CheckoutIntent intent = await intents.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (intent.CompanyId != command.CompanyId)
+        {
+            throw new InvalidOperationException("Checkout intent is not in the active company.");
+        }
+        intent.Reject(command.Reason, clock.UtcNow);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
 public sealed record AddBasketLineCommand(Guid BasketId, Guid CompanyId, string OwnerKey, Guid PublishedProductId,
     decimal Quantity, decimal AdvisoryUnitPrice, string Currency) : ICommand<Guid>;
 

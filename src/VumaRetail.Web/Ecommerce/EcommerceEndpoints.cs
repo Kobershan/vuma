@@ -44,6 +44,14 @@ public static class EcommerceEndpoints
             .Produces<CheckoutStatusResult>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Reads checkout status for its owning customer.");
+        storefront.MapPost("/checkouts/{id:guid}/confirm", ConfirmCheckoutAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Confirms a checkout after store-authoritative acceptance.");
+        storefront.MapPost("/checkouts/{id:guid}/reject", RejectCheckoutAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Rejects a checkout with an explicit business reason.");
         storefront.MapPost("/webhooks/payments", ApplyPaymentWebhookAsync)
             .AllowAnonymous()
             .Produces<Guid>(StatusCodes.Status202Accepted)
@@ -121,6 +129,20 @@ public static class EcommerceEndpoints
         return result is null ? Results.NotFound() : Results.Ok(result);
     }
 
+    private static async Task<IResult> ConfirmCheckoutAsync(
+        Guid id, CheckoutDecisionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new ConfirmCheckoutCommand(id, request.CompanyId), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RejectCheckoutAsync(
+        Guid id, CheckoutDecisionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new RejectCheckoutCommand(id, request.CompanyId, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> ApplyPaymentWebhookAsync(
         HttpRequest http, IConfiguration configuration, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -147,6 +169,7 @@ public static class EcommerceEndpoints
     public sealed record SubmitCheckoutRequest(Guid BasketId, Guid CompanyId, string OwnerKey, string ContentFingerprint);
     public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
     public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
+    public sealed record CheckoutDecisionRequest(Guid CompanyId, string Reason = "Store authority rejected the checkout.");
     public sealed record PaymentWebhookRequest(Guid CheckoutId, Guid CompanyId, string EventId,
         string ProviderPaymentId, string Status, string? ProviderReference);
 }
