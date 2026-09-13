@@ -30,6 +30,12 @@ public sealed record ActivateEmployeeCommand(Guid EmployeeId) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record TerminateEmployeeCommand(Guid EmployeeId, DateTimeOffset TerminatedAt) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
+public sealed record OpenDisciplinaryCaseCommand(Guid CompanyId, Guid EmployeeId, DateOnly IncidentOn, string Allegation) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record StartDisciplinaryInvestigationCommand(Guid CaseId, DateTimeOffset StartedAt) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record DecideDisciplinaryCaseCommand(Guid CaseId, string Decision, DateTimeOffset DecidedAt) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
 public sealed record DecideLeaveCommand(Guid LeaveRequestId, bool Approved) : ICommand;
 public sealed record ListEmployeesQuery : IQuery<IReadOnlyList<Employee>>;
 public sealed record ListEmploymentContractsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmploymentContract>>;
@@ -100,6 +106,39 @@ public sealed class TerminateEmployeeCommandHandler(IEmployeeRepository employee
         Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Employee was not found.");
         employee.Terminate(command.TerminatedAt);
+        return Unit.Value;
+    }
+}
+public sealed class OpenDisciplinaryCaseCommandHandler(IEmployeeRepository employees, IDisciplinaryCaseRepository cases, ITenantContext tenant, ICompanyContext company, IClock clock) : ICommandHandler<OpenDisciplinaryCaseCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(OpenDisciplinaryCaseCommand command, CancellationToken token = default)
+    {
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+            throw new InvalidOperationException("The HR company is not the active company.");
+        if (await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false) is null)
+            throw new KeyNotFoundException("Employee was not found.");
+        var @case = DisciplinaryCase.Open(tenant.TenantId, command.CompanyId, command.EmployeeId, command.IncidentOn, command.Allegation, clock.UtcNow);
+        cases.Add(@case);
+        return @case.Id;
+    }
+}
+public sealed class StartDisciplinaryInvestigationCommandHandler(IDisciplinaryCaseRepository cases) : ICommandHandler<StartDisciplinaryInvestigationCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(StartDisciplinaryInvestigationCommand command, CancellationToken token = default)
+    {
+        var @case = await cases.FindAsync(command.CaseId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Disciplinary case was not found.");
+        @case.StartInvestigation(command.StartedAt);
+        return Unit.Value;
+    }
+}
+public sealed class DecideDisciplinaryCaseCommandHandler(IDisciplinaryCaseRepository cases) : ICommandHandler<DecideDisciplinaryCaseCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(DecideDisciplinaryCaseCommand command, CancellationToken token = default)
+    {
+        var @case = await cases.FindAsync(command.CaseId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Disciplinary case was not found.");
+        @case.Decide(command.Decision, command.DecidedAt);
         return Unit.Value;
     }
 }
@@ -176,3 +215,4 @@ public interface IRosterPublicationRepository { void Add(RosterPublication publi
 public interface IAttendanceRepository { void Add(AttendanceRecord record); }
 public interface ILeaveRepository { Task<LeaveRequest?> FindAsync(Guid id, CancellationToken token = default); Task<IReadOnlyList<LeaveRequest>> ListAsync(Guid? employeeId, CancellationToken token = default); void Add(LeaveRequest leave); }
 public interface IEmployeeDocumentRepository { Task<IReadOnlyList<EmployeeDocument>> ListAsync(Guid employeeId, CancellationToken token = default); void Add(EmployeeDocument document); }
+public interface IDisciplinaryCaseRepository { Task<DisciplinaryCase?> FindAsync(Guid id, CancellationToken token = default); void Add(DisciplinaryCase @case); }

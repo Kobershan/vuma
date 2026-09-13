@@ -40,3 +40,8 @@ Disciplinary case management, payroll export and specialist/runtime review remai
 workflow. `DisciplinaryCaseTests` passes 2/2, covering investigation-before-decision, event ordering,
 and one-way decision state. Persistence, commands/routes, payroll export and specialist/runtime review
 remain open.
+
+2026-09-13: Disciplinary cases are now company-scoped and persisted through
+`Stage25DisciplinaryCases`; open, investigate and decide commands/routes are wired behind HR manage
+permission. `DisciplinaryCaseTests` passes 3/3 and the StoreServer build passes with 0 errors.
+Payroll export, case listing/acceptance and specialist/runtime review remain open.

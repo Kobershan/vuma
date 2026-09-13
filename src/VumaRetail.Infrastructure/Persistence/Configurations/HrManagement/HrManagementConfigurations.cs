@@ -24,3 +24,15 @@ internal sealed class EmployeeConfiguration : EntityConfiguration<Employee>
     protected override string Schema => Schemas.HrManagement; protected override string TableName => "employees";
     protected override void ConfigureEntity(EntityTypeBuilder<Employee> b) { b.Property(x => x.EmployeeNumber).IsRequired().HasMaxLength(32); b.Property(x => x.FirstName).IsRequired().HasMaxLength(128); b.Property(x => x.LastName).IsRequired().HasMaxLength(128); b.Property(x => x.PreferredName).HasMaxLength(128); b.Property(x => x.Email).HasMaxLength(256); b.Property(x => x.Phone).HasMaxLength(32); b.Property(x => x.EmploymentType).HasConversion<string>().HasMaxLength(32).IsRequired(); b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired(); b.HasIndex(x => new { x.TenantId, x.EmployeeNumber }).IsUnique().HasDatabaseName("ux_employees_tenant_id_employee_number").HasFilter("deleted_at IS NULL"); }
 }
+internal sealed class DisciplinaryCaseConfiguration : EntityConfiguration<DisciplinaryCase>
+{
+    protected override string Schema => Schemas.HrManagement; protected override string TableName => "disciplinary_cases";
+    protected override void ConfigureEntity(EntityTypeBuilder<DisciplinaryCase> b)
+    {
+        b.Property(x => x.EmployeeId).IsRequired();
+        b.Property(x => x.Allegation).IsRequired().HasMaxLength(2000);
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        b.Property(x => x.Decision).HasMaxLength(2000);
+        b.HasIndex(x => new { x.TenantId, x.EmployeeId, x.IncidentOn });
+    }
+}

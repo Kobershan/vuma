@@ -26,6 +26,9 @@ public static class HrEndpoints
         hr.MapPost("/employees/{employeeId:guid}/suspend", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new SuspendEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/activate", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ActivateEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/terminate", async (Guid employeeId, TerminateEmployeeRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new TerminateEmployeeCommand(employeeId, r.TerminatedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
+        hr.MapPost("/employees/{employeeId:guid}/disciplinary-cases", async (Guid employeeId, DisciplinaryCaseRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/disciplinary-cases", await d.SendAsync(new OpenDisciplinaryCaseCommand(r.CompanyId, employeeId, r.IncidentOn, r.Allegation), ct))).RequirePermission(HrPermissions.Manage);
+        hr.MapPost("/disciplinary-cases/{id:guid}/investigate", async (Guid id, DisciplinaryInvestigationRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new StartDisciplinaryInvestigationCommand(id, r.StartedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
+        hr.MapPost("/disciplinary-cases/{id:guid}/decision", async (Guid id, DisciplinaryDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideDisciplinaryCaseCommand(id, r.Decision, r.DecidedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapGet("/leave", async (Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListLeaveRequestsQuery(employeeId), ct))).RequirePermission(HrPermissions.LeaveView);
         hr.MapPost("/leave", async (CreateLeaveRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/leave", await d.SendAsync(new CreateLeaveRequestCommand(r.EmployeeId, r.From, r.To, r.LeaveType, r.Reason), ct))).RequirePermission(HrPermissions.LeaveManage);
         hr.MapPost("/leave/{id:guid}/decision", async (Guid id, LeaveDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideLeaveCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.LeaveManage);
@@ -44,6 +47,9 @@ public static class HrEndpoints
     public sealed record EmploymentContractRequest(DateOnly StartsOn, DateOnly? EndsOn, decimal HourlyRate, string Currency);
     public sealed record EmployeeDocumentRequest(string DocumentType, string BlobKey, string ContentSha256, DateOnly? ExpiresOn);
     public sealed record TerminateEmployeeRequest(DateTimeOffset TerminatedAt);
+    public sealed record DisciplinaryCaseRequest(Guid CompanyId, DateOnly IncidentOn, string Allegation);
+    public sealed record DisciplinaryInvestigationRequest(DateTimeOffset StartedAt);
+    public sealed record DisciplinaryDecisionRequest(string Decision, DateTimeOffset DecidedAt);
     public sealed record CreateLeaveRequest(Guid EmployeeId, DateOnly From, DateOnly To, string LeaveType, string? Reason);
     public sealed record CreateShiftRequest(Guid EmployeeId, DateTimeOffset StartsAt, DateTimeOffset EndsAt, string Role, Guid? StoreId);
     public sealed record RecordAttendanceRequest(Guid EmployeeId, Guid? ShiftId, AttendanceEventType EventType, DateTimeOffset OccurredAt, string? Source);

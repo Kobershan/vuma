@@ -8,9 +8,10 @@ namespace VumaRetail.Domain.HrManagement;
 [Replicated(ReplicationScope.Bidirectional, ConflictPolicy.CloudWins)]
 public sealed class DisciplinaryCase : Entity
 {
-    private DisciplinaryCase(Guid tenantId, Guid employeeId, DateOnly incidentOn, string allegation,
+    private DisciplinaryCase(Guid tenantId, Guid companyId, Guid employeeId, DateOnly incidentOn, string allegation,
         DateTimeOffset openedAt) : base(tenantId)
     {
+        AssignCompany(companyId);
         EmployeeId = employeeId;
         IncidentOn = incidentOn;
         Allegation = allegation.Trim();
@@ -28,15 +29,15 @@ public sealed class DisciplinaryCase : Entity
     public DateTimeOffset? DecidedAt { get; private set; }
     public string? Decision { get; private set; }
 
-    public static DisciplinaryCase Open(Guid tenantId, Guid employeeId, DateOnly incidentOn,
+    public static DisciplinaryCase Open(Guid tenantId, Guid companyId, Guid employeeId, DateOnly incidentOn,
         string allegation, DateTimeOffset openedAt)
     {
-        if (tenantId == Guid.Empty || employeeId == Guid.Empty)
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || employeeId == Guid.Empty)
         {
-            throw new ArgumentException("Tenant and employee are required.");
+            throw new ArgumentException("Tenant, company and employee are required.");
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(allegation);
-        return new DisciplinaryCase(tenantId, employeeId, incidentOn, allegation, openedAt);
+        return new DisciplinaryCase(tenantId, companyId, employeeId, incidentOn, allegation, openedAt);
     }
 
     public void StartInvestigation(DateTimeOffset at)
