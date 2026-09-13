@@ -1,6 +1,6 @@
 # STAGE 21 — Ecommerce, Storefront API and Channels
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — storefront catalogue, basket, checkout-intent and signed payment-webhook foundations are implemented and verified; authoritative order/payment integration and full acceptance remain · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,13 +44,20 @@ Declare granular `ecommerce.view`, `ecommerce.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [ ] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
-- [ ] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration.
+- [~] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
+  Channel/product persistence, redacted DTOs, routes and host OpenAPI coverage are implemented.
+- [~] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
+  idempotent checkout, expiry and confirmation boundaries are implemented; authoritative order,
+  reservation and gateway orchestration remain.
 - [ ] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
+
+Verified 2026-09-13: Ecommerce unit tests **3/3** and real-host OpenAPI contract test **1/1** passed.
+The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
+outage integration is exercised end to end.
 
 - `Two_checkouts_one_last_item`: two customers request the last unit; exactly one store reservation succeeds; the other gets a pending/backorder/refusal outcome with no capture.
 - `Browser_total_is_not_trusted`: browser submits ZAR 1 for a ZAR 100 item; server prices ZAR 100.
@@ -70,4 +77,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-

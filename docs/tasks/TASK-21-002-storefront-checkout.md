@@ -23,6 +23,8 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
   verification; provider authorization/capture/void/refund orchestration and store order settlement remain.
 - Checkout confirmation and rejection now enforce the 24-hour expiry at the decision boundary, so an
   expired pending intent cannot be decided merely because a background expiry sweep has not run.
+- Ecommerce unit tests pass **3/3** and the real-host OpenAPI contract test passes **1/1**; authoritative
+  order, reservation, gateway and outage integration remain open.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
 
 ## Definition of done
