@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Assets;
 using VumaRetail.Application.Service;
+using VumaRetail.Domain.Assets;
 using VumaRetail.Domain.Service;
 
 namespace VumaRetail.Infrastructure.Persistence.Repositories;
 
 /// <summary>EF persistence boundary for the Stage 23 service coordination records.</summary>
-public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRepository
+public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRepository, IAssetRepository
 {
     public async Task<IReadOnlyList<ServiceTicket>> ListTicketsAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default)
         => await context.ServiceTickets.AsNoTracking()
@@ -36,4 +38,16 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
     public void Add(WarrantyClaim claim) => context.WarrantyClaims.Add(claim);
     public void Add(RepairJob job) => context.RepairJobs.Add(job);
     public void Add(ServicePartUsage usage) => context.ServicePartUsages.Add(usage);
+
+    public Task<FixedAsset?> FindAssetAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.FixedAssets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<AssetBook?> FindBookAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.AssetBooks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<AssetBook?> FindBookAsync(Guid assetId, string bookName, CancellationToken cancellationToken = default)
+        => context.AssetBooks.FirstOrDefaultAsync(x => x.AssetId == assetId && x.BookName == bookName.Trim(), cancellationToken);
+
+    public void Add(FixedAsset asset) => context.FixedAssets.Add(asset);
+    public void Add(AssetBook book) => context.AssetBooks.Add(book);
 }

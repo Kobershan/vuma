@@ -17,4 +17,17 @@ public sealed class AssetTests
         charge.Amount.Amount.Should().Be(0m);
         charge.ClosingNetBookValue.Amount.Should().Be(0m);
     }
+
+    [Fact]
+    public void Asset_lifecycle_requires_draft_then_in_service_before_disposal()
+    {
+        FixedAsset asset = FixedAsset.Create(Guid.NewGuid(), null, Guid.NewGuid(), "A-2", "Till",
+            new DateOnly(2026, 1, 1), new Money(100m, "ZAR"));
+
+        FluentActions.Invoking(() => asset.Dispose(new DateOnly(2026, 2, 1)))
+            .Should().Throw<InvalidOperationException>();
+        asset.PlaceInService();
+        asset.Dispose(new DateOnly(2026, 2, 1));
+        asset.Status.Should().Be(AssetStatus.Disposed);
+    }
 }

@@ -45,8 +45,8 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
 ## Parts — the build list
 
 - [~] 27-P01: Implement asset books, capitalization, custody and depreciation schedules. Domain lifecycle,
-  book invariants, residual floor and useful-life calculation are implemented; persistence and period
-  idempotency remain.
+  book invariants, residual floor and useful-life calculation are implemented; persistence, lifecycle
+  command seams and period idempotency remain.
 - [ ] 27-P02: Integrate maintenance, leases, procurement and Finance posting events.
 - [ ] 27-P03: Implement local checklist queue APIs, evidence attachments and period-close acceptance.
 
