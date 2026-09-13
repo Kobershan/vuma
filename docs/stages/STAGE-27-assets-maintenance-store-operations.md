@@ -48,7 +48,9 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
   book invariants, residual floor and useful-life calculation are implemented; persistence, lifecycle
   command seams, period idempotency and the initial command API are implemented; finance integration
   and full acceptance remain.
-- [ ] 27-P02: Integrate maintenance, leases, procurement and Finance posting events.
+- [~] 27-P02: Integrate maintenance, leases, procurement and Finance posting events. The
+  company-scoped maintenance-order lifecycle is now implemented and covered by `MaintenanceOrderTests`;
+  persistence, parts/labour capture, leases and Finance posting remain.
 - [ ] 27-P03: Implement local checklist queue APIs, evidence attachments and period-close acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.

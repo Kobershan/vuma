@@ -6,6 +6,60 @@ namespace VumaRetail.Domain.Assets;
 
 public enum AssetStatus { Draft, InService, Disposed }
 
+public enum MaintenanceOrderStatus { Open, InProgress, Completed, Cancelled }
+
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.LastWriterWins)]
+public sealed class MaintenanceOrder : Entity
+{
+    private MaintenanceOrder(Guid tenantId, Guid? storeId, Guid companyId, Guid assetId,
+        string description, DateOnly? scheduledOn) : base(tenantId, storeId)
+    {
+        AssignCompany(companyId);
+        AssetId = assetId;
+        Description = description.Trim();
+        ScheduledOn = scheduledOn;
+    }
+
+    private MaintenanceOrder() { }
+
+    public Guid AssetId { get; private set; }
+    public string Description { get; private set; } = string.Empty;
+    public DateOnly? ScheduledOn { get; private set; }
+    public MaintenanceOrderStatus Status { get; private set; } = MaintenanceOrderStatus.Open;
+    public DateTimeOffset? CompletedAt { get; private set; }
+
+    public static MaintenanceOrder Create(Guid tenantId, Guid? storeId, Guid companyId, Guid assetId,
+        string description, DateOnly? scheduledOn = null)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || assetId == Guid.Empty)
+            throw new ArgumentException("Tenant, company and asset are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        return new MaintenanceOrder(tenantId, storeId, companyId, assetId, description, scheduledOn);
+    }
+
+    public void Start()
+    {
+        if (Status != MaintenanceOrderStatus.Open)
+            throw new InvalidOperationException("Only an open maintenance order can start.");
+        Status = MaintenanceOrderStatus.InProgress;
+    }
+
+    public void Complete(DateTimeOffset completedAt)
+    {
+        if (Status != MaintenanceOrderStatus.InProgress)
+            throw new InvalidOperationException("Only an in-progress maintenance order can complete.");
+        CompletedAt = completedAt;
+        Status = MaintenanceOrderStatus.Completed;
+    }
+
+    public void Cancel()
+    {
+        if (Status is MaintenanceOrderStatus.Completed or MaintenanceOrderStatus.Cancelled)
+            throw new InvalidOperationException("Closed maintenance orders cannot be cancelled.");
+        Status = MaintenanceOrderStatus.Cancelled;
+    }
+}
+
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class FixedAsset : Entity
 {
