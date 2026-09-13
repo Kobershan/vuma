@@ -1,6 +1,6 @@
 # STAGE 28 — Projects, Contracts and Job Costing
 
-**Status:** NOT_STARTED — specification created 2026-09-12, implementation not certified · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — project, budget, contract variation and milestone domain foundation implemented; persistence, integrations, APIs and acceptance remain · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,11 +44,18 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
 
 ## Parts — the build list
 
-- [ ] 28-P01: Implement projects/contracts, budget versions and approval transitions.
+- [~] 28-P01: Implement projects/contracts, budget versions and approval transitions. Domain invariants
+  for budget measures, approved variations and milestone billing are implemented and tested; persistence,
+  commands and authorization remain.
 - [ ] 28-P02: Integrate labour/procurement cost allocation, WIP and milestone billing.
 - [ ] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
+
+## Progress evidence
+
+- 2026-09-13: Added project, budget, contract variation and billing milestone domain records with
+  approval state machines and explicit currency measures. Focused domain tests: **3/3 passed**.
 
 ## Tests / acceptance
 
@@ -70,4 +77,3 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
-
