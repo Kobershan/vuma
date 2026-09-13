@@ -1,5 +1,6 @@
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Manufacturing;
 using VumaRetail.Domain.Manufacturing;
 
@@ -7,6 +8,23 @@ namespace VumaRetail.UnitTests.Manufacturing;
 
 public sealed class ManufacturingCommandTests
 {
+    [Fact]
+    public async Task Production_read_refuses_an_order_from_another_active_company()
+    {
+        IProductionOrderRepository repository = Substitute.For<IProductionOrderRepository>();
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        Guid orderCompany = Guid.NewGuid();
+        company.CompanyId.Returns(Guid.NewGuid());
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), Guid.NewGuid(), orderCompany,
+            Guid.NewGuid(), new(1m, "EA"), "PO-SCOPE", Guid.NewGuid());
+        repository.FindAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
+
+        Func<Task> action = () => new GetProductionOrderQueryHandler(repository, company)
+            .HandleAsync(new GetProductionOrderQuery(order.Id));
+
+        await action.Should().ThrowAsync<ManufacturingRuleException>();
+    }
+
     [Fact]
     public async Task Create_production_command_rejects_changed_duplicate_payload()
     {

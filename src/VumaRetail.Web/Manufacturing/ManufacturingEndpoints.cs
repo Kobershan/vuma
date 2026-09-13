@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Manufacturing;
 using VumaRetail.Contracts.Manufacturing;
 using VumaRetail.Web.Api;
@@ -71,8 +72,12 @@ public static class ManufacturingEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<IResult> GetProductionAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> GetProductionAsync(Guid id, Guid? companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        if (companyId is { } requestedCompany)
+        {
+            company.SetCompany(requestedCompany);
+        }
         var order = await dispatcher.QueryAsync(new GetProductionOrderQuery(id), cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(new ProductionOrderResponse(
             order.Id, order.CompanyId ?? throw new InvalidOperationException("Production order has no company."), order.FinishedItemId, order.PlannedQuantity.Value, order.PlannedQuantity.UnitOfMeasure,
@@ -84,8 +89,12 @@ public static class ManufacturingEndpoints
             order.Scrap.Select(scrap => new ProductionScrapResponse(scrap.OperationId, scrap.Quantity.Value, scrap.Quantity.UnitOfMeasure, scrap.UnitCost.Amount, scrap.UnitCost.Currency)).ToArray()));
     }
 
-    private static async Task<IResult> GetProductionCapacityAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> GetProductionCapacityAsync(Guid id, Guid? companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        if (companyId is { } requestedCompany)
+        {
+            company.SetCompany(requestedCompany);
+        }
         var capacity = await dispatcher.QueryAsync(new GetProductionCapacityQuery(id), cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(new ProductionCapacityResponse(capacity.ProductionOrderId, capacity.PlannedQuantity, capacity.UnitOfMeasure, capacity.SetupMinutes, capacity.RunMinutes, capacity.TotalMinutes));
     }

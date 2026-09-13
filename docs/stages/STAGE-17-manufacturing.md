@@ -28,6 +28,8 @@ Add mappings/repositories for the listed types under `src/VumaRetail.Infrastruct
 
 `POST /api/v1/manufacturing/production-orders`, `POST /{id}/release`, `POST /{id}/issues`, `POST /{id}/receipts`, `POST /{id}/scrap`, `POST /{id}/close`, `GET /{id}/genealogy` (suffixes under production-orders). These are planned contracts: publish OpenAPI examples, permissions, idempotency, concurrency and error codes before client implementation. For server modules, routes live in `src/VumaRetail.Web/`; customer-facing DTOs stay in `src/VumaRetail.PublicApi/`. Preserve route compatibility where an endpoint exists already.
 
+Production reads accept an optional `companyId` selector and enforce the active company boundary when selected; mismatches resolve as not found.
+
 ### Permissions and entitlement
 
 Declare granular `manufacturing.view`, `manufacturing.manage` and distinct high-risk approval/posting/export permissions as applicable; do not grant broad administrator access to a mobile/member credential. Register the module manifest, enforce effective company access and module entitlements at the authority, and whitelist aggregate metering. Platform maintenance/read/export must retain the licensing carve-outs documented in the shared requirements.

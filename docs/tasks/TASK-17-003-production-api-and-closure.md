@@ -59,3 +59,7 @@ TASK-17-002.
   the previous closed month. Encrypted filesystem backup completed (1,157,770 bytes) and
   `--verify-backup` confirmed snapshot `01a09b3a-d920-7000-87c0-69eb813ad5af` checksum integrity.
   Specialist review remains UNVERIFIED because no specialist-agent runtime is exposed.
+- 2026-09-13: production-order and capacity/genealogy reads now honor an active company context;
+  a mismatched company resolves as not found. The focused manufacturing unit suite passes 21/21,
+  and the StoreServer build passes with 0 errors. Backup/seed evidence and specialist review remain
+  the final open verification items.
