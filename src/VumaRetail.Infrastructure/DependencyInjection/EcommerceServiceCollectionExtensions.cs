@@ -19,6 +19,7 @@ public static class EcommerceServiceCollectionExtensions
         services.AddScoped<IChannelConnectionRepository, ChannelConnectionRepository>();
         services.AddScoped<IPublishedProductRepository, PublishedProductRepository>();
         services.AddScoped<ICommerceBasketRepository, CommerceBasketRepository>();
+        services.AddScoped<ICommerceBasketLineRepository, CommerceBasketLineRepository>();
         return services;
     }
 }

@@ -26,6 +26,10 @@ public static class EcommerceEndpoints
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
             .Produces<Guid>(StatusCodes.Status201Created)
             .WithSummary("Opens a tenant-scoped storefront basket.");
+        storefront.MapPost("/baskets/{id:guid}/lines", AddBasketLineAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
+            .Produces<Guid>(StatusCodes.Status201Created)
+            .WithSummary("Adds a published product to an owned basket; submitted price is advisory.");
 
         RouteGroupBuilder channels = endpoints.MapVumaApi().MapGroup("/channels")
             .WithTags("Storefront Channels").RequireModule("ecommerce");
@@ -71,8 +75,18 @@ public static class EcommerceEndpoints
         return Results.Created($"/api/v1/storefront/baskets/{id:D}", id);
     }
 
+    private static async Task<IResult> AddBasketLineAsync(
+        Guid id, AddBasketLineRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid lineId = await dispatcher.SendAsync(new AddBasketLineCommand(id, request.CompanyId, request.OwnerKey,
+            request.PublishedProductId, request.Quantity, request.AdvisoryUnitPrice, request.Currency), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/storefront/baskets/{id:D}/lines/{lineId:D}", lineId);
+    }
+
     public sealed record RegisterChannelRequest(Guid CompanyId, string Code, string Host);
     public sealed record PublishProductRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string Sku, string Name,
         string? Description, decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);
     public sealed record OpenBasketRequest(Guid ChannelId, Guid CompanyId, string OwnerKey);
+    public sealed record AddBasketLineRequest(Guid CompanyId, string OwnerKey, Guid PublishedProductId,
+        decimal Quantity, decimal AdvisoryUnitPrice, string Currency);
 }

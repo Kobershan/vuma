@@ -28,5 +28,12 @@ public sealed class PublishedProductRepository(VumaRetailDbContext context) : IP
 
 public sealed class CommerceBasketRepository(VumaRetailDbContext context) : ICommerceBasketRepository
 {
+    public Task<CommerceBasket?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.CommerceBaskets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public void Add(CommerceBasket basket) => context.CommerceBaskets.Add(basket);
+}
+
+public sealed class CommerceBasketLineRepository(VumaRetailDbContext context) : ICommerceBasketLineRepository
+{
+    public void Add(CommerceBasketLine line) => context.CommerceBasketLines.Add(line);
 }

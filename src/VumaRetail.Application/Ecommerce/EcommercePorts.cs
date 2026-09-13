@@ -22,7 +22,47 @@ public interface IPublishedProductRepository
 
 public interface ICommerceBasketRepository
 {
+    Task<CommerceBasket?> FindAsync(Guid id, CancellationToken cancellationToken = default);
     void Add(CommerceBasket basket);
+}
+
+public interface ICommerceBasketLineRepository
+{
+    void Add(CommerceBasketLine line);
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record AddBasketLineCommand(Guid BasketId, Guid CompanyId, string OwnerKey, Guid PublishedProductId,
+    decimal Quantity, decimal AdvisoryUnitPrice, string Currency) : ICommand<Guid>;
+
+public sealed class AddBasketLineCommandHandler(
+    ICommerceBasketRepository baskets, ICommerceBasketLineRepository lines, IPublishedProductRepository products,
+    ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<AddBasketLineCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(AddBasketLineCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "basket line");
+        CommerceBasket basket = await baskets.FindAsync(command.BasketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Basket not found.");
+        if (basket.CompanyId != command.CompanyId || basket.Status != CommerceBasketStatus.Open ||
+            !string.Equals(basket.OwnerKey, command.OwnerKey.Trim(), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Basket is not available to this owner.");
+        }
+        IReadOnlyList<PublishedProduct> published = await products.ListAsync(basket.ChannelConnectionId, 200, cancellationToken).ConfigureAwait(false);
+        PublishedProduct product = published.FirstOrDefault(x => x.Id == command.PublishedProductId)
+            ?? throw new InvalidOperationException("Published product not found for this channel.");
+        if (!string.Equals(product.Currency, command.Currency.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Basket currency does not match the published product.");
+        }
+        CommerceBasketLine line = CommerceBasketLine.Add(tenant.TenantId, command.CompanyId, basket.Id, product.Id,
+            command.Quantity, command.AdvisoryUnitPrice, command.Currency);
+        lines.Add(line);
+        return line.Id;
+    }
 }
 
 [CommandSideEffect(SideEffect.Write)]
