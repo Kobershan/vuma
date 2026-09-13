@@ -7,8 +7,8 @@ namespace VumaRetail.Application.Reporting;
 
 public sealed class ReportingPermissions : IModulePermissions
 {
-    public const string View = "reporting.view";
-    public const string Manage = "reporting.manage";
+    public const string View = "reporting.report.view";
+    public const string Manage = "reporting.report.manage";
     public string Module => "reporting";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [
