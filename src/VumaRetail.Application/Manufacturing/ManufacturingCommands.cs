@@ -194,19 +194,37 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         {
             return Unit.Value;
         }
-        StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
-            ?? throw ManufacturingRuleException.NotFound(command.LocationId);
-        ReserveOutcome hold = await reservations.ReserveAsync(
-            location.Id,
-            command.ComponentItemId,
-            command.ComponentVariantId,
-            quantity,
-            ReservationSource.Production,
-            order.Id,
-            intentId: command.OperationId,
-            legId: command.OperationId,
-            reason: "Production material issue",
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        StockLocation location;
+        try
+        {
+            location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
+                ?? throw ManufacturingRuleException.NotFound(command.LocationId);
+        }
+        catch
+        {
+            order.RollbackMaterialIssue(command.OperationId);
+            throw;
+        }
+        ReserveOutcome hold;
+        try
+        {
+            hold = await reservations.ReserveAsync(
+                location.Id,
+                command.ComponentItemId,
+                command.ComponentVariantId,
+                quantity,
+                ReservationSource.Production,
+                order.Id,
+                intentId: command.OperationId,
+                legId: command.OperationId,
+                reason: "Production material issue",
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            order.RollbackMaterialIssue(command.OperationId);
+            throw;
+        }
         if (hold.Shortfall.Value > 0m || hold.ReservationId is null)
         {
             order.RollbackMaterialIssue(command.OperationId);
@@ -251,8 +269,17 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
         {
             return Unit.Value;
         }
-        StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
-            ?? throw ManufacturingRuleException.NotFound(command.LocationId);
+        StockLocation location;
+        try
+        {
+            location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
+                ?? throw ManufacturingRuleException.NotFound(command.LocationId);
+        }
+        catch
+        {
+            order.RollbackOutputReceipt(command.OperationId);
+            throw;
+        }
         try
         {
             await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id, cancellationToken).ConfigureAwait(false);
