@@ -14,10 +14,10 @@ public static class ProjectEndpoints
     public static IEndpointRouteBuilder MapVumaProjects(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/projects").WithTags("Projects").RequireModule("projects");
-        group.MapPost("/", CreateAsync).RequirePermission("projects.manage").Produces<Guid>(StatusCodes.Status201Created);
-        group.MapPost("/budgets/{id:guid}/approve", ApproveBudgetAsync).RequirePermission("projects.manage").Produces(StatusCodes.Status204NoContent);
-        group.MapPost("/contract-variations/{id:guid}/approve", ApproveVariationAsync).RequirePermission("projects.manage").Produces(StatusCodes.Status204NoContent);
-        group.MapPost("/milestones/{id:guid}/bill", BillMilestoneAsync).RequirePermission("projects.manage").Produces<Guid>(StatusCodes.Status202Accepted);
+        group.MapPost("/", CreateAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/budgets/{id:guid}/approve", ApproveBudgetAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/contract-variations/{id:guid}/approve", ApproveVariationAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/milestones/{id:guid}/bill", BillMilestoneAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status202Accepted);
         return endpoints;
     }
 

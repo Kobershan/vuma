@@ -1,6 +1,6 @@
 # STAGE 28 — Projects, Contracts and Job Costing
 
-**Status:** IN_PROGRESS — project, budget, contract variation and milestone domain foundation implemented; persistence, integrations, APIs and acceptance remain · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — project, budget, contract variation and milestone domain foundation implemented; persistence, integrations, APIs and acceptance remain · project writes use the registered `projects.project.manage` permission · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 

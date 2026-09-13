@@ -15,17 +15,17 @@ public static class AssetEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/assets")
             .WithTags("Assets").RequireModule("assets");
-        group.MapPost("/", CreateAssetAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
-        group.MapPost("/{id:guid}/place-in-service", PlaceInServiceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
-        group.MapPost("/{id:guid}/dispose", DisposeAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
-        group.MapPost("/{id:guid}/books", CreateBookAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
-        group.MapPost("/books/{id:guid}/depreciation", RunDepreciationAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/", CreateAssetAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/{id:guid}/place-in-service", PlaceInServiceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/{id:guid}/dispose", DisposeAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/{id:guid}/books", CreateBookAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/books/{id:guid}/depreciation", RunDepreciationAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         RouteGroupBuilder maintenance = endpoints.MapVumaApi().MapGroup("/maintenance/orders")
             .WithTags("Maintenance").RequireModule("assets");
-        maintenance.MapPost("/", CreateMaintenanceAsync).RequirePermission("assets.manage").Produces<Guid>(StatusCodes.Status201Created);
-        maintenance.MapPost("/{id:guid}/start", StartMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
-        maintenance.MapPost("/{id:guid}/complete", CompleteMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
-        maintenance.MapPost("/{id:guid}/cancel", CancelMaintenanceAsync).RequirePermission("assets.manage").Produces(StatusCodes.Status204NoContent);
+        maintenance.MapPost("/", CreateMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        maintenance.MapPost("/{id:guid}/start", StartMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        maintenance.MapPost("/{id:guid}/complete", CompleteMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        maintenance.MapPost("/{id:guid}/cancel", CancelMaintenanceAsync).RequirePermission(AssetPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         return endpoints;
     }
 

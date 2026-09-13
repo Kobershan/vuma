@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Projects;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -11,6 +13,7 @@ public static class ProjectsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IProjectRepository, ProjectRepository>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ProjectPermissions>());
         return services;
     }
 }
