@@ -99,6 +99,24 @@ public sealed class PermissionCatalogueTests
     }
 
     [Fact]
+    public void Every_shipped_module_permission_declaration_is_valid()
+    {
+        IModulePermissions[] modules = typeof(PermissionCatalogue).Assembly
+            .GetTypes()
+            .Where(type => typeof(IModulePermissions).IsAssignableFrom(type)
+                && !type.IsAbstract
+                && type.GetConstructor(Type.EmptyTypes) is not null)
+            .Select(type => (IModulePermissions)Activator.CreateInstance(type)!)
+            .ToArray();
+
+        PermissionCatalogue catalogue = new(modules);
+
+        catalogue.All.Should().NotBeEmpty();
+        catalogue.All.Select(descriptor => descriptor.Key.Value.Split('.', StringSplitOptions.None).Length)
+            .Should().OnlyContain(segmentCount => segmentCount == 3);
+    }
+
+    [Fact]
     public void The_permission_that_can_grant_every_other_one_is_marked_high_risk()
     {
         PermissionCatalogue catalogue = new([new IdentityPermissions()]);

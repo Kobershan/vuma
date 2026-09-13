@@ -3,6 +3,9 @@
 Permission catalogue note: reporting permissions are `reporting.report.view` and
 `reporting.report.manage`, conforming to the required `module.entity.action` shape.
 
+The shipped permission catalogue now has a regression test covering every discoverable module
+declaration; the focused suite passes **9/9**.
+
 **Status:** IN_PROGRESS — report definition, projection checkpoint and dashboard freshness foundation implemented; persistence, projections, APIs, exports and acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
