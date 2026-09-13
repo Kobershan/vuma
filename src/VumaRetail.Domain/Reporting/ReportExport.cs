@@ -26,6 +26,7 @@ public sealed class ReportExport : Entity
     public ReportExportStatus Status { get; private set; }
     public DateTimeOffset? CompletedAtUtc { get; private set; }
     public string? FailureReason { get; private set; }
+    public string? ArtifactReference { get; private set; }
 
     public static ReportExport Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid operationId,
         string reportCode, DateTimeOffset requestedAtUtc)
@@ -38,14 +39,16 @@ public sealed class ReportExport : Entity
         return new ReportExport(tenantId, storeId, companyId, operationId, reportCode, requestedAtUtc);
     }
 
-    public void Complete(DateTimeOffset completedAtUtc)
+    public void Complete(DateTimeOffset completedAtUtc, string artifactReference)
     {
         if (Status != ReportExportStatus.Queued)
         {
             throw new InvalidOperationException("Only a queued export can complete.");
         }
+        ArgumentException.ThrowIfNullOrWhiteSpace(artifactReference);
         Status = ReportExportStatus.Completed;
         CompletedAtUtc = completedAtUtc;
+        ArtifactReference = artifactReference.Trim();
     }
 
     public void Fail(string reason)

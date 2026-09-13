@@ -28,6 +28,7 @@ internal sealed class ReportExportConfiguration : EntityConfiguration<ReportExpo
         b.Property(x => x.ReportCode).IsRequired().HasMaxLength(64);
         b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
         b.Property(x => x.FailureReason).HasMaxLength(512);
+        b.Property(x => x.ArtifactReference).HasMaxLength(512);
         b.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique().HasFilter("deleted_at IS NULL");
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ReportCode, x.RequestedAtUtc }).HasFilter("deleted_at IS NULL");
     }

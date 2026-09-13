@@ -8,7 +8,7 @@ namespace VumaRetail.Application.Reporting;
 public sealed record GetReportDefinitionQuery(string Code) : IQuery<ReportDefinitionResult?>;
 public sealed record GetReportExportQuery(Guid Id) : IQuery<ReportExportResult?>;
 public sealed record ReportDefinitionResult(Guid Id, string Code, string Name, string Status, DateTimeOffset AsAtUtc);
-public sealed record ReportExportResult(Guid Id, Guid CompanyId, Guid OperationId, string ReportCode, string Status, DateTimeOffset RequestedAtUtc);
+public sealed record ReportExportResult(Guid Id, Guid CompanyId, Guid OperationId, string ReportCode, string Status, DateTimeOffset RequestedAtUtc, string? ArtifactReference);
 
 public sealed class GetReportDefinitionQueryHandler(IReportingRepository reports, IClock clock)
     : IQueryHandler<GetReportDefinitionQuery, ReportDefinitionResult?>
@@ -31,6 +31,6 @@ public sealed class GetReportExportQueryHandler(IReportingRepository reports, IC
         {
             return null;
         }
-        return export is null ? null : new(export.Id, export.CompanyId!.Value, export.OperationId, export.ReportCode, export.Status.ToString(), export.RequestedAtUtc);
+        return export is null ? null : new(export.Id, export.CompanyId!.Value, export.OperationId, export.ReportCode, export.Status.ToString(), export.RequestedAtUtc, export.ArtifactReference);
     }
 }
