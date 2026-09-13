@@ -53,3 +53,6 @@ by the high-risk `hr.payroll.export` permission. It pairs immutable clock-in/out
 explicit breaks, applies the active employment contract rate, and refuses unclosed sessions or
 missing contracts; it deliberately performs no tax/statutory calculation. `PayrollExportTests`
 passes 2/2. Durable export files, payroll-provider integration and specialist/runtime review remain.
+
+Architecture verification after the payroll repository-port extension passes **85/85**; the EF model
+also reports no pending migrations.
