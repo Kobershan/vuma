@@ -35,5 +35,18 @@ public sealed class CommerceBasketRepository(VumaRetailDbContext context) : ICom
 
 public sealed class CommerceBasketLineRepository(VumaRetailDbContext context) : ICommerceBasketLineRepository
 {
+    public async Task<IReadOnlyList<CommerceBasketLine>> ListForBasketAsync(Guid basketId, CancellationToken cancellationToken = default)
+        => await context.CommerceBasketLines.AsNoTracking().Where(x => x.BasketId == basketId).ToListAsync(cancellationToken).ConfigureAwait(false);
     public void Add(CommerceBasketLine line) => context.CommerceBasketLines.Add(line);
+}
+
+public sealed class CheckoutIntentRepository(VumaRetailDbContext context) : ICheckoutIntentRepository
+{
+    public Task<CheckoutIntent?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.CheckoutIntents.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<CheckoutIntent?> FindByIdempotencyKeyAsync(string ownerKey, string idempotencyKey, CancellationToken cancellationToken = default)
+        => context.CheckoutIntents.FirstOrDefaultAsync(x => x.OwnerKey == ownerKey.Trim() && x.IdempotencyKey == idempotencyKey.Trim(), cancellationToken);
+
+    public void Add(CheckoutIntent intent) => context.CheckoutIntents.Add(intent);
 }

@@ -83,3 +83,24 @@ internal sealed class CommerceBasketLineConfiguration : EntityConfiguration<Comm
             .IsUnique().HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class CheckoutIntentConfiguration : EntityConfiguration<CheckoutIntent>
+{
+    protected override string Schema => Schemas.Ecommerce;
+    protected override string TableName => "checkout_intents";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<CheckoutIntent> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.ChannelConnectionId).IsRequired();
+        builder.Property(x => x.BasketId).IsRequired();
+        builder.Property(x => x.OwnerKey).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.IdempotencyKey).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.ContentFingerprint).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.CreatedAtUtc).IsRequired();
+        builder.Property(x => x.ExpiresAtUtc).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.OwnerKey, x.IdempotencyKey })
+            .IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}

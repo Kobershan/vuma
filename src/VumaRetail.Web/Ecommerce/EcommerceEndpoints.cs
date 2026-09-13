@@ -30,6 +30,11 @@ public static class EcommerceEndpoints
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
             .Produces<Guid>(StatusCodes.Status201Created)
             .WithSummary("Adds a published product to an owned basket; submitted price is advisory.");
+        storefront.MapPost("/checkouts", SubmitCheckoutAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
+            .Produces<CheckoutAcceptedResponse>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithSummary("Submits a durable checkout intent; store confirmation remains pending.");
 
         RouteGroupBuilder channels = endpoints.MapVumaApi().MapGroup("/channels")
             .WithTags("Storefront Channels").RequireModule("ecommerce");
@@ -83,10 +88,23 @@ public static class EcommerceEndpoints
         return Results.Created($"/api/v1/storefront/baskets/{id:D}/lines/{lineId:D}", lineId);
     }
 
+    private static async Task<IResult> SubmitCheckoutAsync(
+        SubmitCheckoutRequest request, HttpRequest http, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        string idempotencyKey = http.Headers["Idempotency-Key"].ToString();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            return Results.BadRequest(new { error = "Idempotency-Key is required." });
+        Guid id = await dispatcher.SendAsync(new SubmitCheckoutCommand(request.BasketId, request.CompanyId,
+            request.OwnerKey, idempotencyKey, request.ContentFingerprint), cancellationToken).ConfigureAwait(false);
+        return Results.Accepted($"/api/v1/storefront/checkouts/{id:D}", new CheckoutAcceptedResponse(id, "Pending", DateTimeOffset.UtcNow.AddHours(24)));
+    }
+
     public sealed record RegisterChannelRequest(Guid CompanyId, string Code, string Host);
     public sealed record PublishProductRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string Sku, string Name,
         string? Description, decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);
     public sealed record OpenBasketRequest(Guid ChannelId, Guid CompanyId, string OwnerKey);
     public sealed record AddBasketLineRequest(Guid CompanyId, string OwnerKey, Guid PublishedProductId,
         decimal Quantity, decimal AdvisoryUnitPrice, string Currency);
+    public sealed record SubmitCheckoutRequest(Guid BasketId, Guid CompanyId, string OwnerKey, string ContentFingerprint);
+    public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
 }

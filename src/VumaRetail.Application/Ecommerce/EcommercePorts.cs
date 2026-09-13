@@ -28,7 +28,55 @@ public interface ICommerceBasketRepository
 
 public interface ICommerceBasketLineRepository
 {
+    Task<IReadOnlyList<CommerceBasketLine>> ListForBasketAsync(Guid basketId, CancellationToken cancellationToken = default);
     void Add(CommerceBasketLine line);
+}
+
+public interface ICheckoutIntentRepository
+{
+    Task<CheckoutIntent?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<CheckoutIntent?> FindByIdempotencyKeyAsync(string ownerKey, string idempotencyKey, CancellationToken cancellationToken = default);
+    void Add(CheckoutIntent intent);
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record SubmitCheckoutCommand(Guid BasketId, Guid CompanyId, string OwnerKey,
+    string IdempotencyKey, string ContentFingerprint) : ICommand<Guid>;
+
+public sealed class SubmitCheckoutCommandHandler(
+    ICommerceBasketRepository baskets, ICommerceBasketLineRepository lines, ICheckoutIntentRepository intents,
+    ITenantContext tenant, ICompanyContext company, IClock clock)
+    : ICommandHandler<SubmitCheckoutCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(SubmitCheckoutCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "checkout");
+        CheckoutIntent? existing = await intents.FindByIdempotencyKeyAsync(command.OwnerKey, command.IdempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (!string.Equals(existing.ContentFingerprint, command.ContentFingerprint.Trim(), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Checkout idempotency key was reused with different content.");
+            }
+            return existing.Id;
+        }
+        CommerceBasket basket = await baskets.FindAsync(command.BasketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Basket not found.");
+        if (basket.CompanyId != command.CompanyId || basket.Status != CommerceBasketStatus.Open ||
+            !string.Equals(basket.OwnerKey, command.OwnerKey.Trim(), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Basket is not available to this owner.");
+        }
+        if ((await lines.ListForBasketAsync(basket.Id, cancellationToken).ConfigureAwait(false)).Count == 0)
+        {
+            throw new InvalidOperationException("Cannot submit an empty basket.");
+        }
+        CheckoutIntent intent = CheckoutIntent.Submit(tenant.TenantId, command.CompanyId, basket.ChannelConnectionId,
+            basket.Id, command.OwnerKey, command.IdempotencyKey, command.ContentFingerprint, clock.UtcNow);
+        intents.Add(intent);
+        return intent.Id;
+    }
 }
 
 [CommandSideEffect(SideEffect.Write)]
