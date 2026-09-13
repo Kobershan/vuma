@@ -19,6 +19,7 @@ using VumaRetail.Web.Api;
 using VumaRetail.Web.Catalog;
 using VumaRetail.Web.Crm;
 using VumaRetail.Web.Conversations;
+using VumaRetail.Web.Quality;
 using VumaRetail.PublicApi.Loyalty;
 using VumaRetail.Application.CustomerAccounts.Hosting;
 using VumaRetail.Application.Planning.Hosting;
@@ -222,6 +223,7 @@ builder.Services.AddVumaPlanning();
 
 // Stage 16. Versioned BOM definitions and costing inputs. Production execution remains Stage 17.
 builder.Services.AddVumaManufacturing();
+builder.Services.AddVumaQuality();
 
 // Stage 19. CRM: leads, opportunities, activities, segments and consent. After AddVumaPartners
 // (conversion verifies the partner link through the partners read port — a Guid reference,
@@ -364,6 +366,7 @@ app.MapVumaOrders();
 app.MapVumaImports();
 app.MapVumaPlanning();
 app.MapVumaManufacturing();
+app.MapVumaQuality();
 app.MapVumaCrm();
 app.MapVumaConversations();
 app.MapVumaLoyaltyPublic(app.Services.GetRequiredService<LoyaltyPublicOptions>());

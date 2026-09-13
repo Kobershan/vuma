@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Manufacturing;
+using VumaRetail.Application.Quality;
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Quality;
 
 namespace VumaRetail.Infrastructure.Persistence.Repositories;
 
@@ -30,4 +32,16 @@ public sealed class ProductionOrderRepository(VumaRetailDbContext context) : IPr
 
     /// <inheritdoc />
     public void Add(ProductionOrder order) => context.ProductionOrders.Add(order);
+}
+
+/// <summary>EF Core repository for Stage 18 quality holds.</summary>
+public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualityHoldRepository
+{
+    public Task<QualityHold?> FindAsync(Guid id, CancellationToken cancellationToken = default)
+        => context.QualityHolds.FirstOrDefaultAsync(hold => hold.Id == id, cancellationToken);
+
+    public Task<QualityHold?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
+        => context.QualityHolds.FirstOrDefaultAsync(hold => hold.OperationId == operationId, cancellationToken);
+
+    public void Add(QualityHold hold) => context.QualityHolds.Add(hold);
 }

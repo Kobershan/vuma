@@ -1,0 +1,40 @@
+#pragma warning disable CS1591
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Quality;
+using VumaRetail.Web.Api;
+using VumaRetail.Web.Licensing;
+
+namespace VumaRetail.Web.Quality;
+
+public static class QualityEndpoints
+{
+    public static IEndpointRouteBuilder MapVumaQuality(this IEndpointRouteBuilder endpoints)
+    {
+        RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/quality/holds")
+            .WithTags("Quality").RequireModule("quality");
+        group.MapPost("/", PlaceAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/{id:guid}/release", ReleaseAsync).RequirePermission(QualityPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent);
+        return endpoints;
+    }
+
+    private static async Task<IResult> PlaceAsync(PlaceQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new PlaceQualityHoldCommand(request.OperationId, request.CompanyId, request.LocationId,
+            request.ItemId, request.ItemVariantId, request.Quantity, request.UnitOfMeasure, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/quality/holds/{id:D}", id);
+    }
+
+    private static async Task<IResult> ReleaseAsync(Guid id, ReleaseQualityHoldRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new ReleaseQualityHoldCommand(id, request.Reason), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
+    public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
+    public sealed record ReleaseQualityHoldRequest(string Reason);
+}

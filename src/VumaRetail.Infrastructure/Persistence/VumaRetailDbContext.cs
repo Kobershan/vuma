@@ -539,6 +539,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Manufacturing.ProductionOrder> ProductionOrders
         => Set<Domain.Manufacturing.ProductionOrder>();
 
+    /// <summary>Inventory quarantines awaiting quality disposition (Stage 18).</summary>
+    public DbSet<Domain.Quality.QualityHold> QualityHolds => Set<Domain.Quality.QualityHold>();
+
     /// <summary>CRM leads. Stage 19.</summary>
     public DbSet<Domain.Crm.Lead> CrmLeads => Set<Domain.Crm.Lead>();
 
