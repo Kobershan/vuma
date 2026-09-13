@@ -10,6 +10,10 @@ using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Identity;
 using VumaRetail.Web.Registry;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.Security;
+using VumaRetail.Web.Dashboard;
+using VumaRetail.Web.Inventory;
+using VumaRetail.PublicApi.Loyalty;
 
 // The cloud tier: the replica of every store, tenant-keyed, and the backup vault's home. Source of
 // truth for the tenant roll-up (R2).
@@ -44,6 +48,8 @@ if (host.TenantId != Guid.Empty)
         + "written into another tenant's data.");
 }
 
+ProductionSecurityGuard.Validate(builder.Configuration, builder.Environment, cloudHost: true);
+
 string connectionString = builder.Configuration.GetConnectionString("Vuma")
     ?? throw new InvalidOperationException("ConnectionStrings:Vuma is not configured.");
 string registryConnectionString = builder.Configuration.GetConnectionString("Registry")
@@ -68,6 +74,17 @@ builder.Services.AddVumaWeb(jwt, host);
 // services resolve VumaRegistryDbContext explicitly.
 builder.Services.AddVumaRegistryPersistence(registryConnectionString);
 builder.Services.AddVumaPersistence(connectionString);
+// Cloud serves scoped read surfaces as well as replication. These registrations are deliberately
+// limited to the shared catalogue/CRM/loyalty/inventory contracts; writes still pass permissions,
+// tenant filters and the company-routing boundary.
+builder.Services.AddVumaCatalog();
+builder.Services.AddVumaPartners();
+builder.Services.AddVumaCrm();
+builder.Services.AddVumaInventory();
+builder.Services.AddVumaLoyalty(useFakeOrbit: false);
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection("Vuma:Loyalty:Public").Get<LoyaltyPublicOptions>()
+        ?? new LoyaltyPublicOptions());
 builder.Services.AddVumaSync(node);
 builder.Services.AddVumaBackup(connectionString, vault, encryption, postgres);
 
@@ -86,6 +103,9 @@ app.UseVumaOpenApi();
 app.MapVumaIdentity();
 app.MapVumaCompanies();
 app.MapVumaSync();
+app.MapVumaDashboard();
+app.MapVumaInventory();
+app.MapVumaLoyaltyPublic();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .AllowAnonymous()

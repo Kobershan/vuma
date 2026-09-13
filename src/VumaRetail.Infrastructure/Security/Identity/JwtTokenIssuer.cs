@@ -34,6 +34,12 @@ public static class VumaClaims
     /// A request naming a company absent from this claim is 403 (ADR-127).
     /// </summary>
     public const string Companies = "vuma:companies";
+
+    /// <summary>The enrolled replication node represented by a service credential.</summary>
+    public const string NodeId = "vuma:node";
+
+    /// <summary>The enrolled replication tier represented by a service credential.</summary>
+    public const string NodeKind = "vuma:node-kind";
 }
 
 /// <summary>How access and refresh tokens are signed and how long they live.</summary>
@@ -131,6 +137,12 @@ public sealed class JwtTokenIssuer(JwtOptions options, IClock clock) : ITokenIss
         if (subject.Companies is { Count: > 0 } companies)
         {
             claims.Add(new Claim(VumaClaims.Companies, SerialiseCompanies(companies)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(subject.NodeId) && subject.NodeKind is { } nodeKind)
+        {
+            claims.Add(new Claim(VumaClaims.NodeId, subject.NodeId));
+            claims.Add(new Claim(VumaClaims.NodeKind, nodeKind.ToString()));
         }
 
         SecurityTokenDescriptor descriptor = new()

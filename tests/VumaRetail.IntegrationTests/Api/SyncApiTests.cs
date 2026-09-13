@@ -5,6 +5,7 @@ using VumaRetail.Contracts;
 using VumaRetail.Contracts.Backup;
 using VumaRetail.Contracts.Sync;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Sync;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.Sync.Permissions;
 
@@ -56,7 +57,7 @@ public sealed class SyncApiTests(PostgresFixture fixture)
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
         await harness.CreateUserAsync("peer", permissions: SyncPermissions.BatchPush);
 
-        using HttpClient peer = await harness.SignInAsync("peer");
+        using HttpClient peer = await harness.NodeClientAsync("peer", "cloud", NodeKind.Cloud);
 
         HttpResponseMessage response = await peer.PostAsJsonAsync("/api/v1/sync/batches", EmptyBatch(harness));
 
@@ -68,6 +69,23 @@ public sealed class SyncApiTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_password_session_with_batch_permission_cannot_submit_a_node_envelope()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("human-peer", permissions: SyncPermissions.BatchPush);
+
+        using HttpClient human = await harness.SignInAsync("human-peer");
+
+        HttpResponseMessage response = await human.PostAsJsonAsync(
+            "/api/v1/sync/batches",
+            EmptyBatch(harness));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await ReadProblemAsync(response)).GetProperty("code").GetString()
+            .Should().Be("SYNC_CALLER_ENVELOPE_MISMATCH");
+    }
+
+    [Fact]
     public async Task A_batch_naming_an_unknown_source_kind_is_a_bad_request()
     {
         // Never a silent fallback. A SourceKind that defaulted to Store would let a terminal win a
@@ -75,7 +93,7 @@ public sealed class SyncApiTests(PostgresFixture fixture)
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
         await harness.CreateUserAsync("peer", permissions: SyncPermissions.BatchPush);
 
-        using HttpClient peer = await harness.SignInAsync("peer");
+        using HttpClient peer = await harness.NodeClientAsync("peer", "cloud", NodeKind.Cloud);
 
         HttpResponseMessage response = await peer.PostAsJsonAsync(
             "/api/v1/sync/batches",
@@ -91,7 +109,7 @@ public sealed class SyncApiTests(PostgresFixture fixture)
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
         await harness.CreateUserAsync("peer", permissions: SyncPermissions.BatchPush);
 
-        using HttpClient peer = await harness.SignInAsync("peer");
+        using HttpClient peer = await harness.NodeClientAsync("peer", "cloud", NodeKind.Cloud);
 
         HttpResponseMessage response = await peer.PostAsJsonAsync(
             "/api/v1/sync/batches",
@@ -122,7 +140,7 @@ public sealed class SyncApiTests(PostgresFixture fixture)
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
         await harness.CreateUserAsync("peer", permissions: SyncPermissions.BatchPush);
 
-        using HttpClient peer = await harness.SignInAsync("peer");
+        using HttpClient peer = await harness.NodeClientAsync("peer", "cloud", NodeKind.Cloud);
 
         SyncOperationDto[] tooMany =
         [

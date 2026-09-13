@@ -112,8 +112,8 @@ Two suites are mandatory and must be run in CI on every build, not just during S
 **No-accidental-lockout.** This is the suite that protects the business from its own licensing, and it
 must be green on every build (the guarantees survive from ADR-027 into the live ADR-028, restated
 against **read-only** rather than a hard lock — see `docs/LICENSING.md` §4):
-- Control plane unreachable for the full tolerance window: the store trades normally throughout, and
-  drops to read-only only at the configured boundary — **never earlier**
+- Control plane unreachable for any duration: the store trades normally, with notices after the
+  configured warning thresholds; an outage never causes read-only
 - Control plane returning 500s, timeouts, or garbage: treated as unreachable, never as unlicensed
 - A single failed charge, and a second, and a third: **no read-only restriction** until dunning
   completes and notifications are recorded as delivered

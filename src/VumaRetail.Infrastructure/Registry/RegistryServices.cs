@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Licensing;
@@ -97,10 +98,21 @@ public interface ICompanyServingGuard
     Task EnsureAccessibleAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default);
 }
 
-internal sealed class UnconfiguredCompanyConnectionSecretStore : ICompanyConnectionSecretStore
+/// <summary>Resolves company database references from the host secret configuration.</summary>
+public sealed class ConfigurationCompanyConnectionSecretStore(IConfiguration configuration)
+    : ICompanyConnectionSecretStore
 {
     public Task<string> ResolveAsync(string secretReference, CancellationToken cancellationToken = default)
-        => throw new InvalidOperationException("No company connection secret store is configured.");
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(secretReference);
+        string? connection = configuration[$"Vuma:CompanyConnections:{secretReference}"]
+            ?? configuration[$"ConnectionStrings:{secretReference}"];
+        return Task.FromResult(
+            string.IsNullOrWhiteSpace(connection)
+                ? throw new InvalidOperationException(
+                    $"No company database connection is configured for secret reference '{secretReference}'.")
+                : connection);
+    }
 }
 
 public sealed class CompanyDbContextFactory(

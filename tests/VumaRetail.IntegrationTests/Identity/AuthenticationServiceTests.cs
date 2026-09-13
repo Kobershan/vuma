@@ -248,6 +248,32 @@ public sealed class AuthenticationServiceTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Unmatched_pin_attempts_lock_the_authenticated_terminal_durably()
+    {
+        await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);
+        Guid roleId = await harness.CreateRoleAsync("Cashier", PlatformPermissions.StoreView);
+        await harness.CreateUserAsync("cashier1", pin: "1174", roleId: roleId, storeId: harness.StoreId);
+        Guid terminalId = await harness.CreateActiveTerminalAsync("T01");
+
+        for (int attempt = 0; attempt < CredentialPolicy.Default.MaxFailedAttempts; attempt++)
+        {
+            (await harness.Authentication.SignInWithPinAsync(terminalId, "9999"))
+                .Failure.Should().Be(AuthenticationFailure.InvalidCredentials);
+        }
+
+        Terminal lockedTerminal = (await harness.Terminals.FindAsync(terminalId))!;
+        lockedTerminal.FailedPinAttempts.Should().Be(CredentialPolicy.Default.MaxFailedAttempts);
+        lockedTerminal.PinLockedUntil.Should().Be(harness.Clock.UtcNow.Add(CredentialPolicy.Default.LockoutDuration));
+
+        (await harness.Authentication.SignInWithPinAsync(terminalId, "1174"))
+            .Failure.Should().Be(AuthenticationFailure.LockedOut);
+
+        harness.Clock.Advance(CredentialPolicy.Default.LockoutDuration);
+        (await harness.Authentication.SignInWithPinAsync(terminalId, "1174"))
+            .Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task A_pin_is_refused_on_a_terminal_that_cannot_authenticate()
     {
         await using IdentityHarness harness = await IdentityHarness.CreateAsync(fixture);

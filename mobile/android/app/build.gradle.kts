@@ -32,9 +32,23 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // CI supplies the private release keystore. Never publish an artifact signed by the
+            // debug key; a missing production key must fail the release build.
+            val releaseStore = providers.gradleProperty("vumaReleaseStoreFile")
+            val releasePassword = providers.gradleProperty("vumaReleaseStorePassword")
+            val releaseAlias = providers.gradleProperty("vumaReleaseKeyAlias")
+            val releaseKeyPassword = providers.gradleProperty("vumaReleaseKeyPassword")
+            if (releaseStore.isPresent && releasePassword.isPresent && releaseAlias.isPresent && releaseKeyPassword.isPresent) {
+                signingConfigs.create("vumaRelease") {
+                    storeFile = file(releaseStore.get())
+                    storePassword = releasePassword.get()
+                    keyAlias = releaseAlias.get()
+                    keyPassword = releaseKeyPassword.get()
+                }
+                signingConfig = signingConfigs.getByName("vumaRelease")
+            } else {
+                throw GradleException("Release signing is not configured. Refusing to use the debug key.")
+            }
         }
     }
 }

@@ -2,7 +2,7 @@
 
 ## Server
 
-Install PostgreSQL 16+, the Vuma StoreServer service, and a reverse proxy/TLS certificate for the
+Install PostgreSQL 17+, the Vuma StoreServer service, and a reverse proxy/TLS certificate for the
 public cloud endpoint. Configure `ConnectionStrings:Registry` for the registry database and a company
 connection for the local company database. The registry stores company metadata and database routing;
 each company gets a separate PostgreSQL database, so tenant data is not shared between company
@@ -14,6 +14,11 @@ Configure secrets through the server secret store/environment, never in `appsett
 - PostgreSQL credentials and backup encryption key;
 - Twilio Account SID, Auth Token, approved WhatsApp sender, and the exact HTTPS webhook URL;
 - cloud sync credentials and object-storage credentials.
+
+For database-per-company routing, each registry `ConnectionSecretRef` must resolve through
+`Vuma:CompanyConnections:{ref}` (or the equivalent `ConnectionStrings:{ref}` entry) in the host
+secret provider. Missing references fail closed before a company context is opened; the ordinary
+host database is never used as a fallback for company business data.
 
 The Twilio webhook is `/api/v1/conversations/webhook/twilio/whatsapp`. Twilio-signed form requests
 are rejected unless the HMAC-SHA1 signature validates against the full configured webhook URL and all

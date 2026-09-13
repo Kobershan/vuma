@@ -39,6 +39,7 @@ public static class IdentityEndpoints
 
         auth.MapPost("/token", SignInAsync)
             .AllowAnonymous()
+            .RequireRateLimiting("vuma-auth")
             .Produces<TokenResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithSummary("Signs in with a user name and password.");
@@ -46,12 +47,14 @@ public static class IdentityEndpoints
         auth.MapPost("/pin", SignInWithPinAsync)
             .RequireAuthorization(policy => policy.AddAuthenticationSchemes(TerminalCertificateOptions.Scheme)
                 .RequireAuthenticatedUser())
+            .RequireRateLimiting("vuma-auth")
             .Produces<TokenResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithSummary("Signs a POS operator in on an already terminal-authenticated session.");
 
         auth.MapPost("/refresh", RefreshAsync)
             .AllowAnonymous()
+            .RequireRateLimiting("vuma-auth")
             .Produces<TokenResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithSummary("Exchanges a refresh token for a new pair, rotating it.");
@@ -63,6 +66,7 @@ public static class IdentityEndpoints
 
         auth.MapPost("/terminal/activate", ActivateTerminalAsync)
             .AllowAnonymous()
+            .RequireRateLimiting("vuma-terminal-activation")
             .Produces<TerminalActivationResponse>()
             .WithSummary("Activates an enrolled terminal, pinning its certificate.");
 
@@ -101,10 +105,19 @@ public static class IdentityEndpoints
 
     private static async Task<Results<Ok<TokenResponse>, ProblemHttpResult>> SignInWithPinAsync(
         PinSignInRequest request,
+        ClaimsPrincipal caller,
         AuthenticationService authentication,
         ICorrelationContext correlation,
         CancellationToken cancellationToken)
     {
+        if (ReadGuid(caller, VumaClaims.TerminalId) is not { } authenticatedTerminal
+            || authenticatedTerminal != request.TerminalId)
+        {
+            return Respond(
+                AuthenticationResult.Failed(AuthenticationFailure.TerminalNotAuthorised),
+                correlation);
+        }
+
         AuthenticationResult result = await authentication
             .SignInWithPinAsync(request.TerminalId, request.Pin, cancellationToken)
             .ConfigureAwait(false);

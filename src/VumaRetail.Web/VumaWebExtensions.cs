@@ -1,7 +1,9 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -72,6 +74,39 @@ public static class VumaWebExtensions
                 _ => { });
 
         services.AddAuthorization();
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.Headers.RetryAfter = "60";
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { code = "RATE_LIMITED", detail = "Too many authentication attempts. Try again later." },
+                    cancellationToken).ConfigureAwait(false);
+            };
+
+            options.AddPolicy("vuma-auth", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    ClientKey(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
+
+            options.AddPolicy("vuma-terminal-activation", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    ClientKey(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
+        });
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IAuthorizationHandler, PermissionAuthorizationHandler>());
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 
@@ -118,9 +153,13 @@ public static class VumaWebExtensions
         app.UseMiddleware<TenantResolutionMiddleware>();
         app.UseMiddleware<OperatorResolutionMiddleware>();
         app.UseAuthorization();
+        app.UseRateLimiter();
 
         return app;
     }
+
+    private static string ClientKey(HttpContext context)
+        => context.Connection.RemoteIpAddress?.ToString() ?? "unknown-client";
 
     /// <summary>Requires the caller to hold a permission (ADR-013).</summary>
     /// <typeparam name="TBuilder">The endpoint convention builder.</typeparam>

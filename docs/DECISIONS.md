@@ -16,7 +16,7 @@ a generic host so DI, config and logging match the server code.
 acceptable trade because the requirement is explicitly Windows. Android is a separate native client
 talking to the same API, not a shared-UI framework.
 
-## ADR-002 — PostgreSQL 16 for store and cloud — **LOCKED**
+## ADR-002 — PostgreSQL 17 for store and cloud — **LOCKED**
 **Decision.** Same engine both tiers: identical SQL, identical migrations, trivially restorable
 between them. Schema-per-module (`sales`, `inventory`, `hr`, …) inside one database.
 **Consequences.** No licence cost per store. Logical replication and PITR available for the backup

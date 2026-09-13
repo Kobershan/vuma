@@ -1,4 +1,5 @@
 using VumaRetail.Domain.Identity;
+using VumaRetail.Domain.Sync;
 
 namespace VumaRetail.Application.Identity;
 
@@ -63,6 +64,8 @@ public sealed record CompanyMembership(Guid CompanyId, string Roles);
 /// <param name="TerminalId">The terminal, for a POS session.</param>
 /// <param name="OperatorId">The vendor-issued Operator ID, when the user is in the registry directory (ADR-127).</param>
 /// <param name="Companies">The companies the user may act in, with roles per company (ADR-127).</param>
+/// <param name="NodeId">The enrolled replication node identity, for service credentials only.</param>
+/// <param name="NodeKind">The enrolled replication tier, for service credentials only.</param>
 public sealed record TokenSubject(
     Guid UserId,
     Guid TenantId,
@@ -71,7 +74,9 @@ public sealed record TokenSubject(
     Guid? StoreId = null,
     Guid? TerminalId = null,
     Guid? OperatorId = null,
-    IReadOnlyList<CompanyMembership>? Companies = null);
+    IReadOnlyList<CompanyMembership>? Companies = null,
+    string? NodeId = null,
+    NodeKind? NodeKind = null);
 
 /// <summary>Mints signed access tokens.</summary>
 /// <remarks>

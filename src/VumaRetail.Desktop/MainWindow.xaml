@@ -24,6 +24,10 @@
       <Setter Property="Background" Value="{StaticResource VumaSurfaceRaisedBrush}" /><Setter Property="Foreground" Value="{StaticResource VumaTextPrimaryBrush}" /><Setter Property="BorderBrush" Value="{StaticResource VumaTextTertiaryBrush}" />
       <Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="12,10" /><Setter Property="FontSize" Value="14" />
     </Style>
+    <Style x:Key="PasswordInput" TargetType="PasswordBox">
+      <Setter Property="Background" Value="{StaticResource VumaSurfaceRaisedBrush}" /><Setter Property="Foreground" Value="{StaticResource VumaTextPrimaryBrush}" /><Setter Property="BorderBrush" Value="{StaticResource VumaTextTertiaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="12,10" /><Setter Property="FontSize" Value="14" />
+    </Style>
     <Style x:Key="MetricCard" TargetType="Border">
       <Setter Property="BorderBrush" Value="{StaticResource VumaTextTertiaryBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="16" />
       <Setter Property="Padding" Value="20" /><Setter Property="Margin" Value="0,0,10,0" />
@@ -36,7 +40,7 @@
           <TextBlock Text="vuma" FontSize="42" FontWeight="Bold" Foreground="{StaticResource Accent}" />
           <TextBlock Text="Retail operations, beautifully connected." FontSize="20" Margin="0,8,0,28" />
           <TextBlock Text="Username" Foreground="{StaticResource Muted}" Margin="0,0,0,6" /><TextBox x:Name="UsernameInput" Style="{StaticResource Input}" IsEnabled="True" IsReadOnly="False" Focusable="True" TabIndex="0" />
-          <TextBlock Text="Password" Foreground="{StaticResource Muted}" Margin="0,14,0,6" /><PasswordBox x:Name="PasswordInput" Style="{StaticResource Input}" IsEnabled="True" Focusable="True" TabIndex="1" />
+          <TextBlock Text="Password" Foreground="{StaticResource Muted}" Margin="0,14,0,6" /><PasswordBox x:Name="PasswordInput" Style="{StaticResource PasswordInput}" IsEnabled="True" Focusable="True" TabIndex="1" />
           <TextBlock x:Name="LoginError" Foreground="{StaticResource VumaCriticalBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
           <Button Content="Sign in securely" Style="{StaticResource PrimaryButton}" Click="SignIn_Click" Margin="0,24,0,0" />
           <TextBlock Text="Credentials remain in this session and are never sent to PostgreSQL." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,18,0,0" FontSize="12" />

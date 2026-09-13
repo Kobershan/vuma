@@ -45,6 +45,9 @@ public static class Program
             var content = NormalizeLineEndings(sb.ToString());
             File.WriteAllText(Path.Combine(OutputDir, $"VumaDesktop.Themes.{themeName}.xaml"), content);
             File.WriteAllText(Path.Combine(DesktopThemesDir, $"{themeName}.xaml"), content);
+            // Keep the legacy Theme-suffixed filenames generated from the same source
+            // until all downstream packaging references have migrated.
+            File.WriteAllText(Path.Combine(DesktopThemesDir, $"{themeName}Theme.xaml"), content);
         }
     }
 
@@ -164,13 +167,13 @@ public static class Program
         var exclude = excludeKeys ?? [];
         foreach (var prop in node.AsObject()!)
         {
-            if (exclude.Contains(prop.Key))
-            {
-                sb.AppendLine($"  --{prefix}{prop.Key}: {prop.Value!.GetValue<string>()!};");
-            }
-            else if (prop.Value is JsonObject)
+            if (prop.Value is JsonObject)
             {
                 WriteFlat(sb, prop.Value!, $"{prefix}{prop.Key}-");
+            }
+            else if (!exclude.Contains(prop.Key))
+            {
+                sb.AppendLine($"  --{prefix}{prop.Key}: {prop.Value!.GetValue<string>()!};");
             }
         }
     }

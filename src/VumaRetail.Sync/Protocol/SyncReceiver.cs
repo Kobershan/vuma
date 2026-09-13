@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
+using VumaRetail.Domain.Entities;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sync;
 
@@ -63,7 +65,10 @@ public sealed class SyncReceiver(
         ArgumentNullException.ThrowIfNull(batch);
 
         GuardTenant(batch);
-        GuardCompany(batch);
+        // Identity mismatches are batch-level protocol violations and refuse the batch. Missing or
+        // malformed identity is operation-local, so it is rejected by ApplySafelyAsync and cannot
+        // prevent good operations later in the same batch from applying.
+        GuardOperationIdentity(batch);
 
         // Re-scope rather than bypass the tenant filter. The cloud serves every store, so it has to
         // move between tenants — but doing it by narrowing to the batch's tenant keeps the global
@@ -126,13 +131,127 @@ public sealed class SyncReceiver(
         }
     }
 
-    private static void GuardCompany(SyncBatch batch)
+    private static void GuardOperationIdentity(
+        SyncBatch batch,
+        SyncOperation? singleOperation = null,
+        bool rejectMissing = false)
     {
-        Guid? companyId = batch.CompanyId;
-        if (batch.Operations.Any(operation => operation.CompanyId is { } operationCompany
-            && operationCompany != companyId))
-            throw new SyncCompanyMismatchException();
+        IEnumerable<SyncOperation> operations = singleOperation is null
+            ? batch.Operations
+            : [singleOperation];
+
+        foreach (SyncOperation operation in operations)
+        {
+            JsonDocument payload;
+            try
+            {
+                payload = JsonDocument.Parse(operation.Payload);
+            }
+            catch (JsonException exception)
+            {
+                if (rejectMissing)
+                {
+                    throw new SyncPayloadMalformedException(operation.OperationId, exception);
+                }
+
+                // Malformed payloads are handled by ApplySafelyAsync so one bad operation does
+                // not poison a whole otherwise valid batch.
+                continue;
+            }
+
+            using (payload)
+            {
+                JsonElement root = payload.RootElement;
+
+                if (TryGuid(root, "Id") is not { } payloadId)
+                {
+                    if (rejectMissing)
+                    {
+                        throw new SyncOperationIdentityMissingException(operation.OperationId, nameof(Entity.Id));
+                    }
+
+                    continue;
+                }
+
+                if (payloadId != operation.EntityId)
+                {
+                    throw new SyncOperationIdentityMismatchException(
+                        operation.OperationId,
+                        nameof(Entity.Id),
+                        operation.EntityId,
+                        payloadId);
+                }
+
+                if (TryGuid(root, nameof(Entity.TenantId)) is not { } payloadTenant)
+                {
+                    if (rejectMissing)
+                    {
+                        throw new SyncOperationIdentityMissingException(operation.OperationId, nameof(Entity.TenantId));
+                    }
+
+                    continue;
+                }
+
+                if (payloadTenant != batch.TenantId)
+                {
+                    throw new SyncOperationTenantMismatchException(
+                        operation.OperationId,
+                        batch.TenantId,
+                        payloadTenant);
+                }
+
+                if (batch.StoreId is { } batchStoreId)
+                {
+                    Guid? payloadStore = TryGuid(root, nameof(Entity.StoreId));
+                    if (payloadStore is { } scopedStore && scopedStore != batchStoreId)
+                    {
+                        throw new SyncOperationScopeMismatchException(
+                            operation.OperationId,
+                            nameof(Entity.StoreId),
+                            batchStoreId,
+                            payloadStore);
+                    }
+                }
+
+                if (batch.CompanyId is { } batchCompanyId)
+                {
+                    if (operation.CompanyId != batchCompanyId)
+                    {
+                        throw new SyncCompanyMismatchException();
+                    }
+
+                    Guid? payloadCompany = TryGuid(root, nameof(Entity.CompanyId));
+                    if (payloadCompany is { } scopedCompany && scopedCompany != batchCompanyId)
+                    {
+                        throw new SyncOperationScopeMismatchException(
+                            operation.OperationId,
+                            nameof(Entity.CompanyId),
+                            batchCompanyId,
+                            payloadCompany);
+                    }
+                }
+                else if (operation.CompanyId is { } operationCompany)
+                {
+                    Guid? payloadCompany = TryGuid(root, nameof(Entity.CompanyId));
+                    if (payloadCompany is { } scopedCompany && scopedCompany != operationCompany)
+                    {
+                        throw new SyncOperationScopeMismatchException(
+                            operation.OperationId,
+                            nameof(Entity.CompanyId),
+                            operationCompany,
+                            payloadCompany);
+                    }
+                }
+            }
+        }
     }
+
+    private static Guid? TryGuid(JsonElement root, string propertyName)
+        => root.TryGetProperty(propertyName, out JsonElement value)
+            && value.ValueKind == JsonValueKind.String
+            && Guid.TryParse(value.GetString(), out Guid parsed)
+                ? parsed
+                : null;
 
     /// <summary>
     /// Applies one operation, turning a failure of that operation into a rejection of that operation.
@@ -187,6 +306,8 @@ public sealed class SyncReceiver(
         SyncOperation operation,
         CancellationToken cancellationToken)
     {
+        GuardOperationIdentity(batch, operation, rejectMissing: true);
+
         // Fold the sender's stamp into this node's clock before anything else, and do it even for an
         // operation that is about to be rejected. Causality is a property of what this node has seen,
         // not of what it chose to keep.
@@ -377,3 +498,50 @@ public sealed class SyncTenantMismatchException(Guid batchTenantId, Guid callerT
 /// <summary>Thrown when one sync batch attempts to cross company database boundaries.</summary>
 public sealed class SyncCompanyMismatchException()
     : DomainException("SYNC_COMPANY_MISMATCH", "A sync batch must contain operations from one company database only.");
+
+/// <summary>Thrown when a payload identity does not match its operation identity.</summary>
+public sealed class SyncOperationIdentityMismatchException(
+    Guid operationId,
+    string field,
+    Guid expected,
+    Guid actual)
+    : DomainException(
+        "SYNC_OPERATION_IDENTITY_MISMATCH",
+        $"Operation {operationId} declares {field} {actual}, but its operation identity is {expected}.");
+
+/// <summary>Thrown when a payload belongs to a different tenant than its batch.</summary>
+public sealed class SyncOperationTenantMismatchException(
+    Guid operationId,
+    Guid expected,
+    Guid actual)
+    : DomainException(
+        "SYNC_OPERATION_TENANT_MISMATCH",
+        $"Operation {operationId} belongs to tenant {actual}, but its batch belongs to tenant {expected}.");
+
+/// <summary>Thrown when a payload scope does not match its validated batch scope.</summary>
+public sealed class SyncOperationScopeMismatchException(
+    Guid operationId,
+    string field,
+    Guid expected,
+    Guid? actual)
+    : DomainException(
+        "SYNC_OPERATION_SCOPE_MISMATCH",
+        $"Operation {operationId} declares {field} {actual?.ToString() ?? "null"}, but its batch scope is {expected}.");
+
+/// <summary>Thrown when a valid sync payload omits a required identity field.</summary>
+public sealed class SyncOperationIdentityMissingException(Guid operationId, string field)
+    : DomainException(
+        "SYNC_OPERATION_IDENTITY_MISSING",
+        $"Operation {operationId} does not contain a valid {field} identity.",
+        DomainProblemKind.Malformed);
+
+/// <summary>Thrown when a sync operation cannot be parsed as JSON.</summary>
+public sealed class SyncPayloadMalformedException(Guid operationId, Exception cause)
+    : DomainException(
+        "SYNC_PAYLOAD_MALFORMED",
+        $"Operation {operationId} contains a malformed JSON payload.",
+        DomainProblemKind.Malformed)
+{
+    /// <summary>The parser failure, retained for diagnostics without exposing it to callers.</summary>
+    public Exception Cause { get; } = cause;
+}

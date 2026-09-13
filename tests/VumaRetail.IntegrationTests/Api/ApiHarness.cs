@@ -9,12 +9,15 @@ using Microsoft.Extensions.Hosting;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Commands;
+using VumaRetail.Application.Identity;
 using VumaRetail.Contracts.Identity;
 using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Platform;
+using VumaRetail.Domain.Sync;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.Licensing.Commands;
 using VumaRetail.Licensing.Control;
+using VumaRetail.Sync.Permissions;
 
 namespace VumaRetail.IntegrationTests.Api;
 
@@ -259,6 +262,28 @@ public sealed class ApiHarness : IAsyncDisposable
         HttpClient authenticated = _factory.CreateClient();
         authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
 
+        return authenticated;
+    }
+
+    /// <summary>Creates a test service credential bound to one enrolled replication node.</summary>
+    public async Task<HttpClient> NodeClientAsync(string userName, string nodeId, NodeKind nodeKind)
+    {
+        string uniqueUserName = $"{userName}-{Guid.NewGuid():N}";
+        Guid userId = await CreateUserAsync(uniqueUserName, permissions: SyncPermissions.BatchPush);
+        AccessToken token = await InScopeAsync(provider =>
+        {
+            ITokenIssuer issuer = provider.GetRequiredService<ITokenIssuer>();
+            return Task.FromResult(issuer.Issue(new TokenSubject(
+                userId,
+                TenantId,
+                uniqueUserName,
+                "service-test",
+                NodeId: nodeId,
+                NodeKind: nodeKind)));
+        });
+
+        HttpClient authenticated = _factory.CreateClient();
+        authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
         return authenticated;
     }
 

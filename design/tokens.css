@@ -1,5 +1,11 @@
 /* Auto-generated from design/tokens.json — DO NOT EDIT. Run the token generator instead. */
 :root, [data-theme="light"] {
+  --surfacebase: #FAFAFA;
+  --surfaceraised: #FFFFFF;
+  --surfacesunken: #F0F0F2;
+  --textprimary: #0A0A0B;
+  --textsecondary: #5A5A62;
+  --texttertiary: #73737B;
   --accent: #0B7A5A;
   --accentQuiet: #E6F3EE;
   --positive: #0B7A5A;
@@ -9,6 +15,12 @@
 }
 
 [data-theme="dark"] {
+  --surfacebase: #000000;
+  --surfaceraised: #141416;
+  --surfacesunken: #0A0A0B;
+  --textprimary: #F5F5F7;
+  --textsecondary: #A0A0A8;
+  --texttertiary: #A8A8B0;
   --accent: #16A97D;
   --accentQuiet: #0E2A22;
   --positive: #16A97D;

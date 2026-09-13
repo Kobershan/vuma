@@ -104,8 +104,8 @@ has burned down, the last thing anyone needs is an activation error. Test this e
 
 ## 4. The enforcement ladder
 
-`Normal → Notice → ReadOnly`. Two paths reach it, deliberately different. Both vendor-configurable per
-plan and per tenant; values below are the shipped defaults.
+`Normal → Notice → ReadOnly`. Only a known subscription lapse after completed dunning reaches
+ReadOnly. A control-plane or store-network outage can produce notices but never a restriction.
 
 ### Path A — cannot verify (the store cannot reach the control plane)
 
@@ -116,7 +116,7 @@ The software does not know whether the subscription is current, so it runs on th
 | 0–3 days | Silent. Normal operation. |
 | 4–7 days | Back-office banner, email to the tenant admin, **vendor alerted** — you often know about the connectivity problem before the customer reports it. |
 | 8–14 days | Notice at POS session open. Daily email. Vendor alerted at higher severity. |
-| **15+ days (configurable 1–45)** | **READ-ONLY.** |
+| **15+ days (configurable 1–45)** | Final notice only; trading continues while the last valid lease remains locally valid. |
 
 ### Path B — non-payment (the store can reach us and the subscription is not current)
 

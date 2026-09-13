@@ -41,6 +41,7 @@ using VumaRetail.Web.Registry;
 using VumaRetail.Web.Procurement;
 using VumaRetail.Web.Sales;
 using VumaRetail.Web.Sync;
+using VumaRetail.Web.Security;
 using VumaRetail.Web.TradingSessions;
 using VumaRetail.Web.FieldSales;
 using VumaRetail.Web.Warehouse;
@@ -105,6 +106,8 @@ if (licensing.UsesDevelopmentKey && !builder.Environment.IsDevelopment())
         $"{LicensingOptions.SectionName}:PublicKey is still the development licence key. Pin the "
         + "production public key before running outside Development.");
 }
+
+ProductionSecurityGuard.Validate(builder.Configuration, builder.Environment, cloudHost: false);
 
 // Beside the database rather than in it: the install id and the licence shadow copies have to survive
 // a restore into a fresh database, because a rebuilt store is the same installation and telling the
@@ -231,7 +234,9 @@ builder.Services.Configure<TwilioWhatsAppOptions>(builder.Configuration.GetSecti
 // bonuses gate on Stage 19 consent). The public surface (own DTOs, rate limits, neutral
 // read-only) maps below via MapVumaLoyaltyPublic; the standalone API-key host follows with
 // Stage 30b's auth (ADR-151).
-builder.Services.AddVumaLoyalty();
+bool useFakeOrbit = builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue("Vuma:Loyalty:Orbit:UseFake", true);
+builder.Services.AddVumaLoyalty(useFakeOrbit);
 builder.Services.AddVumaLoyaltyScheduling(new LoyaltyHostTenant(host.TenantId, host.StoreId));
 builder.Services.AddSingleton(
     builder.Configuration.GetSection("Vuma:Loyalty:Public").Get<LoyaltyPublicOptions>()

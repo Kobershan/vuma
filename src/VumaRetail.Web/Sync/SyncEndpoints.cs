@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
+using System.Security.Claims;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Contracts.Backup;
@@ -13,6 +14,7 @@ using VumaRetail.Sync.Commands;
 using VumaRetail.Sync.Permissions;
 using VumaRetail.Sync.Queries;
 using VumaRetail.Web.Api;
+using VumaRetail.Infrastructure.Security.Identity;
 
 namespace VumaRetail.Web.Sync;
 
@@ -106,13 +108,17 @@ public static class SyncEndpoints
 
     private static async Task<Ok<SyncBatchResponse>> ReceiveBatchAsync(
         SyncBatchRequest request,
+        ClaimsPrincipal caller,
         IDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        NodeKind sourceKind = ParseNodeKind(request.SourceKind);
+        ValidateCallerEnvelope(caller, request, sourceKind);
+
         SyncAcknowledgement acknowledgement = await dispatcher.SendAsync(
-            new ReceiveSyncBatchCommand(ToBatch(request)),
+            new ReceiveSyncBatchCommand(ToBatch(request, sourceKind)),
             cancellationToken).ConfigureAwait(false);
 
         return TypedResults.Ok(new SyncBatchResponse(
@@ -175,10 +181,10 @@ public static class SyncEndpoints
         return TypedResults.NoContent();
     }
 
-    private static SyncBatch ToBatch(SyncBatchRequest request)
+    private static SyncBatch ToBatch(SyncBatchRequest request, NodeKind sourceKind)
         => new(
             request.SourceNode,
-            ParseNodeKind(request.SourceKind),
+            sourceKind,
             request.TenantId,
             request.StoreId,
             [.. (request.Operations ?? []).Select(operation => new SyncOperation(
@@ -190,6 +196,36 @@ public static class SyncEndpoints
                 operation.Payload,
                 operation.OccurredAt) { CompanyId = operation.CompanyId })])
         { CompanyId = request.CompanyId };
+
+    private static void ValidateCallerEnvelope(ClaimsPrincipal caller, SyncBatchRequest request, NodeKind sourceKind)
+    {
+        Guid? claimedTenant = ReadGuid(caller, VumaClaims.TenantId);
+        if (claimedTenant is { } tenant && tenant != request.TenantId)
+            throw new SyncCallerEnvelopeMismatchException("The batch tenant is not the authenticated tenant.");
+
+        Guid? claimedTerminal = ReadGuid(caller, VumaClaims.TerminalId);
+        string? claimedNode = caller.FindFirstValue(VumaClaims.NodeId);
+        string? claimedKind = caller.FindFirstValue(VumaClaims.NodeKind);
+
+        if (claimedTerminal is { } terminal)
+        {
+            string expectedNode = $"terminal:{terminal:N}";
+            if (sourceKind != NodeKind.Terminal
+                || !string.Equals(request.SourceNode, expectedNode, StringComparison.OrdinalIgnoreCase))
+                throw new SyncCallerEnvelopeMismatchException("A terminal may only submit its own terminal-tier batches.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(claimedNode)
+            || !Enum.TryParse(claimedKind, ignoreCase: true, out NodeKind authenticatedKind)
+            || authenticatedKind != sourceKind
+            || !string.Equals(claimedNode, request.SourceNode, StringComparison.OrdinalIgnoreCase))
+            throw new SyncCallerEnvelopeMismatchException(
+                "A sync batch must be submitted by an enrolled node credential matching its source node and tier.");
+    }
+
+    private static Guid? ReadGuid(ClaimsPrincipal principal, string claim)
+        => Guid.TryParse(principal.FindFirstValue(claim), out Guid value) ? value : null;
 
     /// <summary>
     /// Parses an enum from the wire, refusing anything unrecognised.
@@ -229,3 +265,7 @@ public sealed class MalformedSyncFieldException(string field, string value)
         "SYNC_FIELD_MALFORMED",
         $"'{value}' is not a valid {field}.",
         DomainProblemKind.Malformed);
+
+/// <summary>Thrown when authenticated peer identity disagrees with the sync envelope.</summary>
+public sealed class SyncCallerEnvelopeMismatchException(string detail)
+    : DomainException("SYNC_CALLER_ENVELOPE_MISMATCH", detail, DomainProblemKind.Forbidden);

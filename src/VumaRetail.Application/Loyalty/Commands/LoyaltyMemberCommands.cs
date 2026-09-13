@@ -255,13 +255,17 @@ public sealed class SyncCatalogueCommandHandler(IOrbitClient orbit, LoyaltyCache
 /// <param name="Balance">Reported balance, if carried.</param>
 /// <param name="TierId">Reported tier, if carried.</param>
 /// <param name="EventType">Orbit's event name (tier.changed, balance.adjusted, ...).</param>
+/// <param name="EventId">Provider event identity used for durable replay protection.</param>
+/// <param name="Version">Provider's monotonic event version, when supplied.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ProcessLoyaltyWebhookCommand(
     Guid CompanyId,
     string OrbitMemberId,
     decimal? Balance,
     string? TierId,
-    string EventType) : ICommand;
+    string EventType,
+    string EventId = "legacy",
+    long? Version = null) : ICommand;
 
 /// <summary>Rejects a malformed webhook.</summary>
 public sealed class ProcessLoyaltyWebhookCommandValidator : AbstractValidator<ProcessLoyaltyWebhookCommand>
@@ -272,6 +276,7 @@ public sealed class ProcessLoyaltyWebhookCommandValidator : AbstractValidator<Pr
         RuleFor(command => command.CompanyId).NotEmpty();
         RuleFor(command => command.OrbitMemberId).NotEmpty().MaximumLength(200);
         RuleFor(command => command.EventType).NotEmpty().MaximumLength(100);
+        RuleFor(command => command.EventId).NotEmpty().MaximumLength(200);
     }
 }
 
@@ -301,7 +306,9 @@ public sealed class ProcessLoyaltyWebhookCommandHandler(
             return Unit.Value;
         }
 
-        member.RecordSync(
+        member.RecordWebhook(
+            command.EventId,
+            command.Version,
             command.Balance ?? member.BalanceCache,
             command.TierId ?? member.TierId,
             clock.UtcNow);

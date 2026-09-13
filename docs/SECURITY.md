@@ -1,5 +1,10 @@
 # SECURITY — Vuma Retail
 
+**Review status:** security design and application controls reviewed 2026-09-12. The controls below
+are implemented and covered by tests unless explicitly marked **release gate**. A release is not
+security-complete until every release gate in §8 has an owner, evidence, and a passing verification
+result.
+
 Written in Stage 02, which built identity, and extended by every stage that adds a trust boundary.
 
 Vuma runs on hardware the customer owns, in a shop, on a LAN a technician set up. That shapes every
@@ -190,3 +195,37 @@ SSO, MFA, hardware security keys and password-less sign-in are all absent, delib
 `CLAUDE.md` §4 does not ask for them and the security stamp plus the credential abstraction leave
 room to add any of them later. Key custody (KMS/HSM) for the JWT and licence signing keys is Stage
 04b's. Encrypted backup and the restore path are Stage 04's, hardened in Stage 31.
+
+## 8. Completion and release gates
+
+This section is the completion record for this document. “Implemented” means the control exists in
+the application and has a focused test; it does not mean that a production installation has been
+configured or exercised.
+
+| Control | Status | Evidence / required release evidence |
+|---|---|---|
+| Password/PIN hashing, generic authentication errors and lockout | Implemented | `IdentityPasswordHasher`, `AuthenticationService`, identity tests |
+| Rotating, hashed refresh tokens and security-stamp invalidation | Implemented | `AuthenticationService.RefreshAsync`, refresh-token tests |
+| JWT issuer/audience/signature/lifetime validation and zero clock skew | Implemented | `VumaWebExtensions`, API authentication tests |
+| Authentication and terminal-activation rate limiting | Implemented | Named ASP.NET Core policies on auth and terminal activation endpoints; rate-limit tests |
+| Permission catalogue, per-request store scoping and tenant query filters | Implemented | `PermissionAuthorizationHandler`, architecture and integration tests |
+| Secret-safe logging and sensitive-data logging disabled | Implemented | `VumaLogging`, redaction tests |
+| Enrolment-code hashing and certificate thumbprint pinning | Implemented | terminal domain and identity tests |
+| Encrypted backup, integrity verification and restore path | Implemented | backup tests and `scripts/dr-drill.sh` |
+| Production JWT/licence keys and database/storage secrets | Implemented in host guard; **deployment gate remains** | Set through the deployment secret store; verify no placeholder remains before startup |
+| HTTPS on every store/public listener and terminal mTLS through the actual proxy/port topology | Implemented in host guard; **deployment gate remains** | Production startup now refuses missing HTTPS/terminal `RequireCertificate` configuration; Stage 31 must install the certificates and test that client certificates cannot be bypassed on another listener |
+| Backup key custody, rotation, retention and restore drill | Encryption implemented; **operational gate remains** | Host now requires a valid 256-bit key; complete KMS/HSM custody, rotation, retention, and a successful restore on a clean host |
+| Cloud/vendor access, support-grant expiry and telemetry allow-list review | **Release gate** | Stage 30b deployment review and audit-log evidence |
+| Dependency vulnerability review | CI gate implemented; **baseline run required** | CI now fails when `dotnet list package --vulnerable` reports findings; record any approved exceptions |
+
+The application must fail closed when production JWT or licence placeholder keys are configured. The
+same rule applies operationally to database passwords, cloud credentials, backup keys, certificates,
+and webhook secrets: placeholders belong only in examples and development configuration. Anonymous
+endpoints are limited to sign-in, refresh, terminal activation, health, OpenAPI metadata, and
+signature-verified provider webhooks; all business data and business writes require authentication
+and the relevant permission.
+
+The verification run on 2026-09-12 passed 69 focused identity, security, backup, and rate-limit unit
+tests, 85 architecture tests, and all 586 integration tests against PostgreSQL 17. The integration
+fixture now uses the same PostgreSQL major version as CI and serializes database provisioning so
+parallel fixture initialization cannot produce misleading timeout failures.

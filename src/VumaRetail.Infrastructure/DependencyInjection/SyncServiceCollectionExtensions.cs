@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Backup;
 using VumaRetail.Application.Abstractions.Sync;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Backup;
 using VumaRetail.Infrastructure.Persistence;
@@ -150,10 +151,15 @@ public static class SyncServiceCollectionExtensions
 
         services.AddSingleton<ISnapshotCipher, AesGcmSnapshotCipher>();
 
-        services.AddScoped<IBackupEngine>(provider => new PostgresBackupEngine(
-            connectionString,
-            tools,
-            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PostgresBackupEngine>>()));
+        services.AddScoped<IBackupEngine>(provider =>
+            new CompanyAwareBackupEngine(
+                connectionString,
+                provider.GetRequiredService<ICompanyContext>(),
+                provider.GetRequiredService<ITenantContext>(),
+                provider.GetRequiredService<ICompanyConnectionResolver>(),
+                provider.GetRequiredService<ICompanyConnectionSecretStore>(),
+                tools,
+                provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>()));
 
         services.AddScoped<IBackupSnapshotRepository, BackupSnapshotRepository>();
         services.AddScoped<IBackupService, BackupService>();

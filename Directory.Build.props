@@ -12,7 +12,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Tenant/company locale and timezone are data, not a single process-wide invariant. Keep the
+         ICU tables available so en-ZA and other configured cultures format correctly. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Product>Vuma Retail</Product>
     <Company>Vuma</Company>

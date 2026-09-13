@@ -19,8 +19,8 @@ public static class ThemeManager
 
     static ThemeManager()
     {
-        _lightTheme = new ResourceDictionary { Source = new Uri("pack://application:,,,/VumaRetail.Desktop;component/Themes/LightTheme.xaml") };
-        _darkTheme = new ResourceDictionary { Source = new Uri("pack://application:,,,/VumaRetail.Desktop;component/Themes/DarkTheme.xaml") };
+        _lightTheme = new ResourceDictionary { Source = new Uri("pack://application:,,,/VumaRetail.Desktop;component/Themes/Light.xaml") };
+        _darkTheme = new ResourceDictionary { Source = new Uri("pack://application:,,,/VumaRetail.Desktop;component/Themes/Dark.xaml") };
     }
 
     /// <summary>

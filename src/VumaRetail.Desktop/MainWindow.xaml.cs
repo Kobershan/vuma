@@ -59,7 +59,9 @@ public partial class MainWindow : Window
         try
         {
             var data = await _api.GetAsync<DashboardOverview>("/dashboard/overview");
-            SalesToday.Text = $"{data.SalesToday:N2} {data.Currency}";
+            SalesToday.Text = data.SalesByCurrency.Count == 0
+                ? "0.00"
+                : string.Join(" · ", data.SalesByCurrency.Select(x => $"{x.Amount:N2} {x.Currency}"));
             OrdersToday.Text = data.OrdersToday.ToString("N0");
             OpenOrders.Text = data.OpenOrders.ToString("N0");
             RecentActivity.Text = data.RecentOrders.Count == 0
@@ -166,9 +168,7 @@ public partial class MainWindow : Window
     }
 
     private sealed record TokenResponse(string AccessToken, DateTimeOffset ExpiresAt, string RefreshToken, Guid UserId, string DisplayName);
-    private sealed record DashboardOverview(decimal SalesToday, int OrdersToday, int OpenOrders, IReadOnlyList<DashboardOrder> RecentOrders, DateTimeOffset AsAt)
-    {
-        public string Currency => RecentOrders.FirstOrDefault()?.Currency ?? "ZAR";
-    }
+    private sealed record DashboardOverview(decimal SalesToday, IReadOnlyList<DashboardMoney> SalesByCurrency, int OrdersToday, int OpenOrders, IReadOnlyList<DashboardOrder> RecentOrders, DateTimeOffset AsAt);
+    private sealed record DashboardMoney(string Currency, decimal Amount);
     private sealed record DashboardOrder(string OrderNumber, string Currency, decimal Gross, string Status, DateTimeOffset OrderDate);
 }

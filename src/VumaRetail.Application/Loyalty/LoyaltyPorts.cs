@@ -170,7 +170,14 @@ public sealed record RewardDefinition(
 /// An infrastructure failure, not a domain refusal: handlers catch this and queue for retry
 /// (the till never blocks on the loyalty engine). Anything else propagates.
 /// </remarks>
-public sealed class OrbitUnavailableException(string detail) : Exception(detail);
+public sealed class OrbitUnavailableException : Exception
+{
+    /// <summary>Describes an unavailable provider.</summary>
+    public OrbitUnavailableException(string detail) : base(detail) { }
+
+    /// <summary>Describes an unavailable provider and preserves the transport cause.</summary>
+    public OrbitUnavailableException(string detail, Exception innerException) : base(detail, innerException) { }
+}
 
 /// <summary>
 /// The loyalty engine boundary (Stage 20). Vuma owns routing, idempotency and error handling;

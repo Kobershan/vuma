@@ -317,6 +317,72 @@ public sealed class ReplicationTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_payload_for_another_tenant_is_refused_before_inbox_or_cursor_changes()
+    {
+        await using SyncHarness cloud = await CloudAsync();
+        await using SyncHarness store = await StoreFor(cloud);
+
+        await cloud.SendAsync(new CreateRoleCommand("Cashier", ["identity.user.view"]));
+        SyncBatch original = await BuildBatchAsync(cloud);
+        SyncOperation operation = original.Operations.First(operation =>
+            operation.Payload.Contains(cloud.TenantId.ToString(), StringComparison.Ordinal));
+        string foreignTenant = Guid.NewGuid().ToString();
+        SyncBatch forged = original with
+        {
+            Operations =
+            [
+                operation with
+                {
+                    Payload = operation.Payload.Replace(
+                        cloud.TenantId.ToString(),
+                        foreignTenant,
+                        StringComparison.Ordinal),
+                },
+            ],
+        };
+
+        Func<Task> foreign = () => store.SendAsync(new ReceiveSyncBatchCommand(forged));
+        (await foreign.Should().ThrowAsync<SyncOperationTenantMismatchException>())
+            .Which.Code.Should().Be("SYNC_OPERATION_TENANT_MISMATCH");
+
+        (await store.Context.InboxMessages.CountAsync()).Should().Be(0);
+        (await store.Context.SyncCursors.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_payload_for_another_entity_id_is_refused_before_any_write()
+    {
+        await using SyncHarness cloud = await CloudAsync();
+        await using SyncHarness store = await StoreFor(cloud);
+
+        await cloud.SendAsync(new CreateRoleCommand("Cashier", ["identity.user.view"]));
+        SyncBatch original = await BuildBatchAsync(cloud);
+        SyncOperation operation = original.Operations.First(operation =>
+            operation.Payload.Contains(operation.EntityId.ToString(), StringComparison.Ordinal));
+        Guid forgedId = Guid.NewGuid();
+        SyncBatch forged = original with
+        {
+            Operations =
+            [
+                operation with
+                {
+                    Payload = operation.Payload.Replace(
+                        operation.EntityId.ToString(),
+                        forgedId.ToString(),
+                        StringComparison.Ordinal),
+                },
+            ],
+        };
+
+        Func<Task> foreign = () => store.SendAsync(new ReceiveSyncBatchCommand(forged));
+        (await foreign.Should().ThrowAsync<SyncOperationIdentityMismatchException>())
+            .Which.Code.Should().Be("SYNC_OPERATION_IDENTITY_MISMATCH");
+
+        (await store.Context.InboxMessages.CountAsync()).Should().Be(0);
+        (await store.Context.SyncCursors.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task The_inbound_cursor_advances_to_what_actually_settled()
     {
         await using SyncHarness cloud = await CloudAsync();

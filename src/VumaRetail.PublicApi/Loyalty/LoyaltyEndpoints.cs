@@ -601,7 +601,7 @@ public static class LoyaltyEndpoints
             .SendAsync(
                 new ProcessLoyaltyWebhookCommand(
                     notification.CompanyId, notification.OrbitMemberId, notification.Balance,
-                    notification.TierId, notification.EventType),
+                    notification.TierId, notification.EventType, notification.EventId, notification.Version),
                 cancellationToken)
             .ConfigureAwait(false);
 

@@ -53,16 +53,16 @@ public sealed class EnforcementPolicyTests
     }
 
     [Theory]
-    // Path A, from LICENSING.md §4's table. Silent for three days, then escalating warnings, and
-    // read-only only at the configured boundary — never a minute earlier.
+    // Path A, from LICENSING.md §4's table. Silent for three days, then escalating warnings. A
+    // control-plane outage never becomes a subscription lapse or read-only state.
     [InlineData(0, EnforcementLevel.Normal, NoticeStage.None)]
     [InlineData(3, EnforcementLevel.Normal, NoticeStage.None)]
     [InlineData(4, EnforcementLevel.Notice, NoticeStage.BackOfficeBanner)]
     [InlineData(7, EnforcementLevel.Notice, NoticeStage.BackOfficeBanner)]
     [InlineData(8, EnforcementLevel.Notice, NoticeStage.PosSessionNotice)]
     [InlineData(14, EnforcementLevel.Notice, NoticeStage.PosSessionNotice)]
-    [InlineData(15, EnforcementLevel.ReadOnly, NoticeStage.FinalNotice)]
-    [InlineData(45, EnforcementLevel.ReadOnly, NoticeStage.FinalNotice)]
+    [InlineData(15, EnforcementLevel.Notice, NoticeStage.FinalNotice)]
+    [InlineData(45, EnforcementLevel.Notice, NoticeStage.FinalNotice)]
     public void Path_A_escalates_only_at_the_configured_boundaries(
         int daysSinceContact,
         EnforcementLevel expected,
@@ -87,7 +87,7 @@ public sealed class EnforcementPolicyTests
     }
 
     [Fact]
-    public void Path_A_does_not_restrict_a_minute_before_the_boundary()
+    public void Path_A_does_not_restrict_at_or_before_the_old_boundary()
     {
         // The assertion docs/TESTING.md §7 words as "locks only at the configured boundary — never
         // earlier". One minute matters: it is the difference between a shop trading on the fifteenth
@@ -253,7 +253,7 @@ public sealed class EnforcementPolicyTests
         DateTimeOffset lastContact = Now.AddDays(-20);
 
         Policy.Evaluate(new EnforcementInputs(Now, true, lastContact, CurrentLease(lastContact), null))
-            .Level.Should().Be(EnforcementLevel.ReadOnly);
+            .Level.Should().Be(EnforcementLevel.Notice);
     }
 
     [Fact]

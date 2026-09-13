@@ -56,22 +56,22 @@ public sealed class InMemoryOrbitClient : IOrbitClient
         ArgumentNullException.ThrowIfNull(request);
         ThrowIfDown();
 
-        if (_results.TryGetValue(request.IdempotencyKey, out object? cached)
-            && cached is OrbitEarnResult earn)
-        {
-            return Task.FromResult(earn);
-        }
-
         Ledger ledger = _ledgers.GetOrAdd(request.OrbitMemberId, _ => new Ledger());
         OrbitEarnResult result;
         lock (ledger)
         {
+            if (_results.TryGetValue(request.IdempotencyKey, out object? cached)
+                && cached is OrbitEarnResult earn)
+            {
+                return Task.FromResult(earn);
+            }
+
             ledger.Balance += request.Points;
             result = new OrbitEarnResult(
                 true, $"orbit-tx-{request.IdempotencyKey:N}", ledger.Balance, ledger.TierId);
+            _results[request.IdempotencyKey] = result;
         }
 
-        _results.TryAdd(request.IdempotencyKey, result);
         return Task.FromResult(result);
     }
 
@@ -81,16 +81,16 @@ public sealed class InMemoryOrbitClient : IOrbitClient
         ArgumentNullException.ThrowIfNull(request);
         ThrowIfDown();
 
-        if (_results.TryGetValue(request.IdempotencyKey, out object? cached)
-            && cached is OrbitRedeemResult redeem)
-        {
-            return Task.FromResult(redeem);
-        }
-
         Ledger ledger = _ledgers.GetOrAdd(request.OrbitMemberId, _ => new Ledger());
         OrbitRedeemResult result;
         lock (ledger)
         {
+            if (_results.TryGetValue(request.IdempotencyKey, out object? cached)
+                && cached is OrbitRedeemResult redeem)
+            {
+                return Task.FromResult(redeem);
+            }
+
             if (ledger.Balance < request.Points)
             {
                 result = new OrbitRedeemResult(false, true, string.Empty, ledger.Balance, ledger.TierId);
@@ -101,9 +101,10 @@ public sealed class InMemoryOrbitClient : IOrbitClient
                 result = new OrbitRedeemResult(
                     true, false, $"orbit-tx-{request.IdempotencyKey:N}", ledger.Balance, ledger.TierId);
             }
+
+            _results[request.IdempotencyKey] = result;
         }
 
-        _results.TryAdd(request.IdempotencyKey, result);
         return Task.FromResult(result);
     }
 

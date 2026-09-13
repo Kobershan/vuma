@@ -142,10 +142,14 @@ public static class LoyaltyPublicContracts
     /// <param name="Balance">Reported balance, if carried.</param>
     /// <param name="TierId">Reported tier, if carried.</param>
     /// <param name="EventType">Orbit's event name.</param>
+    /// <param name="EventId">Provider event identity.</param>
+    /// <param name="Version">Provider event version, when supplied.</param>
     public sealed record WebhookNotificationRequest(
         Guid CompanyId,
         string OrbitMemberId,
         decimal? Balance,
         string? TierId,
-        string EventType);
+        string EventType,
+        string EventId = "legacy",
+        long? Version = null);
 }

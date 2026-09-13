@@ -15,6 +15,7 @@
     <ProjectReference Include="..\VumaRetail.Sync\VumaRetail.Sync.csproj" />
     <!-- Stage 04: the same ASP.NET wiring the store server uses (ADR-039), including the receiver. -->
     <ProjectReference Include="..\VumaRetail.Web\VumaRetail.Web.csproj" />
+    <ProjectReference Include="..\VumaRetail.PublicApi\VumaRetail.PublicApi.csproj" />
   </ItemGroup>
 
 </Project>

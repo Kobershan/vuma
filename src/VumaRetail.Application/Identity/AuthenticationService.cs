@@ -214,6 +214,11 @@ public sealed class AuthenticationService
         }
 
         DateTimeOffset now = _clock.UtcNow;
+        if (terminal.IsPinLockedOut(now))
+        {
+            return AuthenticationResult.Failed(AuthenticationFailure.LockedOut);
+        }
+
         IReadOnlyList<User> candidates = await _users.ListPinOperatorsAsync(storeId, cancellationToken).ConfigureAwait(false);
 
         User? matched = null;
@@ -230,6 +235,9 @@ public sealed class AuthenticationService
 
         if (matched is null)
         {
+            terminal.RecordFailedPinAttempt(now, _policy);
+            await _unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+
             return AuthenticationResult.Failed(AuthenticationFailure.InvalidCredentials);
         }
 
@@ -239,6 +247,7 @@ public sealed class AuthenticationService
         }
 
         matched.RecordSuccessfulSignIn(now, CredentialKind.Pin);
+        terminal.RecordSuccessfulPinAttempt(now);
         terminal.RecordAuthentication(deviceFingerprint: null, now);
 
         return await IssueAsync(matched, storeId, terminalId, cancellationToken).ConfigureAwait(false);

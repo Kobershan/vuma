@@ -181,6 +181,25 @@ public sealed class LoyaltyHandlerTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Webhook_replay_and_older_versions_cannot_roll_back_the_cache()
+    {
+        await using LoyaltyHarness harness = await LoyaltyHarness.CreateAsync(fixture);
+        await harness.EnrollAsync();
+        string orbitId = (await harness.Members.FindByCustomerAsync(harness.CustomerId))!.OrbitMemberId;
+
+        ProcessLoyaltyWebhookCommand newer = new(
+            harness.CompanyId, orbitId, 900m, "gold", "balance.adjusted", "evt-2", 2);
+        await harness.Dispatcher.SendAsync(newer);
+        await harness.Dispatcher.SendAsync(newer);
+        await harness.Dispatcher.SendAsync(new ProcessLoyaltyWebhookCommand(
+            harness.CompanyId, orbitId, 100m, "bronze", "balance.adjusted", "evt-1", 1));
+
+        BalanceEntry balance = await harness.Dispatcher.QueryAsync(new GetBalanceQuery(harness.CustomerId));
+        balance.Balance.Should().Be(900m);
+        balance.TierId.Should().Be("gold");
+    }
+
+    [Fact]
     public async Task Catalogue_sync_caches_tiers_and_rewards()
     {
         await using LoyaltyHarness harness = await LoyaltyHarness.CreateAsync(fixture);

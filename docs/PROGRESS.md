@@ -1,8 +1,29 @@
 # PROGRESS — Vuma Retail
 
-> **Historical progress and issue register.** Read `docs/CURRENT.md` for the small operational state.
-> This file preserves session evidence, deferred work, and known defects; do not use it as the active
-> task handoff.
+> **Progress and issue register.** Read `docs/CURRENT.md` for the small operational state. This file
+> preserves session evidence and deferred work; the reconciliation below is the active status snapshot.
+
+## Active status reconciliation — 2026-09-12
+
+`CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
+contain historical review context and are superseded where this snapshot disagrees with them.
+
+- Stage 15 — Merchandise Planning: **COMPLETE and verified**; coverage collection remains environment-limited.
+- Stage 16 — BOM Setup: **COMPLETE and verified**; migration, seed, API and BOM costing evidence are present.
+- Stage 13b — Consolidated Picking: **COMPLETE and verified**.
+- Stage 14b — Field Sales: **COMPLETE and verified**.
+- Stage 19 — CRM: **COMPLETE and verified**.
+- Stage 20 — Loyalty/Public API: **COMPLETE and verified**; production Orbit integration still has audit findings A10–A13.
+- Stage 09 — POS Terminal & Hardware: **closure review task COMPLETE with runtime-limited evidence**;
+  the specialist runtime/architecture brief is unavailable in this environment, while inline
+  licence/sync review and POS unit verification (145/145) are recorded in TASK-001.
+- Stage 22b — Conversational Commerce: **IN PROGRESS**; transport integration and six intent handlers remain.
+- Stage 21b — Supplier Network: implementation exists, but supplier portal/API permission-surface work remains open.
+- **Next roadmap stage:** Stage 17 — Manufacturing execution. Its architecture/task specification must be finalized before implementation.
+
+The repository audit dated 2026-09-12 remains open. Findings A01–A22 are tracked below; implementation
+without acceptance evidence is explicitly marked **VERIFY BLOCKED**, not complete. No security finding
+is treated as resolved by documentation alone.
 
 **Stage 10c — COMPLETE, on `main` (2026-09-07):** Quotes, invoices and sales analytics built end to
 end (TASK-10C-001 documents, TASK-10C-002 analytics + verification). Domain (`Quote` Draft→Issued→
@@ -285,6 +306,40 @@ mixed basket and the assistant.
 
 ---
 
+## Security audit tracker — audit 2026-09-12
+
+Findings from `docs/REPOSITORY-AUDIT-2026-09-12.md` are tracked below in the audit's required order.
+A finding moves to **VERIFIED** only after code, focused tests and acceptance evidence are recorded;
+items marked implemented or partial still have their stated verification work outstanding.
+
+| Finding | Priority | Area | Status |
+|---|---|---|---|
+| A01 | P0 | Sync payload tenant/company/entity identity | **VERIFIED** — PostgreSQL acceptance tests reject forged tenant/entity payloads before inbox/cursor writes |
+| A02 | P1 | Sync source identity and authority tier | **IMPLEMENTED; VERIFY OPEN** — sync now requires enrolled node and tier claims (or a terminal-bound credential) matching the envelope; peer enrollment/renewal and cross-company deployment acceptance remain |
+| A03 | P1 | PIN sign-in terminal binding | **IMPLEMENTED; VERIFY OPEN** |
+| A04 | P1 | PIN attempt throttling and lockout | **VERIFIED** — PostgreSQL acceptance test proves durable terminal lockout, restart persistence and expiry recovery |
+| A05 | P1 | Company database routing | **IMPLEMENTED; VERIFY OPEN** — company context now requires configured secret-reference routing and fails closed; two-database acceptance test still required |
+| A06 | P0 | Desktop theme/startup/runtime safety | **IMPLEMENTED; VERIFY OPEN** — loaded dictionaries, generated keys and PasswordBox style converged; Windows launch smoke still required |
+| A07 | P1 | Token generation and resource compatibility | **IMPLEMENTED; VERIFY OPEN** — scalar CSS emission fixed and WPF legacy names now generated from the same source |
+| A08 | P1 | Durable terminal offline mode and replay | **OPEN** |
+| A09 | P1 | Cloud/mobile/dashboard host composition | **IMPLEMENTED; VERIFY OPEN** — CloudApi now composes dashboard, inventory and loyalty surfaces with scoped module registrations; deployed two-tenant login/contract flow and remote-write ownership remain required |
+| A10 | P1 | Production Proxima Orbit configuration | **IMPLEMENTED; VERIFY OPEN** — production host forbids fake mode and binds typed Orbit options |
+| A11 | P1 | Orbit transport failure classification | **IMPLEMENTED; VERIFY OPEN** — transport, timeout and JSON failures normalize to queued outage |
+| A12 | P1 | Orbit idempotency concurrency | **IMPLEMENTED; VERIFY OPEN** — check, mutation and result storage share the member lock |
+| A13 | P1 | Loyalty webhook replay protection | **VERIFIED** — PostgreSQL handler tests prove duplicate and older-version events cannot roll back cache state |
+| A14 | P1 | Dashboard money/date/scope correctness | **IMPLEMENTED; VERIFY OPEN** — recognized sales are currency-grouped and tenant-local-date based; mixed-currency and midnight acceptance tests remain required |
+| A15 | P1 | Licensing outage policy | **IMPLEMENTED; VERIFY OPEN** — outage path now remains at notice indefinitely; only completed signed dunning can enter read-only |
+| A16 | P1 | Vendor control plane and monitoring | **OPEN** |
+| A17 | P1 | Signed releases and security gate | **IMPLEMENTED; VERIFY OPEN** — vulnerability scan gates packaging and CI wires required Android keystore secrets while refusing missing/debug signing; vendor signing-key and live release evidence remain |
+| A18 | P1 | Build context and unintended worktrees | **IMPLEMENTED; VERIFY OPEN** — conflict markers removed, `.dockerignore` added, and 165 tracked worktree files removed from the index while leaving local operator worktrees intact; clean-clone/build-context acceptance remains |
+| A19 | P2 | Runtime and deployment version alignment | **IMPLEMENTED; VERIFY OPEN** — invariant globalization is disabled, CI/Render/deployment documentation now align on PostgreSQL 17; .NET lifecycle and live deployment evidence remain |
+| A20 | P2 | Guard-test coverage boundaries | **IMPLEMENTED; VERIFY OPEN** — semantic desktop resource checks added for loaded dictionaries and compatible references |
+| A21 | P1 | Per-company disaster recovery | **IMPLEMENTED; VERIFY OPEN** — backup engine now resolves the selected company database through registry secret routing; restore/RPO/RTO drill remains required |
+| A22 | P2 | Safe bundle output path handling | **IMPLEMENTED; VERIFY OPEN** — output is constrained to artifact children and symlink/junction deletion is refused |
+
+Work sequence: A01–A05, then A06–A09/A14, then A10–A13, then A15–A18/A21, and finally A19/A20/A22.
+No unrelated roadmap stage should be treated as the next delivery target until this tracker is closed.
+
 ## 1. Stage status
 
 `main` carries 00 through 04b plus 06, 07, 08, 09, 10, 11, 12, 13 and 14. Stage 05 was started in its own worktree so it could proceed in parallel without colliding on shared files,
@@ -343,17 +398,26 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 08c | Cross-company availability, reservations & split fulfilment | **DONE** (main) — TASK-08C-001 ledger, TASK-08C-002 sourcing/split, TASK-08C-003 verification all complete. All 8 acceptance criteria PASS on real PostgreSQL. 1010 unit + 54 architecture + 23 integration tests green. `SourcingCommitService`, `AvailabilityThenProximity`, `ISplitDocumentBuilder`, expiry service all implemented. `GroupDocumentRef` + `reservation_expiry_policies` migrations reversible. | 2026-09-07 |
 | 08b | Design system & theming | **DONE** — tokens.json, token generator (WPF/Compose/CSS), WPF controls library, architecture tests (contrast, hex scan, fonts), CI pipeline updated. All 54 architecture tests green. WPF Desktop project targets net9.0-windows (builds on Windows CI only). | 2026-09-06 |
 | 09 | POS — till sessions, sales, tenders, receipts, cash-up, ESC/POS hardware | **DONE** (main) | Defects closed via `86f8dbd`, ADR-135–138. Build/tests green, migration reversible, WPF shell deferred. | 2026-08-24 |
-| 09b | Mixed basket — one till, two companies, one tax invoice each | **NOT_STARTED** — added 2026-08-22 (R13, ADR-125, ADR-126, ADR-128). **Blocked on Stage 09's §4.11 idempotency defect**: a mixed basket doubles its blast radius from one company's books to two | — |
+| 09b | Mixed basket — one till, two companies, one tax invoice each | **COMPLETE and verified** — implementation, completion saga, API and verification recorded 2026-09-08 | 2026-09-08 |
 | 10 | Sales — price lists, price resolution, promotions engine, returns | **DONE** (main) | Defects fixed. §4.21 CRITICAL and §4.23 entitlement gate resolved. | 2026-08-16 |
 | 10c | Quotes, invoices & sales analytics | **DONE** (main) — TASK-10C-001 + TASK-10C-002 complete 2026-09-07. One order → N posted invoices via the issuing saga (ADR-102/116/142), pack size snapshots (ADR-112), quote price snapshots (ADR-074), stale-by-design group analytics (ADR-119). 1058 unit + 54 arch + 476 integration green on real PG; 92.1% line coverage; migration reversible; seed proven. ADR-141/142. | 2026-09-07 |
 | 11 | Data import — Excel/CSV/PDF, mapping, preview, validation, rollback | **DONE** (main) | Defects fixed. §4.26 idempotency and §4.23 entitlement gate resolved. | 2026-08-16 |
 | 12 | Procurement — requisitions, RFQs, purchase orders, goods receipts, three-way match, supplier scorecards | **DONE** (main) | Defects fixed. §4.20 CRITICAL double-release and §4.23 entitlement gate resolved. | 2026-08-17 |
 | 13 | Warehouse — zones, bins, putaway, pick/pack/ship, cycle counts | **DONE** (main) | Defects fixed. §4.19 CRITICALs and §4.23 entitlement gate resolved. | 2026-08-19 |
-| 13b | Consolidated picking waves, staging states & interval counts | **NOT_STARTED** — added 2026-08-22 (ADR-113 – ADR-115). Depends on 14, not on 13 alone: a wave groups orders | — |
+| 13b | Consolidated picking waves, staging states & interval counts | **COMPLETE and verified** — current handoff reconciles the stale header | 2026-09-10 |
 | 14 | Order management — orders, allocation, backorders, click & collect, returns | **DONE** (main, `d35b5d8`) — 812 tests green, 91.3% coverage on the stage's Domain + Application, migration reversible, seeded store has really ordered/shipped/backordered/reallocated/collected/returned. Found and fixed a tracked-entity mutation bug (`ListBackorderedOrdersAsync` was not `AsNoTracking()`) while verifying the seed. ADR-092–096. Built against the pre-revision-4 spec — allocation reads Stage 13's `PickTask` directly rather than through Stage 08c; **needs revision-4 rework once 08c lands** (COD terms ADR-111, geography snapshot ADR-113, reservations through 08c ADR-103 — see the stage doc's "Amendments" section and ADR-092's supersession note). **The six agent reviews did not run**; see §4.17 | 2026-08-21 |
-| 14b | Field sales — the rep module | **NOT_STARTED** — added 2026-08-22 (R12, ADR-107 – ADR-110) | — |
-| 22b | Conversational commerce — the WhatsApp and email assistant | **NOT_STARTED** — added 2026-08-22 (R14, ADR-129 – ADR-132). Needs 22's transport; ships without POD if 24 has not landed | — |
-| 15 – 31 | see `ROADMAP.md` | NOT_STARTED | — |
+| 14b | Field sales — the rep module | **COMPLETE and verified** — PostgreSQL approval/API/replay/credit/sourcing/territory evidence recorded | 2026-09-11 |
+| 15 | Merchandise planning, forecasting & replenishment | **COMPLETE and verified** — coverage collection remains environment-limited | 2026-09-11 |
+| 16 | BOM setup | **COMPLETE and verified** — domain, persistence, graph loading/costing, API, seed and migration evidence | 2026-09-11 |
+| 17 | Manufacturing | **NEXT** — specification/task decomposition required before implementation | — |
+| 18 | Quality management | NOT_STARTED — after 17 | — |
+| 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
+| 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
+| 21 | Ecommerce, storefront API & channels | NOT_STARTED | — |
+| 21b | Vuma Connect: supplier network & B2B | **OPEN FOLLOW-UP** — supplier portal/API permission surface remains | — |
+| 22 | Marketing automation | NOT_STARTED | — |
+| 22b | Conversational commerce | **IN_PROGRESS** — transport integration and six intent handlers remain | — |
+| 23–31 | see `ROADMAP.md` | NOT_STARTED except explicitly listed above | — |
 
 **Stage 07 was taken to a verified DONE and merged into `main`** — see
 `docs/archive/PROGRESS-ARCHIVE.md`'s 2026-08-15 entry for the session log. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
@@ -1540,7 +1604,7 @@ used bash subshell syntax under PowerShell — `Missing closing ')'`; rewritten 
 `$LASTEXITCODE`. CI run `34283950020`: all 7 jobs green (Build, Test, Migration check, Design
 System Verification, Architecture tests, Vulnerability scan, Package). `main` is fully green.
 
-**Stage 15 � CODE-COMPLETE, UNTESTED (2026-09-09):** All four tasks implemented in one operator-directed speed pass (no task files written; task index is STAGE-15 doc �1). Domain: DemandHistory, DemandForecast (v1/v(n+1) snapshots), ReplenishmentParameter, AbcXyzClassification, SafetyStockCalculation, OpenToBuyBudget, ReplenishmentSuggestion (Open?Accepted/Rejected/Expired, exactly-once accept), MarkdownPlan/MarkdownPlanLine (Draft?PendingApproval?Approved?Active?Amended/Cancelled/Completed), PlanningEnums, PlanningExceptions. Application: ForecastEngine + 3 strategies + ForecastMath (MAPE skips zero-actuals, Acklam z-scores), SafetyStockCalculator (8-week minimum, fallback flagged), ReplenishmentEngine (transfer preferred), MarkdownPlanner (=20% sell-through, =90d supply, C/Z), OtbCommitmentReader (live reqs+orders, cancelled never counts), 14 commands + validators + handlers, 7 queries, 9 permissions (3-segment keys), manifest (non-core, flag `planning`), 4 hosted services + PlanningHostTenant. Infrastructure: 8 repos, PlanningConfigurations (9 tables), DemandHistorySource, 3 downstream writers (Stage 12 requisition, Stage 08 transfer, Stage 10 promotion � all through existing command handlers, never direct writes), PlanningPriceReader, DI + scheduling. Contracts + 19 Web endpoints under /planning (RequireModule planning). DbContext DbSets + Schemas.Planning. Migration 20260909131616_Stage15_Planning (Up creates 9 tables, Down drops; has-pending-model-changes clean; only same-schema FK lines?plans). SYNC_AND_BACKUP.md +10 rows. ADR-149. Metering automatic via planning-schema audit trail; no posting rules (posts nothing); approval via IApprovalService (no local engine). Evidence: Infrastructure (incl. Domain/Application/Contracts) builds 0 errors; solution build red ONLY on 50 pre-existing Warehouse endpoint errors (Stage 13/13b follow-up, committed on main before this work � untouched). Also removed a foreign scaffold found in the working tree (MediatR 11, Features/, Crm/Loyalty entities, gutted snapshot, sabotaged csproj/ci.yml/Program.cs) and restored those tracked files. DEFERRED (operator tests later): all Planning unit/integration tests, migration Down on real PG, seed scenarios, full agent panel + stage-verifier. Pre-existing follow-up untouched: Warehouse Web errors (WarehouseEndpoints.cs 38, PickWaveEndpoints.cs 12).
+**Stage 15 — CODE-COMPLETE, UNTESTED (2026-09-09):** All four tasks implemented in one operator-directed speed pass (no task files written; task index is STAGE-15 doc §1). Domain: DemandHistory, DemandForecast (v1/v(n+1) snapshots), ReplenishmentParameter, AbcXyzClassification, SafetyStockCalculation, OpenToBuyBudget, ReplenishmentSuggestion (Open?Accepted/Rejected/Expired, exactly-once accept), MarkdownPlan/MarkdownPlanLine (Draft?PendingApproval?Approved?Active?Amended/Cancelled/Completed), PlanningEnums, PlanningExceptions. Application: ForecastEngine + 3 strategies + ForecastMath (MAPE skips zero-actuals, Acklam z-scores), SafetyStockCalculator (8-week minimum, fallback flagged), ReplenishmentEngine (transfer preferred), MarkdownPlanner (=20% sell-through, =90d supply, C/Z), OtbCommitmentReader (live reqs+orders, cancelled never counts), 14 commands + validators + handlers, 7 queries, 9 permissions (3-segment keys), manifest (non-core, flag `planning`), 4 hosted services + PlanningHostTenant. Infrastructure: 8 repos, PlanningConfigurations (9 tables), DemandHistorySource, 3 downstream writers (Stage 12 requisition, Stage 08 transfer, Stage 10 promotion — all through existing command handlers, never direct writes), PlanningPriceReader, DI + scheduling. Contracts + 19 Web endpoints under /planning (RequireModule planning). DbContext DbSets + Schemas.Planning. Migration 20260909131616_Stage15_Planning (Up creates 9 tables, Down drops; has-pending-model-changes clean; only same-schema FK lines?plans). SYNC_AND_BACKUP.md +10 rows. ADR-149. Metering automatic via planning-schema audit trail; no posting rules (posts nothing); approval via IApprovalService (no local engine). Evidence: Infrastructure (incl. Domain/Application/Contracts) builds 0 errors; solution build red ONLY on 50 pre-existing Warehouse endpoint errors (Stage 13/13b follow-up, committed on main before this work — untouched). Also removed a foreign scaffold found in the working tree (MediatR 11, Features/, Crm/Loyalty entities, gutted snapshot, sabotaged csproj/ci.yml/Program.cs) and restored those tracked files. DEFERRED (operator tests later): all Planning unit/integration tests, migration Down on real PG, seed scenarios, full agent panel + stage-verifier. Pre-existing follow-up untouched: Warehouse Web errors (WarehouseEndpoints.cs 38, PickWaveEndpoints.cs 12).
 
 ### Main repair: build green + full suite green (2026-09-09, operator-directed)
 

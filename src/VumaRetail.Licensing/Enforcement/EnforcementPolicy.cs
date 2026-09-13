@@ -187,23 +187,22 @@ public sealed class EnforcementPolicy(LicensingOptions options) : IEnforcementPo
         DateTimeOffset since = inputs.LastContactAt ?? lease.IssuedAt;
         double days = (inputs.Now - since).TotalDays;
 
-        DateTimeOffset readOnlyAt = since.AddDays(options.OfflineReadOnlyAfterDays);
         DateTimeOffset posNoticeAt = since.AddDays(options.OfflinePosNoticeAfterDays);
         DateTimeOffset bannerAt = since.AddDays(options.OfflineBannerAfterDays);
 
         if (days >= options.OfflineReadOnlyAfterDays)
         {
             return new EnforcementDecision(
-                EnforcementLevel.ReadOnly,
+                EnforcementLevel.Notice,
                 EnforcementReason.CannotVerify,
                 NoticeStage.FinalNotice,
                 inputs.Now,
-                RestrictedSince: readOnlyAt,
+                NextEscalationAt: null,
                 Messages:
                 [
                     "Vuma has not been able to reach the licence service for "
-                    + $"{options.OfflineReadOnlyAfterDays} days. Restore this store's internet "
-                    + "connection, or call support for an emergency access code.",
+                    + $"{options.OfflineReadOnlyAfterDays} days. Trading continues while "
+                    + "the subscription remains locally valid; restore connectivity when possible.",
                 ]);
         }
 
@@ -214,7 +213,7 @@ public sealed class EnforcementPolicy(LicensingOptions options) : IEnforcementPo
                 EnforcementReason.CannotVerify,
                 NoticeStage.PosSessionNotice,
                 inputs.Now,
-                NextEscalationAt: readOnlyAt);
+                NextEscalationAt: null);
         }
 
         if (days >= options.OfflineBannerAfterDays)

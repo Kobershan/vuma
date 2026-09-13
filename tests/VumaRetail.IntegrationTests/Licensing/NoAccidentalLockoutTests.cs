@@ -32,7 +32,7 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
     [InlineData(ControlPlaneBehaviour.Unreachable)]
     [InlineData(ControlPlaneBehaviour.ServerError)]
     [InlineData(ControlPlaneBehaviour.Garbage)]
-    public async Task A_control_plane_that_is_down_trades_normally_to_the_boundary_and_not_a_minute_earlier(
+    public async Task A_control_plane_that_is_down_never_restricts_trading(
         ControlPlaneBehaviour behaviour)
     {
         // docs/TESTING.md §7: unreachable, 500s and garbage are all treated identically, and none of
@@ -62,11 +62,11 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
         harness.Clock.Advance(TimeSpan.FromDays(1) - TimeSpan.FromMinutes(1));
         (await CurrentAsync(harness)).Level.Should().NotBe(EnforcementLevel.ReadOnly);
 
-        // And at the boundary, deliberately.
+        // The old boundary is now a final warning only. An outage is never a known lapse.
         harness.Clock.Advance(TimeSpan.FromMinutes(1));
 
         EnforcementDecision atBoundary = await CurrentAsync(harness);
-        atBoundary.Level.Should().Be(EnforcementLevel.ReadOnly);
+        atBoundary.Level.Should().Be(EnforcementLevel.Notice);
         atBoundary.Reason.Should().Be(EnforcementReason.CannotVerify);
     }
 
@@ -162,7 +162,7 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
         harness.ControlPlane.Behaviour = ControlPlaneBehaviour.Unreachable;
         harness.Clock.Advance(TimeSpan.FromDays(30));
 
-        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.ReadOnly);
+        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.Notice);
 
         // The vendor reads the code down the phone. Nothing about issuing it touches this store.
         string code = harness.ControlPlane.IssueEmergencyCode(
@@ -181,7 +181,7 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
         (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.Normal);
 
         harness.Clock.MoveTo(expiresAt);
-        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.ReadOnly);
+        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.Notice);
     }
 
     [Fact]
@@ -264,16 +264,16 @@ public sealed class NoAccidentalLockoutTests(PostgresFixture fixture)
 
         harness.ControlPlane.Behaviour = ControlPlaneBehaviour.Unreachable;
 
-        // Twenty days of silence puts the tenant read-only.
+        // Twenty days of silence is still an outage notice; loss of contact never locks out trade.
         harness.Clock.Advance(TimeSpan.FromDays(20));
         await harness.SendAsync(new SendHeartbeatCommand());
-        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.ReadOnly);
+        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.Notice);
 
         // Winding the clock back to day one must buy nothing: the effective instant is never earlier
         // than the highest ever seen (LICENSING.md §7).
         harness.Clock.Advance(TimeSpan.FromDays(-19));
 
-        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.ReadOnly);
+        (await CurrentAsync(harness)).Level.Should().Be(EnforcementLevel.Notice);
     }
 
     [Fact]

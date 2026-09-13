@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Loyalty;
@@ -46,7 +47,14 @@ public static class LoyaltyServiceCollectionExtensions
         }
         else
         {
-            services.AddHttpClient<IOrbitClient, HttpOrbitClient>();
+            services.AddOptions<OrbitOptions>().BindConfiguration(OrbitOptions.SectionName);
+            services.AddHttpClient<IOrbitClient, HttpOrbitClient>((serviceProvider, client) =>
+            {
+                OrbitOptions options = serviceProvider.GetRequiredService<IOptions<OrbitOptions>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+                client.DefaultRequestHeaders.Add("X-Api-Key", options.ApiKey);
+            });
         }
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, LoyaltyPermissions>());

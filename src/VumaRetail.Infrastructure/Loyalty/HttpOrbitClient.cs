@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using VumaRetail.Application.Loyalty;
 
@@ -127,21 +128,40 @@ public sealed class HttpOrbitClient : IOrbitClient
 
     private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await _http
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            throw new OrbitUnavailableException(
-                $"Orbit answered {(int)response.StatusCode}. The request is queued for retry.");
+            using HttpResponseMessage response = await _http
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new OrbitUnavailableException(
+                    $"Orbit answered {(int)response.StatusCode}. The request is queued for retry.");
+            }
+
+            T? body = await response.Content
+                .ReadFromJsonAsync<T>(cancellationToken)
+                .ConfigureAwait(false);
+
+            return body ?? throw new OrbitUnavailableException("Orbit answered without a body.");
         }
-
-        T? body = await response.Content
-            .ReadFromJsonAsync<T>(cancellationToken)
-            .ConfigureAwait(false);
-
-        return body ?? throw new OrbitUnavailableException("Orbit answered without a body.");
+        catch (OrbitUnavailableException)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new OrbitUnavailableException("Orbit timed out. The request is queued for retry.");
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new OrbitUnavailableException("Orbit transport failed. The request is queued for retry.", exception);
+        }
+        catch (JsonException exception)
+        {
+            throw new OrbitUnavailableException("Orbit returned an invalid response. The request is queued for retry.", exception);
+        }
     }
 
     private sealed record OrbitMemberResponse(string OrbitMemberId);
