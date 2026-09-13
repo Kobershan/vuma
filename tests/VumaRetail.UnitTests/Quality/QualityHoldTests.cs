@@ -92,9 +92,9 @@ public sealed class QualityHoldTests
         NonConformance issue = NonConformance.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             NonConformanceSeverity.Major, "seal broken", DateTimeOffset.UtcNow);
 
-        Assert.Throws<InvalidOperationException>(() => issue.Close(DateTimeOffset.UtcNow, "discarded"));
-        issue.StartCorrectiveAction();
-        issue.Close(DateTimeOffset.UtcNow, "discarded and supplier notified");
+        Assert.Throws<InvalidOperationException>(() => issue.Close(Guid.NewGuid(), DateTimeOffset.UtcNow, "discarded"));
+        issue.StartCorrectiveAction(Guid.NewGuid());
+        issue.Close(Guid.NewGuid(), DateTimeOffset.UtcNow, "discarded and supplier notified");
 
         Assert.Equal(NonConformanceStatus.Closed, issue.Status);
     }

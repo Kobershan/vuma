@@ -187,3 +187,43 @@ public sealed class OpenNonConformanceCommandHandler(
         return result.Id;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record StartCorrectiveActionCommand(Guid NonConformanceId, Guid OperationId) : ICommand;
+
+public sealed class StartCorrectiveActionCommandHandler(INonConformanceRepository nonConformances)
+    : ICommandHandler<StartCorrectiveActionCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(StartCorrectiveActionCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        NonConformance issue = await nonConformances.FindAsync(command.NonConformanceId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Non-conformance not found.");
+        if (issue.Status == NonConformanceStatus.CorrectiveAction && issue.CorrectiveActionOperationId == command.OperationId)
+        {
+            return Unit.Value;
+        }
+        issue.StartCorrectiveAction(command.OperationId);
+        return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CloseNonConformanceCommand(Guid NonConformanceId, Guid OperationId, string Resolution) : ICommand;
+
+public sealed class CloseNonConformanceCommandHandler(INonConformanceRepository nonConformances, IClock clock)
+    : ICommandHandler<CloseNonConformanceCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CloseNonConformanceCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        NonConformance issue = await nonConformances.FindAsync(command.NonConformanceId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Non-conformance not found.");
+        if (issue.Status == NonConformanceStatus.Closed && issue.ClosureOperationId == command.OperationId)
+        {
+            return Unit.Value;
+        }
+        issue.Close(command.OperationId, clock.UtcNow, command.Resolution);
+        return Unit.Value;
+    }
+}

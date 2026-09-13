@@ -24,6 +24,12 @@ public static class QualityEndpoints
         endpoints.MapVumaApi().MapGroup("/quality/non-conformances").WithTags("Quality").RequireModule("quality")
             .MapPost("/", OpenNonConformanceAsync).RequirePermission(QualityPermissions.Manage)
             .Produces<Guid>(StatusCodes.Status201Created);
+        RouteGroupBuilder nonConformances = endpoints.MapVumaApi().MapGroup("/quality/non-conformances")
+            .WithTags("Quality").RequireModule("quality");
+        nonConformances.MapPost("/{id:guid}/corrective-action", StartCorrectiveActionAsync)
+            .RequirePermission(QualityPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        nonConformances.MapPost("/{id:guid}/close", CloseNonConformanceAsync)
+            .RequirePermission(QualityPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/{id:guid}/release", ReleaseAsync).RequirePermission(QualityPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent);
         group.MapPost("/{id:guid}/reject", RejectAsync).RequirePermission(QualityPermissions.Manage)
@@ -64,8 +70,22 @@ public static class QualityEndpoints
         return Results.Created($"/api/v1/quality/non-conformances/{id:D}", id);
     }
 
+    private static async Task<IResult> StartCorrectiveActionAsync(Guid id, CorrectiveActionRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new StartCorrectiveActionCommand(id, request.OperationId), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> CloseNonConformanceAsync(Guid id, CloseNonConformanceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new CloseNonConformanceCommand(id, request.OperationId, request.Resolution), cancellationToken).ConfigureAwait(false);
+        return Results.NoContent();
+    }
+
     public sealed record PlaceQualityHoldRequest(Guid OperationId, Guid CompanyId, Guid LocationId, Guid? ItemId, Guid? ItemVariantId, decimal Quantity, string UnitOfMeasure, string Reason);
     public sealed record ReleaseQualityHoldRequest(string Reason);
     public sealed record RecordInspectionRequest(Guid OperationId, Guid CompanyId, Guid HoldId, bool Passed, int SampleSize, string Evidence);
     public sealed record OpenNonConformanceRequest(Guid OperationId, Guid CompanyId, Guid HoldId, NonConformanceSeverity Severity, string Description);
+    public sealed record CorrectiveActionRequest(Guid OperationId);
+    public sealed record CloseNonConformanceRequest(Guid OperationId, string Resolution);
 }

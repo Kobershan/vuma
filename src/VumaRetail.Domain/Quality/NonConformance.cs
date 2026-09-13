@@ -26,6 +26,8 @@ public sealed class NonConformance : Entity, IImmutableRecord
     private NonConformance() { }
     public Guid OperationId { get; private set; }
     public Guid HoldId { get; private set; }
+    public Guid? CorrectiveActionOperationId { get; private set; }
+    public Guid? ClosureOperationId { get; private set; }
     public NonConformanceSeverity Severity { get; private set; }
     public NonConformanceStatus Status { get; private set; }
     public string Description { get; private set; } = string.Empty;
@@ -48,22 +50,32 @@ public sealed class NonConformance : Entity, IImmutableRecord
         return new NonConformance(tenantId, storeId, companyId, operationId, holdId, severity, description.Trim(), openedAt);
     }
 
-    public void StartCorrectiveAction()
+    public void StartCorrectiveAction(Guid operationId)
     {
         if (Status != NonConformanceStatus.Open)
         {
             throw new InvalidOperationException("Only an open non-conformance can start corrective action.");
         }
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("Corrective-action operation is required.", nameof(operationId));
+        }
+        CorrectiveActionOperationId = operationId;
         Status = NonConformanceStatus.CorrectiveAction;
     }
 
-    public void Close(DateTimeOffset at, string resolution)
+    public void Close(Guid operationId, DateTimeOffset at, string resolution)
     {
         if (Status != NonConformanceStatus.CorrectiveAction)
         {
             throw new InvalidOperationException("Corrective action must be started before closure.");
         }
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("Closure operation is required.", nameof(operationId));
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(resolution);
+        ClosureOperationId = operationId;
         Status = NonConformanceStatus.Closed;
         Resolution = resolution.Trim();
         ClosedAt = at;

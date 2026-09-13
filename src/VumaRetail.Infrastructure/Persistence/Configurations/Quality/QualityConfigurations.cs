@@ -61,6 +61,8 @@ internal sealed class NonConformanceConfiguration : EntityConfiguration<NonConfo
     protected override void ConfigureEntity(EntityTypeBuilder<NonConformance> builder)
     {
         builder.Property(x => x.HoldId).IsRequired();
+        builder.Property(x => x.CorrectiveActionOperationId);
+        builder.Property(x => x.ClosureOperationId);
         builder.Property(x => x.OperationId).IsRequired();
         builder.Property(x => x.Severity).IsRequired().HasConversion<string>().HasMaxLength(16);
         builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24);
