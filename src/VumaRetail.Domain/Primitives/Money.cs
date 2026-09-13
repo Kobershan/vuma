@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace VumaRetail.Domain.Primitives;
 
 /// <summary>
@@ -35,6 +37,7 @@ public readonly record struct Money : IComparable<Money>
     /// <param name="amount">The amount. Rounded to <see cref="Scale"/> decimal places.</param>
     /// <param name="currency">ISO 4217 alphabetic code, for example <c>ZAR</c>.</param>
     /// <exception cref="ArgumentException">The currency code is not three letters.</exception>
+    [JsonConstructor]
     public Money(decimal amount, string currency)
     {
         Currency = NormaliseCurrency(currency);

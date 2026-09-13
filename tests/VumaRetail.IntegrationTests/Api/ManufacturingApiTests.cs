@@ -156,9 +156,14 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         ProductionOrderResponse releasedOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}"))!;
         releasedOrder.Materials.Should().ContainSingle();
         releasedOrder.Materials[0].ComponentItemId.Should().Be(componentItemId);
-        HttpResponseMessage issue = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", new IssueProductionMaterialRequest(locationId, Guid.NewGuid(), releasedOrder.Materials[0].ComponentItemId, null, 1m, "EA", 5m, "ZAR"));
+        Guid issueOperationId = Guid.NewGuid();
+        IssueProductionMaterialRequest issueRequest = new(locationId, issueOperationId, releasedOrder.Materials[0].ComponentItemId, null, 1m, "EA", 5m, "ZAR");
+        HttpResponseMessage issue = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", issueRequest);
         string issueBody = await issue.Content.ReadAsStringAsync();
         issue.StatusCode.Should().Be(HttpStatusCode.NoContent, issueBody);
+        HttpResponseMessage issueReplay = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", issueRequest);
+        string issueReplayBody = await issueReplay.Content.ReadAsStringAsync();
+        issueReplay.StatusCode.Should().Be(HttpStatusCode.NoContent, issueReplayBody);
         (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 1m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await client.PostAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/close", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
@@ -166,6 +171,8 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         order.Status.Should().Be("Closed");
         order.Issues.Should().ContainSingle();
         order.Receipts.Should().ContainSingle();
+        ProductionCapacityResponse capacity = (await client.GetFromJsonAsync<ProductionCapacityResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/capacity"))!;
+        capacity.TotalMinutes.Should().Be(0m);
     }
 
     [Fact]

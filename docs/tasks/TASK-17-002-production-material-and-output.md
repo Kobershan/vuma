@@ -52,3 +52,6 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   reservation context, and the authorized end-to-end PostgreSQL test proves stock-backed issue and
   output receipt can complete through the API. The shortage/replay and journal assertions remain
   required for final task closure.
+- 2026-09-13: exact issue replay is now proven by the PostgreSQL API scenario. A second defect found
+  by that assertion was fixed by declaring `Money`'s JSON constructor, preserving currency through
+  reload so unchanged operations remain idempotent instead of being rejected as conflicts.
