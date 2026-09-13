@@ -144,4 +144,39 @@ public sealed class QualityHoldTests
 
         Assert.Equal(NonConformanceStatus.Closed, issue.Status);
     }
+
+    [Fact]
+    public async Task Certificate_issue_rejects_a_company_that_is_not_active()
+    {
+        Guid activeCompany = Guid.NewGuid();
+        IQualityCertificateRepository certificates = Substitute.For<IQualityCertificateRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompany);
+        IssueQualityCertificateCommand command = new(Guid.NewGuid(), Guid.NewGuid(), null, "CERT-1", "Lab",
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1), "evidence");
+
+        Func<Task> action = () => new IssueQualityCertificateCommandHandler(certificates, tenant, company).HandleAsync(command);
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        certificates.DidNotReceive().Add(Arg.Any<QualityCertificate>());
+    }
+
+    [Fact]
+    public async Task Inspection_plan_create_rejects_a_company_that_is_not_active()
+    {
+        Guid activeCompany = Guid.NewGuid();
+        IInspectionPlanRepository plans = Substitute.For<IInspectionPlanRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompany);
+        CreateInspectionPlanCommand command = new(Guid.NewGuid(), Guid.NewGuid(), null, 1, "Incoming", 1, "Pass");
+
+        Func<Task> action = () => new CreateInspectionPlanCommandHandler(plans, tenant, company).HandleAsync(command);
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        plans.DidNotReceive().Add(Arg.Any<InspectionPlan>());
+    }
 }

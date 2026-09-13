@@ -86,12 +86,16 @@ public sealed class CloseRecallCommandHandler(IRecallCaseRepository recalls, ICo
 public sealed record IssueQualityCertificateCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string CertificateNumber,
     string Issuer, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt, string Evidence) : ICommand<Guid>;
 
-public sealed class IssueQualityCertificateCommandHandler(IQualityCertificateRepository certificates, ITenantContext tenant)
+public sealed class IssueQualityCertificateCommandHandler(IQualityCertificateRepository certificates, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<IssueQualityCertificateCommand, Guid>
 {
     public Task<Guid> HandleAsync(IssueQualityCertificateCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The certificate company is not the active company.");
+        }
         QualityCertificate certificate = QualityCertificate.Issue(tenant.TenantId, null, command.CompanyId, command.ItemId, command.ItemVariantId,
             command.CertificateNumber, command.Issuer, command.IssuedAt, command.ExpiresAt, command.Evidence);
         certificates.Add(certificate);
@@ -127,12 +131,16 @@ public sealed class RevokeQualityCertificateCommandHandler(IQualityCertificateRe
 public sealed record CreateInspectionPlanCommand(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, int Version,
     string Name, int SampleSize, string AcceptanceCriteria) : ICommand<Guid>;
 
-public sealed class CreateInspectionPlanCommandHandler(IInspectionPlanRepository plans, ITenantContext tenant)
+public sealed class CreateInspectionPlanCommandHandler(IInspectionPlanRepository plans, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateInspectionPlanCommand, Guid>
 {
     public Task<Guid> HandleAsync(CreateInspectionPlanCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The inspection-plan company is not the active company.");
+        }
         InspectionPlan plan = InspectionPlan.Create(tenant.TenantId, null, command.CompanyId, command.ItemId, command.ItemVariantId,
             command.Version, command.Name, command.SampleSize, command.AcceptanceCriteria);
         plans.Add(plan);
@@ -143,7 +151,7 @@ public sealed class CreateInspectionPlanCommandHandler(IInspectionPlanRepository
 [CommandSideEffect(SideEffect.Write)]
 public sealed record PublishInspectionPlanCommand(Guid PlanId) : ICommand;
 
-public sealed class PublishInspectionPlanCommandHandler(IInspectionPlanRepository plans)
+public sealed class PublishInspectionPlanCommandHandler(IInspectionPlanRepository plans, ICompanyContext company)
     : ICommandHandler<PublishInspectionPlanCommand, Unit>
 {
     public async Task<Unit> HandleAsync(PublishInspectionPlanCommand command, CancellationToken cancellationToken = default)
@@ -151,6 +159,10 @@ public sealed class PublishInspectionPlanCommandHandler(IInspectionPlanRepositor
         ArgumentNullException.ThrowIfNull(command);
         InspectionPlan plan = await plans.FindAsync(command.PlanId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Inspection plan not found.");
+        if (company.CompanyId is not { } activeCompany || plan.CompanyId != activeCompany)
+        {
+            throw new InvalidOperationException("The inspection-plan company is not the active company.");
+        }
         plan.Publish();
         return Unit.Value;
     }
