@@ -173,6 +173,8 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         order.Receipts.Should().ContainSingle();
         ProductionCapacityResponse capacity = (await client.GetFromJsonAsync<ProductionCapacityResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/capacity"))!;
         capacity.TotalMinutes.Should().Be(0m);
+        ProductionOrderResponse genealogy = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/genealogy"))!;
+        genealogy.Issues.Should().ContainSingle();
     }
 
     [Fact]
@@ -232,6 +234,7 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
 
         paths.TryGetProperty("/api/v1/manufacturing/production-orders", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/genealogy", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/capacity", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/release", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/manufacturing/production-orders/{id}/issues", out _).Should().BeTrue();

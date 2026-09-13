@@ -23,6 +23,7 @@ public static class ManufacturingEndpoints
         RouteGroupBuilder production = endpoints.MapVumaApi().MapGroup("/manufacturing/production-orders").WithTags("Manufacturing").RequireModule("manufacturing");
         production.MapPost("/", CreateProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces<BillOfMaterialsIdResponse>(StatusCodes.Status201Created);
         production.MapGet("/{id:guid}", GetProductionAsync).RequirePermission(ManufacturingPermissions.View).Produces<ProductionOrderResponse>();
+        production.MapGet("/{id:guid}/genealogy", GetProductionAsync).RequirePermission(ManufacturingPermissions.View).Produces<ProductionOrderResponse>();
         production.MapGet("/{id:guid}/capacity", GetProductionCapacityAsync).RequirePermission(ManufacturingPermissions.View).Produces<ProductionCapacityResponse>();
         production.MapPost("/{id:guid}/release", ReleaseProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         production.MapPost("/{id:guid}/issues", IssueProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
