@@ -88,7 +88,7 @@ public sealed class QualityHoldTests
         PlaceQualityHoldCommand command = new(operationId, companyId, Guid.NewGuid(), Guid.NewGuid(), null, 5m, "EA", "inspection");
         Func<Task> action = () => new PlaceQualityHoldCommandHandler(holds, reservations, tenant, company, clock).HandleAsync(command);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(action);
+        await Assert.ThrowsAsync<QualityRuleException>(action);
         await reservations.Received(1).ReleaseAsync(Arg.Any<Guid>(), "Quality hold shortfall", Arg.Any<CancellationToken>());
         holds.DidNotReceive().Add(Arg.Any<QualityHold>());
     }
