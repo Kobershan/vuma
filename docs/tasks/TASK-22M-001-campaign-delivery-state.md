@@ -13,13 +13,14 @@ per-recipient idempotency and suppression transitions.
 
 Campaign scheduling/cancellation invariants, queued-message metadata, suppression and sent-state
 transitions. Consent evaluation, audience snapshots, transports, callbacks and APIs are follow-up
-tasks. Campaigns and outbound messages now have tenant/company-scoped EF mappings and reversible
-migration `20260913221156_Stage22MarketingPersistence`.
+tasks. Campaigns and outbound messages now have tenant/company-scoped EF mappings, persistence
+repositories, company-guarded commands, and manage-protected API routes. The reversible migration is
+`20260913221156_Stage22MarketingPersistence`.
 
 ## Verification
 
 2026-09-13: Marketing-focused unit tests pass 8/8, including future-only scheduling and explicit
-suppression state. StoreServer Release build passes with 0 errors; the migration contains the
+suppression state. StoreServer and CloudApi builds pass with 0 errors; the migration contains the
 `marketing.campaigns` and `marketing.outbound_messages` tables with unique idempotency keys.
 
 ## Follow-up findings

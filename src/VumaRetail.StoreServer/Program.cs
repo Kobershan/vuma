@@ -37,6 +37,7 @@ using VumaRetail.Web.Identity;
 using VumaRetail.Web.Imports;
 using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Licensing;
+using VumaRetail.Web.Marketing;
 using VumaRetail.Web.Orders;
 using VumaRetail.Web.Partners;
 using VumaRetail.Web.Hr;
@@ -238,6 +239,7 @@ builder.Services.AddVumaReporting();
 // (conversion verifies the partner link through the partners read port — a Guid reference,
 // never a cross-schema foreign key). No scheduled passes.
 builder.Services.AddVumaCrm();
+builder.Services.AddVumaMarketing();
 builder.Services.AddVumaConversationalCommerce();
 builder.Services.Configure<TwilioWhatsAppOptions>(builder.Configuration.GetSection(TwilioWhatsAppOptions.SectionName));
 
@@ -356,6 +358,7 @@ app.MapVumaWorkflow();
 app.MapVumaCatalog();
 app.MapVumaPartners();
 app.MapVumaHr();
+app.MapVumaMarketing();
 app.MapVumaFinance();
 app.MapVumaInventory();
 app.MapVumaAvailability();
