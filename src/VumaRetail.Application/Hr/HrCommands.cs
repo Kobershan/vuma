@@ -49,7 +49,8 @@ public sealed record RequestShiftSwapCommand(Guid ShiftId, Guid FromEmployeeId, 
 public sealed record DecideShiftSwapCommand(Guid ShiftSwapRequestId, bool Approved) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record PublishRosterCommand(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId = null) : ICommand<Guid>;
-public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocument>>;
+public sealed record ListEmployeeDocumentsQuery(Guid EmployeeId) : IQuery<IReadOnlyList<EmployeeDocumentResult>>;
+public sealed record EmployeeDocumentResult(Guid Id, Guid EmployeeId, string DocumentType, string ContentSha256, DateOnly? ExpiresOn);
 public sealed record ListDisciplinaryCasesQuery(Guid CompanyId, Guid? EmployeeId = null) : IQuery<IReadOnlyList<DisciplinaryCase>>;
 public sealed record GeneratePayrollExportQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<PayrollExportRow>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
@@ -208,7 +209,13 @@ public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository sw
         return Unit.Value;
     }
 }
-public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocument>> { public Task<IReadOnlyList<EmployeeDocument>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default) => documents.ListAsync(q.EmployeeId, t); }
+public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocumentResult>>
+{
+    public async Task<IReadOnlyList<EmployeeDocumentResult>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default)
+        => (await documents.ListAsync(q.EmployeeId, t).ConfigureAwait(false))
+            .Select(x => new EmployeeDocumentResult(x.Id, x.EmployeeId, x.DocumentType, x.ContentSha256, x.ExpiresOn))
+            .ToArray();
+}
 public sealed class ListDisciplinaryCasesQueryHandler(IDisciplinaryCaseRepository cases, ICompanyContext company) : IQueryHandler<ListDisciplinaryCasesQuery, IReadOnlyList<DisciplinaryCase>>
 {
     public async Task<IReadOnlyList<DisciplinaryCase>> HandleAsync(ListDisciplinaryCasesQuery query, CancellationToken token = default)

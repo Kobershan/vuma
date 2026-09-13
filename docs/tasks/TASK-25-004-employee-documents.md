@@ -7,3 +7,6 @@ Verification: `EmployeeDocumentTests` passes 4/4 and the `Stage25EmployeeDocumen
 generated on 2026-09-13. The HR document API routes are covered by the host build; retention/deletion,
 secure download authorization, and full PostgreSQL document acceptance remain. The real OpenAPI
 contract test `Employee_document_routes_reach_the_openapi_document` passes 1/1.
+
+2026-09-13: The document listing query now returns metadata-only DTOs and no longer exposes the
+external storage blob key. Secure, expiring download authorization remains a separate follow-up.
