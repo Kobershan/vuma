@@ -97,6 +97,8 @@ public sealed class FinancialInventoryValuationEventPublisher(
     {
         StockMovementType.Receipt => "inventory.receipt.posted",
         StockMovementType.SaleIssue => "inventory.sale.issued",
+        StockMovementType.ProductionIssue => "manufacturing.material.issued",
+        StockMovementType.ProductionReceipt => "manufacturing.output.received",
 
         // Stage 10. Its own event type rather than sharing `inventory.receipt.posted`, because a
         // return credits cost of sales while a supplier receipt credits goods-received-not-invoiced —

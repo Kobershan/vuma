@@ -248,6 +248,12 @@ public enum StockMovementType
     /// <see cref="SaleIssue"/>, valued at what the original issue cost rather than at today's average.
     /// </summary>
     SalesReturn = 6,
+
+    /// <summary>Component material consumed by a production order.</summary>
+    ProductionIssue = 7,
+
+    /// <summary>Finished output received from a production order.</summary>
+    ProductionReceipt = 8,
 }
 
 /// <summary>What kind of document, if any, a <see cref="StockLedgerEntry"/> correlates to.</summary>
@@ -336,6 +342,9 @@ public enum StockReferenceType
     /// (<c>orders.order.fulfilled</c>, <c>orders.return.completed</c>) get new rules.
     /// </remarks>
     OrderReturn = 9,
+
+    /// <summary>Correlates to a manufacturing production order.</summary>
+    Production = 10,
 }
 
 /// <summary>Why a <see cref="StockMovementType.Adjustment"/> was made.</summary>

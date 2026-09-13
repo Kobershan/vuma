@@ -1,6 +1,8 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Manufacturing;
@@ -172,10 +174,10 @@ public sealed class ReleaseProductionOrderCommandHandler(
 
 /// <summary>Consumes one release-snapshot material requirement.</summary>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent material issue.</summary>
-public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders)
+public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster)
     : ICommandHandler<IssueProductionMaterialCommand, Unit>
 {
     /// <inheritdoc />
@@ -184,18 +186,25 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
-        order.IssueMaterial(command.OperationId, command.ComponentItemId, command.ComponentVariantId,
-            new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
+        Money unitCost = new(command.UnitCost, command.Currency);
+        if (!order.IssueMaterial(command.OperationId, command.ComponentItemId, command.ComponentVariantId, quantity, unitCost))
+        {
+            return Unit.Value;
+        }
+        StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.LocationId);
+        await poster.IssueForProductionAsync(location, command.ComponentItemId, command.ComponentVariantId, quantity, order.Id, cancellationToken).ConfigureAwait(false);
         return Unit.Value;
     }
 }
 
 /// <summary>Receives finished output against a production order.</summary>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent finished-output receipt.</summary>
-public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders)
+public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster)
     : ICommandHandler<ReceiveProductionOutputCommand, Unit>
 {
     /// <inheritdoc />
@@ -204,7 +213,15 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
-        order.ReceiveOutput(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
+        Money unitCost = new(command.UnitCost, command.Currency);
+        if (!order.ReceiveOutput(command.OperationId, quantity, unitCost))
+        {
+            return Unit.Value;
+        }
+        StockLocation location = await locations.FindAsync(command.LocationId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.LocationId);
+        await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id, cancellationToken).ConfigureAwait(false);
         return Unit.Value;
     }
 }
@@ -223,7 +240,10 @@ public sealed class RecordProductionScrapCommandHandler(IProductionOrderReposito
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
-        order.RecordScrap(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        if (!order.RecordScrap(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency)))
+        {
+            return Unit.Value;
+        }
         return Unit.Value;
     }
 }

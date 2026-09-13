@@ -87,7 +87,7 @@ public sealed class ProductionOrder : Entity
     public IReadOnlyList<ProductionScrap> Scrap => _scrap;
 
     /// <summary>Records one material issue exactly once, rejecting a changed replay.</summary>
-    public void IssueMaterial(Guid operationId, Guid componentItemId, Guid? componentVariantId, Quantity quantity, Money unitCost)
+    public bool IssueMaterial(Guid operationId, Guid componentItemId, Guid? componentVariantId, Quantity quantity, Money unitCost)
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
@@ -98,7 +98,7 @@ public sealed class ProductionOrder : Entity
             {
                 throw ManufacturingRuleException.OperationPayloadConflict(operationId);
             }
-            return;
+            return false;
         }
         ProductionMaterialRequirement requirement = _materials.SingleOrDefault(material => material.ComponentItemId == componentItemId && material.ComponentVariantId == componentVariantId)
             ?? throw ManufacturingRuleException.MaterialNotRequired(componentItemId);
@@ -109,10 +109,11 @@ public sealed class ProductionOrder : Entity
             throw ManufacturingRuleException.MaterialOverIssue(componentItemId);
         }
         _issues.Add(new ProductionMaterialIssue(operationId, componentItemId, componentVariantId, quantity, unitCost));
+        return true;
     }
 
     /// <summary>Records one finished-output receipt exactly once.</summary>
-    public void ReceiveOutput(Guid operationId, Quantity quantity, Money unitCost)
+    public bool ReceiveOutput(Guid operationId, Quantity quantity, Money unitCost)
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
@@ -123,17 +124,18 @@ public sealed class ProductionOrder : Entity
             {
                 throw ManufacturingRuleException.OperationPayloadConflict(operationId);
             }
-            return;
+            return false;
         }
         if (TotalOutput() + quantity > PlannedQuantity)
         {
             throw ManufacturingRuleException.OutputOverPlan();
         }
         _receipts.Add(new ProductionOutputReceipt(operationId, quantity, unitCost));
+        return true;
     }
 
     /// <summary>Records one scrap quantity exactly once, bounded by the planned output.</summary>
-    public void RecordScrap(Guid operationId, Quantity quantity, Money unitCost)
+    public bool RecordScrap(Guid operationId, Quantity quantity, Money unitCost)
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
@@ -144,13 +146,14 @@ public sealed class ProductionOrder : Entity
             {
                 throw ManufacturingRuleException.OperationPayloadConflict(operationId);
             }
-            return;
+            return false;
         }
         if (TotalOutput() + TotalScrap() + quantity > PlannedQuantity)
         {
             throw ManufacturingRuleException.OutputOverPlan();
         }
         _scrap.Add(new ProductionScrap(operationId, quantity, unitCost));
+        return true;
     }
 
     /// <summary>Releases the order against the current published BOM and copies its inputs.</summary>

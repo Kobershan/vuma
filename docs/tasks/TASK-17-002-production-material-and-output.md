@@ -30,3 +30,8 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   migration `20260913053229_Stage17_ProductionExecutionRecords`, adding the BOM identity and three
   JSON execution-record columns to the existing production-order table. The failed workflow was
   `34740105395`; no replacement is pushed until migration validation is green.
+- 2026-09-13: added production-specific stock-ledger movement/reference classification and
+  `IStockLedgerPoster` methods for component issue and finished-output receipt. Command handlers now
+  validate the aggregate operation first and skip the poster on exact replay, preventing duplicate
+  stock and valuation events; changed payloads remain conflicts. Infrastructure and focused unit
+  builds pass locally. Scrap accounting and PostgreSQL stock/financial scenarios remain open.
