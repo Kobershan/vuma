@@ -68,6 +68,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   regression test proving drafts/retired definitions are not exposed. Focused tests: **4/4 passed**.
 - 2026-09-13: Added durable `ReportExport` requests, published-report validation, idempotency and
   POST/status API routes. Reporting tests: **5/5 passed**; PostgreSQL migration Up/Down: **1/1 passed**.
+- 2026-09-13: Added active-company enforcement to export-status retrieval; reporting tests now pass
+  **6/6**, including same-tenant cross-company denial.
 
 ## Tests / acceptance
 

@@ -77,4 +77,17 @@ public sealed class ReportingDomainTests
         repository.Received(1).Add(Arg.Any<ReportExport>());
     }
 
+    [Fact]
+    public async Task Export_status_is_not_visible_to_another_company()
+    {
+        IReportingRepository repository = Substitute.For<IReportingRepository>();
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        Guid exportCompany = Guid.NewGuid();
+        company.CompanyId.Returns(Guid.NewGuid());
+        ReportExport export = ReportExport.Queue(Guid.NewGuid(), null, exportCompany, Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
+        repository.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
+
+        (await new GetReportExportQueryHandler(repository, company).HandleAsync(new GetReportExportQuery(export.Id))).Should().BeNull();
+    }
+
 }

@@ -1,5 +1,6 @@
 #pragma warning disable CS1591
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Reporting;
 
 namespace VumaRetail.Application.Reporting;
@@ -20,12 +21,16 @@ public sealed class GetReportDefinitionQueryHandler(IReportingRepository reports
     }
 }
 
-public sealed class GetReportExportQueryHandler(IReportingRepository reports) : IQueryHandler<GetReportExportQuery, ReportExportResult?>
+public sealed class GetReportExportQueryHandler(IReportingRepository reports, ICompanyContext company) : IQueryHandler<GetReportExportQuery, ReportExportResult?>
 {
     public async Task<ReportExportResult?> HandleAsync(GetReportExportQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ReportExport? export = await reports.FindExportAsync(query.Id, cancellationToken).ConfigureAwait(false);
+        if (export is not null && (company.CompanyId is not { } activeCompany || export.CompanyId != activeCompany))
+        {
+            return null;
+        }
         return export is null ? null : new(export.Id, export.CompanyId!.Value, export.OperationId, export.ReportCode, export.Status.ToString(), export.RequestedAtUtc);
     }
 }
