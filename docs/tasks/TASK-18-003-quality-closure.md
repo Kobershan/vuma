@@ -20,6 +20,8 @@ shelf-life enforcement, then close the stage with seed, backup and specialist ev
   lifecycle rules.
 - OpenAPI and quality permission integration tests pass; migration Up/Down passes on PostgreSQL.
 - Quality write-route company binding is covered by the authorized API suite (3/3 passed).
+- The rebuilt focused quality integration suite passes **5/5**; this verifies the current API and
+  migration surface but does not replace the still-open dispatch/recall traceability scenarios.
 
 ## Remaining
 
