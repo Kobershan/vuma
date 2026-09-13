@@ -29,6 +29,8 @@ public sealed class ServiceTicket : Entity
     public ServiceTicketStatus Status { get; private set; }
     public DateTimeOffset OpenedAtUtc { get; private set; }
     public DateTimeOffset? ClosedAtUtc { get; private set; }
+    public DateTimeOffset? CustomerWaitStartedAtUtc { get; private set; }
+    public decimal CustomerWaitWorkingHours { get; private set; }
 
     public static ServiceTicket Open(Guid tenantId, Guid? storeId, Guid companyId, Guid operationId, Guid customerId,
         string subject, DateTimeOffset openedAt)
@@ -41,7 +43,24 @@ public sealed class ServiceTicket : Entity
     }
 
     public void Start(DateTimeOffset at) => Move(ServiceTicketStatus.InProgress, at);
-    public void WaitForCustomer(DateTimeOffset at) => Move(ServiceTicketStatus.WaitingForCustomer, at);
+    public void WaitForCustomer(DateTimeOffset at)
+    {
+        if (Status == ServiceTicketStatus.WaitingForCustomer)
+            throw new InvalidOperationException("The service ticket is already waiting for the customer.");
+        Move(ServiceTicketStatus.WaitingForCustomer, at);
+        CustomerWaitStartedAtUtc = at.ToUniversalTime();
+    }
+
+    public void ResumeFromCustomer(DateTimeOffset at, decimal pausedWorkingHours)
+    {
+        if (Status != ServiceTicketStatus.WaitingForCustomer || CustomerWaitStartedAtUtc is null)
+            throw new InvalidOperationException("Only a ticket waiting for the customer can resume.");
+        if (pausedWorkingHours < 0m)
+            throw new ArgumentOutOfRangeException(nameof(pausedWorkingHours));
+        CustomerWaitWorkingHours += pausedWorkingHours;
+        CustomerWaitStartedAtUtc = null;
+        Move(ServiceTicketStatus.InProgress, at);
+    }
     public void Resolve(DateTimeOffset at) => Move(ServiceTicketStatus.Resolved, at);
 
     public void Close(DateTimeOffset at)

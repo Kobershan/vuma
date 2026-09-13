@@ -84,6 +84,10 @@ checkpoint remains in progress.
 WORK LOG (2026-09-13): Stage 23 now exposes company-scoped SLA response/resolution deadlines and
 breach flags through the service query/API surface using configured weekday business hours.
 `ServiceSlaClockTests` passes 5/5; SLA worker scheduling and full acceptance remain open.
+WORK LOG (2026-09-13): Stage 23 waiting-for-customer pause accounting is now explicit: ticket pause
+state and accumulated working hours persist, resume is company-scoped at `/resume`, and SLA deadlines
+exclude paused working time. `ServiceSlaClockTests` passes 6/6; breach worker and PostgreSQL acceptance
+remain open.
 
 WORK LOG (2026-09-13): Stage 26 now includes a validated shift-swap request state machine with
 tenant-scoped EF persistence, workforce manage-protected request/decision routes, pending/

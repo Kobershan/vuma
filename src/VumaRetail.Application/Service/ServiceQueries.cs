@@ -31,8 +31,11 @@ public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository servic
         ServiceSla sla = await services.FindSlaByNameAsync(query.CompanyId, query.SlaName, cancellationToken).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Service SLA was not found.");
         DateTimeOffset asOf = query.AsOfUtc.ToUniversalTime();
-        DateTimeOffset responseDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResponseHours);
-        DateTimeOffset resolutionDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResolutionHours);
+        decimal paused = ticket.CustomerWaitWorkingHours;
+        if (ticket.CustomerWaitStartedAtUtc is { } waitStarted && asOf > waitStarted)
+            paused += slaClock.WorkingHoursBetween(waitStarted, asOf);
+        DateTimeOffset responseDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResponseHours + paused);
+        DateTimeOffset resolutionDue = slaClock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResolutionHours + paused);
         return new ServiceSlaDeadlineResult(ticket.Id, sla.Name, responseDue, resolutionDue,
             ticket.Status == ServiceTicketStatus.Open && asOf > responseDue,
             ticket.Status != ServiceTicketStatus.Closed && asOf > resolutionDue);

@@ -65,4 +65,27 @@ public sealed class ServiceSlaClockTests
         result.ResponseBreached.Should().BeTrue();
         result.ResolutionBreached.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Deadline_query_pauses_while_waiting_for_customer()
+    {
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var opened = new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero);
+        var ticket = ServiceTicket.Open(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), "Repair", opened);
+        ticket.WaitForCustomer(new DateTimeOffset(2026, 9, 14, 16, 0, 0, TimeSpan.Zero));
+        var sla = ServiceSla.Create(tenantId, companyId, "Standard", 4m, 12m);
+        var repository = Substitute.For<IServiceRepository>();
+        repository.FindTicketAsync(ticket.Id, Arg.Any<CancellationToken>()).Returns(ticket);
+        repository.FindSlaByNameAsync(companyId, "Standard", Arg.Any<CancellationToken>()).Returns(sla);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        var result = await new GetServiceSlaDeadlinesQueryHandler(repository, company, clock)
+            .HandleAsync(new GetServiceSlaDeadlinesQuery(companyId, ticket.Id, "Standard",
+                new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)));
+
+        result.ResponseDueAtUtc.Should().Be(new DateTimeOffset(2026, 9, 15, 15, 0, 0, TimeSpan.Zero));
+        result.ResponseBreached.Should().BeFalse();
+    }
 }

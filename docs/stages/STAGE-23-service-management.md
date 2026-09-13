@@ -1,6 +1,6 @@
 # STAGE 23 — Service Management
 
-**Status:** IN_PROGRESS — Stage 23-P01 domain foundation implemented; persistence, application orchestration, API, and acceptance certification remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — ticket/SLA slices implemented; breach worker, pause custody, persistence acceptance, and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
 use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
@@ -18,7 +18,7 @@ Orders owns returns, Warehouse owns parts movements, Finance owns postings, Work
 
 ### Domain and client model
 
-`ServiceTicket`, `WarrantyClaim`, `RepairJob`, `ServicePartUsage`, `ServiceSla`, `ServiceCustodyEvent`. Start in `src/VumaRetail.Domain/Service/`; map existing names before adding a new type. Reuse existing entities, value objects, immutable ledger records and versioned definitions instead of creating a parallel model.
+`ServiceTicket`, `WarrantyClaim`, `RepairJob`, `ServicePartUsage`, `ServiceSla`, `ServiceCustodyEvent`. Start in `src/VumaRetail.Domain/Service/`; map existing names before adding a new type. Reuse existing entities, value objects, immutable ledger records and versioned definitions instead of creating a parallel model. Waiting-for-customer periods are now accumulated in working hours and applied to SLA deadlines.
 
 ### Application
 

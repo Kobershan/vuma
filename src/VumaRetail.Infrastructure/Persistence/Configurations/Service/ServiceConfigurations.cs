@@ -15,6 +15,8 @@ internal sealed class ServiceTicketConfiguration : EntityConfiguration<ServiceTi
         builder.Property(x => x.CustomerId).IsRequired();
         builder.Property(x => x.Subject).IsRequired().HasMaxLength(256);
         builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.CustomerWaitStartedAtUtc);
+        builder.Property(x => x.CustomerWaitWorkingHours).HasPrecision(18, 6).IsRequired();
         builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status })
             .HasDatabaseName("ix_service_tickets_tenant_company_customer_status").HasFilter("deleted_at IS NULL");
         builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique()
