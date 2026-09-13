@@ -22,6 +22,10 @@ public static class EcommerceEndpoints
             .Produces<IReadOnlyList<StorefrontProductResult>>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithSummary("Lists published products for the registered storefront host.");
+        storefront.MapPost("/baskets", OpenBasketAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
+            .Produces<Guid>(StatusCodes.Status201Created)
+            .WithSummary("Opens a tenant-scoped storefront basket.");
 
         RouteGroupBuilder channels = endpoints.MapVumaApi().MapGroup("/channels")
             .WithTags("Storefront Channels").RequireModule("ecommerce");
@@ -60,7 +64,15 @@ public static class EcommerceEndpoints
         return Results.Created($"/api/v1/storefront/products/{productId:D}", productId);
     }
 
+    private static async Task<IResult> OpenBasketAsync(
+        OpenBasketRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new OpenBasketCommand(request.ChannelId, request.CompanyId, request.OwnerKey), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/storefront/baskets/{id:D}", id);
+    }
+
     public sealed record RegisterChannelRequest(Guid CompanyId, string Code, string Host);
     public sealed record PublishProductRequest(Guid CompanyId, Guid? ItemId, Guid? ItemVariantId, string Sku, string Name,
         string? Description, decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);
+    public sealed record OpenBasketRequest(Guid ChannelId, Guid CompanyId, string OwnerKey);
 }

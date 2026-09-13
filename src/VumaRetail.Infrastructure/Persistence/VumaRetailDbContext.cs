@@ -544,6 +544,8 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Ecommerce.ChannelConnection> ChannelConnections => Set<Domain.Ecommerce.ChannelConnection>();
     public DbSet<Domain.Ecommerce.PublishedProduct> PublishedProducts => Set<Domain.Ecommerce.PublishedProduct>();
 
+    public DbSet<Domain.Ecommerce.CommerceBasket> CommerceBaskets => Set<Domain.Ecommerce.CommerceBasket>();
+
     /// <summary>Versioned inspection requirements (Stage 18).</summary>
     public DbSet<Domain.Quality.InspectionPlan> InspectionPlans => Set<Domain.Quality.InspectionPlan>();
 

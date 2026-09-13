@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Application.Identity.Permissions;
-using VumaRetail.Application.Ecommerce;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -19,6 +18,7 @@ public static class EcommerceServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, EcommerceModuleManifest>());
         services.AddScoped<IChannelConnectionRepository, ChannelConnectionRepository>();
         services.AddScoped<IPublishedProductRepository, PublishedProductRepository>();
+        services.AddScoped<ICommerceBasketRepository, CommerceBasketRepository>();
         return services;
     }
 }

@@ -25,3 +25,8 @@ public sealed class PublishedProductRepository(VumaRetailDbContext context) : IP
 
     public void Add(PublishedProduct product) => context.PublishedProducts.Add(product);
 }
+
+public sealed class CommerceBasketRepository(VumaRetailDbContext context) : ICommerceBasketRepository
+{
+    public void Add(CommerceBasket basket) => context.CommerceBaskets.Add(basket);
+}

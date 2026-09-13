@@ -20,6 +20,34 @@ public interface IPublishedProductRepository
     void Add(PublishedProduct product);
 }
 
+public interface ICommerceBasketRepository
+{
+    void Add(CommerceBasket basket);
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record OpenBasketCommand(Guid ChannelId, Guid CompanyId, string OwnerKey) : ICommand<Guid>;
+
+public sealed class OpenBasketCommandHandler(
+    IChannelConnectionRepository channels, ICommerceBasketRepository baskets, ITenantContext tenant, ICompanyContext company, IClock clock)
+    : ICommandHandler<OpenBasketCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(OpenBasketCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "basket");
+        ChannelConnection channel = await channels.FindAsync(command.ChannelId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Storefront channel not found.");
+        if (channel.CompanyId != command.CompanyId || channel.Status != ChannelConnectionStatus.Active)
+        {
+            throw new InvalidOperationException("Storefront channel is not active for the selected company.");
+        }
+        CommerceBasket basket = CommerceBasket.Open(tenant.TenantId, command.CompanyId, channel.Id, command.OwnerKey, clock.UtcNow);
+        baskets.Add(basket);
+        return basket.Id;
+    }
+}
+
 /// <summary>Public sell-facing catalogue result; never exposes domain persistence objects.</summary>
 public sealed record StorefrontProductResult(Guid Id, string Sku, string Name, string? Description,
     decimal Price, string Currency, decimal Available, DateTimeOffset AvailabilityAsAt, int Version);

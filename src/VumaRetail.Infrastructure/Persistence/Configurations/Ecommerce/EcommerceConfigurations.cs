@@ -48,3 +48,20 @@ internal sealed class PublishedProductConfiguration : EntityConfiguration<Publis
             .HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class CommerceBasketConfiguration : EntityConfiguration<CommerceBasket>
+{
+    protected override string Schema => Schemas.Ecommerce;
+    protected override string TableName => "baskets";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<CommerceBasket> builder)
+    {
+        builder.Property(x => x.CompanyId).IsRequired();
+        builder.Property(x => x.ChannelConnectionId).IsRequired();
+        builder.Property(x => x.OwnerKey).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24);
+        builder.Property(x => x.CreatedAtUtc).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.ChannelConnectionId, x.OwnerKey, x.Status })
+            .HasFilter("deleted_at IS NULL");
+    }
+}
