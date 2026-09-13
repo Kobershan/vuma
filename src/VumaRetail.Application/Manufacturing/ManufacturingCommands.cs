@@ -169,3 +169,84 @@ public sealed class ReleaseProductionOrderCommandHandler(
         return Unit.Value;
     }
 }
+
+/// <summary>Consumes one release-snapshot material requirement.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+
+/// <summary>Handles one idempotent material issue.</summary>
+public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders)
+    : ICommandHandler<IssueProductionMaterialCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(IssueProductionMaterialCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        order.IssueMaterial(command.OperationId, command.ComponentItemId, command.ComponentVariantId,
+            new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        return Unit.Value;
+    }
+}
+
+/// <summary>Receives finished output against a production order.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+
+/// <summary>Handles one idempotent finished-output receipt.</summary>
+public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders)
+    : ICommandHandler<ReceiveProductionOutputCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(ReceiveProductionOutputCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        order.ReceiveOutput(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        return Unit.Value;
+    }
+}
+
+/// <summary>Records scrap against a production order.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RecordProductionScrapCommand(Guid ProductionOrderId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+
+/// <summary>Handles one idempotent scrap record.</summary>
+public sealed class RecordProductionScrapCommandHandler(IProductionOrderRepository orders)
+    : ICommandHandler<RecordProductionScrapCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(RecordProductionScrapCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        order.RecordScrap(command.OperationId, new Quantity(command.Quantity, command.UnitOfMeasure), new Money(command.UnitCost, command.Currency));
+        return Unit.Value;
+    }
+}
+
+/// <summary>Completes and closes a reconciled production order.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CloseProductionOrderCommand(Guid ProductionOrderId) : ICommand;
+
+/// <summary>Handles completion and closure of a production order.</summary>
+public sealed class CloseProductionOrderCommandHandler(IProductionOrderRepository orders)
+    : ICommandHandler<CloseProductionOrderCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(CloseProductionOrderCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
+            ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        if (order.Status == ProductionOrderStatus.InProgress)
+        {
+            order.Complete();
+        }
+        order.Close();
+        return Unit.Value;
+    }
+}

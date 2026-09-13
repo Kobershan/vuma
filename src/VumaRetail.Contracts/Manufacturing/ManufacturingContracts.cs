@@ -11,3 +11,15 @@ public sealed record BillOfMaterialsResponse(Guid Id, Guid FinishedItemId, Guid?
 
 /// <summary>Returns a created BOM id.</summary>
 public sealed record BillOfMaterialsIdResponse(Guid Id);
+
+/// <summary>Creates a production order.</summary>
+public sealed record CreateProductionOrderRequest(Guid OperationId, Guid CompanyId, Guid FinishedItemId, decimal Quantity, string UnitOfMeasure, string OrderNumber, Guid BillOfMaterialsId);
+
+/// <summary>Records a production material issue.</summary>
+public sealed record IssueProductionMaterialRequest(Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+
+/// <summary>Records finished output.</summary>
+public sealed record ReceiveProductionOutputRequest(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+
+/// <summary>Records production scrap.</summary>
+public sealed record RecordProductionScrapRequest(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);

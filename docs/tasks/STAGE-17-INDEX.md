@@ -7,4 +7,4 @@ complete only when its code, tests, migration/API evidence and documentation are
 |---|---|---|---|
 | TASK-17-001 | Production-order lifecycle and BOM snapshot | Stage 16 | IN_PROGRESS |
 | TASK-17-002 | Material issue, output receipt, scrap, stock and financial integration | TASK-17-001 | IN_PROGRESS |
-| TASK-17-003 | Capacity/genealogy queries, API, replay and closure evidence | TASK-17-002 | NOT_STARTED |
+| TASK-17-003 | Capacity/genealogy queries, API, replay and closure evidence | TASK-17-002 | IN_PROGRESS |

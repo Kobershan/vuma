@@ -20,6 +20,13 @@ public static class ManufacturingEndpoints
         api.MapPost("/", CreateAsync).RequirePermission(ManufacturingPermissions.Manage).Produces<BillOfMaterialsIdResponse>(StatusCodes.Status201Created);
         api.MapGet("/{id:guid}", GetAsync).RequirePermission(ManufacturingPermissions.View).Produces<BillOfMaterialsResponse>();
         api.MapPost("/{id:guid}/publish", PublishAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        RouteGroupBuilder production = endpoints.MapVumaApi().MapGroup("/manufacturing/production-orders").WithTags("Manufacturing").RequireModule("manufacturing");
+        production.MapPost("/", CreateProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces<BillOfMaterialsIdResponse>(StatusCodes.Status201Created);
+        production.MapPost("/{id:guid}/release", ReleaseProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        production.MapPost("/{id:guid}/issues", IssueProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        production.MapPost("/{id:guid}/receipts", ReceiveProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        production.MapPost("/{id:guid}/scrap", ScrapProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        production.MapPost("/{id:guid}/close", CloseProductionAsync).RequirePermission(ManufacturingPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         return endpoints;
     }
 
@@ -46,6 +53,42 @@ public static class ManufacturingEndpoints
     private static async Task<IResult> PublishAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         await dispatcher.SendAsync(new PublishBillOfMaterialsCommand(id), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> CreateProductionAsync(CreateProductionOrderRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new CreateProductionOrderCommand(request.OperationId, request.CompanyId, request.FinishedItemId, request.Quantity, request.UnitOfMeasure, request.OrderNumber, request.BillOfMaterialsId), cancellationToken).ConfigureAwait(false);
+        return TypedResults.Created($"/api/v1/manufacturing/production-orders/{id:D}", new BillOfMaterialsIdResponse(id));
+    }
+
+    private static async Task<IResult> ReleaseProductionAsync(Guid id, Guid billOfMaterialsId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new ReleaseProductionOrderCommand(id, billOfMaterialsId), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> IssueProductionAsync(Guid id, IssueProductionMaterialRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new IssueProductionMaterialCommand(id, request.OperationId, request.ComponentItemId, request.ComponentVariantId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> ReceiveProductionAsync(Guid id, ReceiveProductionOutputRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new ReceiveProductionOutputCommand(id, request.OperationId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> ScrapProductionAsync(Guid id, RecordProductionScrapRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new RecordProductionScrapCommand(id, request.OperationId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> CloseProductionAsync(Guid id, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new CloseProductionOrderCommand(id), cancellationToken).ConfigureAwait(false);
         return TypedResults.NoContent();
     }
 }

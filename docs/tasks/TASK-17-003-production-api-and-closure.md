@@ -1,6 +1,6 @@
 # TASK-17-003 — Manufacturing API, replay, genealogy and closure evidence
 
-**Status:** NOT_STARTED · **Stage:** 17 · **Type:** API, sync/offline, security, verification
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** API, sync/offline, security, verification
 
 ## Objective
 
@@ -22,4 +22,7 @@ TASK-17-002.
 ## Work log
 
 - 2026-09-12: canonicalized from Stage 17 part 17-P03. Implementation not yet started.
-
+- 2026-09-13: added secured production-order create/release/issue/receipt/scrap/close routes under
+  `/api/v1/manufacturing/production-orders`, with manufacturing module entitlement and manage
+  permission enforcement. OpenAPI examples, genealogy/capacity queries, offline replay evidence,
+  backup/seed evidence and final specialist verification remain open.
