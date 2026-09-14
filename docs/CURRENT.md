@@ -12,7 +12,7 @@ checkout/payment acceptance and Stage 21b.
 WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
 capture, void and refund. Operations validate the active company, checkout, current provider state
 and idempotency fingerprint before invoking the gateway, then append the resulting payment attempt.
-Ecommerce tests pass **13/13**; full unit and architecture suites remain green at **1,588/1,588** and
+Ecommerce tests pass **14/14**; full unit and architecture suites remain green at **1,590/1,590** and
 **85/85**. The confirmed/captured checkout-to-authoritative-order bridge is now covered; reservation
 and PostgreSQL payment integration remain.
 

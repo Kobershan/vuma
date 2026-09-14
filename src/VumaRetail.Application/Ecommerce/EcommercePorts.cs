@@ -274,8 +274,9 @@ public sealed class BeginCheckoutPaymentCommandHandler(
         }
         decimal amount = basketLines.Sum(line => line.Quantity * line.AuthoritativeUnitPrice);
         string merchantReference = $"VUMA-{checkout.Id:N}";
-        string fingerprint = string.Join('|', checkout.Id, merchantReference, amount, currency.Trim().ToUpperInvariant(),
-            command.ReturnUrl, command.CancelUrl, command.NotificationUrl);
+        string fingerprintInput = string.Join('|', checkout.Id, merchantReference, amount,
+            currency.Trim().ToUpperInvariant(), command.ReturnUrl, command.CancelUrl, command.NotificationUrl);
+        string fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprintInput)));
         string eventId = $"payment-authorization:{checkout.Id:N}";
         PaymentAttempt? replay = await attempts.FindByEventIdAsync(eventId, cancellationToken).ConfigureAwait(false);
         if (replay is not null)

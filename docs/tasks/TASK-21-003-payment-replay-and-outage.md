@@ -25,9 +25,10 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
   that exactly one payment-attempt transition is persisted (`EcommerceApiTests`, 1/1).
 - Real PostgreSQL API evidence also exercises the protected capture endpoint with a configured gateway;
   replaying the same operation invokes the gateway once and persists one operation attempt.
-- Checkout authorization now uses a stable `payment-authorization:{checkoutId}` event identity,
-  persists the provider authorization attempt, and returns the persisted result on replay without
-  invoking the gateway again. The focused Ecommerce unit suite passes **14/14**.
+- Checkout authorization now binds the active company at the HTTP boundary, uses a stable
+  `payment-authorization:{checkoutId}` event identity, persists the provider authorization attempt,
+  and returns the persisted result on replay without invoking the gateway again. The focused Ecommerce
+  unit suite passes **14/14**, and the real PostgreSQL authorization API regression passes **1/1**.
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work

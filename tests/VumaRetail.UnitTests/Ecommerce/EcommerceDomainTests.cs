@@ -134,10 +134,11 @@ public sealed class EcommerceDomainTests
         attempts.Received(1).Add(Arg.Is<PaymentAttempt>(value =>
             value.EventId == $"payment-authorization:{checkout.Id:N}" && value.Status == PaymentAttemptStatus.Authorised));
 
+        string fingerprintInput = string.Join('|', checkout.Id, $"VUMA-{checkout.Id:N}", 200m, "ZAR",
+            command.ReturnUrl, command.CancelUrl, command.NotificationUrl);
         PaymentAttempt replay = PaymentAttempt.Record(TenantId, CompanyId, checkout.Id,
             $"payment-authorization:{checkout.Id:N}",
-            string.Join('|', checkout.Id, $"VUMA-{checkout.Id:N}", 200m, "ZAR",
-                command.ReturnUrl, command.CancelUrl, command.NotificationUrl),
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprintInput))),
             authorization.ProviderPaymentId, PaymentAttemptStatus.Authorised, authorization.ProviderReference, clock.UtcNow);
         attempts.FindByEventIdAsync($"payment-authorization:{checkout.Id:N}", Arg.Any<CancellationToken>()).Returns(replay);
 

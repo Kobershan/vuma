@@ -156,13 +156,65 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
         persisted.Should().Be(1);
     }
 
+    [Fact]
+    public async Task Payment_authorization_endpoint_persists_and_replays_without_a_second_gateway_call()
+    {
+        StubPaymentGateway gateway = new();
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, configureServices: services =>
+        {
+            services.RemoveAll<IPaymentGateway>();
+            services.AddSingleton<IPaymentGateway>(gateway);
+        });
+        Guid companyId = Guid.NewGuid();
+        Guid checkoutId = await harness.InScopeAsync(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            CommerceBasket basket = CommerceBasket.Open(harness.TenantId, companyId, Guid.NewGuid(), "customer-authorize", DateTimeOffset.UtcNow);
+            CheckoutIntent checkout = CheckoutIntent.Submit(harness.TenantId, companyId, basket.ChannelConnectionId, basket.Id,
+                "customer-authorize", "checkout-key", "basket-fingerprint", DateTimeOffset.UtcNow);
+            CommerceBasketLine line = CommerceBasketLine.Add(harness.TenantId, companyId, basket.Id,
+                Guid.NewGuid(), 2m, 1m, 125m, "ZAR");
+            context.CommerceBaskets.Add(basket);
+            context.CheckoutIntents.Add(checkout);
+            context.CommerceBasketLines.Add(line);
+            await context.CommitAsync();
+            return checkout.Id;
+        });
+
+        await harness.CreateUserAsync("payment-authorizer", "CorrectHorseBattery1", EcommercePermissions.Payment);
+        using HttpClient client = await harness.SignInAsync("payment-authorizer");
+        var request = new
+        {
+            CompanyId = companyId, OwnerKey = "customer-authorize",
+            ReturnUrl = new Uri("https://merchant.example/return"),
+            CancelUrl = new Uri("https://merchant.example/cancel"),
+            NotificationUrl = new Uri("https://merchant.example/notify")
+        };
+        HttpResponseMessage first = await client.PostAsJsonAsync($"/api/v1/storefront/checkouts/{checkoutId:D}/payment", request);
+        HttpResponseMessage replay = await client.PostAsJsonAsync($"/api/v1/storefront/checkouts/{checkoutId:D}/payment", request);
+        string firstBody = await first.Content.ReadAsStringAsync();
+        string replayBody = await replay.Content.ReadAsStringAsync();
+
+        first.StatusCode.Should().Be(System.Net.HttpStatusCode.OK, firstBody);
+        replay.StatusCode.Should().Be(System.Net.HttpStatusCode.OK, replayBody);
+        gateway.AuthorizationCalls.Should().Be(1);
+        int persisted = await harness.InScopeAsync(async services =>
+            await services.GetRequiredService<VumaRetailDbContext>().PaymentAttempts
+                .CountAsync(attempt => attempt.CheckoutIntentId == checkoutId && attempt.EventId == $"payment-authorization:{checkoutId:N}"));
+        persisted.Should().Be(1);
+    }
+
     private sealed class StubPaymentGateway : IPaymentGateway
     {
+        public int AuthorizationCalls { get; private set; }
         public int CaptureCalls { get; private set; }
 
         public Task<PaymentGatewayAuthorization> AuthorizeAsync(PaymentAuthorizationRequest request,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new PaymentGatewayAuthorization("tj-payment-1", null, "Authorised", "TJ-AUTH-1"));
+        {
+            AuthorizationCalls++;
+            return Task.FromResult(new PaymentGatewayAuthorization("tj-payment-1", null, "Authorised", "TJ-AUTH-1"));
+        }
 
         public Task<PaymentGatewayResult> CaptureAsync(PaymentGatewayOperation request,
             CancellationToken cancellationToken = default)

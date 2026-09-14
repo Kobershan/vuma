@@ -32,7 +32,7 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
 - Ecommerce unit tests pass **3/3** and the real-host OpenAPI contract test passes **1/1**; authoritative
   order, reservation, gateway and outage integration remain open.
 - Authorization replay is now persisted and idempotent at the application boundary; Ecommerce unit
-  coverage is **14/14** and the real PostgreSQL Ecommerce API class is **3/3**.
+  coverage is **14/14** and the real PostgreSQL Ecommerce API class is **4/4**.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
 
 ## Closure

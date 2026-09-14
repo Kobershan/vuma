@@ -66,7 +66,7 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-Verified 2026-09-14: Ecommerce unit tests **13/13** and real-host OpenAPI contract test **1/1** passed.
+Verified 2026-09-14: Ecommerce unit tests **14/14** and real-host Ecommerce API tests **4/4** passed.
 The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
 outage integration is exercised end to end.
 

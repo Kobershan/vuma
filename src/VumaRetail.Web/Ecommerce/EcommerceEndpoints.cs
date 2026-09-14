@@ -174,8 +174,9 @@ public static class EcommerceEndpoints
     }
 
     private static async Task<IResult> BeginCheckoutPaymentAsync(
-        Guid id, BeginPaymentRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+        Guid id, BeginPaymentRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         PaymentGatewayAuthorization result = await dispatcher.SendAsync(new BeginCheckoutPaymentCommand(id,
             request.CompanyId, request.OwnerKey, request.ReturnUrl, request.CancelUrl, request.NotificationUrl), cancellationToken)
             .ConfigureAwait(false);
