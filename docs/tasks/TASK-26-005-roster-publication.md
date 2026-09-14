@@ -23,3 +23,6 @@ StoreServer and CloudApi build paths pass locally. Migration
 2026-09-14: Store-filtered publications now hash and count only the selected shifts rather than the
 entire requested window. `HrLifecycleTests` passes 12/12; external distribution, labour-cost
 integration, and specialist review remain open.
+2026-09-14: Publication now applies the company predicate before store selection, canonical hashing
+and shift counting, so alternate repository implementations cannot mix another company's shifts.
+The cross-company fixture is covered by `HrLifecycleTests`.

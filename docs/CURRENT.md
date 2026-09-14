@@ -254,3 +254,7 @@ high-risk manage permission.
 WORK LOG (2026-09-14): Stage 26 shift-swap request and approval handlers now fail closed for
 loaded shifts or swap requests outside the active company. `HrLifecycleTests` passes 13/13;
 labour-cost integration and specialist review remain open.
+
+WORK LOG (2026-09-14): Stage 26 roster publication now filters by active company before store
+selection, canonical hashing and shift counting. `HrLifecycleTests` remains green at 13/13;
+external distribution, labour-cost integration and specialist review remain open.

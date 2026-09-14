@@ -194,7 +194,9 @@ public sealed class PublishRosterCommandHandler(IShiftRepository shifts, IRoster
         ArgumentNullException.ThrowIfNull(c);
         if (company.CompanyId is not { } active || active != c.CompanyId) throw new InvalidOperationException("The roster company is not the active company.");
         IReadOnlyList<Shift> roster = await shifts.ListAsync(c.From, c.To, null, token).ConfigureAwait(false);
-        IReadOnlyList<Shift> selected = roster.Where(x => c.StoreId is null || x.StoreId == c.StoreId).ToArray();
+        IReadOnlyList<Shift> selected = roster
+            .Where(x => x.CompanyId == c.CompanyId && (c.StoreId is null || x.StoreId == c.StoreId))
+            .ToArray();
         var rows = selected.OrderBy(x => x.StartsAt).ThenBy(x => x.Id).Select(x => $"{x.Id:D}|{x.EmployeeId:D}|{x.StartsAt:O}|{x.EndsAt:O}|{x.Role}|{x.Status}");
         string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n", rows))));
         var publication = RosterPublication.Publish(tenant.TenantId, c.StoreId, c.CompanyId, c.From, c.To, selected.Count, hash, clock.UtcNow);

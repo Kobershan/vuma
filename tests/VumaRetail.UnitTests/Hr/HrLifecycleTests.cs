@@ -182,6 +182,7 @@ public sealed class HrLifecycleTests
         var publications = Substitute.For<IRosterPublicationRepository>();
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
+        shift.AssignCompany(company.CompanyId.Value);
         var tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(TenantId);
         var clock = Substitute.For<IClock>();
@@ -200,12 +201,14 @@ public sealed class HrLifecycleTests
         var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
         Guid selectedStore = Guid.NewGuid();
         Shift selected = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier", selectedStore);
-        Shift other = Shift.Create(TenantId, Guid.NewGuid(), start, start.AddHours(8), "Picker", Guid.NewGuid());
+        Shift other = Shift.Create(TenantId, Guid.NewGuid(), start, start.AddHours(8), "Picker", selectedStore);
         var shifts = Substitute.For<IShiftRepository>();
         shifts.ListAsync(start, start.AddDays(1), null, Arg.Any<CancellationToken>()).Returns(new[] { selected, other });
         var publications = Substitute.For<IRosterPublicationRepository>();
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
+        selected.AssignCompany(company.CompanyId.Value);
+        other.AssignCompany(Guid.NewGuid());
         var tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(TenantId);
         var clock = Substitute.For<IClock>();
