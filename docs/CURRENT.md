@@ -31,6 +31,10 @@ WORK LOG (2026-09-14): Stage 17 production-order creation now enforces the activ
 the API boundary and command handler. Manufacturing command tests pass 6/6; broader execution and
 specialist closure evidence remain open.
 
+WORK LOG (2026-09-14): Stage 26 roster publications now use the selected store-filtered shift set
+for both the canonical hash and shift count. HR lifecycle tests pass 12/12; distribution and
+labour-cost integration remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

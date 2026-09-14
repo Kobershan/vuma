@@ -20,3 +20,6 @@ external roster distribution, labour-cost integration, and specialist review rem
 2026-09-13: `HrLifecycleTests` passes 11/11, including deterministic hash capture and company scope.
 StoreServer and CloudApi build paths pass locally. Migration
 `Stage26RosterPublication` adds the tenant/company-scoped `hr_workforce.roster_publications` table.
+2026-09-14: Store-filtered publications now hash and count only the selected shifts rather than the
+entire requested window. `HrLifecycleTests` passes 12/12; external distribution, labour-cost
+integration, and specialist review remain open.
