@@ -688,6 +688,11 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // Stock locations are tenant-wide configuration; a company-bound reservation service must
         // still resolve the central location selected by the order pipeline.
         typeof(Domain.Inventory.StockLocation),
+        // Catalog definitions are tenant-wide and are referenced by company-scoped inventory
+        // operations; binding a company must not hide the SKU or unit metadata.
+        typeof(Domain.Catalog.Item),
+        typeof(Domain.Catalog.ItemVariant),
+        typeof(Domain.Catalog.UnitOfMeasure),
     ];
 
     /// <inheritdoc />
