@@ -1,6 +1,6 @@
 # TASK-17-002 — Production material, output and scrap accounting
 
-**Status:** COMPLETE · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
 
 ## Objective
 

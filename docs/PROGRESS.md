@@ -19,7 +19,7 @@ contain historical review context and are superseded where this snapshot disagre
   licence/sync review and POS unit verification (145/145) are recorded in TASK-001.
 - Stage 22b — Conversational Commerce: **IN PROGRESS**; transport integration and six intent handlers remain.
 - Stage 21b — Supplier Network: implementation exists, but supplier portal/API permission-surface work remains open.
-- **Next roadmap stage:** Stage 18 acceptance; Stage 17 manufacturing execution is complete and verified.
+- **Next roadmap stage:** Stage 18 acceptance; Stage 17 manufacturing implementation is present but final verification remains open.
 
 The repository audit dated 2026-09-12 remains open. Findings A01–A22 are tracked below; implementation
 without acceptance evidence is explicitly marked **VERIFY BLOCKED**, not complete. No security finding
@@ -409,7 +409,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 14b | Field sales — the rep module | **COMPLETE and verified** — PostgreSQL approval/API/replay/credit/sourcing/territory evidence recorded | 2026-09-11 |
 | 15 | Merchandise planning, forecasting & replenishment | **COMPLETE and verified** — coverage collection remains environment-limited | 2026-09-11 |
 | 16 | BOM setup | **COMPLETE and verified** — domain, persistence, graph loading/costing, API, seed and migration evidence | 2026-09-11 |
-| 17 | Manufacturing | **COMPLETE and verified** — lifecycle, stock-backed issue/output, shortage refusal, replay protection, scrap journal, API, genealogy/capacity, seed and encrypted backup evidence pass; specialist-agent runtime unavailable | 2026-09-14 |
+| 17 | Manufacturing | **IN PROGRESS** — implementation and focused pre-built unit evidence exist; source rebuild, PostgreSQL integration, seed/backup verification and specialist reviews remain open | 2026-09-14 |
 | 18 | Quality management | **COMPLETE and verified** — holds, inspection evidence, NCR/CAPA, versioned inspection plans, certificate revocation, recall traceability, shelf-life enforcement and API evidence pass; specialist-agent runtime unavailable | 2026-09-14 |
 | 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |

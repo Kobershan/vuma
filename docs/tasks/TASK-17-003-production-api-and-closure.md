@@ -1,6 +1,6 @@
 # TASK-17-003 — Manufacturing API, replay, genealogy and closure evidence
 
-**Status:** COMPLETE · **Stage:** 17 · **Type:** API, sync/offline, security, verification
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** API, sync/offline, security, verification
 
 ## Objective
 

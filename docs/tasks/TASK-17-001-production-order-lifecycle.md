@@ -1,6 +1,6 @@
 # TASK-17-001 — Production-order lifecycle and BOM snapshot
 
-**Status:** COMPLETE · **Stage:** 17 · **Type:** Domain, application, persistence, tests
+**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, persistence, tests
 
 ## Objective
 

@@ -155,4 +155,35 @@ public sealed class ProductionOrderTests
         order.Scrap.Should().BeEmpty();
         order.IssueMaterial(issueId, componentId, null, new Quantity(2m, "EA"), cost).Should().BeTrue();
     }
+
+    [Fact]
+    public void Reusing_an_operation_id_with_changed_execution_content_is_rejected()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        Guid componentId = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(tenantId, itemId, 1, "Widget");
+        bom.AddLine(componentId, new Quantity(2m, "EA"));
+        bom.Publish();
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), tenantId, companyId, itemId, new Quantity(10m, "EA"), "PO-CONFLICT", bom.Id);
+        order.Release(Guid.NewGuid(), bom, DateTimeOffset.UtcNow);
+        Money cost = new(10m, "ZAR");
+
+        Guid issueOperationId = Guid.NewGuid();
+        order.IssueMaterial(issueOperationId, componentId, null, new Quantity(2m, "EA"), cost);
+        Action changedIssue = () => order.IssueMaterial(issueOperationId, componentId, null, new Quantity(1m, "EA"), cost);
+
+        Guid receiptOperationId = Guid.NewGuid();
+        order.ReceiveOutput(receiptOperationId, new Quantity(1m, "EA"), cost);
+        Action changedReceipt = () => order.ReceiveOutput(receiptOperationId, new Quantity(2m, "EA"), cost);
+
+        Guid scrapOperationId = Guid.NewGuid();
+        order.RecordScrap(scrapOperationId, new Quantity(1m, "EA"), cost);
+        Action changedScrap = () => order.RecordScrap(scrapOperationId, new Quantity(2m, "EA"), cost);
+
+        changedIssue.Should().Throw<ManufacturingRuleException>().Which.Code.Should().Be("PRODUCTION_OPERATION_CONFLICT");
+        changedReceipt.Should().Throw<ManufacturingRuleException>().Which.Code.Should().Be("PRODUCTION_OPERATION_CONFLICT");
+        changedScrap.Should().Throw<ManufacturingRuleException>().Which.Code.Should().Be("PRODUCTION_OPERATION_CONFLICT");
+    }
 }
