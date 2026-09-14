@@ -39,6 +39,9 @@ data class PendingActionEntity(
     val operation: String,
     val payloadJson: String,
     val state: String,
+    val retryCount: Int = 0,
+    val lastError: String? = null,
+    val updatedAtEpochMillis: Long = 0,
 )
 
 @Dao
@@ -67,10 +70,20 @@ class MobileConverters {
     @TypeConverter fun stringToState(value: String): PendingActionState = PendingActionState.valueOf(value)
 }
 
-@Database(entities = [DashboardCacheEntity::class, PendingActionEntity::class], version = 1, exportSchema = true)
+@Database(entities = [DashboardCacheEntity::class, PendingActionEntity::class], version = 2, exportSchema = true)
 @TypeConverters(MobileConverters::class)
 abstract class MobileDatabase : RoomDatabase() {
     abstract fun cache(): MobileCacheDao
+
+    companion object {
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE pending_actions ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE pending_actions ADD COLUMN lastError TEXT")
+                database.execSQL("ALTER TABLE pending_actions ADD COLUMN updatedAtEpochMillis INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+    }
 }
 
 private val Context.mobileSessionDataStore by preferencesDataStore(name = "tenant_session")

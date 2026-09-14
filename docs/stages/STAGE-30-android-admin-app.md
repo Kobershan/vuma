@@ -75,6 +75,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: The Android workflow exposed a Java/Kotlin JVM-target mismatch (Java 8 versus Kotlin
   17); `android/app/build.gradle.kts` now compiles both targets with Java 17. A fresh GitHub run is
   in progress; Android assembly and device acceptance remain unverified until it completes.
+- 2026-09-14: Versioned the Room cache to schema version 2 with a non-destructive migration for
+  pending-action retry/error metadata; the app now registers the migration instead of relying on
+  destructive downgrade behavior.
 
 ## Tests / acceptance
 

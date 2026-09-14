@@ -7,7 +7,7 @@ import androidx.room.Room
 class VumaApplication : Application() {
     val database: MobileDatabase by lazy {
         Room.databaseBuilder(this, MobileDatabase::class.java, "vuma-mobile.db")
-            .fallbackToDestructiveMigrationOnDowngrade()
+            .addMigrations(MobileDatabase.MIGRATION_1_2)
             .build()
     }
 
