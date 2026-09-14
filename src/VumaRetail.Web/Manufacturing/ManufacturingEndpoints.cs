@@ -60,8 +60,9 @@ public static class ManufacturingEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<IResult> CreateProductionAsync(CreateProductionOrderRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateProductionAsync(CreateProductionOrderRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateProductionOrderCommand(request.OperationId, request.CompanyId, request.FinishedItemId, request.Quantity, request.UnitOfMeasure, request.OrderNumber, request.BillOfMaterialsId), cancellationToken).ConfigureAwait(false);
         return TypedResults.Created($"/api/v1/manufacturing/production-orders/{id:D}", new BillOfMaterialsIdResponse(id));
     }

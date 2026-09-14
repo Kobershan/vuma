@@ -57,3 +57,6 @@ duplicate operation tests, migration reversibility and architecture classificati
   `Quantity` now declares its JSON constructor, and production execution collections use EF value
   comparers so release-time material snapshots survive reload. The focused authorized execution
   test now passes against PostgreSQL; full task closure still requires the broader Stage 17 evidence.
+- 2026-09-14: production-order creation now requires the active company context in the handler, and
+  the API binds the request company before dispatch. Manufacturing command tests pass 6/6, including
+  refusal before repository access for an inactive company.

@@ -27,6 +27,10 @@ WORK LOG (2026-09-14): Stage 23 ticket and service-part replay paths now validat
 before returning existing records. Service command tests pass 4/4; PostgreSQL availability and
 financial acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 17 production-order creation now enforces the active company at both
+the API boundary and command handler. Manufacturing command tests pass 6/6; broader execution and
+specialist closure evidence remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

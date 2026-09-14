@@ -116,7 +116,8 @@ public sealed record CreateProductionOrderCommand(
 /// <summary>Creates a production order; release-time BOM data is not read until release.</summary>
 public sealed class CreateProductionOrderCommandHandler(
     IProductionOrderRepository orders,
-    ITenantContext tenant) : ICommandHandler<CreateProductionOrderCommand, Guid>
+    ITenantContext tenant,
+    ICompanyContext company) : ICommandHandler<CreateProductionOrderCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateProductionOrderCommand command, CancellationToken cancellationToken = default)
@@ -125,6 +126,10 @@ public sealed class CreateProductionOrderCommandHandler(
         if (command.OperationId == Guid.Empty || command.CompanyId == Guid.Empty || command.FinishedItemId == Guid.Empty)
         {
             throw new ArgumentException("Production order identity and ownership are required.");
+        }
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The production-order company is not the active company.");
         }
         ProductionOrder? existing = await orders.FindAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
