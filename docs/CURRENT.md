@@ -264,7 +264,7 @@ now explicitly enforce the active company. `EmployeeDocumentTests` passes 8/8; s
 retention/deletion and full PostgreSQL acceptance remain open.
 
 WORK LOG (2026-09-14): Broad verification after the Stage 25/26 hardening passes: the full unit
-suite is 1,556/1,556 and architecture tests are 85/85. Existing warnings remain non-fatal; the
+suite is 1,557/1,557 and architecture tests are 85/85. Existing warnings remain non-fatal; the
 open-stage integration, specialist-review and workflow gates remain tracked per task.
 
 WORK LOG (2026-09-14): Stage 18 inspection replay now compares inspection-plan identity in the
