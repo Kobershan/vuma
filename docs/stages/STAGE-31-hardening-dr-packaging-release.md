@@ -76,6 +76,10 @@ packaging. The clean PostgreSQL DR drill now also passes: encrypted snapshot
 matching `users=5 roles=4 stores=2` counts. The subsequent demo-scope correction remains pending
 its own workflow result.
 
+GitHub CI run `34802104182` subsequently completed green for commit `8f6b19f`, including the
+Windows package job and all release gates. The local full PostgreSQL integration suite passes
+**608/608** against the same current code.
+
 - `Store_survives_cloud_outage`: block cloud and vendor network for 24 hours; local cash trading completes and reconnect replay changes no totals.
 - `Fresh_hardware_restore_trades`: restore the pilot registry, all company databases and documents onto a fresh machine within 4 hours; reconcile stock/GL and complete a sale.
 - `Tampered_update_is_refused`: flip one byte in a release package; the updater refuses it and records the reason without deleting tenant data.

@@ -77,6 +77,11 @@ verification, backend build, unit/integration tests, architecture, migration, vu
 design-system, Android Compose, and Windows package jobs. The later tenant-wide metadata fix is
 running in a separate authoritative workflow and still requires its own result.
 
+VERIFICATION (2026-09-14): GitHub CI run `34802104182` completed green for commit `8f6b19f`,
+including backend build, migration, unit/integration, architecture, vulnerability, design-system,
+Android Compose, release-manifest and Windows package jobs. The local full PostgreSQL integration
+suite also passes **608/608** after the demo company-scope fix.
+
 WORK LOG (2026-09-14): Added deterministic release-manifest generation with exclusions for source
 control, build caches, local configuration and signing material. The complete local release-script
 set now passes **4/4**; packaging, DR and GitHub workflow completion remain open.
