@@ -189,10 +189,12 @@ public sealed class QualityHoldTests
         IReservationService reservations = Substitute.For<IReservationService>();
         ICompanyContext company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.Parse("2026-09-13T10:00:00Z"));
 
-        await FluentActions.Invoking(() => new ReleaseQualityHoldCommandHandler(holds, reservations, company, clock)
+        await FluentActions.Invoking(() => new ReleaseQualityHoldCommandHandler(holds, reservations, tenant, company, clock)
             .HandleAsync(new ReleaseQualityHoldCommand(hold.Id, "release")))
             .Should().ThrowAsync<QualityRuleException>();
         hold.Status.Should().Be(QualityHoldStatus.Held);

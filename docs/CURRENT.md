@@ -15,6 +15,10 @@ VERIFICATION (2026-09-14): Stage 18 quality API integration passes **4/4** again
 covering OpenAPI exposure, permission denial, and reservation-backed hold idempotency/shortfall
 behavior. Full quality acceptance and specialist closure evidence remain open.
 
+WORK LOG (2026-09-14): Stage 18 quality hold release/rejection, inspection, corrective-action and
+non-conformance transitions now validate loaded tenant scope alongside company scope. Quality unit
+tests pass **13/13**; NCR/CAPA, recall, certificate and full acceptance remain open.
+
 VERIFICATION (2026-09-14): The full PostgreSQL integration run reached **607/608** before exposing
 one stale trailing-slash expectation in the shared API contract list. The Stage 27 asset and
 maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;

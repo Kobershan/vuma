@@ -56,6 +56,10 @@ Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/ST
 Quality-focused unit tests pass **11/11** as of 2026-09-13, including the expired-hold release gate.
 The PostgreSQL dispatch/shelf-life acceptance scenario remains open.
 
+Verification (2026-09-14): Quality hold release/rejection, inspection, corrective-action and
+non-conformance transitions now validate loaded tenant scope alongside company scope. Quality unit
+tests pass **13/13**.
+
 - `Held_stock_is_not_available`: receive 100 units and quarantine 20; available quantity is 80, and a request for 81 cannot allocate.
 - `Inspection_retry_is_single_effect`: retry the same 20-unit hold three times; held quantity remains 20.
 - `Expired_lot_cannot_dispatch`: a lot expires at the configured boundary; shipping immediately after it is refused.

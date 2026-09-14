@@ -242,7 +242,7 @@ public sealed class PlaceQualityHoldCommandHandler(
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ReleaseQualityHoldCommand(Guid HoldId, string Reason) : ICommand;
 
-public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, ICompanyContext company, IClock clock)
+public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<ReleaseQualityHoldCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ReleaseQualityHoldCommand command, CancellationToken cancellationToken = default)
@@ -250,7 +250,7 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
         ArgumentNullException.ThrowIfNull(command);
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");
-        if (company.CompanyId is not { } activeCompany || hold.CompanyId != activeCompany)
+        if (hold.TenantId != tenant.TenantId || company.CompanyId is not { } activeCompany || hold.CompanyId != activeCompany)
         {
             throw new InvalidOperationException("The quality hold company is not the active company.");
         }
@@ -272,7 +272,7 @@ public sealed class ReleaseQualityHoldCommandHandler(IQualityHoldRepository hold
 [CommandSideEffect(SideEffect.Write)]
 public sealed record RejectQualityHoldCommand(Guid HoldId, string Reason) : ICommand;
 
-public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, ICompanyContext company, IClock clock)
+public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds, IReservationService reservations, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<RejectQualityHoldCommand, Unit>
 {
     public async Task<Unit> HandleAsync(RejectQualityHoldCommand command, CancellationToken cancellationToken = default)
@@ -280,7 +280,7 @@ public sealed class RejectQualityHoldCommandHandler(IQualityHoldRepository holds
         ArgumentNullException.ThrowIfNull(command);
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");
-        if (company.CompanyId is not { } activeCompany || hold.CompanyId != activeCompany)
+        if (hold.TenantId != tenant.TenantId || company.CompanyId is not { } activeCompany || hold.CompanyId != activeCompany)
         {
             throw new InvalidOperationException("The quality hold company is not the active company.");
         }
@@ -321,14 +321,14 @@ public sealed class RecordInspectionCommandHandler(
         }
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");
-        if (hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
+        if (hold.TenantId != tenant.TenantId || hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
         {
             throw new InvalidOperationException("Inspections require an active hold in the selected company.");
         }
         InspectionPlan? plan = command.PlanId is { } planId
             ? await plans.FindAsync(planId, cancellationToken).ConfigureAwait(false)
             : null;
-        if (command.PlanId is not null && (plan is null || plan.CompanyId != command.CompanyId || plan.Status != InspectionPlanStatus.Published))
+        if (command.PlanId is not null && (plan is null || plan.TenantId != tenant.TenantId || plan.CompanyId != command.CompanyId || plan.Status != InspectionPlanStatus.Published))
         {
             throw new InvalidOperationException("Inspection requires a published plan in the selected company.");
         }
@@ -369,7 +369,7 @@ public sealed class OpenNonConformanceCommandHandler(
         }
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");
-        if (hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
+        if (hold.TenantId != tenant.TenantId || hold.CompanyId != command.CompanyId || hold.Status != QualityHoldStatus.Held)
         {
             throw new InvalidOperationException("A non-conformance requires an active hold in the selected company.");
         }
@@ -383,7 +383,7 @@ public sealed class OpenNonConformanceCommandHandler(
 [CommandSideEffect(SideEffect.Write)]
 public sealed record StartCorrectiveActionCommand(Guid NonConformanceId, Guid OperationId) : ICommand;
 
-public sealed class StartCorrectiveActionCommandHandler(INonConformanceRepository nonConformances, ICompanyContext company)
+public sealed class StartCorrectiveActionCommandHandler(INonConformanceRepository nonConformances, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<StartCorrectiveActionCommand, Unit>
 {
     public async Task<Unit> HandleAsync(StartCorrectiveActionCommand command, CancellationToken cancellationToken = default)
@@ -391,7 +391,7 @@ public sealed class StartCorrectiveActionCommandHandler(INonConformanceRepositor
         ArgumentNullException.ThrowIfNull(command);
         NonConformance issue = await nonConformances.FindAsync(command.NonConformanceId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Non-conformance not found.");
-        if (company.CompanyId is not { } activeCompany || issue.CompanyId != activeCompany)
+        if (issue.TenantId != tenant.TenantId || company.CompanyId is not { } activeCompany || issue.CompanyId != activeCompany)
         {
             throw new InvalidOperationException("The non-conformance company is not the active company.");
         }
@@ -407,7 +407,7 @@ public sealed class StartCorrectiveActionCommandHandler(INonConformanceRepositor
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CloseNonConformanceCommand(Guid NonConformanceId, Guid OperationId, string Resolution) : ICommand;
 
-public sealed class CloseNonConformanceCommandHandler(INonConformanceRepository nonConformances, ICompanyContext company, IClock clock)
+public sealed class CloseNonConformanceCommandHandler(INonConformanceRepository nonConformances, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<CloseNonConformanceCommand, Unit>
 {
     public async Task<Unit> HandleAsync(CloseNonConformanceCommand command, CancellationToken cancellationToken = default)
@@ -415,7 +415,7 @@ public sealed class CloseNonConformanceCommandHandler(INonConformanceRepository 
         ArgumentNullException.ThrowIfNull(command);
         NonConformance issue = await nonConformances.FindAsync(command.NonConformanceId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Non-conformance not found.");
-        if (company.CompanyId is not { } activeCompany || issue.CompanyId != activeCompany)
+        if (issue.TenantId != tenant.TenantId || company.CompanyId is not { } activeCompany || issue.CompanyId != activeCompany)
         {
             throw new InvalidOperationException("The non-conformance company is not the active company.");
         }
