@@ -51,7 +51,8 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
 - [~] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
   Provider-result state now persists event identity and payload fingerprints; identical callbacks
   are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
-  worker remain. Company-scoped campaign/message operator reads are now exposed.
+  worker remain. Outbound messages now persist channel/classification metadata, and company-scoped
+  campaign/message operator reads are exposed.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.

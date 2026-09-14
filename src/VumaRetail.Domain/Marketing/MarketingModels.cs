@@ -6,6 +6,8 @@ namespace VumaRetail.Domain.Marketing;
 
 public enum MarketingCampaignStatus { Draft, Scheduled, Cancelled }
 public enum OutboundMessageStatus { Queued, Suppressed, Sent, Failed }
+public enum MarketingMessageChannel { Email = 1, Sms = 2, WhatsApp = 3, Push = 4 }
+public enum MarketingMessageClassification { Marketing = 1, Transactional = 2 }
 
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class MarketingCampaign : Entity
@@ -52,24 +54,32 @@ public sealed class MarketingCampaign : Entity
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
 public sealed class OutboundMessage : Entity, IImmutableRecord
 {
-    private OutboundMessage(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt) : base(tenantId, storeId)
-    { AssignCompany(companyId); CampaignId = campaignId; CustomerId = customerId; IdempotencyKey = idempotencyKey.Trim(); ScheduledAt = scheduledAt.ToUniversalTime(); }
+    private OutboundMessage(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt,
+        MarketingMessageChannel channel, MarketingMessageClassification classification) : base(tenantId, storeId)
+    { AssignCompany(companyId); CampaignId = campaignId; CustomerId = customerId; IdempotencyKey = idempotencyKey.Trim(); ScheduledAt = scheduledAt.ToUniversalTime(); Channel = channel; Classification = classification; }
     private OutboundMessage() { }
     public Guid CampaignId { get; private set; }
     public Guid CustomerId { get; private set; }
     public string IdempotencyKey { get; private set; } = string.Empty;
     public DateTimeOffset ScheduledAt { get; private set; }
     public OutboundMessageStatus Status { get; private set; } = OutboundMessageStatus.Queued;
+    public MarketingMessageChannel Channel { get; private set; } = MarketingMessageChannel.Email;
+    public MarketingMessageClassification Classification { get; private set; } = MarketingMessageClassification.Marketing;
     public string? ProviderEventId { get; private set; }
     public string? ProviderPayloadFingerprint { get; private set; }
-    public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt)
+    public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt,
+        MarketingMessageChannel channel = MarketingMessageChannel.Email, MarketingMessageClassification classification = MarketingMessageClassification.Marketing)
     {
         if (tenantId == Guid.Empty || companyId == Guid.Empty || campaignId == Guid.Empty || customerId == Guid.Empty)
         {
             throw new ArgumentException("Outbound message identities are required.");
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
-        return new OutboundMessage(tenantId, storeId, companyId, campaignId, customerId, idempotencyKey, scheduledAt);
+        if (!Enum.IsDefined(channel) || !Enum.IsDefined(classification))
+        {
+            throw new ArgumentOutOfRangeException(nameof(channel));
+        }
+        return new OutboundMessage(tenantId, storeId, companyId, campaignId, customerId, idempotencyKey, scheduledAt, channel, classification);
     }
     public void Suppress()
     {

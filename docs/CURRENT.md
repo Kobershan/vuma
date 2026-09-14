@@ -110,6 +110,11 @@ payload fingerprints, reject changed-content callback replays, and expose a sign
 The focused marketing run passes **16/16**; company-scoped campaign/message operator reads are now
 available, while transport workers and audience APIs remain open.
 
+WORK LOG (2026-09-14): Outbound marketing messages now persist explicit channel and message
+classification metadata through migration `20260914041306_Stage22MarketingDeliveryMetadata`, so
+transport selection and consent policy no longer depend on inferred defaults. Focused marketing
+tests pass **17/17**.
+
 VERIFICATION (2026-09-14): Marketing API integration coverage passes **2/2**, including OpenAPI
 route discovery and runtime rejection of an unsigned provider callback.
 

@@ -66,6 +66,17 @@ public sealed class MarketingDeliveryPolicyTests
     }
 
     [Fact]
+    public void Queued_message_retains_transport_channel_and_classification()
+    {
+        var message = OutboundMessage.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "channel-metadata", DateTimeOffset.UtcNow.AddHours(1), MarketingMessageChannel.WhatsApp,
+            MarketingMessageClassification.Transactional);
+
+        message.Channel.Should().Be(MarketingMessageChannel.WhatsApp);
+        message.Classification.Should().Be(MarketingMessageClassification.Transactional);
+    }
+
+    [Fact]
     public void Campaign_scheduling_rejects_past_delivery_time()
     {
         var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Old", "old-v1", DateTimeOffset.UtcNow.AddMinutes(-1));

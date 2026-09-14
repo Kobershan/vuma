@@ -23,7 +23,7 @@ public static class MarketingEndpoints
         group.MapPost("/campaigns/{id:guid}/schedule", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new ScheduleMarketingCampaignCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/campaigns/{id:guid}/cancel", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new CancelMarketingCampaignCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapGet("/campaigns/{id:guid}", GetCampaignAsync).RequirePermission(MarketingPermissions.Manage);
-        group.MapPost("/messages", async (QueueMessageRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/messages", await d.SendAsync(new QueueOutboundMessageCommand(r.CompanyId, r.StoreId, r.CampaignId, r.CustomerId, r.IdempotencyKey, r.ScheduledAt), ct)); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/messages", async (QueueMessageRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/messages", await d.SendAsync(new QueueOutboundMessageCommand(r.CompanyId, r.StoreId, r.CampaignId, r.CustomerId, r.IdempotencyKey, r.ScheduledAt, r.Channel, r.Classification), ct)); }).RequirePermission(MarketingPermissions.Manage);
         group.MapGet("/messages/{id:guid}", GetMessageAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/suppress", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new SuppressOutboundMessageCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/sent", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new MarkOutboundMessageSentCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
@@ -77,6 +77,7 @@ public static class MarketingEndpoints
         if (companyId is { } selected) company.SetCompany(selected);
     }
     public sealed record CreateCampaignRequest(Guid CompanyId, Guid? StoreId, string Name, string TemplateId, DateTimeOffset ScheduledAt);
-    public sealed record QueueMessageRequest(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt);
+    public sealed record QueueMessageRequest(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt,
+        MarketingChannel Channel = MarketingChannel.Email, MessageClassification Classification = MessageClassification.Marketing);
     public sealed record ProviderResultRequest(Guid MessageId, Guid CompanyId, string ProviderEventId, string PayloadFingerprint, bool Delivered);
 }

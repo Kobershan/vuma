@@ -12,7 +12,8 @@ public sealed record ScheduleMarketingCampaignCommand(Guid CampaignId) : IComman
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CancelMarketingCampaignCommand(Guid CampaignId) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
-public sealed record QueueOutboundMessageCommand(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt) : ICommand<Guid>;
+public sealed record QueueOutboundMessageCommand(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt,
+    MarketingChannel Channel = MarketingChannel.Email, MessageClassification Classification = MessageClassification.Marketing) : ICommand<Guid>;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record SuppressOutboundMessageCommand(Guid MessageId) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
@@ -51,7 +52,8 @@ public sealed class QueueOutboundMessageCommandHandler(IOutboundMessageRepositor
             }
             return existing.Id;
         }
-        var message = OutboundMessage.Queue(tenant.TenantId, c.StoreId, c.CompanyId, c.CampaignId, c.CustomerId, c.IdempotencyKey, c.ScheduledAt);
+        var message = OutboundMessage.Queue(tenant.TenantId, c.StoreId, c.CompanyId, c.CampaignId, c.CustomerId, c.IdempotencyKey, c.ScheduledAt,
+            (MarketingMessageChannel)c.Channel, (MarketingMessageClassification)c.Classification);
         messages.Add(message);
         return message.Id;
     }
