@@ -10,8 +10,8 @@ tests, migration/API evidence and documentation are recorded.
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
 | TASK-18-001 | Inspection plans/results and immutable evidence | Stage 12, 17 | COMPLETE — versioning, immutable results, replay, scope and migration evidence pass |
-| TASK-18-002 | Quality holds, dispositions and stock availability | TASK-18-001, Stage 08c | COMPLETE — reservation-backed availability, idempotency, shortfall and disposition evidence pass |
-| TASK-18-003 | NCR/CAPA, certificates, recalls, shelf life and closure | TASK-18-002, Stage 24 | COMPLETE — NCR/CAPA, certificate, recall, API, seed and closure evidence pass |
+| TASK-18-002 | Quality holds, dispositions and stock availability | TASK-18-001, Stage 08c | IN_PROGRESS — reservation-backed availability and PostgreSQL expiry dispatch pass; reservation projection traceability remains |
+| TASK-18-003 | NCR/CAPA, certificates, recalls, shelf life and closure | TASK-18-002, Stage 24 | IN_PROGRESS — lifecycle/API evidence passes; automatic lot-to-output/shipment recall traceability remains |
 
 ## Verification record (2026-09-14)
 
@@ -20,9 +20,7 @@ tests, migration/API evidence and documentation are recorded.
   shortfall refusal.
 ## Closure decision (2026-09-14)
 
-Stage 18 is complete. The quality unit suite is recorded at 13/13, focused quality integration
-evidence at 5/5, quality API evidence at 4/4, and migration reversibility at 1/1 against PostgreSQL.
-Coverage includes authorization, company scope, hold availability and shortfall rollback, exact
-replay, inspection-plan identity, NCR/CAPA transitions, certificate revocation and recall lifecycle.
-The separate specialist-agent runtime is not exposed in this environment and is recorded as
-unavailable rather than represented as an executed external review.
+Stage 18 remains in progress. The quality unit suite is recorded at 13/13, focused quality
+integration evidence at 5/5, quality API evidence at 4/4, and migration reversibility at 1/1
+against PostgreSQL. The warehouse chain now proves expiry refusal; automatic lot-to-output/shipment
+recall traceability and reservation projection evidence remain open.

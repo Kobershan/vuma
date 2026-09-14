@@ -1,8 +1,14 @@
 # STAGE 21 — Ecommerce, Storefront API and Channels
 
-**Status:** COMPLETE — storefront catalogue, basket, checkout-intent and signed payment-webhook implementation and available evidence are recorded · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — storefront catalogue, basket, checkout-intent, signed webhook and replay-safe payment-operation slices are implemented; authoritative order/reservation orchestration, provider reconciliation, outage and PostgreSQL acceptance remain · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
+
+**Payment-provider reference:** Transaction Junction's IMBEKO Hosted Payment Page and Direct API
+documentation is published at [tj-dev.transactionjunction.com](https://tj-dev.transactionjunction.com/).
+The Hosted Payment Page is the default integration boundary for this stage unless a merchant has
+the PCI-DSS controls required by the Direct API. Provider-specific credentials and live sandbox
+execution remain deployment configuration, never source-controlled test data.
 
 > **Audit correction (2026-09-14):** Stage 21 remains **IN_PROGRESS**. Catalogue, basket, checkout
 > and signed notification foundations exist, but authoritative order/reservation/payment-gateway
