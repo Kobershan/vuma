@@ -68,6 +68,10 @@ WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboar
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
 by DataStore. Android compilation and instrumentation acceptance remain CI-dependent.
 
+WORK LOG (2026-09-14): Wired the Android process composition root to create the Room database and
+Keystore-backed session store, and documented the durable state boundary. Android compilation and
+instrumentation acceptance remain CI-dependent.
+
 WORK LOG (2026-09-13): Stage 25 employee lifecycle operations are now exposed as suspend, activate
 and terminate commands with HR manage-protected routes. StoreServer Release build passes with 0
 errors and the HR unit suite passes 9/9. Disciplinary workflows, payroll export, roster/availability

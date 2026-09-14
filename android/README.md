@@ -11,5 +11,7 @@ gradle -p android :app:assembleDebug
 ```
 
 The access token is intentionally supplied to `VumaApiClient` in memory; do not persist bearer tokens
-in plain preferences or browser-style local storage. Production sign-in should bind the client to the
-existing JWT/refresh-token policy before issuing an installable release.
+in plain preferences or browser-style local storage. `VumaApplication` owns the Room database and
+the `TenantSessionStore`; refresh tokens are encrypted with an Android Keystore AES-GCM key before
+they reach DataStore. Production sign-in should bind the client to the existing JWT/refresh-token
+policy before issuing an installable release.

@@ -68,6 +68,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: Added Room-backed tenant/company dashboard and pending-action persistence and an
   Android Keystore AES-GCM refresh-token store backed by DataStore. Android compilation and device
   acceptance remain CI-dependent.
+- 2026-09-14: Wired `VumaApplication` to provision the Room database and secure session store for
+  the app process; the durable state boundary is documented in `android/README.md`.
 
 ## Tests / acceptance
 
