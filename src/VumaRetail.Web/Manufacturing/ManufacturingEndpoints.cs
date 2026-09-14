@@ -5,6 +5,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Manufacturing;
 using VumaRetail.Contracts.Manufacturing;
+using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Infrastructure.Security.Identity;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
