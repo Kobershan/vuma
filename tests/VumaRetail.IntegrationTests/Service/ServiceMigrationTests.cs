@@ -93,7 +93,11 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             FROM information_schema.tables
             WHERE table_schema = 'logistics'
             """).ToListAsync().ConfigureAwait(false);
-        revertedLogisticsTables.Should().BeEmpty();
+        // Logistics is owned by the earlier warehouse/logistics migrations and is intentionally
+        // retained when the Stage 23 service migrations are rolled back.
+        revertedLogisticsTables.Should().BeEquivalentTo(
+            ["carriers", "delivery_runs", "delivery_stops", "proofs_of_delivery", "shipments"],
+            options => options.WithStrictOrdering());
         IReadOnlyList<string> revertedAssetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
