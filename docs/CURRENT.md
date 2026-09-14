@@ -3,8 +3,10 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 implementation is present but final verification remains open; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
-NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 task queues.
+CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
+API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
+limitation evidence. Remaining work is tracked in the open stage/task queues.
+NEXT STAGE (roadmap order): Stage 18 acceptance, then Stage 21b and the remaining Stage 22–31 queues.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are
