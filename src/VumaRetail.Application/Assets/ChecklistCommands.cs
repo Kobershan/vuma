@@ -24,7 +24,10 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
         var existing = await checklists.FindExecutionByOperationIdAsync(c.OperationId, token).ConfigureAwait(false);
         if (existing is not null)
         {
-            if (existing.CompanyId != c.CompanyId || existing.ChecklistId != c.ChecklistId || existing.EvidenceReference != c.EvidenceReference)
+            if (existing.CompanyId != c.CompanyId || existing.StoreId != c.StoreId || existing.ChecklistId != c.ChecklistId ||
+                !string.Equals(existing.DeviceId, c.DeviceId.Trim(), StringComparison.Ordinal) ||
+                existing.CapturedAt != c.CapturedAt || existing.SubmittedAt != c.SubmittedAt ||
+                !string.Equals(existing.EvidenceReference, c.EvidenceReference.Trim(), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("The checklist operation was replayed with different content.");
             }

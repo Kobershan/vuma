@@ -71,4 +71,26 @@ public sealed class ChecklistCommandTests
                 "device-1", existing.CapturedAt, existing.SubmittedAt, "evidence/changed.json")))
             .Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task Submit_handler_rejects_replay_with_changed_device_or_capture_time()
+    {
+        var companyId = Guid.NewGuid();
+        var checklistId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+        var captured = DateTimeOffset.UtcNow;
+        var existing = ChecklistExecution.Submit(Guid.NewGuid(), Guid.NewGuid(), companyId, checklistId, operationId,
+            "device-1", captured, captured.AddMinutes(1), "evidence/original.json");
+        var checklists = Substitute.For<IChecklistRepository>();
+        checklists.FindExecutionByOperationIdAsync(operationId, Arg.Any<CancellationToken>()).Returns(existing);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(existing.TenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        await FluentActions.Invoking(() => new SubmitChecklistExecutionCommandHandler(checklists, tenant, company)
+            .HandleAsync(new SubmitChecklistExecutionCommand(companyId, existing.StoreId, checklistId, operationId,
+                "device-2", captured.AddSeconds(1), existing.SubmittedAt, existing.EvidenceReference)))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
 }

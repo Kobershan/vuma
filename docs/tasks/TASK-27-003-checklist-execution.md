@@ -32,6 +32,10 @@ replays with matching operation content return the existing identity; changed co
 `ChecklistCommandTests` passes 3/3 and StoreServer Release build passes with 0 errors. Evidence
 upload authorization and period-close acceptance remain open.
 
+The replay guard now compares store, device, capture time, submit time and evidence reference in
+addition to company and checklist identity; `ChecklistCommandTests` passes 4/4. Altered offline
+payloads cannot reuse an operation identity.
+
 ## Follow-up findings
 
 local queue APIs, evidence upload/download authorization and period-close acceptance remain open.

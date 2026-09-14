@@ -200,5 +200,8 @@ Renderer/storage consumption, scheduled worker execution, and rebuild remain ope
 WORK LOG (2026-09-13): Stage 28 now exposes a company-scoped project cost summary grouped by currency,
 including reversal entries without implicit FX conversion. `ProjectCostTests` passes 3/3; adapters,
 Finance posting and integration acceptance remain open.
+WORK LOG (2026-09-14): Stage 27 checklist operation replay now compares store/device and capture/
+submit timestamps as well as evidence. `ChecklistCommandTests` passes 4/4; evidence storage grants
+and period-close acceptance remain open.
 The new summary route is protected by `projects.project.view`, while mutations remain on the
 high-risk manage permission.
