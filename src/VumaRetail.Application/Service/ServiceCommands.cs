@@ -104,7 +104,7 @@ public sealed class OpenRepairJobCommandHandler(IServiceRepository services, ITe
     }
 }
 
-public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<ApproveWarrantyClaimCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ApproveWarrantyClaimCommand command, CancellationToken cancellationToken = default)
@@ -112,7 +112,7 @@ public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository servic
         ArgumentNullException.ThrowIfNull(command);
         WarrantyClaim claim = await services.FindWarrantyAsync(command.ClaimId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Warranty claim not found.");
-        if (company.CompanyId is not { } active || claim.CompanyId != active)
+        if (claim.TenantId != tenant.TenantId || company.CompanyId is not { } active || claim.CompanyId != active)
             throw new InvalidOperationException("The warranty company is not the active company.");
         claim.Approve(command.SoldSerialNumber, clock.UtcNow);
         return Unit.Value;

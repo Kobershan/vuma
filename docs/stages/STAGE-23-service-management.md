@@ -72,6 +72,8 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   elapsed-time boundaries pass **2/2**. Waiting-for-customer pause accounting and SLA worker remain.
 - 2026-09-14: Service migration Up/Down acceptance passes **1/1** against PostgreSQL. Worker,
   financial integration, and specialist closure evidence remain open.
+- 2026-09-14: Warranty claim approval now validates the loaded claim tenant as well as the active
+  company before changing state. `ServiceCommandTests` passes **4/4**.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

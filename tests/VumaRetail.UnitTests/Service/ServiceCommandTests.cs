@@ -42,10 +42,12 @@ public sealed class ServiceCommandTests
         repository.FindWarrantyAsync(claim.Id, Arg.Any<CancellationToken>()).Returns(claim);
         ICompanyContext company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(claim.TenantId);
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
 
-        Func<Task> action = () => new ApproveWarrantyClaimCommandHandler(repository, company, clock)
+        Func<Task> action = () => new ApproveWarrantyClaimCommandHandler(repository, tenant, company, clock)
             .HandleAsync(new ApproveWarrantyClaimCommand(claim.Id, "SERIAL-A"));
 
         await action.Should().ThrowAsync<InvalidOperationException>();

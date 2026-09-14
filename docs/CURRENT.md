@@ -169,6 +169,10 @@ WORK LOG (2026-09-14): Stage 22b registry context now declares tenant filters fo
 conversation account scopes and verification challenges in addition to their entity configurations.
 Both company and registry EF contexts report no pending model changes.
 
+WORK LOG (2026-09-14): Stage 23 warranty claim approval now validates the loaded claim tenant as
+well as the active company before changing state. `ServiceCommandTests` passes **4/4**; SLA worker,
+financial integration and full service acceptance remain open.
+
 VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
 and replaced with `Stage29ReportExportArtifactsFix`, which adds
 `reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model
