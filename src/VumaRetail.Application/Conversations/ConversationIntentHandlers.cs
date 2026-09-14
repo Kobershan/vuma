@@ -4,6 +4,9 @@ using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.FieldSales;
+using VumaRetail.Application.FieldSales.Commands;
+using VumaRetail.Application.Logistics;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;
@@ -247,7 +250,8 @@ public sealed class PodIntentHandler(
     ICustomerAccountRepository accounts,
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
-    IClock clock)
+    IClock clock,
+    ILogisticsRepository? logistics = null)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
     /// <inheritdoc />
@@ -258,12 +262,52 @@ public sealed class PodIntentHandler(
     protected override string EntityName => "proof of delivery";
 
     /// <summary>Stage 24 owns POD records and rendering; fail closed until that dependency exists.</summary>
-    public override Task<IntentResult> HandleAsync(
+    public override async Task<IntentResult> HandleAsync(
         Conversation conversation,
         IReadOnlyDictionary<string, string> entities,
         string idempotencyKey,
         CancellationToken cancellationToken = default)
-        => throw new InvalidOperationException("Proof of delivery is not available until Stage 24 is deployed.");
+    {
+        if (logistics is null)
+        {
+            throw new InvalidOperationException("Proof of delivery is not available until Stage 24 is deployed.");
+        }
+
+        if (!TryGetGuid(entities, "shipmentId", out Guid shipmentId))
+        {
+            throw new InvalidOperationException("A shipment reference is required to request proof of delivery.");
+        }
+
+        if (await logistics.FindPodAsync(shipmentId, cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new InvalidOperationException("Proof of delivery is not available for that shipment.");
+        }
+
+        return await base.HandleAsync(conversation, new Dictionary<string, string>(entities)
+        {
+            ["reference"] = shipmentId.ToString("D")
+        }, idempotencyKey, cancellationToken).ConfigureAwait(false);
+    }
+
+    protected override async Task<string> ResolveReferenceAsync(
+        IReadOnlyDictionary<string, string> entities,
+        IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
+        CancellationToken cancellationToken)
+    {
+        if (logistics is null || !TryGetGuid(entities, "shipmentId", out Guid shipmentId))
+        {
+            throw new InvalidOperationException("A shipment reference is required to request proof of delivery.");
+        }
+        VumaRetail.Domain.Logistics.ProofOfDelivery pod = await logistics.FindPodAsync(shipmentId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Proof of delivery is not available for that shipment.");
+        return pod.Id.ToString("D");
+    }
+
+    private static bool TryGetGuid(IReadOnlyDictionary<string, string> entities, string key, out Guid value)
+    {
+        value = Guid.Empty;
+        return entities.TryGetValue(key, out string? raw) && Guid.TryParse(raw, out value) && value != Guid.Empty;
+    }
 }
 
 /// <summary>Delivers a credit-note reference through the verified document transport.</summary>
@@ -272,7 +316,9 @@ public sealed class CreditNoteRequestIntentHandler(
     ICustomerAccountRepository accounts,
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
-    IClock clock)
+    IClock clock,
+    IProFormaCreditNoteRepository? credits = null,
+    IDispatcher? dispatcher = null)
     : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
 {
     /// <inheritdoc />
@@ -283,16 +329,33 @@ public sealed class CreditNoteRequestIntentHandler(
     protected override string EntityName => "credit note";
 
     /// <summary>Credit-note requests must use the Stage 14b approval flow; no fake document is minted.</summary>
-    public override Task<IntentResult> HandleAsync(
+    public override async Task<IntentResult> HandleAsync(
         Conversation conversation,
         IReadOnlyDictionary<string, string> entities,
         string idempotencyKey,
         CancellationToken cancellationToken = default)
-        => throw new InvalidOperationException("Credit-note requests are not available until the Stage 14b approval flow is connected.");
+    {
+        if (credits is null || dispatcher is null)
+        {
+            throw new InvalidOperationException("Credit-note requests are not available until the Stage 14b approval flow is connected.");
+        }
+        if (!entities.TryGetValue("creditNoteId", out string? rawId) || !Guid.TryParse(rawId, out Guid creditNoteId))
+        {
+            throw new InvalidOperationException("A credit-note request must identify a prepared credit proposal.");
+        }
+
+        VumaRetail.Domain.FieldSales.ProFormaCreditNote note = await credits.FindAsync(creditNoteId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The credit-note proposal was not found.");
+        await dispatcher.SendAsync(new SubmitProFormaCreditNoteCommand(note.Id), cancellationToken).ConfigureAwait(false);
+        return new IntentResult(note.Id, [$"Credit-note request {note.CreditNoteNumber} was submitted for approval."], IdempotencyKey: idempotencyKey);
+    }
 }
 
 /// <summary>Safe pre-submission boundary for order requests; creation occurs only after confirmation.</summary>
-public sealed class PlaceOrderIntentHandler(IConversationScopeReader scopes) : IConversationIntentHandler
+public sealed class PlaceOrderIntentHandler(
+    IConversationScopeReader scopes,
+    IProFormaOrderRepository? proFormas = null,
+    IDispatcher? dispatcher = null) : IConversationIntentHandler
 {
     /// <inheritdoc />
     public ConversationIntent Intent => ConversationIntent.PlaceOrder;
@@ -310,6 +373,27 @@ public sealed class PlaceOrderIntentHandler(IConversationScopeReader scopes) : I
         if ((await scopes.ListAsync(conversation.ContactBindingId, cancellationToken).ConfigureAwait(false)).Count == 0)
         {
             throw new InvalidOperationException("No customer account is authorized for this binding.");
+        }
+
+        if (entities.TryGetValue("proFormaId", out string? rawId)
+            && Guid.TryParse(rawId, out Guid proFormaId)
+            && entities.TryGetValue("confirmed", out string? confirmation)
+            && bool.TryParse(confirmation, out bool confirmed)
+            && confirmed)
+        {
+            if (proFormas is null || dispatcher is null)
+            {
+                throw new InvalidOperationException("Order submission is not available until Stage 14b is connected.");
+            }
+            VumaRetail.Domain.FieldSales.ProFormaOrder order = await proFormas.FindAsync(proFormaId, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The pro forma order was not found.");
+            if (!(await scopes.ListAsync(conversation.ContactBindingId, cancellationToken).ConfigureAwait(false))
+                .Any(scope => scope.OperatingCompanyId == order.CompanyId))
+            {
+                throw new InvalidOperationException("The order is outside the authorized company scope.");
+            }
+            await dispatcher.SendAsync(new SubmitProFormaCommand(order.Id), cancellationToken).ConfigureAwait(false);
+            return new IntentResult(order.Id, [$"Pro forma order {order.ProFormaNumber} was submitted for approval."], IdempotencyKey: idempotencyKey);
         }
 
         string cart = entities.TryGetValue("cartReference", out string? value) && !string.IsNullOrWhiteSpace(value)
