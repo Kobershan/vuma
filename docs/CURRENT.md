@@ -89,7 +89,8 @@ branch, keeping the latest release gate authoritative during long builds.
 
 WORK LOG (2026-09-14): Clean PostgreSQL DR seeding exposed and fixed company-scope omissions for
 the demo tenant/store and tenant-wide stock/catalog metadata. StoreServer builds with **0 errors**;
-the DR drill is being rerun to validate the next restore checkpoint.
+the clean restore drill now passes: snapshot `01a09dea-b7bc-7000-9314-ac813ac94de5` was verified,
+restored into `vuma_drill_restored`, and matched `users=5 roles=4 stores=2`.
 
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed

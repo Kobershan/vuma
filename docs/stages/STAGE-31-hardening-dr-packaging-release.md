@@ -71,7 +71,10 @@ revision, while superseded branch runs are cancelled to keep the latest gate aut
 
 GitHub CI run `34800395226` completed green for the complete configured release pipeline, including
 backend build/test/migration checks, Android Compose compilation, vulnerability scanning and Windows
-packaging. The subsequent demo-scope correction is pending its own workflow result.
+packaging. The clean PostgreSQL DR drill now also passes: encrypted snapshot
+`01a09dea-b7bc-7000-9314-ac813ac94de5` verified and restored into `vuma_drill_restored` with
+matching `users=5 roles=4 stores=2` counts. The subsequent demo-scope correction remains pending
+its own workflow result.
 
 - `Store_survives_cloud_outage`: block cloud and vendor network for 24 hours; local cash trading completes and reconnect replay changes no totals.
 - `Fresh_hardware_restore_trades`: restore the pilot registry, all company databases and documents onto a fresh machine within 4 hours; reconcile stock/GL and complete a sale.

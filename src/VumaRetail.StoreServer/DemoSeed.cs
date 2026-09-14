@@ -92,8 +92,8 @@ public static class DemoSeed
     /// <summary>
     /// The demo company's fixed id, so seeded reservation rows carry a company like every real hold
     /// must (Stage 08c). The single-database demo predates company provisioning, so no company is
-    /// bound in this scope and nothing here goes through the reservation service — the rows are
-    /// seeded directly, consistently (hold plus projection), and visibly.
+    /// bound in this scope and the initial hold is seeded directly, consistently (hold plus
+    /// projection), while later order flows run under the demo company's explicit scope.
     /// </summary>
     public static readonly Guid DemoCompanyId = Guid.Parse("01900000-0000-7000-8000-0000000000c0");
 
@@ -122,6 +122,7 @@ public static class DemoSeed
         Tenant tenant = await EnsureTenantAsync(context, tenantContext, unitOfWork, cancellationToken).ConfigureAwait(false);
         tenantContext.SetTenant(tenant.Id);
         await EnsureDemoCompanyAsync(registry, cancellationToken).ConfigureAwait(false);
+        provider.GetRequiredService<ICompanyContext>().SetCompany(DemoCompanyId);
 
         Store johannesburg = await EnsureStoreAsync(context, unitOfWork, tenant.Id, "JHB01", "Vuma Sandton", cancellationToken)
             .ConfigureAwait(false);
@@ -2446,13 +2447,28 @@ public static class DemoSeed
             .FirstOrDefaultAsync(location => location.Code == code, cancellationToken)
             .ConfigureAwait(false) is { } existing)
         {
+            if (existing.CompanyId != DemoCompanyId)
+            {
+                existing.AssignCompany(DemoCompanyId);
+                await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return existing.Id;
         }
 
-        return await provider
+        Guid locationId = await provider
             .GetRequiredService<IDispatcher>()
             .SendAsync(new CreateStockLocationCommand(code, name, type), cancellationToken)
             .ConfigureAwait(false);
+
+        StockLocation created = await context.StockLocations
+            .SingleAsync(location => location.Id == locationId, cancellationToken)
+            .ConfigureAwait(false);
+        created.AssignCompany(DemoCompanyId);
+        await provider.GetRequiredService<IUnitOfWork>().CommitAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return locationId;
     }
 
     /// <summary>
