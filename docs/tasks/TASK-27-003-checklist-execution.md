@@ -40,6 +40,10 @@ Checklist submission now also validates that the loaded checklist belongs to the
 and store before creating an execution. `ChecklistCommandTests` passes 5/5, including foreign
 checklist refusal.
 
+2026-09-14: Added a view-permission-protected evidence authorization endpoint. It returns a
+15-minute opaque HMAC grant only when the execution belongs to the active company and carries an
+evidence reference; tampering and expiry are rejected by the authorizer tests (2/2).
+
 ## Follow-up findings
 
-local queue APIs, evidence upload/download authorization and period-close acceptance remain open.
+local queue APIs, evidence upload/storage integration and period-close acceptance remain open.

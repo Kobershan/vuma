@@ -6,6 +6,7 @@ using VumaRetail.Application.Assets;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Service;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -18,6 +19,7 @@ public static class ServiceServiceCollectionExtensions
         services.TryAddScoped<IServiceRepository, ServiceRepository>();
         services.TryAddScoped<IAssetRepository>(provider => provider.GetRequiredService<ServiceRepository>());
         services.TryAddScoped<IChecklistRepository>(provider => provider.GetRequiredService<ServiceRepository>());
+        services.TryAddScoped<IChecklistEvidenceAuthorizer, ChecklistEvidenceAuthorizer>();
         services.TryAddSingleton<IServiceSlaClock>(_ =>
             new BusinessHoursServiceSlaClock(new TimeOnly(9, 0), new TimeOnly(17, 0)));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, AssetPermissions>());

@@ -60,6 +60,10 @@ WORK LOG (2026-09-14): Stage 27 asset placement/disposal now validate active-com
 loading the asset. Asset-focused tests pass 5/5; persistence, finance posting, and period-close
 acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 27 checklist evidence now has a low-risk view permission and a
+company-scoped 15-minute opaque HMAC authorization grant endpoint. `ChecklistEvidenceTests` passes
+2/2; external evidence storage and period-close acceptance remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

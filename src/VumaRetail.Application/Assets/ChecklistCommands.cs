@@ -9,6 +9,8 @@ namespace VumaRetail.Application.Assets;
 public sealed record CreateStoreChecklistCommand(Guid CompanyId, Guid? StoreId, string Code, string Name, IReadOnlyCollection<string> ItemCodes) : ICommand<Guid>;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record SubmitChecklistExecutionCommand(Guid CompanyId, Guid? StoreId, Guid ChecklistId, Guid OperationId, string DeviceId, DateTimeOffset CapturedAt, DateTimeOffset SubmittedAt, string EvidenceReference) : ICommand<Guid>;
+public sealed record AuthorizeChecklistEvidenceDownloadQuery(Guid ExecutionId) : IQuery<ChecklistEvidenceDownloadResult?>;
+public sealed record ChecklistEvidenceDownloadResult(Guid ExecutionId, string EvidenceReference, DateTimeOffset ExpiresAtUtc, string Token);
 
 public sealed class CreateStoreChecklistCommandHandler(IChecklistRepository checklists, ITenantContext tenant, ICompanyContext company) : ICommandHandler<CreateStoreChecklistCommand, Guid>
 {
@@ -42,4 +44,27 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
         var execution = ChecklistExecution.Submit(tenant.TenantId, c.StoreId, c.CompanyId, c.ChecklistId, c.OperationId, c.DeviceId, c.CapturedAt, c.SubmittedAt, c.EvidenceReference);
         checklists.Add(execution); return execution.Id;
     }
+}
+
+public sealed class AuthorizeChecklistEvidenceDownloadQueryHandler(
+    IChecklistRepository checklists, IChecklistEvidenceAuthorizer authorizer, ICompanyContext company, IClock clock)
+    : IQueryHandler<AuthorizeChecklistEvidenceDownloadQuery, ChecklistEvidenceDownloadResult?>
+{
+    public async Task<ChecklistEvidenceDownloadResult?> HandleAsync(AuthorizeChecklistEvidenceDownloadQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ChecklistExecution? execution = await checklists.FindExecutionAsync(query.ExecutionId, cancellationToken).ConfigureAwait(false);
+        if (execution is null || company.CompanyId is not { } active || execution.CompanyId != active || string.IsNullOrWhiteSpace(execution.EvidenceReference))
+        {
+            return null;
+        }
+        DateTimeOffset expiresAt = clock.UtcNow.AddMinutes(15);
+        return new(execution.Id, execution.EvidenceReference, expiresAt, authorizer.Create(execution, expiresAt));
+    }
+}
+
+public interface IChecklistEvidenceAuthorizer
+{
+    string Create(ChecklistExecution execution, DateTimeOffset expiresAtUtc);
+    bool Validate(string token, Guid executionId, DateTimeOffset asOfUtc);
 }

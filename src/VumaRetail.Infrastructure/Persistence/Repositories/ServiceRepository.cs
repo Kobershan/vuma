@@ -63,6 +63,7 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
     public void Add(DepreciationRun run) => context.DepreciationRuns.Add(run);
     public void Add(MaintenanceOrder order) => context.MaintenanceOrders.Add(order);
     public Task<StoreChecklist?> FindAsync(Guid id, CancellationToken cancellationToken = default) => context.StoreChecklists.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public Task<ChecklistExecution?> FindExecutionAsync(Guid id, CancellationToken cancellationToken = default) => context.ChecklistExecutions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ChecklistExecution?> FindExecutionByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default) => context.ChecklistExecutions.FirstOrDefaultAsync(x => x.OperationId == operationId, cancellationToken);
     public void Add(StoreChecklist checklist) => context.StoreChecklists.Add(checklist);
     public void Add(ChecklistExecution execution) => context.ChecklistExecutions.Add(execution);

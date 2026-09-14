@@ -19,6 +19,7 @@ public interface IAssetRepository
 public interface IChecklistRepository
 {
     Task<StoreChecklist?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ChecklistExecution?> FindExecutionAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ChecklistExecution?> FindExecutionByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     void Add(StoreChecklist checklist);
     void Add(ChecklistExecution execution);

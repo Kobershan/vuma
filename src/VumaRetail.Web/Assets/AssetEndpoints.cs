@@ -30,6 +30,8 @@ public static class AssetEndpoints
             .WithTags("Assets").RequireModule("assets");
         checklists.MapPost("/", CreateChecklistAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         checklists.MapPost("/{id:guid}/executions", SubmitChecklistAsync).RequirePermission(AssetPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        checklists.MapPost("/executions/{executionId:guid}/evidence/download", AuthorizeEvidenceDownloadAsync)
+            .RequirePermission(AssetPermissions.View).Produces<ChecklistEvidenceDownloadResult>(StatusCodes.Status200OK);
         return endpoints;
     }
 
@@ -86,6 +88,12 @@ public static class AssetEndpoints
 
     private static async Task<IResult> SubmitChecklistAsync(Guid id, SubmitChecklistRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     { Guid executionId = await dispatcher.SendAsync(new SubmitChecklistExecutionCommand(request.CompanyId, request.StoreId, id, request.OperationId, request.DeviceId, request.CapturedAt, request.SubmittedAt, request.EvidenceReference), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}/executions/{executionId:D}", executionId); }
+
+    private static async Task<IResult> AuthorizeEvidenceDownloadAsync(Guid executionId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        ChecklistEvidenceDownloadResult? result = await dispatcher.QueryAsync(new AuthorizeChecklistEvidenceDownloadQuery(executionId), cancellationToken).ConfigureAwait(false);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    }
 
     public sealed record CreateAssetRequest(Guid CompanyId, string AssetNumber, string Description, DateOnly AcquiredOn, decimal Cost, string Currency);
     public sealed record AssetCompanyRequest(Guid CompanyId);

@@ -8,10 +8,12 @@ namespace VumaRetail.Application.Assets;
 public sealed class AssetPermissions : IModulePermissions
 {
     public const string Manage = "assets.asset.manage";
+    public const string View = "assets.asset.view";
     public string Module => "assets";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [
         new(PermissionKey.Parse(Manage), "Create, maintain and depreciate fixed assets.", IsHighRisk: true),
+        new(PermissionKey.Parse(View), "View asset and checklist evidence.", IsHighRisk: false),
     ];
 }
 
