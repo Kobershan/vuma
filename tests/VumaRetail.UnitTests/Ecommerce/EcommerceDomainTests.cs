@@ -112,4 +112,38 @@ public sealed class EcommerceDomainTests
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Payment event was replayed with different content.");
     }
+
+    [Fact]
+    public async Task Payment_capture_calls_gateway_once_and_replays_without_a_second_capture()
+    {
+        Guid checkoutId = Guid.NewGuid();
+        var checkout = CheckoutIntent.Submit(TenantId, CompanyId, ChannelId, BasketId, "owner", "key", "fingerprint", DateTimeOffset.UtcNow);
+        var checkouts = Substitute.For<ICheckoutIntentRepository>();
+        checkouts.FindAsync(checkoutId, Arg.Any<CancellationToken>()).Returns(checkout);
+        var attempts = Substitute.For<IPaymentAttemptRepository>();
+        var authorised = PaymentAttempt.Record(TenantId, CompanyId, checkoutId, "authorised-event", "auth-fingerprint",
+            "provider-1", PaymentAttemptStatus.Authorised, "auth-ref", DateTimeOffset.UtcNow);
+        attempts.FindLatestForCheckoutAsync(checkoutId, "provider-1", Arg.Any<CancellationToken>()).Returns(authorised);
+        var gateway = Substitute.For<IPaymentGateway>();
+        gateway.CaptureAsync(Arg.Any<PaymentGatewayOperation>(), Arg.Any<CancellationToken>())
+            .Returns(new PaymentGatewayResult("provider-1", "captured", "capture-ref"));
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(CompanyId);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+
+        var command = new ExecutePaymentOperationCommand(checkoutId, CompanyId, PaymentOperationKind.Capture,
+            "provider-1", "VUMA-1", 125m, "ZAR", "operation-1");
+        var handler = new ExecutePaymentOperationCommandHandler(checkouts, attempts, gateway, company, tenant,
+            Substitute.For<IClock>());
+
+        await handler.HandleAsync(command);
+
+        attempts.FindByEventIdAsync("payment-operation:operation-1", Arg.Any<CancellationToken>())
+            .Returns(PaymentAttempt.Record(TenantId, CompanyId, checkoutId, "payment-operation:operation-1",
+                string.Join('|', checkoutId, PaymentOperationKind.Capture, "provider-1", "VUMA-1", 125m, "ZAR"),
+                "provider-1", PaymentAttemptStatus.Captured, "capture-ref", DateTimeOffset.UtcNow));
+        await handler.HandleAsync(command);
+        await gateway.Received(1).CaptureAsync(Arg.Any<PaymentGatewayOperation>(), Arg.Any<CancellationToken>());
+    }
 }

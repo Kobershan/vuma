@@ -68,6 +68,86 @@ public sealed record PaymentGatewayAuthorization(string ProviderPaymentId, Uri? 
 
 public sealed record PaymentGatewayResult(string ProviderPaymentId, string Status, string? ProviderReference = null);
 
+public enum PaymentOperationKind
+{
+    Capture = 1,
+    Void = 2,
+    Refund = 3
+}
+
+[CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.Payment)]
+public sealed record ExecutePaymentOperationCommand(Guid CheckoutId, Guid CompanyId, PaymentOperationKind Operation,
+    string ProviderPaymentId, string MerchantReference, decimal Amount, string Currency, string IdempotencyKey)
+    : ICommand<PaymentGatewayResult>;
+
+public sealed class ExecutePaymentOperationCommandHandler(
+    ICheckoutIntentRepository checkouts, IPaymentAttemptRepository attempts,
+    IPaymentGateway gateway, ICompanyContext company, ITenantContext tenant, IClock clock)
+    : ICommandHandler<ExecutePaymentOperationCommand, PaymentGatewayResult>
+{
+    public async Task<PaymentGatewayResult> HandleAsync(ExecutePaymentOperationCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "payment operation");
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.IdempotencyKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.ProviderPaymentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.MerchantReference);
+        if (command.Amount <= 0m || string.IsNullOrWhiteSpace(command.Currency) || command.Currency.Trim().Length != 3)
+        {
+            throw new ArgumentException("A payment operation requires a positive amount and ISO currency.", nameof(command));
+        }
+
+        CheckoutIntent checkout = await checkouts.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (checkout.CompanyId != command.CompanyId)
+        {
+            throw new InvalidOperationException("Payment checkout is not in the active company.");
+        }
+
+        string eventId = $"payment-operation:{command.IdempotencyKey.Trim()}";
+        string fingerprint = string.Join('|', command.CheckoutId, command.Operation, command.ProviderPaymentId.Trim(),
+            command.MerchantReference.Trim(), command.Amount, command.Currency.Trim().ToUpperInvariant());
+        PaymentAttempt? replay = await attempts.FindByEventIdAsync(eventId, cancellationToken).ConfigureAwait(false);
+        if (replay is not null)
+        {
+            if (replay.CompanyId != command.CompanyId || replay.CheckoutIntentId != command.CheckoutId
+                || replay.PayloadFingerprint != fingerprint)
+            {
+                throw new InvalidOperationException("Payment operation was replayed with different content.");
+            }
+            return new PaymentGatewayResult(replay.ProviderPaymentId, replay.Status.ToString(), replay.ProviderReference);
+        }
+
+        PaymentAttempt? latest = await attempts.FindLatestForCheckoutAsync(
+            command.CheckoutId, command.ProviderPaymentId.Trim(), cancellationToken).ConfigureAwait(false);
+        if (latest is null)
+        {
+            throw new InvalidOperationException("An authorised payment attempt is required before an operation.");
+        }
+        PaymentAttemptStatus next = command.Operation switch
+        {
+            PaymentOperationKind.Capture when latest.Status == PaymentAttemptStatus.Authorised => PaymentAttemptStatus.Captured,
+            PaymentOperationKind.Void when latest.Status == PaymentAttemptStatus.Authorised => PaymentAttemptStatus.Reversed,
+            PaymentOperationKind.Refund when latest.Status == PaymentAttemptStatus.Captured => PaymentAttemptStatus.Reversed,
+            _ => throw new InvalidOperationException("The payment operation is not valid for the current provider state.")
+        };
+
+        PaymentGatewayOperation operation = new(command.ProviderPaymentId.Trim(), command.MerchantReference.Trim(),
+            command.Amount, command.Currency.Trim(), command.IdempotencyKey.Trim());
+        PaymentGatewayResult result = command.Operation switch
+        {
+            PaymentOperationKind.Capture => await gateway.CaptureAsync(operation, cancellationToken).ConfigureAwait(false),
+            PaymentOperationKind.Void => await gateway.VoidAsync(operation, cancellationToken).ConfigureAwait(false),
+            PaymentOperationKind.Refund => await gateway.RefundAsync(operation, cancellationToken).ConfigureAwait(false),
+            _ => throw new ArgumentOutOfRangeException(nameof(command.Operation))
+        };
+        attempts.Add(PaymentAttempt.Record(tenant.TenantId, command.CompanyId, command.CheckoutId, eventId,
+            fingerprint, result.ProviderPaymentId, next, result.ProviderReference, clock.UtcNow));
+        return result;
+    }
+}
+
 [CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.Payment)]
 public sealed record BeginCheckoutPaymentCommand(Guid CheckoutId, Guid CompanyId, string OwnerKey,
     Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl) : ICommand<PaymentGatewayAuthorization>;

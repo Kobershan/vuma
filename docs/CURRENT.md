@@ -9,6 +9,12 @@ limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Complete Stage 18 PostgreSQL dispatch and recall-traceability acceptance,
 then Stage 21 checkout/payment acceptance and Stage 21b.
 
+WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
+capture, void and refund. Operations validate the active company, checkout, current provider state
+and idempotency fingerprint before invoking the gateway, then append the resulting payment attempt.
+Ecommerce tests pass **11/11**; full unit and architecture suites remain green at **1,583/1,583** and
+**85/85**. Authoritative order/reservation orchestration and PostgreSQL payment integration remain.
+
 WORK LOG (2026-09-14): Stage 18 dispatch authorization now checks the existing quality-hold boundary
 and the inventory ledger's net expired tracked stock at the supplied business date before any bin move
 or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query coverage and a focused

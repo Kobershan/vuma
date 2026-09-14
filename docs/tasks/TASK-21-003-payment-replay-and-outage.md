@@ -1,5 +1,9 @@
 # TASK-21-003 — Payment replay, channel connector and outage acceptance
 
+Provider reference: [Transaction Junction IMBEKO developer documentation](https://tj-dev.transactionjunction.com/).
+The implementation must select the Hosted Payment Page or Direct API explicitly; it must not collect
+or persist card data in Vuma when the Hosted Payment Page contract is selected.
+
 **Status:** COMPLETE · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
@@ -23,12 +27,15 @@
 
 - Connect a checkout intent to authoritative order creation, reservation, pricing and payment gateway
   authorization without trusting browser totals.
-- Add capture/void/refund transitions at the configured order milestone and durable provider reconciliation.
+- Capture/void/refund transitions now have a replay-safe application boundary and append payment-attempt
+  state after a successful configured gateway operation; wiring them to the authoritative order
+  milestone and durable provider reconciliation remains open.
 - Add signed webhook integration tests proving ten replays create one transition/posting.
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
-Ecommerce unit tests pass **9/9**, including the payment transition matrix and cross-company replay
+Ecommerce unit tests pass **11/11**, including the payment transition matrix, operation replay boundary
+and cross-company replay
 guard. Gateway calls, capture/
 void/refund execution and end-to-end PostgreSQL webhook replay remain open.
 
