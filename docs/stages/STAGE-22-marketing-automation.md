@@ -51,7 +51,7 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
 - [~] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
   Provider-result state now persists event identity and payload fingerprints; identical callbacks
   are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
-  worker remain.
+  worker remain. Company-scoped campaign/message operator reads are now exposed.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -71,6 +71,7 @@ that explicit purpose immediately before delivery rather than being treated as a
 2026-09-14: Marketing create/queue routes now bind the request company, and campaign/message state
 transitions accept an explicit company selector before dispatch. StoreServer build passes with
 **0 errors**; provider-result event identity is now durable and signed callback input is replay-safe.
+Campaign and message operator reads now return not-found across company boundaries.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.

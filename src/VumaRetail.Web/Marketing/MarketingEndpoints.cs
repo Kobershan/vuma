@@ -8,6 +8,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Marketing;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Marketing;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -21,7 +22,9 @@ public static class MarketingEndpoints
         group.MapPost("/campaigns", async (CreateCampaignRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/campaigns", await d.SendAsync(new CreateMarketingCampaignCommand(r.CompanyId, r.StoreId, r.Name, r.TemplateId, r.ScheduledAt), ct)); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/campaigns/{id:guid}/schedule", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new ScheduleMarketingCampaignCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/campaigns/{id:guid}/cancel", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new CancelMarketingCampaignCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/campaigns/{id:guid}", GetCampaignAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages", async (QueueMessageRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/messages", await d.SendAsync(new QueueOutboundMessageCommand(r.CompanyId, r.StoreId, r.CampaignId, r.CustomerId, r.IdempotencyKey, r.ScheduledAt), ct)); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/messages/{id:guid}", GetMessageAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/suppress", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new SuppressOutboundMessageCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/sent", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new MarkOutboundMessageSentCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/webhooks/{provider}", ApplyProviderResultAsync)
@@ -30,6 +33,26 @@ public static class MarketingEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .WithSummary("Accepts a signed, replay-safe marketing provider callback.");
         return endpoints;
+    }
+
+    private static async Task<IResult> GetCampaignAsync(Guid id, Guid companyId, ICompanyContext company,
+        IMarketingCampaignRepository campaigns, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        MarketingCampaign? campaign = await campaigns.FindAsync(id, cancellationToken).ConfigureAwait(false);
+        return campaign is null || campaign.CompanyId != companyId
+            ? Results.NotFound()
+            : Results.Ok(new { campaign.Id, campaign.Name, campaign.TemplateId, campaign.ScheduledAt, Status = campaign.Status.ToString(), campaign.CompanyId });
+    }
+
+    private static async Task<IResult> GetMessageAsync(Guid id, Guid companyId, ICompanyContext company,
+        IOutboundMessageRepository messages, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        OutboundMessage? message = await messages.FindAsync(id, cancellationToken).ConfigureAwait(false);
+        return message is null || message.CompanyId != companyId
+            ? Results.NotFound()
+            : Results.Ok(new { message.Id, message.CampaignId, message.CustomerId, message.ScheduledAt, Status = message.Status.ToString(), message.ProviderEventId, message.CompanyId });
     }
 
     private static async Task<IResult> ApplyProviderResultAsync(

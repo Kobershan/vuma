@@ -107,7 +107,8 @@ Android compilation and endpoint/instrumentation acceptance remain CI-dependent.
 
 WORK LOG (2026-09-14): Stage 22 marketing provider results now persist provider event identity and
 payload fingerprints, reject changed-content callback replays, and expose a signed callback route.
-The focused marketing run passes **16/16**; transport workers and audience/operator APIs remain open.
+The focused marketing run passes **16/16**; company-scoped campaign/message operator reads are now
+available, while transport workers and audience APIs remain open.
 
 WORK LOG (2026-09-14): Wired the Android process composition root to create the Room database and
 Keystore-backed session store, and documented the durable state boundary. Android compilation and
