@@ -685,6 +685,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // a bound scope that cannot see the node's own counter re-creates it and dies on the
         // unique index instead of issuing the next number.
         typeof(Domain.Finance.DocumentNumberCounter),
+        // Stock locations are tenant-wide configuration; a company-bound reservation service must
+        // still resolve the central location selected by the order pipeline.
+        typeof(Domain.Inventory.StockLocation),
     ];
 
     /// <inheritdoc />

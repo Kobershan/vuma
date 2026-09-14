@@ -2710,6 +2710,7 @@ public static class DemoSeed
 
         Tenant tenant = Tenant.CreateWithSouthAfricanDefaults("Vuma Demo Retail (Pty) Ltd", "Vuma Demo");
         SetId(tenant, DemoTenantId);
+        tenant.AssignCompany(DemoCompanyId);
         tenant.Activate();
 
         context.Tenants.Add(tenant);
@@ -2736,6 +2737,7 @@ public static class DemoSeed
         }
 
         Store store = Store.Create(tenantId, code, name);
+        store.AssignCompany(DemoCompanyId);
         context.Stores.Add(store);
         await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
