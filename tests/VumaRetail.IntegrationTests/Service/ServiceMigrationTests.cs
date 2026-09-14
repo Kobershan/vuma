@@ -3,7 +3,7 @@ using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Service;
 
-/// <summary>Verifies the Stage 23, 27, 28 and 29 migrations can be applied and removed on PostgreSQL.</summary>
+/// <summary>Verifies the Stage 23, 24, 27, 28 and 29 migrations can be applied and removed on PostgreSQL.</summary>
 [Collection(PostgresCollection.Name)]
 public sealed class ServiceMigrationTests(PostgresFixture fixture)
 {
@@ -37,6 +37,14 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             WHERE table_schema = 'projects' AND table_name = 'project_cost_entries'
             """).ToListAsync().ConfigureAwait(false);
         costColumns.Should().Contain("reverses_entry_id");
+
+        IReadOnlyList<string> logisticsTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'logistics'
+            ORDER BY table_name
+            """).ToListAsync().ConfigureAwait(false);
+        logisticsTables.Should().BeEquivalentTo(["carriers", "delivery_runs", "delivery_stops", "proofs_of_delivery", "shipments"], options => options.WithStrictOrdering());
 
         IReadOnlyList<string> reportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -80,6 +88,12 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         remainingAssetTables.Should().BeEquivalentTo(["asset_books", "fixed_assets"], options => options.WithStrictOrdering());
 
         await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
+        IReadOnlyList<string> revertedLogisticsTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'logistics'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedLogisticsTables.Should().BeEmpty();
         IReadOnlyList<string> revertedAssetTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables

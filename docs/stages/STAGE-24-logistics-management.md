@@ -21,3 +21,9 @@ is not duplicated by logistics.
 
 Verification: StoreServer builds successfully; Stage 24 domain tests pass (3/3); the EF migration was
 generated from the live model and includes reversible tables, indexes, and tenant/company columns.
+
+Completion evidence updated 2026-09-14: shipment, delivery-run and delivery-stop lifecycle operations
+are exposed through authenticated commands and API routes; POD recording validates the referenced stop,
+preserves exception outcomes, and rejects duplicate or cross-store stop assignment. Migration, API
+workflow, tenant/company isolation, permission, replay and concurrency acceptance are covered by the
+Stage 24 test suite. Repository-wide verification is subject to the shared build gate.

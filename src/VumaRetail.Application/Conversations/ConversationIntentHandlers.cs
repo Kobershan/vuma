@@ -173,6 +173,7 @@ public sealed class StatementIntentHandler(
     protected override string EntityName => "account statement";
 
     /// <summary>Queries the account-owned AR subledger before issuing a statement token.</summary>
+    /// <inheritdoc />
     protected override async Task<string> ResolveReferenceAsync(
         IReadOnlyDictionary<string, string> entities,
         IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
@@ -289,6 +290,7 @@ public sealed class PodIntentHandler(
         }, idempotencyKey, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     protected override async Task<string> ResolveReferenceAsync(
         IReadOnlyDictionary<string, string> entities,
         IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,

@@ -20,13 +20,13 @@ public sealed class JourneyDefinition : Entity
     public JourneyDefinitionStatus Status { get; private set; } = JourneyDefinitionStatus.Draft;
     public static JourneyDefinition Create(Guid tenantId, Guid companyId, string name, int version, string definitionJson)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        if (tenantId == Guid.Empty || companyId == Guid.Empty) { throw new ArgumentException("Tenant and company are required."); }
         ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentException.ThrowIfNullOrWhiteSpace(definitionJson);
-        if (version < 1) throw new ArgumentOutOfRangeException(nameof(version));
+        if (version < 1) { throw new ArgumentOutOfRangeException(nameof(version)); }
         return new JourneyDefinition(tenantId, companyId, name, version, definitionJson);
     }
-    public void Publish() { if (Status != JourneyDefinitionStatus.Draft) throw new InvalidOperationException("Only draft journeys can be published."); Status = JourneyDefinitionStatus.Published; }
-    public void Retire() { if (Status == JourneyDefinitionStatus.Retired) throw new InvalidOperationException("The journey is already retired."); Status = JourneyDefinitionStatus.Retired; }
+    public void Publish() { if (Status != JourneyDefinitionStatus.Draft) { throw new InvalidOperationException("Only draft journeys can be published."); } Status = JourneyDefinitionStatus.Published; }
+    public void Retire() { if (Status == JourneyDefinitionStatus.Retired) { throw new InvalidOperationException("The journey is already retired."); } Status = JourneyDefinitionStatus.Retired; }
 }
 
 /// <summary>Durable customer enrollment in a published journey.</summary>
@@ -43,7 +43,7 @@ public sealed class JourneyEnrollment : Entity
     public bool IsActive { get; private set; } = true;
     public static JourneyEnrollment Create(Guid tenantId, Guid companyId, Guid journeyId, Guid customerId, string idempotencyKey, DateTimeOffset nextRunAt)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty || journeyId == Guid.Empty || customerId == Guid.Empty) throw new ArgumentException("Journey enrollment identities are required.");
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || journeyId == Guid.Empty || customerId == Guid.Empty) { throw new ArgumentException("Journey enrollment identities are required."); }
         ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
         return new JourneyEnrollment(tenantId, companyId, journeyId, customerId, idempotencyKey, nextRunAt);
     }
@@ -65,7 +65,7 @@ public sealed class AttributionEvent : Entity, IImmutableRecord
     public DateTimeOffset OccurredAt { get; private set; }
     public static AttributionEvent Record(Guid tenantId, Guid companyId, Guid? campaignId, Guid? messageId, Guid customerId, string eventType, DateTimeOffset occurredAt)
     {
-        if (tenantId == Guid.Empty || companyId == Guid.Empty || customerId == Guid.Empty) throw new ArgumentException("Attribution identities are required.");
+        if (tenantId == Guid.Empty || companyId == Guid.Empty || customerId == Guid.Empty) { throw new ArgumentException("Attribution identities are required."); }
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         return new AttributionEvent(tenantId, companyId, campaignId, messageId, customerId, eventType, occurredAt);
     }
