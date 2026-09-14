@@ -109,12 +109,31 @@ public sealed class ManufacturingCommandTests
     public async Task Publish_command_transitions_the_loaded_draft()
     {
         IBillOfMaterialsRepository repository = Substitute.For<IBillOfMaterialsRepository>();
+        Guid companyId = Guid.NewGuid();
         BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), Guid.NewGuid(), 1, "Assembly");
+        bom.AssignCompany(companyId);
         bom.AddLine(Guid.NewGuid(), new VumaRetail.Domain.Primitives.Quantity(1m, "EA"));
         repository.FindAsync(bom.Id, Arg.Any<CancellationToken>()).Returns(bom);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
 
-        await new PublishBillOfMaterialsCommandHandler(repository).HandleAsync(new PublishBillOfMaterialsCommand(bom.Id));
+        await new PublishBillOfMaterialsCommandHandler(repository, company).HandleAsync(new PublishBillOfMaterialsCommand(bom.Id));
 
         bom.Status.Should().Be(BillOfMaterialsStatus.Published);
+    }
+
+    [Fact]
+    public async Task Publish_command_rejects_a_BOM_from_another_active_company()
+    {
+        IBillOfMaterialsRepository repository = Substitute.For<IBillOfMaterialsRepository>();
+        BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), Guid.NewGuid(), 1, "Assembly");
+        bom.AssignCompany(Guid.NewGuid());
+        repository.FindAsync(bom.Id, Arg.Any<CancellationToken>()).Returns(bom);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        await FluentActions.Invoking(() => new PublishBillOfMaterialsCommandHandler(repository, company)
+            .HandleAsync(new PublishBillOfMaterialsCommand(bom.Id)))
+            .Should().ThrowAsync<InvalidOperationException>();
     }
 }

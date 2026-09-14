@@ -76,7 +76,7 @@ public sealed class PublishBillOfMaterialsCommandValidator : AbstractValidator<P
 }
 
 /// <summary>Publishes one tenant-scoped BOM.</summary>
-public sealed class PublishBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms)
+public sealed class PublishBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms, ICompanyContext company)
     : ICommandHandler<PublishBillOfMaterialsCommand, Unit>
 {
     /// <inheritdoc />
@@ -85,6 +85,10 @@ public sealed class PublishBillOfMaterialsCommandHandler(IBillOfMaterialsReposit
         ArgumentNullException.ThrowIfNull(command);
         BillOfMaterials bom = await boms.FindAsync(command.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.BillOfMaterialsId);
+        if (company.CompanyId is not { } activeCompany || bom.CompanyId != activeCompany)
+        {
+            throw new InvalidOperationException("The BOM company is not the active company.");
+        }
         bom.Publish();
         return Unit.Value;
     }
@@ -94,15 +98,20 @@ public sealed class PublishBillOfMaterialsCommandHandler(IBillOfMaterialsReposit
 public sealed record GetBillOfMaterialsQuery(Guid BillOfMaterialsId) : IQuery<BillOfMaterials>;
 
 /// <summary>Handles a tenant-scoped BOM read.</summary>
-public sealed class GetBillOfMaterialsQueryHandler(IBillOfMaterialsRepository boms)
+public sealed class GetBillOfMaterialsQueryHandler(IBillOfMaterialsRepository boms, ICompanyContext company)
     : IQueryHandler<GetBillOfMaterialsQuery, BillOfMaterials>
 {
     /// <inheritdoc />
     public async Task<BillOfMaterials> HandleAsync(GetBillOfMaterialsQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        return await boms.FindAsync(query.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
+        BillOfMaterials bom = await boms.FindAsync(query.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(query.BillOfMaterialsId);
+        if (company.CompanyId is not { } activeCompany || bom.CompanyId != activeCompany)
+        {
+            throw ManufacturingRuleException.NotFound(query.BillOfMaterialsId);
+        }
+        return bom;
     }
 }
 

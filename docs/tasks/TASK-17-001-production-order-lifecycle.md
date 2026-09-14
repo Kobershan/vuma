@@ -63,3 +63,6 @@ duplicate operation tests, migration reversibility and architecture classificati
 - 2026-09-14: BOM creation now applies the same active-company guard at the handler and API boundary.
   The manufacturing command suite passes 6/6; broader PostgreSQL execution and stage-closure
   evidence remain open.
+- 2026-09-14: BOM publication and retrieval now reject loaded definitions outside the active company
+  context. The manufacturing command suite passes 7/7; PostgreSQL and final closure evidence remain
+  open.
