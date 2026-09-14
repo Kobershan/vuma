@@ -57,6 +57,11 @@ public static class EcommerceEndpoints
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Payment)
             .Produces<PaymentGatewayAuthorization>(StatusCodes.Status200OK)
             .WithSummary("Starts Transaction Junction payment without handling card data in Vuma.");
+        storefront.MapPost("/checkouts/{id:guid}/payment/{operation}", ExecutePaymentOperationAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Payment)
+            .Produces<PaymentGatewayResult>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithSummary("Captures, voids or refunds a provider payment with an idempotency key.");
         storefront.MapPost("/webhooks/payments", ApplyPaymentWebhookAsync)
             .AllowAnonymous()
             .Produces<Guid>(StatusCodes.Status202Accepted)
@@ -159,6 +164,20 @@ public static class EcommerceEndpoints
         return Results.Ok(result);
     }
 
+    private static async Task<IResult> ExecutePaymentOperationAsync(
+        Guid id, string operation, ExecutePaymentOperationRequest request, IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Enum.TryParse<PaymentOperationKind>(operation, true, out PaymentOperationKind kind))
+        {
+            return Results.BadRequest(new { error = "Operation must be capture, void or refund." });
+        }
+        PaymentGatewayResult result = await dispatcher.SendAsync(new ExecutePaymentOperationCommand(id,
+            request.CompanyId, kind, request.ProviderPaymentId, request.MerchantReference, request.Amount,
+            request.Currency, request.IdempotencyKey), cancellationToken).ConfigureAwait(false);
+        return Results.Ok(result);
+    }
+
     private static async Task<IResult> ApplyPaymentWebhookAsync(
         HttpRequest http, IConfiguration configuration, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -192,6 +211,8 @@ public static class EcommerceEndpoints
     public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
     public sealed record CheckoutDecisionRequest(Guid CompanyId, string Reason = "Store authority rejected the checkout.");
     public sealed record BeginPaymentRequest(Guid CompanyId, string OwnerKey, Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl);
+    public sealed record ExecutePaymentOperationRequest(Guid CompanyId, string ProviderPaymentId,
+        string MerchantReference, decimal Amount, string Currency, string IdempotencyKey);
     public sealed record PaymentWebhookRequest(Guid CheckoutId, Guid CompanyId, string EventId,
         string ProviderPaymentId, string Status, string? ProviderReference);
 }
