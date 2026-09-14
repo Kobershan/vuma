@@ -72,6 +72,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   the app process; the durable state boundary is documented in `android/README.md`.
 - 2026-09-14: Extended `VumaApiClient` with the `/api/v1/dashboard/overview` contract, preserving
   separate currency totals and the server AsAt timestamp for cached dashboard reads.
+- 2026-09-14: The Android workflow exposed a Java/Kotlin JVM-target mismatch (Java 8 versus Kotlin
+  17); `android/app/build.gradle.kts` now compiles both targets with Java 17. A fresh GitHub run is
+  in progress; Android assembly and device acceptance remain unverified until it completes.
 
 ## Tests / acceptance
 
