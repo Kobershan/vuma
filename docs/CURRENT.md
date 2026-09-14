@@ -23,9 +23,10 @@ part of the pending Stage 21 PostgreSQL acceptance.
 WORK LOG (2026-09-14): Stage 18 dispatch authorization now checks the existing quality-hold boundary
 and the inventory ledger's net expired tracked stock at the supplied business date before any bin move
 or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query coverage and a focused
-regression test. Application and Infrastructure Release builds compile; focused quality/warehouse
-unit tests pass **89/89**. Real PostgreSQL dispatch-boundary and automatic lot-to-output/shipment
-recall-traceability acceptance remain open.
+regression test. Receipt commands now carry lot, expiry and serial metadata, and the real PostgreSQL
+warehouse chain proves the expiry refusal. Application and Infrastructure Release builds compile;
+focused quality/warehouse unit tests pass **89/89**. Automatic lot-to-output/shipment recall-
+traceability acceptance remains open.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are

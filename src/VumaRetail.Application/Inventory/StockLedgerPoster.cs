@@ -30,6 +30,9 @@ public interface IStockLedgerPoster
     /// The bin the stock landed in, when the caller knows one — <c>null</c> otherwise. Added in Stage
     /// 13, additively: every caller that does not pass it keeps behaving exactly as before.
     /// </param>
+    /// <param name="batchReference">Optional lot or batch identity.</param>
+    /// <param name="expiryDate">Optional lot expiry date.</param>
+    /// <param name="serialNumber">Optional serial identity.</param>
     Task<StockLedgerEntry> ReceiveAsync(
         StockLocation location,
         Guid? itemId,
@@ -38,7 +41,10 @@ public interface IStockLedgerPoster
         Money unitCost,
         string? note,
         CancellationToken cancellationToken = default,
-        Guid? binId = null);
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>
     /// Posts a sale issue — stock leaving through a sale, valued at the current weighted-average cost.
@@ -428,13 +434,17 @@ public sealed class StockLedgerPoster(
         Money unitCost,
         string? note,
         CancellationToken cancellationToken = default,
-        Guid? binId = null)
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostReceiptLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.Receipt, quantity, unitCost,
-            StockReferenceType.Manual, referenceId: null, reasonCode: null, note, cancellationToken);
+            StockReferenceType.Manual, referenceId: null, reasonCode: null, note, cancellationToken,
+            batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />

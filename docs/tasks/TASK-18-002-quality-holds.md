@@ -1,12 +1,12 @@
 # TASK-18-002 — Quality holds and stock availability
 
-**Status:** IN_PROGRESS — dispatch gate implementation added; PostgreSQL boundary evidence remains · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
+**Status:** IN_PROGRESS — dispatch gate and PostgreSQL expiry-boundary evidence implemented; reservation projection traceability remains · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
 
 ## Objective
 
 > **Audit correction (2026-09-14):** Dispatch enforcement is now implemented in
 > `ShipWaveCommandHandler` and runs before stock moves into dispatch. Source-built and PostgreSQL
-> boundary evidence remain to be executed.
+> boundary evidence are recorded for the expiry refusal.
 
 Place and dispose quality holds through the Stage 08c reservation boundary so held quantity is not
 available for allocation and partial shortages leave no persisted hold.
@@ -32,9 +32,10 @@ available for allocation and partial shortages leave no persisted hold.
 
 ## Remaining
 
-The real PostgreSQL expiry-boundary dispatch refusal and reservation projection evidence remain open;
-the application gate now checks both active quality holds and expired tracked stock at the supplied
-business date.
+The real PostgreSQL expiry-boundary dispatch refusal is covered by
+`WarehouseCommandTests.Shipping_a_wave_with_expired_tracked_stock_is_refused_against_postgresql`.
+Reservation projection evidence remains open; the application gate checks both active quality holds
+and expired tracked stock at the supplied business date.
 
 ## Work log
 
@@ -43,3 +44,5 @@ business date.
   the typed `QUALITY_HOLD_EXCEEDS_AVAILABLE` domain rule so the central API error contract returns
   HTTP 422 without persisting a hold. Focused integration evidence is now 13/13 green; expiry and
   dispatch integration remain open.
+- 2026-09-14: Receipt commands now carry lot, expiry and serial metadata. The real PostgreSQL
+  warehouse chain proves an expired tracked lot is refused before shipment posting.

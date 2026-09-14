@@ -6,6 +6,7 @@ using VumaRetail.Application.Warehouse.Commands;
 using VumaRetail.Application.Warehouse.Queries;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Quality;
 using VumaRetail.Domain.Warehouse;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
@@ -162,6 +163,31 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
 
         PackTaskResult pack = await harness.QueryAsync(new GetPackTaskQuery(waveId));
         pack.PackageCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Shipping_a_wave_with_expired_tracked_stock_is_refused_against_postgresql()
+    {
+        await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
+        (_, Guid binId) = await CreateZoneAndBinAsync(harness, "EXP-A", "A-01");
+        DateOnly expiry = DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime).AddDays(-1);
+
+        await harness.SendAsync(new ReceiveStockCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), new Money(10m, "ZAR"), "Expired lot",
+            "LOT-EXPIRED", expiry));
+        Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
+            harness.LocationId, harness.ItemId, null, Each(10m), PutawaySourceReferenceType.ManualReceipt));
+        await harness.SendAsync(new ConfirmPutawayCommand(putawayId, binId, Each(10m)));
+
+        Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
+        Guid taskId = await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(5m), "SO-EXPIRED"));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
+        await harness.SendAsync(new ConfirmPickCommand(taskId, Each(5m)));
+        await harness.SendAsync(new PackWaveCommand(waveId, 1));
+
+        Func<Task> shipping = () => harness.SendAsync(new ShipWaveCommand(waveId));
+        (await shipping.Should().ThrowAsync<QualityRuleException>())
+            .Which.Code.Should().Be("QUALITY_DISPATCH_EXPIRED_STOCK");
     }
 
     [Fact]

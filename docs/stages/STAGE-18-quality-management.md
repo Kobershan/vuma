@@ -1,12 +1,13 @@
 # STAGE 18 — Quality Management
 
-**Status:** IN_PROGRESS — dispatch now checks active quality holds and expired tracked stock; PostgreSQL dispatch and automatic recall-traceability acceptance remain · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — dispatch checks active quality holds and expired tracked stock with PostgreSQL warehouse evidence; automatic recall-traceability acceptance remains · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
 > **Audit correction (2026-09-14):** Stage 18 remains **IN_PROGRESS**. The audit found a missing
 > quality-hold check in warehouse shipping; that integration is now implemented in code. PostgreSQL
-> dispatch/shelf-life execution and automatic lot-to-output/shipment recall traceability remain open.
+> dispatch/shelf-life execution is now covered by a PostgreSQL warehouse test; automatic lot-to-output/
+> shipment recall traceability remains open.
 
 Track inspection, quarantine, release, non-conformance, corrective actions and recalls across procurement and production lots. A quarantined lot must never appear as sellable availability.
 

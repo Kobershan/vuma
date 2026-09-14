@@ -12,6 +12,9 @@ namespace VumaRetail.Application.Inventory.Commands;
 /// <param name="Quantity">How much arrived. Must be positive.</param>
 /// <param name="UnitCost">What it cost per unit.</param>
 /// <param name="Note">An optional free-text note.</param>
+/// <param name="BatchReference">Optional lot or batch identity.</param>
+/// <param name="ExpiryDate">Optional lot expiry date.</param>
+/// <param name="SerialNumber">Optional serial identity.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ReceiveStockCommand(
     Guid LocationId,
@@ -19,7 +22,10 @@ public sealed record ReceiveStockCommand(
     Guid? ItemVariantId,
     Quantity Quantity,
     Money UnitCost,
-    string? Note = null) : ICommand<Guid>;
+    string? Note = null,
+    string? BatchReference = null,
+    DateOnly? ExpiryDate = null,
+    string? SerialNumber = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed receive-stock command before it reaches the handler.</summary>
 public sealed class ReceiveStockCommandValidator : AbstractValidator<ReceiveStockCommand>
@@ -68,7 +74,9 @@ public sealed class ReceiveStockCommandHandler(
         }
 
         StockLedgerEntry entry = await poster
-            .ReceiveAsync(location, command.ItemId, command.ItemVariantId, command.Quantity, command.UnitCost, command.Note, cancellationToken)
+            .ReceiveAsync(location, command.ItemId, command.ItemVariantId, command.Quantity, command.UnitCost, command.Note,
+                cancellationToken, batchReference: command.BatchReference, expiryDate: command.ExpiryDate,
+                serialNumber: command.SerialNumber)
             .ConfigureAwait(false);
 
         return entry.Id;
