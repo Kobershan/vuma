@@ -19,6 +19,9 @@ WORK LOG (2026-09-14): Stage 18 quality hold release/rejection, inspection, corr
 non-conformance transitions now validate loaded tenant scope alongside company scope. Quality unit
 tests pass **13/13**; NCR/CAPA, recall, certificate and full acceptance remain open.
 
+VERIFICATION (2026-09-14): The quality suite was rerun after the tenant guards compiled; **13/13**
+tests passed and the Application build reports **0 errors**.
+
 VERIFICATION (2026-09-14): The full PostgreSQL integration run reached **607/608** before exposing
 one stale trailing-slash expectation in the shared API contract list. The Stage 27 asset and
 maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;
