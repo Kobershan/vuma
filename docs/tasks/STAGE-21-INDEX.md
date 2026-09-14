@@ -3,6 +3,10 @@
 Tasks are ordered by dependency and cover the Stage 21 parts. A task is complete only when its
 implementation, security boundary, acceptance tests and documentation evidence are green.
 
+> **Audit correction (2026-09-14):** The closure note below overstates completion. The task files
+> still record authoritative order/reservation/gateway orchestration, capture/refund, outage,
+> PostgreSQL and end-to-end webhook evidence as open. Stage 21 remains IN_PROGRESS pending those gates.
+
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
 | TASK-21-001 | Storefront identity, published products and public catalogue API | Stages 14, 20, 06c | COMPLETE — identity, redacted catalogue, scope and OpenAPI evidence pass |

@@ -4,6 +4,9 @@
 
 ## Current evidence
 
+> **Audit correction (2026-09-14):** This task remains open despite the historical COMPLETE label;
+> provider orchestration, capture/void/refund and end-to-end PostgreSQL webhook replay are not done.
+
 - Signed `POST /api/v1/storefront/webhooks/payments` is mapped in the real StoreServer OpenAPI.
 - HMAC-SHA256 verification rejects missing, malformed and tampered signatures.
 - Payment attempts persist provider status, event ID and content fingerprint; same-event retries are

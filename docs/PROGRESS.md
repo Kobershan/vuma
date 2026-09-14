@@ -8,6 +8,10 @@
 `CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
 contain historical review context and are superseded where this snapshot disagrees with them.
 
+- Stage 21/21b audit correction (2026-09-14): the existing completion label for Stage 21 is ahead of
+  its task evidence; order/reservation/gateway/outage acceptance remains open. Stage 21b remains open
+  pending end-to-end supplier trading, ASN/GRN, isolation and settlement evidence.
+
 - Stage 18 audit correction (2026-09-14): the warehouse quality dispatch gate is implemented; source-built
   regression, PostgreSQL shelf-life/dispatch execution, and automatic recall traceability remain open.
 

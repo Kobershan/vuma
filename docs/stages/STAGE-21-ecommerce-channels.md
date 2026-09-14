@@ -4,6 +4,10 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** Stage 21 remains **IN_PROGRESS**. Catalogue, basket, checkout
+> and signed notification foundations exist, but authoritative order/reservation/payment-gateway
+> orchestration, capture/void/refund, outage and full PostgreSQL acceptance are not complete.
+
 Expose a cloud storefront API for catalogues, baskets, checkout and channel orders. Cloud checkout sends durable intents to the owning store; confirmed stock/payment status is shown only after authoritative acknowledgements.
 
 ## What this stage does not own

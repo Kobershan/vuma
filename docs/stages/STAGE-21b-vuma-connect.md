@@ -23,6 +23,10 @@ Current implementation status: the relationship, catalogue, order, migration, is
 | TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | IN PROGRESS |
 
 ## Objective
+
+> **Audit correction (2026-09-14):** Stage 21b remains **IN_PROGRESS**. Relationship, catalogue,
+> order, settlement and portal foundations exist, but supplier-portal end-to-end trading, ASN/GRN,
+> cross-tenant isolation, settlement/remittance and offline-convergence acceptance are not complete.
 Turn Vuma from software each retailer runs alone into a **network they trade across**. A supplier gets
 their own login, publishes their catalogue and prices once, and every connected retailer sees it in
 their own system. The retailer orders from inside Vuma, pays through Vuma, and the goods receipt writes

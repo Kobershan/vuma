@@ -4,6 +4,9 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** This task remains open despite the historical COMPLETE label;
+> authoritative order, reservation, gateway and outage integration is not implemented/evidenced.
+
 Complete the storefront transaction boundary after catalogue publication: durable basket ownership,
 idempotent checkout intents, store-authoritative confirmation, and explicit payment outcomes.
 
