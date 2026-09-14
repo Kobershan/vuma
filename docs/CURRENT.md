@@ -79,6 +79,9 @@ set now passes **4/4**; packaging, DR and GitHub workflow completion remain open
 WORK LOG (2026-09-14): The durable Android action adapter now rejects empty company scopes before
 querying Room, keeping offline claims fail-closed for sessions without effective company access.
 
+WORK LOG (2026-09-14): CI now runs the manifest-generation test and cancels superseded pushes per
+branch, keeping the latest release gate authoritative during long builds.
+
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
 by DataStore. Android compilation and instrumentation acceptance remain CI-dependent.
