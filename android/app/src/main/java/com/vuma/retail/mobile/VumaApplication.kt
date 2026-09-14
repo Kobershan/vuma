@@ -11,5 +11,7 @@ class VumaApplication : Application() {
             .build()
     }
 
+    val actionStore: MobileActionStore by lazy { MobileActionStore(database.cache()) }
+
     val sessionStore: TenantSessionStore by lazy { TenantSessionStore(this) }
 }

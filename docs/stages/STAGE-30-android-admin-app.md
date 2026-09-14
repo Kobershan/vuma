@@ -78,6 +78,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: Versioned the Room cache to schema version 2 with a non-destructive migration for
   pending-action retry/error metadata; the app now registers the migration instead of relying on
   destructive downgrade behavior.
+- 2026-09-14: Added `MobileActionStore` as the durable adapter for enqueue, authenticated-session
+  claiming, state transitions and retry metadata, and exposed it from `VumaApplication`.
 
 ## Tests / acceptance
 

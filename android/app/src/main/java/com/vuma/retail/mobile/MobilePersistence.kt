@@ -61,6 +61,9 @@ interface MobileCacheDao {
     @Query("UPDATE pending_actions SET state = :state WHERE id = :id AND state = :expectedState")
     suspend fun transition(id: String, expectedState: String, state: String): Int
 
+    @Query("UPDATE pending_actions SET state = :state, retryCount = retryCount + :retryIncrement, lastError = :lastError, updatedAtEpochMillis = :updatedAt WHERE id = :id AND state = :expectedState")
+    suspend fun transitionWithMetadata(id: String, expectedState: String, state: String, retryIncrement: Int, lastError: String?, updatedAt: Long): Int
+
     @Query("SELECT * FROM pending_actions WHERE id = :id")
     suspend fun action(id: String): PendingActionEntity?
 }
