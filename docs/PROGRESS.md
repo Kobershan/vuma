@@ -5,6 +5,15 @@
 
 ## Active status reconciliation — 2026-09-12
 
+## Verification update — 2026-09-14
+
+The current Release baseline remains green: **1,566 unit tests** and **85 architecture tests**
+passed. A focused PostgreSQL manufacturing migration run passed **2/2**. The full integration
+suite was bounded at five minutes during this session and did not emit a failure before timeout;
+because the suite disables parallelization and creates an isolated database per test, this is
+insufficient evidence for full integration closure. Open stages below remain open until their
+acceptance and specialist evidence is executed.
+
 `CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
 contain historical review context and are superseded where this snapshot disagrees with them.
 

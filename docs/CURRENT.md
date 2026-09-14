@@ -6,6 +6,13 @@
 CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 implementation is present but final verification remains open; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
 NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 task queues.
 
+VERIFICATION (2026-09-14): Release unit tests pass **1,566/1,566** and architecture tests pass
+**85/85**. A focused PostgreSQL manufacturing migration run passes **2/2**. The complete
+integration suite was started twice but exceeded a five-minute diagnostic limit without emitting a
+failure; it is intentionally serialized and provisions an isolated database per test, so this is a
+runtime limit rather than passing evidence. Do not mark the remaining stages complete from the unit
+or focused migration results alone.
+
 WORK LOG (2026-09-14): Stage 17 PostgreSQL API verification exposed and fixed a per-request company
 context gap on BOM reads/publication and production mutations. Company binding is now explicit on
 those routes while handlers remain fail-closed. Manufacturing API integration passes **7/7** and
