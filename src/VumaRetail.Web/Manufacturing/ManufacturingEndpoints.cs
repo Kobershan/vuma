@@ -141,7 +141,9 @@ public static class ManufacturingEndpoints
     private static async Task<IResult> ReceiveProductionAsync(Guid id, ReceiveProductionOutputRequest request, Guid? companyId, HttpContext http, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         BindCompany(http, company, companyId);
-        await dispatcher.SendAsync(new ReceiveProductionOutputCommand(id, request.LocationId, request.OperationId, request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency), cancellationToken).ConfigureAwait(false);
+        await dispatcher.SendAsync(new ReceiveProductionOutputCommand(id, request.LocationId, request.OperationId,
+            request.Quantity, request.UnitOfMeasure, request.UnitCost, request.Currency, request.BatchReference,
+            request.ExpiryDate, request.SerialNumber), cancellationToken).ConfigureAwait(false);
         return TypedResults.NoContent();
     }
 

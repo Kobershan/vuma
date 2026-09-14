@@ -271,8 +271,20 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
 }
 
 /// <summary>Receives finished output against a production order.</summary>
+/// <param name="ProductionOrderId">The production order.</param>
+/// <param name="LocationId">The receiving stock location.</param>
+/// <param name="OperationId">The idempotent output operation.</param>
+/// <param name="Quantity">Produced quantity.</param>
+/// <param name="UnitOfMeasure">Quantity unit.</param>
+/// <param name="UnitCost">Output unit cost.</param>
+/// <param name="Currency">Output cost currency.</param>
+/// <param name="BatchReference">Optional lot or batch identity.</param>
+/// <param name="ExpiryDate">Optional lot expiry date.</param>
+/// <param name="SerialNumber">Optional serial identity.</param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId,
+    decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency, string? BatchReference = null,
+    DateOnly? ExpiryDate = null, string? SerialNumber = null) : ICommand;
 
 /// <summary>Handles one idempotent finished-output receipt.</summary>
 public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster, ICompanyContext company)
@@ -304,7 +316,8 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
         }
         try
         {
-            await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id, cancellationToken).ConfigureAwait(false);
+            await poster.ReceiveForProductionAsync(location, order.FinishedItemId, null, quantity, unitCost, order.Id,
+                cancellationToken, command.BatchReference, command.ExpiryDate, command.SerialNumber).ConfigureAwait(false);
         }
         catch
         {

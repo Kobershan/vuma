@@ -85,6 +85,16 @@ public interface IStockLedgerPoster
         CancellationToken cancellationToken = default);
 
     /// <summary>Posts finished output against a production order.</summary>
+    /// <param name="location">Where the output was produced.</param>
+    /// <param name="itemId">The finished item.</param>
+    /// <param name="itemVariantId">The finished variant, when applicable.</param>
+    /// <param name="quantity">How much was produced.</param>
+    /// <param name="unitCost">The output unit cost.</param>
+    /// <param name="productionOrderReferenceId">The production order identity.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="batchReference">Optional lot or batch identity.</param>
+    /// <param name="expiryDate">Optional lot expiry date.</param>
+    /// <param name="serialNumber">Optional serial identity.</param>
     Task<StockLedgerEntry> ReceiveForProductionAsync(
         StockLocation location,
         Guid? itemId,
@@ -92,7 +102,10 @@ public interface IStockLedgerPoster
         Quantity quantity,
         Money unitCost,
         Guid productionOrderReferenceId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>
     /// Posts a sales return — stock coming back over the counter, valued at what it left at.
@@ -492,11 +505,13 @@ public sealed class StockLedgerPoster(
     /// <inheritdoc />
     public Task<StockLedgerEntry> ReceiveForProductionAsync(
         StockLocation location, Guid? itemId, Guid? itemVariantId, Quantity quantity, Money unitCost,
-        Guid productionOrderReferenceId, CancellationToken cancellationToken = default)
+        Guid productionOrderReferenceId, CancellationToken cancellationToken = default,
+        string? batchReference = null, DateOnly? expiryDate = null, string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
         return PostReceiptLikeAsync(location, binId: null, itemId, itemVariantId, StockMovementType.ProductionReceipt,
-            quantity, unitCost, StockReferenceType.Production, productionOrderReferenceId, reasonCode: null, note: null, cancellationToken);
+            quantity, unitCost, StockReferenceType.Production, productionOrderReferenceId, reasonCode: null, note: null,
+            cancellationToken, batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />

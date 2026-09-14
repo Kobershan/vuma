@@ -1,6 +1,6 @@
 # TASK-18-003 — NCR/CAPA, certificates, recalls and closure evidence
 
-**Status:** IN_PROGRESS — lifecycle slices, dispatch and tracked-shipment recall derivation implemented; automatic lot-to-output genealogy acceptance remains · **Stage:** 18 · **Type:** Domain, API, verification, documentation
+**Status:** IN_PROGRESS — lifecycle slices, dispatch, tracked shipment and production-output recall derivation implemented; multi-step lot genealogy acceptance remains · **Stage:** 18 · **Type:** Domain, API, verification, documentation
 
 ## Objective
 
@@ -24,6 +24,8 @@ shelf-life enforcement, then close the stage with seed, backup and specialist ev
 - OpenAPI and quality permission integration tests pass; migration Up/Down passes on PostgreSQL.
 - Opening a recall automatically imports downstream shipment references from tracked ledger
   movements; the regression is covered by `QualityHoldTests`.
+- Production output receipt commands and API requests now carry batch, expiry and serial identity,
+  so tracked production-output ledger references are available to recall derivation.
 - Quality write-route company binding is covered by the authorized API suite (3/3 passed).
 - The rebuilt focused quality integration suite passes **5/5**; this verifies the current API and
   migration surface but does not replace the still-open dispatch/recall traceability scenarios.
