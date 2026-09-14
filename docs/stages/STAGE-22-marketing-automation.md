@@ -65,6 +65,10 @@ metadata with per-recipient idempotency keys and suppression state. Marketing-fo
 2026-09-13: Added a dedicated `MarketingWhatsApp` consent purpose; WhatsApp marketing now requires
 that explicit purpose immediately before delivery rather than being treated as another channel.
 
+2026-09-14: Marketing create/queue routes now bind the request company, and campaign/message state
+transitions accept an explicit company selector before dispatch. StoreServer build passes with
+**0 errors**; durable transport and signed callbacks remain open.
+
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.
 - `Quiet_hours_follow_recipient_zone`: a marketing message scheduled at 21:00 local moves to 08:00 next day.

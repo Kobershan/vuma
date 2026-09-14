@@ -161,6 +161,10 @@ WORK LOG (2026-09-14): Stage 29 export completion, failure, status and download 
 enforce tenant as well as company scope, and export handoff routes bind the request company before
 dispatch. `ReportingDomainTests` passes **9/9**; renderer/storage and scheduling remain open.
 
+WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their request company;
+campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
+build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.
+
 VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
 and replaced with `Stage29ReportExportArtifactsFix`, which adds
 `reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model
