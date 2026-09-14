@@ -26,6 +26,10 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 ## Objective
 
+> **Audit correction (2026-09-14):** Stage 22b remains **IN_PROGRESS**. Identity, deterministic
+> classification, scoped reads and token delivery foundations exist, but remaining module-backed
+> intent handlers, Stage 22 transport integration and end-to-end acceptance are not complete.
+
 A customer sends a WhatsApp message saying "morning, can I get my statement" or "please send 10 bags of
 maize and 2 hot plates" or "I need the POD for last Thursday's delivery", and the right thing happens —
 scoped to their own account, in the right company, with every figure coming from the API and none from

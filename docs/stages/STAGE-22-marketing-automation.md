@@ -4,6 +4,10 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** Stage 22 remains **IN_PROGRESS**. Consent and campaign/message
+> foundations are present, but durable delivery processing, configured provider transport, callbacks,
+> journeys and full PostgreSQL/API acceptance are not complete.
+
 Deliver consent-aware campaigns and journeys through one shared email/SMS/WhatsApp transport. Campaign attribution uses real channel events and explicit privacy controls.
 
 ## What this stage does not own

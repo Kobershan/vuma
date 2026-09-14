@@ -58,6 +58,11 @@ WORK LOG (2026-09-14): Stage 22 marketing outbound-message suppression and send 
 closed on the loaded tenant as well as company before changing state. `MarketingDeliveryPolicyTests`
 passes **13/13**; durable transport, callbacks, attribution, and full stage acceptance remain open.
 
+AUDIT NOTE (2026-09-14): Focused Marketing/Conversations unit tests pass **21/21**. Conversation
+migration/API integration tests were attempted but cannot start without Docker/PostgreSQL. Stage 22
+and 22b remain open because durable transport processing and the remaining module-backed intent
+handlers are not implemented.
+
 WORK LOG (2026-09-14): Stage 28 project cost allocation, budget approval, contract variation
 approval and milestone billing now fail closed on both tenant and company scope. The changed-content
 replay check also validates the persisted tenant/company boundary. Focused project tests pass **7/7**;
