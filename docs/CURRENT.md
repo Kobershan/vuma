@@ -76,6 +76,9 @@ WORK LOG (2026-09-14): Added deterministic release-manifest generation with excl
 control, build caches, local configuration and signing material. The complete local release-script
 set now passes **4/4**; packaging, DR and GitHub workflow completion remain open.
 
+WORK LOG (2026-09-14): The durable Android action adapter now rejects empty company scopes before
+querying Room, keeping offline claims fail-closed for sessions without effective company access.
+
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
 by DataStore. Android compilation and instrumentation acceptance remain CI-dependent.

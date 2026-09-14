@@ -11,6 +11,7 @@ class MobileActionStore(private val dao: MobileCacheDao) {
     }
 
     suspend fun claimNext(session: TenantSession): PendingAction? {
+        if (session.companyIds.isEmpty()) return null
         val entity = dao.nextAction(session.profile.tenantId, session.userId, session.companyIds.toList()) ?: return null
         check(dao.transition(entity.id, PendingActionState.Queued.name, PendingActionState.Sending.name) == 1) {
             "Pending action was claimed by another worker"
