@@ -176,6 +176,7 @@ public sealed record ReleaseProductionOrderCommand(Guid ProductionOrderId, Guid 
 public sealed class ReleaseProductionOrderCommandHandler(
     IProductionOrderRepository orders,
     IBillOfMaterialsRepository boms,
+    ICompanyContext company,
     IClock clock) : ICommandHandler<ReleaseProductionOrderCommand, Unit>
 {
     /// <inheritdoc />
@@ -184,8 +185,10 @@ public sealed class ReleaseProductionOrderCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        ManufacturingCompanyScope.EnsureActiveCompany(company, order.CompanyId);
         BillOfMaterials bom = await boms.FindAsync(command.BillOfMaterialsId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.BillOfMaterialsId);
+        ManufacturingCompanyScope.EnsureActiveCompany(company, bom.CompanyId);
         order.Release(command.OperationId, bom, clock.UtcNow);
         return Unit.Value;
     }
@@ -205,7 +208,7 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
-        company.SetCompany(order.CompanyId ?? throw new InvalidOperationException("Production order has no company."));
+        ManufacturingCompanyScope.EnsureActiveCompany(company, order.CompanyId);
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
         Money unitCost = new(command.UnitCost, command.Currency);
         if (!order.IssueMaterial(command.OperationId, command.ComponentItemId, command.ComponentVariantId, quantity, unitCost))
@@ -272,7 +275,7 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
 public sealed record ReceiveProductionOutputCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent finished-output receipt.</summary>
-public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster)
+public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IStockLedgerPoster poster, ICompanyContext company)
     : ICommandHandler<ReceiveProductionOutputCommand, Unit>
 {
     /// <inheritdoc />
@@ -281,6 +284,7 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        ManufacturingCompanyScope.EnsureActiveCompany(company, order.CompanyId);
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
         Money unitCost = new(command.UnitCost, command.Currency);
         if (!order.ReceiveOutput(command.OperationId, quantity, unitCost))
@@ -316,7 +320,7 @@ public sealed class ReceiveProductionOutputCommandHandler(IProductionOrderReposi
 public sealed record RecordProductionScrapCommand(Guid ProductionOrderId, Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
 
 /// <summary>Handles one idempotent scrap record.</summary>
-public sealed class RecordProductionScrapCommandHandler(IProductionOrderRepository orders, IProductionAccountingEventPublisher accounting, IClock clock)
+public sealed class RecordProductionScrapCommandHandler(IProductionOrderRepository orders, IProductionAccountingEventPublisher accounting, ICompanyContext company, IClock clock)
     : ICommandHandler<RecordProductionScrapCommand, Unit>
 {
     /// <inheritdoc />
@@ -325,6 +329,7 @@ public sealed class RecordProductionScrapCommandHandler(IProductionOrderReposito
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        ManufacturingCompanyScope.EnsureActiveCompany(company, order.CompanyId);
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
         Money unitCost = new(command.UnitCost, command.Currency);
         if (!order.RecordScrap(command.OperationId, quantity, unitCost))
@@ -356,7 +361,7 @@ public sealed class RecordProductionScrapCommandHandler(IProductionOrderReposito
 public sealed record CloseProductionOrderCommand(Guid ProductionOrderId) : ICommand;
 
 /// <summary>Handles completion and closure of a production order.</summary>
-public sealed class CloseProductionOrderCommandHandler(IProductionOrderRepository orders)
+public sealed class CloseProductionOrderCommandHandler(IProductionOrderRepository orders, ICompanyContext company)
     : ICommandHandler<CloseProductionOrderCommand, Unit>
 {
     /// <inheritdoc />
@@ -365,11 +370,23 @@ public sealed class CloseProductionOrderCommandHandler(IProductionOrderRepositor
         ArgumentNullException.ThrowIfNull(command);
         ProductionOrder order = await orders.FindAsync(command.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(command.ProductionOrderId);
+        ManufacturingCompanyScope.EnsureActiveCompany(company, order.CompanyId);
         if (order.Status == ProductionOrderStatus.InProgress)
         {
             order.Complete();
         }
         order.Close();
         return Unit.Value;
+    }
+}
+
+internal static class ManufacturingCompanyScope
+{
+    internal static void EnsureActiveCompany(ICompanyContext company, Guid? expectedCompany)
+    {
+        if (expectedCompany is not { } expected || company.CompanyId is not { } active || active != expected)
+        {
+            throw new InvalidOperationException("The production-order company is not the active company.");
+        }
     }
 }

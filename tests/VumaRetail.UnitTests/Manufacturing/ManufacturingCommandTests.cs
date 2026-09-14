@@ -136,4 +136,22 @@ public sealed class ManufacturingCommandTests
             .HandleAsync(new PublishBillOfMaterialsCommand(bom.Id)))
             .Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task Close_command_rejects_an_order_from_another_active_company_before_mutation()
+    {
+        IProductionOrderRepository repository = Substitute.For<IProductionOrderRepository>();
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        Guid orderCompany = Guid.NewGuid();
+        company.CompanyId.Returns(Guid.NewGuid());
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), Guid.NewGuid(), orderCompany,
+            Guid.NewGuid(), new(1m, "EA"), "PO-CLOSE-SCOPE", Guid.NewGuid());
+        repository.FindAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
+
+        Func<Task> action = () => new CloseProductionOrderCommandHandler(repository, company)
+            .HandleAsync(new CloseProductionOrderCommand(order.Id));
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        order.Status.Should().Be(ProductionOrderStatus.Draft);
+    }
 }

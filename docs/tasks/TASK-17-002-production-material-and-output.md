@@ -61,3 +61,8 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   `manufacturing.scrap.recorded` journal after the configured Finance posting rule. The focused
   manufacturing suite is 20/20 unit and 9/9 integration tests green; backup/seed and specialist
   closure evidence remain assigned to TASK-17-003.
+- 2026-09-14: production execution handlers now require the loaded order and BOM to belong to the
+  already-selected active company. The issue path no longer changes the ambient company based on
+  the order being loaded; release, output, scrap and close use the same fail-closed comparison.
+  `ManufacturingCommandTests` passes 8/8, while PostgreSQL backup/seed and specialist closure
+  evidence remain open.

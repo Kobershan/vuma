@@ -47,6 +47,11 @@ WORK LOG (2026-09-14): Stage 17 BOM publication and retrieval now enforce the lo
 active company boundary. Manufacturing command tests pass 7/7; PostgreSQL and closure evidence
 remain open.
 
+WORK LOG (2026-09-14): Stage 17 production release, material issue, output, scrap and close
+handlers now fail closed when the loaded order/BOM is outside the active company; material issue
+no longer changes the ambient company from loaded data. `ManufacturingCommandTests` passes 8/8;
+PostgreSQL backup/seed and specialist closure evidence remain open.
+
 WORK LOG (2026-09-14): Stage 23 SLA creation now enforces active-company scope before duplicate
 lookup or persistence. Service domain tests pass 6/6; worker escalation and full acceptance remain
 open.
