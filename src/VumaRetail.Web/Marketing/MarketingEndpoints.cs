@@ -46,6 +46,14 @@ public static class MarketingEndpoints
             int processed = await worker.DispatchDueAsync(companyId, limit ?? 100, ct);
             return Results.Ok(new { companyId, processed });
         }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/journeys", async (CreateJourneyRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        { company.SetCompany(r.CompanyId); Guid id = await d.SendAsync(new CreateJourneyDefinitionCommand(r.CompanyId, r.Name, r.Version, r.DefinitionJson), ct); return Results.Created($"/api/v1/marketing/journeys/{id}", new { id }); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/journeys/{id:guid}/publish", async (Guid id, Guid companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        { company.SetCompany(companyId); await d.SendAsync(new PublishJourneyDefinitionCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/journeys/{id:guid}/enroll", async (Guid id, EnrollJourneyRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        { company.SetCompany(r.CompanyId); Guid enrollment = await d.SendAsync(new EnrollJourneyCommand(r.CompanyId, id, r.CustomerId, r.IdempotencyKey, r.NextRunAt), ct); return Results.Created($"/api/v1/marketing/journeys/{id}/enrollments/{enrollment}", new { id = enrollment }); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/attribution", async (RecordAttributionRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        { company.SetCompany(r.CompanyId); Guid id = await d.SendAsync(new RecordAttributionEventCommand(r.CompanyId, r.CampaignId, r.MessageId, r.CustomerId, r.EventType), ct); return Results.Created($"/api/v1/marketing/attribution/{id}", new { id }); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/webhooks/{provider}", ApplyProviderResultAsync)
             .AllowAnonymous()
             .Produces(StatusCodes.Status202Accepted)
@@ -113,4 +121,7 @@ public static class MarketingEndpoints
     public sealed record QueueMessageRequest(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt,
         MarketingChannel Channel = MarketingChannel.Email, MessageClassification Classification = MessageClassification.Marketing);
     public sealed record ProviderResultRequest(Guid MessageId, Guid CompanyId, string ProviderEventId, string PayloadFingerprint, bool Delivered);
+    public sealed record CreateJourneyRequest(Guid CompanyId, string Name, int Version, string DefinitionJson);
+    public sealed record EnrollJourneyRequest(Guid CompanyId, Guid CustomerId, string IdempotencyKey, DateTimeOffset NextRunAt);
+    public sealed record RecordAttributionRequest(Guid CompanyId, Guid? CampaignId, Guid? MessageId, Guid CustomerId, string EventType);
 }

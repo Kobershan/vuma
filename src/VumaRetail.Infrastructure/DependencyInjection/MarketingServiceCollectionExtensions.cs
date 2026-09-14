@@ -17,6 +17,9 @@ public static class MarketingServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, MarketingModuleManifest>());
         services.AddScoped<IMarketingCampaignRepository, MarketingCampaignRepository>();
         services.AddScoped<IOutboundMessageRepository, OutboundMessageRepository>();
+        services.AddScoped<IJourneyDefinitionRepository, JourneyDefinitionRepository>();
+        services.AddScoped<IJourneyEnrollmentRepository, JourneyEnrollmentRepository>();
+        services.AddScoped<IAttributionEventRepository, AttributionEventRepository>();
         services.AddScoped<MarketingDeliveryPolicy>();
         services.AddScoped<MarketingDeliveryService>();
         services.AddScoped<IMarketingDeliveryWorker, MarketingDeliveryWorker>();

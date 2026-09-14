@@ -40,3 +40,39 @@ internal sealed class OutboundMessageConfiguration : EntityConfiguration<Outboun
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status, x.ScheduledAt });
     }
 }
+
+internal sealed class JourneyDefinitionConfiguration : EntityConfiguration<JourneyDefinition>
+{
+    protected override string Schema => Schemas.Marketing;
+    protected override string TableName => "journey_definitions";
+    protected override void ConfigureEntity(EntityTypeBuilder<JourneyDefinition> b)
+    {
+        b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.Name).HasMaxLength(256).IsRequired();
+        b.Property(x => x.DefinitionJson).HasColumnType("jsonb").IsRequired();
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Name, x.Version }).IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}
+
+internal sealed class JourneyEnrollmentConfiguration : EntityConfiguration<JourneyEnrollment>
+{
+    protected override string Schema => Schemas.Marketing;
+    protected override string TableName => "journey_enrollments";
+    protected override void ConfigureEntity(EntityTypeBuilder<JourneyEnrollment> b)
+    {
+        b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.IdempotencyKey).HasMaxLength(256).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IdempotencyKey }).IsUnique().HasFilter("deleted_at IS NULL");
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsActive, x.NextRunAt });
+    }
+}
+
+internal sealed class AttributionEventConfiguration : EntityConfiguration<AttributionEvent>
+{
+    protected override string Schema => Schemas.Marketing;
+    protected override string TableName => "attribution_events";
+    protected override void ConfigureEntity(EntityTypeBuilder<AttributionEvent> b)
+    {
+        b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.EventType).HasMaxLength(64).IsRequired();
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CampaignId, x.OccurredAt });
+    }
+}

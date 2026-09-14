@@ -31,3 +31,21 @@ public interface IMarketingDeliveryWorker
 {
     Task<int> DispatchDueAsync(Guid companyId, int limit = 100, CancellationToken cancellationToken = default);
 }
+
+public interface IJourneyDefinitionRepository
+{
+    Task<JourneyDefinition?> FindAsync(Guid id, CancellationToken cancellationToken = default);
+    void Add(JourneyDefinition journey);
+}
+
+public interface IJourneyEnrollmentRepository
+{
+    Task<JourneyEnrollment?> FindByIdempotencyKeyAsync(string key, CancellationToken cancellationToken = default);
+    void Add(JourneyEnrollment enrollment);
+}
+
+public interface IAttributionEventRepository
+{
+    void Add(AttributionEvent attributionEvent);
+    Task<IReadOnlyList<AttributionEvent>> ListAsync(Guid companyId, Guid? campaignId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+}
