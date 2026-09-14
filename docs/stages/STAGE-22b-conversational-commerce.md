@@ -161,6 +161,10 @@ orders submitted, escalations. **Counts only** — never message content (R10).
 
 ## Tests / acceptance
 
+Verification record (2026-09-14): conversation and conversation-scope PostgreSQL migration
+acceptance passes **3/3**. This verifies reversible schema evolution only; transport delivery,
+remaining intent/API acceptance, and specialist review are still open.
+
 - `Unbound_sender_receives_onboarding_and_no_data` — and specifically does not learn whether the number
   matches any account.
 - `Sensitive_intent_requires_fresh_otp` — statement request with a 25-hour-old verification → challenged.
