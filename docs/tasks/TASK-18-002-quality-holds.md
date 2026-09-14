@@ -45,4 +45,5 @@ and expired tracked stock at the supplied business date.
   HTTP 422 without persisting a hold. Focused integration evidence is now 13/13 green; expiry and
   dispatch integration remain open.
 - 2026-09-14: Receipt commands now carry lot, expiry and serial metadata. The real PostgreSQL
-  warehouse chain proves an expired tracked lot is refused before shipment posting.
+  warehouse chain proves an expired tracked lot is refused before shipment posting; outbound shipment
+  ledger entries retain lot metadata for downstream recall tracing.

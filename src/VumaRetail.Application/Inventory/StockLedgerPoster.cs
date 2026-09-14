@@ -284,6 +284,9 @@ public interface IStockLedgerPoster
     /// <param name="shipmentReferenceId">The <c>warehouse.shipment_confirmations</c> document this issue correlates to.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <param name="binId">The bin the stock was picked from, when the caller knows one — <c>null</c> otherwise.</param>
+    /// <param name="batchReference">Optional lot or batch identity being shipped.</param>
+    /// <param name="expiryDate">Optional expiry date for the shipped lot.</param>
+    /// <param name="serialNumber">Optional serial identity being shipped.</param>
     /// <remarks>
     /// Added in Stage 13. A dedicated method rather than reusing <see cref="IssueForSaleAsync"/> for the
     /// reason <see cref="ReceiveForPurchaseAsync"/> gives: an issue with no reference to the document
@@ -298,7 +301,10 @@ public interface IStockLedgerPoster
         Quantity quantity,
         Guid shipmentReferenceId,
         CancellationToken cancellationToken = default,
-        Guid? binId = null);
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null);
 
     /// <summary>Posts the source-company issue for one registry transfer line.</summary>
     Task<StockLedgerEntry> IssueForTransferAsync(
@@ -501,13 +507,17 @@ public sealed class StockLedgerPoster(
         Quantity quantity,
         Guid shipmentReferenceId,
         CancellationToken cancellationToken = default,
-        Guid? binId = null)
+        Guid? binId = null,
+        string? batchReference = null,
+        DateOnly? expiryDate = null,
+        string? serialNumber = null)
     {
         ArgumentNullException.ThrowIfNull(location);
 
         return PostIssueLikeAsync(
             location, binId, itemId, itemVariantId, StockMovementType.SaleIssue, quantity,
-            StockReferenceType.Shipment, shipmentReferenceId, reasonCode: null, note: null, cancellationToken);
+            StockReferenceType.Shipment, shipmentReferenceId, reasonCode: null, note: null, cancellationToken,
+            batchReference, expiryDate, serialNumber);
     }
 
     /// <inheritdoc />

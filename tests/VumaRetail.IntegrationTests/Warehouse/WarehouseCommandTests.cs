@@ -118,7 +118,8 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
 
         await harness.SendAsync(new ReceiveStockCommand(
-            harness.LocationId, harness.ItemId, null, Each(20m), new Money(15m, "ZAR"), "Opening stock"));
+            harness.LocationId, harness.ItemId, null, Each(20m), new Money(15m, "ZAR"), "Opening stock",
+            "LOT-2001", DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime).AddDays(30)));
 
         Guid putawayId = await harness.SendAsync(new OpenPutawayTaskCommand(
             harness.LocationId, harness.ItemId, null, Each(20m), PutawaySourceReferenceType.ManualReceipt));
@@ -142,7 +143,8 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         binAfterPick!.QuantityOnHand.Value.Should().Be(12m, "the bin was relieved at pick time");
 
         await harness.SendAsync(new PackWaveCommand(waveId, 1, "One box"));
-        Guid shipmentId = await harness.SendAsync(new ShipWaveCommand(waveId, "Courier Co", "TRK-001"));
+        Guid shipmentId = await harness.SendAsync(new ShipWaveCommand(waveId, "Courier Co", "TRK-001",
+            "LOT-2001", DateOnly.FromDateTime(harness.Clock.UtcNow.UtcDateTime).AddDays(30)));
 
         PickWaveResult shipped = await harness.QueryAsync(new GetPickWaveQuery(waveId));
         shipped.Status.Should().Be(PickWaveStatus.Shipped);
@@ -155,6 +157,7 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
 
         shipmentEntry.ReferenceType.Should().Be(StockReferenceType.Shipment);
         shipmentEntry.Quantity.Value.Should().Be(-8m);
+        shipmentEntry.BatchReference.Should().Be("LOT-2001");
         shipmentEntry.BinId.Should().BeNull("the wave may have picked from more than one bin; the location-level entry does not name one");
 
         ShipmentConfirmationResult shipment = await harness.QueryAsync(new GetShipmentConfirmationQuery(waveId));

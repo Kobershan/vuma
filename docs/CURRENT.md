@@ -24,7 +24,7 @@ WORK LOG (2026-09-14): Stage 18 dispatch authorization now checks the existing q
 and the inventory ledger's net expired tracked stock at the supplied business date before any bin move
 or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query coverage and a focused
 regression test. Receipt commands now carry lot, expiry and serial metadata, and the real PostgreSQL
-warehouse chain proves the expiry refusal. Application and Infrastructure Release builds compile;
+warehouse chain proves the expiry refusal and preserves outbound lot metadata. Application and Infrastructure Release builds compile;
 focused quality/warehouse unit tests pass **89/89**. Automatic lot-to-output/shipment recall-
 traceability acceptance remains open.
 

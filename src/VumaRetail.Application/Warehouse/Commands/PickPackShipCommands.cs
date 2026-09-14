@@ -467,8 +467,15 @@ public sealed class PackWaveCommandHandler(
 }
 
 /// <summary>Confirms a packed wave's shipment — the point stock leaves the location (business rule 3).</summary>
+/// <param name="PickWaveId">The packed wave to ship.</param>
+/// <param name="Carrier">Optional carrier name.</param>
+/// <param name="TrackingNumber">Optional carrier tracking number.</param>
+/// <param name="BatchReference">Optional lot or batch identity being shipped.</param>
+/// <param name="ExpiryDate">Optional expiry date for the shipped lot.</param>
+/// <param name="SerialNumber">Optional serial identity being shipped.</param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record ShipWaveCommand(Guid PickWaveId, string? Carrier = null, string? TrackingNumber = null) : ICommand<Guid>;
+public sealed record ShipWaveCommand(Guid PickWaveId, string? Carrier = null, string? TrackingNumber = null,
+    string? BatchReference = null, DateOnly? ExpiryDate = null, string? SerialNumber = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed ship command before it reaches the handler.</summary>
 public sealed class ShipWaveCommandValidator : AbstractValidator<ShipWaveCommand>
@@ -571,7 +578,9 @@ public sealed class ShipWaveCommandHandler(
                 .Aggregate((a, b) => a + b);
 
             await poster.IssueForShipmentAsync(
-                location, group.Key.ItemId, group.Key.ItemVariantId, total, shipmentId, cancellationToken)
+                location, group.Key.ItemId, group.Key.ItemVariantId, total, shipmentId, cancellationToken,
+                batchReference: command.BatchReference, expiryDate: command.ExpiryDate,
+                serialNumber: command.SerialNumber)
                 .ConfigureAwait(false);
         }
 
