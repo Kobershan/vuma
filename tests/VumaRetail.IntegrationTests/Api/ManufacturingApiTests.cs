@@ -34,8 +34,9 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         using HttpClient client = await harness.SignInAsync("bom-manager");
 
         Guid finishedItemId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
         CreateBillOfMaterialsRequest request = new(
-            Guid.NewGuid(),
+            companyId,
             finishedItemId,
             null,
             1,
@@ -47,16 +48,16 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         BillOfMaterialsIdResponse response = (await created.Content.ReadFromJsonAsync<BillOfMaterialsIdResponse>())!;
 
         BillOfMaterialsResponse draft = await client.GetFromJsonAsync<BillOfMaterialsResponse>(
-            $"/api/v1/manufacturing/boms/{response.Id:D}") ?? throw new InvalidOperationException("Missing BOM response.");
+            $"/api/v1/manufacturing/boms/{response.Id:D}?companyId={companyId:D}") ?? throw new InvalidOperationException("Missing BOM response.");
         draft.Status.Should().Be("Draft");
         draft.Lines.Should().ContainSingle();
 
         HttpResponseMessage published = await client.PostAsync(
-            $"/api/v1/manufacturing/boms/{response.Id:D}/publish", content: null);
+            $"/api/v1/manufacturing/boms/{response.Id:D}/publish?companyId={companyId:D}", content: null);
         published.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         BillOfMaterialsResponse result = await client.GetFromJsonAsync<BillOfMaterialsResponse>(
-            $"/api/v1/manufacturing/boms/{response.Id:D}") ?? throw new InvalidOperationException("Missing published BOM response.");
+            $"/api/v1/manufacturing/boms/{response.Id:D}?companyId={companyId:D}") ?? throw new InvalidOperationException("Missing published BOM response.");
         result.Status.Should().Be("Published");
     }
 
@@ -147,23 +148,23 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
             "/api/v1/manufacturing/boms/",
             new CreateBillOfMaterialsRequest(companyId, finishedItemId, null, 1, "Production BOM", [new BillOfMaterialsLineRequest(componentItemId, null, 1m, "EA")]));
         BillOfMaterialsIdResponse bom = (await bomResponse.Content.ReadFromJsonAsync<BillOfMaterialsIdResponse>())!;
-        (await client.PostAsync($"/api/v1/manufacturing/boms/{bom.Id:D}/publish", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsync($"/api/v1/manufacturing/boms/{bom.Id:D}/publish?companyId={companyId:D}", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         Guid orderId = Guid.NewGuid();
         (await client.PostAsJsonAsync("/api/v1/manufacturing/production-orders/", new CreateProductionOrderRequest(orderId, companyId, finishedItemId, 1m, "EA", "PROD-API-001", bom.Id))).StatusCode.Should().Be(HttpStatusCode.Created);
         Guid releaseOperationId = Guid.NewGuid();
-        HttpResponseMessage released = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/release", new ReleaseProductionOrderRequest(releaseOperationId, bom.Id));
+        HttpResponseMessage released = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/release?companyId={companyId:D}", new ReleaseProductionOrderRequest(releaseOperationId, bom.Id));
         string releaseBody = await released.Content.ReadAsStringAsync();
         released.StatusCode.Should().Be(HttpStatusCode.NoContent, releaseBody);
-        ProductionOrderResponse releasedOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}"))!;
+        ProductionOrderResponse releasedOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}?companyId={companyId:D}"))!;
         releasedOrder.Materials.Should().ContainSingle();
         releasedOrder.Materials[0].ComponentItemId.Should().Be(componentItemId);
         Guid issueOperationId = Guid.NewGuid();
         IssueProductionMaterialRequest issueRequest = new(locationId, issueOperationId, releasedOrder.Materials[0].ComponentItemId, null, 1m, "EA", 5m, "ZAR");
-        HttpResponseMessage issue = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", issueRequest);
+        HttpResponseMessage issue = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues?companyId={companyId:D}", issueRequest);
         string issueBody = await issue.Content.ReadAsStringAsync();
         issue.StatusCode.Should().Be(HttpStatusCode.NoContent, issueBody);
-        HttpResponseMessage issueReplay = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues", issueRequest);
+        HttpResponseMessage issueReplay = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues?companyId={companyId:D}", issueRequest);
         string issueReplayBody = await issueReplay.Content.ReadAsStringAsync();
         issueReplay.StatusCode.Should().Be(HttpStatusCode.NoContent, issueReplayBody);
 
@@ -171,10 +172,10 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         // boundary, leaving its aggregate without a phantom issue.
         Guid shortageOrderId = Guid.NewGuid();
         (await client.PostAsJsonAsync("/api/v1/manufacturing/production-orders/", new CreateProductionOrderRequest(shortageOrderId, companyId, finishedItemId, 1m, "EA", "PROD-API-SHORT", bom.Id))).StatusCode.Should().Be(HttpStatusCode.Created);
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/release", new ReleaseProductionOrderRequest(Guid.NewGuid(), bom.Id))).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        HttpResponseMessage shortage = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/issues", new IssueProductionMaterialRequest(locationId, Guid.NewGuid(), componentItemId, null, 1m, "EA", 5m, "ZAR"));
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/release?companyId={companyId:D}", new ReleaseProductionOrderRequest(Guid.NewGuid(), bom.Id))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        HttpResponseMessage shortage = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}/issues?companyId={companyId:D}", new IssueProductionMaterialRequest(locationId, Guid.NewGuid(), componentItemId, null, 1m, "EA", 5m, "ZAR"));
         shortage.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-        ProductionOrderResponse shortageOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}"))!;
+        ProductionOrderResponse shortageOrder = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{shortageOrderId:D}?companyId={companyId:D}"))!;
         shortageOrder.Issues.Should().BeEmpty();
 
         Guid wipAccount = await harness.SendAsync(new CreateAccountCommand("1450", "Production WIP", AccountType.Asset, "ZAR"));
@@ -188,13 +189,13 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
             ],
             "Production scrap"));
 
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts?companyId={companyId:D}", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         Guid scrapOperationId = Guid.NewGuid();
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await client.PostAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/close", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap?companyId={companyId:D}", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap?companyId={companyId:D}", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/close?companyId={companyId:D}", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        ProductionOrderResponse order = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}"))!;
+        ProductionOrderResponse order = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}?companyId={companyId:D}"))!;
         order.Status.Should().Be("Closed");
         order.Issues.Should().ContainSingle();
         order.Receipts.Should().ContainSingle();
@@ -203,9 +204,9 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
             .Where(journal => journal.SourceEventType == "manufacturing.scrap.recorded")
             .ToListAsync());
         scrapJournals.Should().ContainSingle();
-        ProductionCapacityResponse capacity = (await client.GetFromJsonAsync<ProductionCapacityResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/capacity"))!;
+        ProductionCapacityResponse capacity = (await client.GetFromJsonAsync<ProductionCapacityResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/capacity?companyId={companyId:D}"))!;
         capacity.TotalMinutes.Should().Be(0m);
-        ProductionOrderResponse genealogy = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/genealogy"))!;
+        ProductionOrderResponse genealogy = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/genealogy?companyId={companyId:D}"))!;
         genealogy.Issues.Should().ContainSingle();
     }
 
