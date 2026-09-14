@@ -208,4 +208,60 @@ public sealed class MarketingDeliveryPolicyTests
         message.Status.Should().Be(OutboundMessageStatus.Failed);
         message.ProviderEventId.Should().Be("evt-2");
     }
+
+    [Fact]
+    public async Task Delivery_service_suppresses_a_recipient_who_withdraws_consent()
+    {
+        var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Consent", "consent-v1",
+            DateTimeOffset.UtcNow.AddHours(1));
+        campaign.Schedule(DateTimeOffset.UtcNow);
+        var message = OutboundMessage.Queue(campaign.TenantId, null, campaign.CompanyId!.Value, campaign.Id, Guid.NewGuid(),
+            "dispatch-consent", campaign.ScheduledAt);
+        var campaigns = Substitute.For<IMarketingCampaignRepository>();
+        campaigns.FindAsync(campaign.Id, Arg.Any<CancellationToken>()).Returns(campaign);
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var consent = Substitute.For<VumaRetail.Application.Crm.IConsentService>();
+        consent.IsValidAsync(message.CustomerId, VumaRetail.Domain.Crm.ConsentType.MarketingEmail,
+            Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(false);
+        var transport = Substitute.For<IMarketingTransport>();
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+
+        MarketingDispatchOutcome outcome = await new MarketingDeliveryService(campaigns, messages,
+            new MarketingDeliveryPolicy(consent), transport, clock).DispatchAsync(message.Id);
+
+        outcome.Should().Be(MarketingDispatchOutcome.Suppressed);
+        message.Status.Should().Be(OutboundMessageStatus.Suppressed);
+        await transport.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task Delivery_service_applies_provider_result_when_consent_allows_send()
+    {
+        var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Delivery", "delivery-v1",
+            DateTimeOffset.UtcNow.AddHours(1));
+        campaign.Schedule(DateTimeOffset.UtcNow);
+        var message = OutboundMessage.Queue(campaign.TenantId, null, campaign.CompanyId!.Value, campaign.Id, Guid.NewGuid(),
+            "dispatch-delivery", campaign.ScheduledAt);
+        var campaigns = Substitute.For<IMarketingCampaignRepository>();
+        campaigns.FindAsync(campaign.Id, Arg.Any<CancellationToken>()).Returns(campaign);
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var consent = Substitute.For<IConsentService>();
+        consent.IsValidAsync(message.CustomerId, ConsentType.MarketingEmail,
+            Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(true);
+        var transport = Substitute.For<IMarketingTransport>();
+        transport.SendAsync(message, campaign, Arg.Any<CancellationToken>())
+            .Returns(new MarketingTransportResult("provider-event-1", "sha256:delivery", true));
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+
+        MarketingDispatchOutcome outcome = await new MarketingDeliveryService(campaigns, messages,
+            new MarketingDeliveryPolicy(consent), transport, clock).DispatchAsync(message.Id);
+
+        outcome.Should().Be(MarketingDispatchOutcome.Delivered);
+        message.Status.Should().Be(OutboundMessageStatus.Sent);
+        message.ProviderEventId.Should().Be("provider-event-1");
+    }
 }

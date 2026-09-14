@@ -115,6 +115,11 @@ classification metadata through migration `20260914041306_Stage22MarketingDelive
 transport selection and consent policy no longer depend on inferred defaults. Focused marketing
 tests pass **17/17**. A bounded, company-scoped due-queue operator read is now available.
 
+WORK LOG (2026-09-14): Added the consent-aware marketing dispatch application boundary. Dispatch
+rechecks recipient consent immediately before transport, suppresses withdrawn recipients, and
+applies provider event identity/fingerprint results to outbound state. Focused marketing tests pass
+**19/19**; provider adapter and durable worker wiring remain open.
+
 VERIFICATION (2026-09-14): Marketing API integration coverage passes **2/2**, including OpenAPI
 route discovery and runtime rejection of an unsigned provider callback.
 

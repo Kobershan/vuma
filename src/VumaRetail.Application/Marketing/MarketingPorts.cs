@@ -17,3 +17,11 @@ public interface IOutboundMessageRepository
         int limit, CancellationToken cancellationToken = default);
     void Add(OutboundMessage message);
 }
+
+public sealed record MarketingTransportResult(string ProviderEventId, string PayloadFingerprint, bool Delivered);
+
+public interface IMarketingTransport
+{
+    Task<MarketingTransportResult> SendAsync(OutboundMessage message, MarketingCampaign campaign,
+        CancellationToken cancellationToken = default);
+}

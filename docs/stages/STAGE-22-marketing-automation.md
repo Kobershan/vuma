@@ -52,14 +52,16 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
   Provider-result state now persists event identity and payload fingerprints; identical callbacks
   are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
   worker remain. Outbound messages now persist channel/classification metadata, and company-scoped
-  campaign/message operator reads and due-queue listing are exposed.
+    campaign/message operator reads and due-queue listing are exposed. A consent-aware application
+    dispatch boundary now suppresses withdrawn recipients before invoking a transport and applies
+    provider results idempotently; provider adapter and durable worker wiring remain.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
-Implemented evidence: the marketing-focused unit run passes **16/16**, covering channel-specific consent,
+Implemented evidence: the marketing-focused unit run passes **19/19**, covering channel-specific consent,
 transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
@@ -76,6 +78,10 @@ Campaign and message operator reads now return not-found across company boundari
 Queued-message listing is bounded, ordered by scheduled time, and supports a due-only filter.
 OpenAPI/runtime route verification passes **2/2**, covering the campaign/message operator reads,
 signed provider callback route, and unsigned-callback rejection.
+
+2026-09-14: Added the application dispatch boundary. It rechecks consent at execution time,
+suppresses withdrawn recipients without calling transport, and applies delivered provider identity
+and payload fingerprints to the outbound state. Focused marketing tests pass **19/19**.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.

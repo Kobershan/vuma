@@ -28,6 +28,9 @@ suppression state and cross-company replay/suppression refusal. StoreServer and 
 2026-09-14: The focused marketing run passes **16/16** after adding durable provider event identity
 and payload fingerprints; identical callbacks are no-ops and changed-content reuse is rejected.
 
+2026-09-14: The application dispatch boundary now rechecks consent before transport, suppresses
+withdrawn recipients, and applies provider delivery results. Focused marketing tests pass **19/19**.
+
 ## Follow-up findings
 
 The durable shared delivery outbox, provider adapters and operator endpoints remain open. Provider
