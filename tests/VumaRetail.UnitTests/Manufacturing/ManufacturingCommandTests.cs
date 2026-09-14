@@ -3,11 +3,19 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Manufacturing;
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.UnitTests.Manufacturing;
 
 public sealed class ManufacturingCommandTests
 {
+    [Fact]
+    public void Manufacturing_replay_errors_are_stable_conflicts_and_missing_resources_are_not_found()
+    {
+        ManufacturingRuleException.OperationPayloadConflict(Guid.NewGuid()).Kind.Should().Be(DomainProblemKind.Conflict);
+        ManufacturingRuleException.NotFound(Guid.NewGuid()).Kind.Should().Be(DomainProblemKind.NotFound);
+    }
+
     [Fact]
     public async Task Production_read_refuses_an_order_from_another_active_company()
     {

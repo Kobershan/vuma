@@ -434,6 +434,19 @@ public static class DemoSeed
 
         await dispatcher.SendAsync(new PublishBillOfMaterialsCommand(bomId), cancellationToken)
             .ConfigureAwait(false);
+
+        // Keep one released work order in the demo dataset so the Stage 17 execution surface is
+        // demonstrable immediately after seeding. Execution records are intentionally left empty;
+        // stock-backed issue/receipt belongs to an operator's transaction, not to a seed rehearsal.
+        if (!await context.ProductionOrders.AnyAsync(order => order.OrderNumber == "PROD-DEMO-001", cancellationToken).ConfigureAwait(false))
+        {
+            Guid operationId = Guid.NewGuid();
+            await dispatcher.SendAsync(new CreateProductionOrderCommand(
+                operationId, DemoCompanyId, finishedItemId, 10m, "EA", "PROD-DEMO-001", bomId), cancellationToken)
+                .ConfigureAwait(false);
+            await dispatcher.SendAsync(new ReleaseProductionOrderCommand(operationId, Guid.NewGuid(), bomId), cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     /// <summary>

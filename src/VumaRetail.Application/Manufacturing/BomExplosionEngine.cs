@@ -83,18 +83,13 @@ public sealed class BomExplosionEngine
             throw ManufacturingRuleException.CycleDetected(bomKey);
         }
 
-        foreach (IGrouping<string?, BillOfMaterialsLine> group in bom.Lines.GroupBy(line => line.AlternateGroup))
+        IEnumerable<BillOfMaterialsLine> lines = bom.Lines.Where(line => line.AlternateGroup is null)
+            .Concat(bom.Lines.Where(line => line.AlternateGroup is not null)
+                .GroupBy(line => line.AlternateGroup!)
+                .Select(group => group.FirstOrDefault(candidate => selectedAlternates.Contains(BomComponentKey.Create(candidate.ComponentItemId, candidate.ComponentVariantId))) ?? group.First()));
+
+        foreach (BillOfMaterialsLine line in lines)
         {
-            IEnumerable<BillOfMaterialsLine> candidates = group.Key is null
-                ? group
-                : [.. group.Where(line => selectedAlternates.Contains(BomComponentKey.Create(line.ComponentItemId, line.ComponentVariantId)))];
-            BillOfMaterialsLine? line = candidates.FirstOrDefault() ?? group.FirstOrDefault();
-
-            if (line is null)
-            {
-                continue;
-            }
-
             BomComponentKey component = BomComponentKey.Create(line.ComponentItemId, line.ComponentVariantId);
             decimal required = factor * line.Quantity.Value / (1m - line.ScrapPercent / 100m);
 

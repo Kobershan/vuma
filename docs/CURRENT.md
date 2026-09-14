@@ -3,8 +3,8 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Numbered stages 19, 20 and 24 are complete; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
-NEXT STAGE (roadmap order): Stage 17 closure evidence, then Stage 18 acceptance and the remaining Stage 21–31 task queues.
+CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete and verified; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
+NEXT STAGE (roadmap order): Stage 18 acceptance, then the remaining Stage 21–31 task queues.
 
 WORK LOG (2026-09-14): Stage 17 PostgreSQL API verification exposed and fixed a per-request company
 context gap on BOM reads/publication and production mutations. Company binding is now explicit on

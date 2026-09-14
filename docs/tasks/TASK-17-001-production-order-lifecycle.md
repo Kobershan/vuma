@@ -1,6 +1,6 @@
 # TASK-17-001 — Production-order lifecycle and BOM snapshot
 
-**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, persistence, tests
+**Status:** COMPLETE · **Stage:** 17 · **Type:** Domain, application, persistence, tests
 
 ## Objective
 
@@ -66,3 +66,5 @@ duplicate operation tests, migration reversibility and architecture classificati
 - 2026-09-14: BOM publication and retrieval now reject loaded definitions outside the active company
   context. The manufacturing command suite passes 7/7; PostgreSQL and final closure evidence remain
   open.
+- 2026-09-14: complete. Authorized PostgreSQL API and migration evidence, immutable snapshot/replay
+  coverage, and the focused unit suite satisfy the lifecycle acceptance criteria.

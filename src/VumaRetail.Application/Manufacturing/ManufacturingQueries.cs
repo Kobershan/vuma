@@ -5,20 +5,43 @@ using VumaRetail.Application.Abstractions.Registry;
 namespace VumaRetail.Application.Manufacturing;
 
 /// <summary>Reads one production order and its immutable execution genealogy.</summary>
-public sealed record GetProductionOrderQuery(Guid ProductionOrderId) : IQuery<ProductionOrder>;
+#pragma warning disable CS1591
+public sealed record ProductionOrderReadModel(
+    Guid Id, Guid CompanyId, Guid FinishedItemId, decimal PlannedQuantity, string UnitOfMeasure,
+    string OrderNumber, string Status, Guid BillOfMaterialsId,
+    IReadOnlyList<ProductionRoutingReadModel> Routing,
+    IReadOnlyList<ProductionMaterialReadModel> Materials,
+    IReadOnlyList<ProductionIssueReadModel> Issues,
+    IReadOnlyList<ProductionOutputReadModel> Receipts,
+    IReadOnlyList<ProductionScrapReadModel> Scrap);
+public sealed record ProductionRoutingReadModel(int Sequence, string OperationName, decimal SetupMinutes, decimal RunMinutes);
+public sealed record ProductionMaterialReadModel(Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal ScrapPercent, string? AlternateGroup);
+public sealed record ProductionIssueReadModel(Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+public sealed record ProductionOutputReadModel(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+public sealed record ProductionScrapReadModel(Guid OperationId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+#pragma warning restore CS1591
+
+/// <summary>Reads a production order by id.</summary>
+public sealed record GetProductionOrderQuery(Guid ProductionOrderId) : IQuery<ProductionOrderReadModel>;
 
 /// <summary>Handles a tenant-scoped production-order read.</summary>
 public sealed class GetProductionOrderQueryHandler(IProductionOrderRepository orders, ICompanyContext? company = null)
-    : IQueryHandler<GetProductionOrderQuery, ProductionOrder>
+    : IQueryHandler<GetProductionOrderQuery, ProductionOrderReadModel>
 {
     /// <inheritdoc />
-    public async Task<ProductionOrder> HandleAsync(GetProductionOrderQuery query, CancellationToken cancellationToken = default)
+    public async Task<ProductionOrderReadModel> HandleAsync(GetProductionOrderQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ProductionOrder order = await orders.FindAsync(query.ProductionOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw ManufacturingRuleException.NotFound(query.ProductionOrderId);
         EnsureCompany(order, company);
-        return order;
+        return new ProductionOrderReadModel(order.Id, order.CompanyId!.Value, order.FinishedItemId,
+            order.PlannedQuantity.Value, order.PlannedQuantity.UnitOfMeasure, order.OrderNumber, order.Status.ToString(), order.BillOfMaterialsId,
+            order.Snapshot?.RoutingSteps.Select(step => new ProductionRoutingReadModel(step.Sequence, step.OperationName, step.SetupMinutes ?? 0m, step.RunMinutes ?? 0m)).ToArray() ?? [],
+            order.Materials.Select(material => new ProductionMaterialReadModel(material.ComponentItemId, material.ComponentVariantId, material.RequiredQuantity.Value, material.RequiredQuantity.UnitOfMeasure, material.ScrapPercent, material.AlternateGroup)).ToArray(),
+            order.Issues.Select(issue => new ProductionIssueReadModel(issue.OperationId, issue.ComponentItemId, issue.ComponentVariantId, issue.Quantity.Value, issue.Quantity.UnitOfMeasure, issue.UnitCost.Amount, issue.UnitCost.Currency)).ToArray(),
+            order.Receipts.Select(receipt => new ProductionOutputReadModel(receipt.OperationId, receipt.Quantity.Value, receipt.Quantity.UnitOfMeasure, receipt.UnitCost.Amount, receipt.UnitCost.Currency)).ToArray(),
+            order.Scrap.Select(scrap => new ProductionScrapReadModel(scrap.OperationId, scrap.Quantity.Value, scrap.Quantity.UnitOfMeasure, scrap.UnitCost.Amount, scrap.UnitCost.Currency)).ToArray());
     }
 
     internal static void EnsureCompany(ProductionOrder order, ICompanyContext? company)

@@ -91,6 +91,33 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task View_only_user_cannot_mutate_any_production_route()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("production-view-only", "CorrectHorseBattery1", ManufacturingPermissions.View);
+        using HttpClient client = await harness.SignInAsync("production-view-only");
+        Guid orderId = Guid.NewGuid();
+        string route = $"/api/v1/manufacturing/production-orders/{orderId:D}";
+
+        (string Url, HttpContent? Body)[] routes =
+        [
+            ($"{route}/release", JsonContent.Create(new ReleaseProductionOrderRequest(Guid.NewGuid(), Guid.NewGuid()))),
+            ($"{route}/issues", JsonContent.Create(new IssueProductionMaterialRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA", 1m, "ZAR"))),
+            ($"{route}/receipts", JsonContent.Create(new ReceiveProductionOutputRequest(Guid.NewGuid(), Guid.NewGuid(), 1m, "EA", 1m, "ZAR"))),
+            ($"{route}/scrap", JsonContent.Create(new RecordProductionScrapRequest(Guid.NewGuid(), 1m, "EA", 1m, "ZAR"))),
+            ($"{route}/close", null),
+        ];
+
+        foreach ((string url, HttpContent? body) in routes)
+        {
+            HttpResponseMessage response = await client.PostAsync(url, body ?? new StringContent(string.Empty));
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"{url} must require manufacturing.manage");
+        }
+
+        (await client.GetAsync(route)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Authorized_user_can_execute_one_production_order_and_read_its_genealogy()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, configureServices: StubCompanyRouting);
@@ -219,7 +246,7 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
 
         HttpResponseMessage response = await client.GetAsync($"/api/v1/manufacturing/boms/{Guid.NewGuid():D}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     private static void StubCompanyRouting(IServiceCollection services)

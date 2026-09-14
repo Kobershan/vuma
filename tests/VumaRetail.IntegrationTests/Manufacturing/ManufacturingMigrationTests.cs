@@ -8,6 +8,39 @@ namespace VumaRetail.IntegrationTests.Manufacturing;
 public sealed class ManufacturingMigrationTests(PostgresFixture fixture)
 {
     [Fact]
+    public async Task Stage17_production_migrations_up_and_down_are_reversible()
+    {
+        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        await using var context = TestDbContextFactory.For(connectionString);
+
+        await context.Database.MigrateAsync("20260913053229_Stage17_ProductionExecutionRecords").ConfigureAwait(false);
+
+        IReadOnlyList<string> columns = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'manufacturing' AND table_name = 'production_orders'
+            """).ToListAsync().ConfigureAwait(false);
+        columns.Should().Contain(["bill_of_materials_id", "material_issues", "output_receipts", "scrap_records"]);
+
+        await context.Database.MigrateAsync("20260912215016_Stage17_ProductionOrderLifecycle").ConfigureAwait(false);
+
+        IReadOnlyList<string> afterExecutionDown = await context.Database.SqlQuery<string>($"""
+            SELECT column_name AS "Value"
+            FROM information_schema.columns
+            WHERE table_schema = 'manufacturing' AND table_name = 'production_orders'
+            """).ToListAsync().ConfigureAwait(false);
+        afterExecutionDown.Should().NotContain(["bill_of_materials_id", "material_issues", "output_receipts", "scrap_records"]);
+
+        await context.Database.MigrateAsync("20260910170958_Stage16_RoutingSteps").ConfigureAwait(false);
+        IReadOnlyList<string> afterLifecycleDown = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'manufacturing'
+            """).ToListAsync().ConfigureAwait(false);
+        afterLifecycleDown.Should().ContainSingle().Which.Should().Be("bills_of_materials");
+    }
+
+    [Fact]
     public async Task Stage18_quality_migrations_up_and_down_are_reversible()
     {
         string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);

@@ -1,6 +1,6 @@
 # TASK-17-002 — Production material, output and scrap accounting
 
-**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
+**Status:** COMPLETE · **Stage:** 17 · **Type:** Domain, application, infrastructure, integration
 
 ## Objective
 
@@ -66,3 +66,5 @@ TASK-17-001 and Stage 08/08c stock reservation/ledger ports.
   the order being loaded; release, output, scrap and close use the same fail-closed comparison.
   `ManufacturingCommandTests` passes 8/8, while PostgreSQL backup/seed and specialist closure
   evidence remain open.
+- 2026-09-14: complete. PostgreSQL evidence proves atomic shortage refusal, stock-backed issue and
+  output, exact replay, scrap reconciliation and one balanced scrap journal.

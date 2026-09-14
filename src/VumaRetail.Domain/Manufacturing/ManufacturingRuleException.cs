@@ -3,7 +3,7 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Domain.Manufacturing;
 
 /// <summary>Thrown when a manufacturing definition breaks a Stage 16 invariant.</summary>
-public sealed class ManufacturingRuleException(string code, string message) : DomainException(code, message)
+public sealed class ManufacturingRuleException(string code, string message, DomainProblemKind kind = DomainProblemKind.Rule) : DomainException(code, message, kind)
 {
     /// <summary>The definition cannot contain its own finished item.</summary>
     public static ManufacturingRuleException CannotContainItself() => new("BOM_SELF_REFERENCE", "A BOM cannot contain itself.");
@@ -44,7 +44,7 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
 
     /// <summary>A repeated client operation changed its original request.</summary>
     public static ManufacturingRuleException OperationPayloadConflict(Guid id)
-        => new("PRODUCTION_OPERATION_CONFLICT", $"Production operation {id} was already received with different content.");
+        => new("PRODUCTION_OPERATION_CONFLICT", $"Production operation {id} was already received with different content.", DomainProblemKind.Conflict);
 
     /// <summary>The issue names a component absent from the release snapshot.</summary>
     public static ManufacturingRuleException MaterialNotRequired(Guid itemId)
@@ -62,13 +62,21 @@ public sealed class ManufacturingRuleException(string code, string message) : Do
     public static ManufacturingRuleException OutputReconciliationRequired()
         => new("PRODUCTION_OUTPUT_RECONCILIATION", "Finished output and scrap must reconcile exactly to the planned quantity before completion.");
 
+    /// <summary>Material consumption must reconcile to the value received or scrapped.</summary>
+    public static ManufacturingRuleException MaterialValueReconciliationRequired()
+        => new("PRODUCTION_MATERIAL_VALUE_RECONCILIATION", "Issued material value must reconcile to finished output plus scrap before completion.");
+
+    /// <summary>Manufacturing operation costs cannot be negative.</summary>
+    public static ManufacturingRuleException NonNegativeUnitCostRequired()
+        => new("PRODUCTION_NON_NEGATIVE_UNIT_COST", "Manufacturing operation unit cost cannot be negative.");
+
     /// <summary>A definition version already exists.</summary>
     public static ManufacturingRuleException DuplicateVersion(Guid itemId, int version)
         => new("BOM_DUPLICATE_VERSION", $"BOM version {version} already exists for item {itemId}.");
 
     /// <summary>A requested definition does not exist in the tenant.</summary>
     public static ManufacturingRuleException NotFound(Guid id)
-        => new("BOM_NOT_FOUND", $"BOM {id} was not found.");
+        => new("BOM_NOT_FOUND", $"BOM {id} was not found.", DomainProblemKind.NotFound);
 
     /// <summary>A routing sequence is missing, duplicated, or not positive.</summary>
     public static ManufacturingRuleException InvalidRoutingSequence(int sequence)

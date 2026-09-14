@@ -12,6 +12,9 @@ public sealed record BillOfMaterialsResponse(Guid Id, Guid FinishedItemId, Guid?
 /// <summary>Returns a created BOM id.</summary>
 public sealed record BillOfMaterialsIdResponse(Guid Id);
 
+/// <summary>Returns a created production-order id.</summary>
+public sealed record ProductionOrderIdResponse(Guid Id);
+
 /// <summary>Creates a production order.</summary>
 public sealed record CreateProductionOrderRequest(Guid OperationId, Guid CompanyId, Guid FinishedItemId, decimal Quantity, string UnitOfMeasure, string OrderNumber, Guid BillOfMaterialsId);
 

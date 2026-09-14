@@ -4,7 +4,7 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Domain.Manufacturing;
 
 /// <summary>A traceable request to manufacture a finished item from one published BOM version.</summary>
-[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class ProductionOrder : Entity
 {
     private readonly List<ProductionMaterialRequirement> _materials = [];
@@ -91,6 +91,7 @@ public sealed class ProductionOrder : Entity
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
+        EnsureNonNegativeCost(unitCost);
         ProductionMaterialIssue? prior = _issues.SingleOrDefault(issue => issue.OperationId == operationId);
         if (prior is not null)
         {
@@ -120,6 +121,7 @@ public sealed class ProductionOrder : Entity
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
+        EnsureNonNegativeCost(unitCost);
         ProductionOutputReceipt? prior = _receipts.SingleOrDefault(receipt => receipt.OperationId == operationId);
         if (prior is not null)
         {
@@ -145,6 +147,7 @@ public sealed class ProductionOrder : Entity
     {
         EnsureExecutable();
         EnsurePositiveOperation(operationId, quantity);
+        EnsureNonNegativeCost(unitCost);
         ProductionScrap? prior = _scrap.SingleOrDefault(entry => entry.OperationId == operationId);
         if (prior is not null)
         {
@@ -198,10 +201,15 @@ public sealed class ProductionOrder : Entity
             releasedAt,
             bom.RoutingSteps.ToArray());
         _materials.Clear();
-        _materials.AddRange(bom.Lines.Select(line => new ProductionMaterialRequirement(
+        IEnumerable<BillOfMaterialsLine> selectedLines = bom.Lines
+            .Where(line => line.AlternateGroup is null)
+            .Concat(bom.Lines.Where(line => line.AlternateGroup is not null)
+                .GroupBy(line => line.AlternateGroup!, StringComparer.Ordinal)
+                .Select(group => group.First()));
+        _materials.AddRange(selectedLines.Select(line => new ProductionMaterialRequirement(
             line.ComponentItemId,
             line.ComponentVariantId,
-            line.Quantity * PlannedQuantity.Value,
+            new Quantity(line.Quantity.Value * PlannedQuantity.Value / (1m - line.ScrapPercent / 100m), line.Quantity.UnitOfMeasure),
             line.ScrapPercent,
             line.AlternateGroup)));
         Status = ProductionOrderStatus.Released;
@@ -218,11 +226,23 @@ public sealed class ProductionOrder : Entity
         {
             throw ManufacturingRuleException.OutputReconciliationRequired();
         }
+        if (TotalIssuedValue() != TotalOutputValue() + TotalScrapValue())
+        {
+            throw ManufacturingRuleException.MaterialValueReconciliationRequired();
+        }
         Transition(ProductionOrderStatus.InProgress, ProductionOrderStatus.Completed);
     }
 
-    /// <summary>Closes a completed order.</summary>
-    public void Close() => Transition(ProductionOrderStatus.Completed, ProductionOrderStatus.Closed);
+    /// <summary>Closes a completed order. Repeating an already-closed close is an idempotent replay.</summary>
+    public void Close()
+    {
+        if (Status == ProductionOrderStatus.Closed)
+        {
+            return;
+        }
+
+        Transition(ProductionOrderStatus.Completed, ProductionOrderStatus.Closed);
+    }
 
     private void Transition(ProductionOrderStatus expected, ProductionOrderStatus next)
     {
@@ -257,8 +277,30 @@ public sealed class ProductionOrder : Entity
         }
     }
 
+    private static void EnsureNonNegativeCost(Money unitCost)
+    {
+        if (unitCost.IsNegative)
+        {
+            throw ManufacturingRuleException.NonNegativeUnitCostRequired();
+        }
+    }
+
     private Quantity TotalOutput() => _receipts.Select(receipt => receipt.Quantity).Aggregate(Quantity.Zero(PlannedQuantity.UnitOfMeasure), (sum, value) => sum + value);
     private Quantity TotalScrap() => _scrap.Select(entry => entry.Quantity).Aggregate(Quantity.Zero(PlannedQuantity.UnitOfMeasure), (sum, value) => sum + value);
+
+    private Money TotalIssuedValue() => SumValue(_issues.Select(issue => issue.Quantity.Extend(issue.UnitCost)));
+    private Money TotalOutputValue() => SumValue(_receipts.Select(receipt => receipt.Quantity.Extend(receipt.UnitCost)));
+    private Money TotalScrapValue() => SumValue(_scrap.Select(entry => entry.Quantity.Extend(entry.UnitCost)));
+
+    private Money SumValue(IEnumerable<Money> values)
+    {
+        Money? total = null;
+        foreach (Money value in values)
+        {
+            total = total is null ? value : total.Value + value;
+        }
+        return total ?? Money.Zero(_issues.FirstOrDefault()?.UnitCost.Currency ?? _receipts.FirstOrDefault()?.UnitCost.Currency ?? _scrap.FirstOrDefault()?.UnitCost.Currency ?? "ZAR");
+    }
 }
 
 /// <summary>Lifecycle of a production order.</summary>

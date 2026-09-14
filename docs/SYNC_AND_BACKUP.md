@@ -111,7 +111,7 @@ authoritative node. `StoreWins` on the store server means the *local* row wins, 
 from the cloud is refused. Both directions have to be answered, and the resolver's tests enumerate
 all five policies × both tiers × all three stamp orderings rather than sampling them.
 
-### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11, 12, 13 and 14)
+### The registry as built (Stage 04, extended Stage 04b, 06, 07, 08, 09, 10, 11, 12, 13, 14 and 17)
 
 | Entity | Schema | Scope | Policy | Why |
 |---|---|---|---|---|
@@ -123,6 +123,8 @@ all five policies × both tiers × all three stamp orderings rather than samplin
 | `RolePermission` | `identity` | `CloudToStore` | `CloudWins` | Follows its role |
 | `UserRoleAssignment` | `identity` | `CloudToStore` | `CloudWins` | Follows its role |
 | `Terminal` | `identity` | `StoreToCloud` | `StoreWins` | A till belongs to the shop it is standing in |
+| `BillOfMaterials` | `manufacturing` | `StoreToCloud` | `StoreWins` | Published store definitions are observed by the cloud; the store is authoritative |
+| `ProductionOrder` | `manufacturing` | `StoreToCloud` | `StoreWins` | Release snapshots and execution progress originate at the store and converge as a row snapshot |
 | `RefreshToken` | `identity` | `NodeLocal` | — | A session on one node is not a session on another |
 | `OutboxMessage` | `sync` | `NodeLocal` | — | Replicating the outbox would replicate replication, for ever |
 | `InboxMessage` | `sync` | `NodeLocal` | — | What one node has seen is that node's business |

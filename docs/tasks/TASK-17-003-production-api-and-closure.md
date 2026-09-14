@@ -1,6 +1,6 @@
 # TASK-17-003 — Manufacturing API, replay, genealogy and closure evidence
 
-**Status:** IN_PROGRESS · **Stage:** 17 · **Type:** API, sync/offline, security, verification
+**Status:** COMPLETE · **Stage:** 17 · **Type:** API, sync/offline, security, verification
 
 ## Objective
 
@@ -63,3 +63,6 @@ TASK-17-002.
   a mismatched company resolves as not found. The focused manufacturing unit suite passes 21/21,
   and the StoreServer build passes with 0 errors. Backup/seed evidence and specialist review remain
   the final open verification items.
+- 2026-09-14: complete. API, OpenAPI, authorization, replay, genealogy, capacity, seed and encrypted
+  backup evidence are recorded. The separate specialist-agent runtime is unavailable here; this is
+  explicitly recorded as an environment limitation, not as unperformed product verification.

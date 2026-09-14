@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Identity.Commands;
+using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Infrastructure.Sync;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sync;
@@ -31,6 +33,45 @@ namespace VumaRetail.IntegrationTests.Sync;
 [Collection(PostgresCollection.Name)]
 public sealed class ReplicationTests(PostgresFixture fixture)
 {
+    [Fact]
+    public async Task Offline_production_issues_replay_once_after_reconnect()
+    {
+        await using SyncHarness cloud = await SyncHarness.CreateAsync(fixture, "cloud", NodeKind.Cloud);
+        await using SyncHarness store = await SyncHarness.CreateAsync(fixture, "store:jhb01", NodeKind.Store, cloud.TenantId, cloud.StoreId);
+
+        Guid itemId = Guid.NewGuid();
+        Guid componentId = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(store.TenantId, itemId, 1, "Offline widget");
+        bom.AddLine(componentId, new Quantity(1m, "EA"));
+        bom.Publish();
+        store.Context.BillOfMaterials.Add(bom);
+
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), store.TenantId, Guid.NewGuid(), itemId, new Quantity(2m, "EA"), "OFFLINE-001", bom.Id);
+        order.Release(Guid.NewGuid(), bom, store.Clock.UtcNow);
+        store.Context.ProductionOrders.Add(order);
+        await store.Context.CommitAsync();
+
+        ReplicationScope scope = new();
+        ReplicaWriter writer = new(store.Context, scope);
+        List<SyncOperation> operations = [];
+        for (int index = 0; index < 2; index++)
+        {
+            order.IssueMaterial(Guid.NewGuid(), componentId, null, new Quantity(1m, "EA"), new Money(5m, "ZAR"));
+            operations.Add(new SyncOperation(Guid.NewGuid(), nameof(ProductionOrder), order.Id, SyncOperationKind.Upsert,
+                store.HybridClock.Next(), writer.Serialise(order), store.Clock.UtcNow));
+            await store.Context.CommitAsync();
+        }
+
+        SyncBatch batch = new(store.Node.NodeId, store.Node.Kind, store.TenantId, store.StoreId, operations);
+        SyncAcknowledgement first = await cloud.SendAsync(new ReceiveSyncBatchCommand(batch));
+        SyncAcknowledgement replay = await cloud.SendAsync(new ReceiveSyncBatchCommand(batch));
+
+        first.Results.Should().OnlyContain(result => result.Outcome == InboxOutcome.Applied);
+        replay.Results.Should().OnlyContain(result => result.Outcome == InboxOutcome.Duplicate);
+        ProductionOrder replicated = await cloud.Context.ProductionOrders.SingleAsync(item => item.Id == order.Id);
+        replicated.Issues.Should().HaveCount(2);
+    }
+
     [Fact]
     public async Task A_change_captured_on_the_cloud_lands_on_the_store()
     {

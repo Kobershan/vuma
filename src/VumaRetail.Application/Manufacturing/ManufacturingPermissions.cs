@@ -4,14 +4,14 @@ using VumaRetail.Domain.Identity;
 
 namespace VumaRetail.Application.Manufacturing;
 
-/// <summary>Permissions exposed by Stage 16 manufacturing definitions.</summary>
+/// <summary>Permissions exposed by BOM setup and Stage 17 manufacturing execution.</summary>
 public sealed class ManufacturingPermissions : IModulePermissions
 {
-    /// <summary>Read BOM definitions.</summary>
-    public const string View = "manufacturing.bom.view";
+    /// <summary>Read BOM definitions, production orders, genealogy, and capacity.</summary>
+    public const string View = "manufacturing.view";
 
-    /// <summary>Create and publish BOM definitions.</summary>
-    public const string Manage = "manufacturing.bom.manage";
+    /// <summary>Create, publish, and execute manufacturing orders.</summary>
+    public const string Manage = "manufacturing.manage";
 
     /// <inheritdoc />
     public string Module => "manufacturing";

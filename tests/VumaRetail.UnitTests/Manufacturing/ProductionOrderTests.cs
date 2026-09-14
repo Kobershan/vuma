@@ -82,12 +82,50 @@ public sealed class ProductionOrderTests
         Guid issueId = Guid.NewGuid();
         order.IssueMaterial(issueId, componentId, null, new Quantity(20m, "EA"), cost);
         order.IssueMaterial(issueId, componentId, null, new Quantity(20m, "EA"), cost);
-        order.ReceiveOutput(Guid.NewGuid(), new Quantity(9m, "EA"), cost);
-        order.RecordScrap(Guid.NewGuid(), new Quantity(1m, "EA"), cost);
+        order.ReceiveOutput(Guid.NewGuid(), new Quantity(9m, "EA"), new Money(20m, "ZAR"));
+        order.RecordScrap(Guid.NewGuid(), new Quantity(1m, "EA"), new Money(20m, "ZAR"));
         order.Complete();
 
         order.Status.Should().Be(ProductionOrderStatus.Completed);
         order.Issues.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Closing_an_already_closed_order_is_a_safe_replay()
+    {
+        Guid itemId = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), itemId, 1, "Widget");
+        Guid componentId = Guid.NewGuid();
+        bom.AddLine(componentId, new Quantity(1m, "EA"));
+        bom.Publish();
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), itemId, new(1m, "EA"), "PO-CLOSE-REPLAY", bom.Id);
+        order.Release(Guid.NewGuid(), bom, DateTimeOffset.UtcNow);
+        Money cost = new(10m, "ZAR");
+        order.IssueMaterial(Guid.NewGuid(), componentId, null, new(1m, "EA"), cost);
+        order.ReceiveOutput(Guid.NewGuid(), new(1m, "EA"), cost);
+        order.Complete();
+        order.Close();
+
+        order.Close();
+
+        order.Status.Should().Be(ProductionOrderStatus.Closed);
+    }
+
+    [Fact]
+    public void Release_snapshots_only_the_default_line_from_each_alternate_group()
+    {
+        Guid itemId = Guid.NewGuid();
+        Guid firstComponent = Guid.NewGuid();
+        Guid secondComponent = Guid.NewGuid();
+        BillOfMaterials bom = BillOfMaterials.Create(Guid.NewGuid(), itemId, 1, "Alternate widget");
+        bom.AddLine(firstComponent, new Quantity(1m, "EA"), alternateGroup: "BODY");
+        bom.AddLine(secondComponent, new Quantity(1m, "EA"), alternateGroup: "BODY");
+        bom.Publish();
+        ProductionOrder order = ProductionOrder.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), itemId, new(1m, "EA"), "PO-ALT", bom.Id);
+
+        order.Release(Guid.NewGuid(), bom, DateTimeOffset.UtcNow);
+
+        order.Materials.Should().ContainSingle().Which.ComponentItemId.Should().Be(firstComponent);
     }
 
     [Fact]

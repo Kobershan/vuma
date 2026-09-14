@@ -234,6 +234,67 @@ public static class VumaOpenApi
                 },
             },
         },
+        ["api/v1/manufacturing/boms"] = new OpenApiObject
+        {
+            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000040"),
+            ["finishedItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000041"),
+            ["finishedVariantId"] = new OpenApiNull(),
+            ["version"] = new OpenApiInteger(1),
+            ["name"] = new OpenApiString("Starter assembly"),
+            ["lines"] = new OpenApiArray
+            {
+                new OpenApiObject
+                {
+                    ["componentItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000042"),
+                    ["componentVariantId"] = new OpenApiNull(),
+                    ["quantity"] = new OpenApiDouble(2),
+                    ["unitOfMeasure"] = new OpenApiString("EA"),
+                    ["scrapPercent"] = new OpenApiDouble(2.5),
+                },
+            },
+        },
+        ["api/v1/manufacturing/production-orders"] = new OpenApiObject
+        {
+            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000050"),
+            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000040"),
+            ["finishedItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000041"),
+            ["quantity"] = new OpenApiDouble(10),
+            ["unitOfMeasure"] = new OpenApiString("EA"),
+            ["orderNumber"] = new OpenApiString("PROD-2026-0001"),
+            ["billOfMaterialsId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000043"),
+        },
+        ["api/v1/manufacturing/production-orders/{id}/release"] = new OpenApiObject
+        {
+            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000051"),
+            ["billOfMaterialsId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000043"),
+        },
+        ["api/v1/manufacturing/production-orders/{id}/issues"] = new OpenApiObject
+        {
+            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000044"),
+            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000052"),
+            ["componentItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000042"),
+            ["quantity"] = new OpenApiDouble(20),
+            ["unitOfMeasure"] = new OpenApiString("EA"),
+            ["unitCost"] = new OpenApiDouble(12.5),
+            ["currency"] = new OpenApiString("ZAR"),
+        },
+        ["api/v1/manufacturing/production-orders/{id}/receipts"] = new OpenApiObject
+        {
+            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000044"),
+            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000053"),
+            ["quantity"] = new OpenApiDouble(9),
+            ["unitOfMeasure"] = new OpenApiString("EA"),
+            ["unitCost"] = new OpenApiDouble(27.7778),
+            ["currency"] = new OpenApiString("ZAR"),
+        },
+        ["api/v1/manufacturing/production-orders/{id}/scrap"] = new OpenApiObject
+        {
+            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000054"),
+            ["quantity"] = new OpenApiDouble(1),
+            ["unitOfMeasure"] = new OpenApiString("EA"),
+            ["unitCost"] = new OpenApiDouble(27.7778),
+            ["currency"] = new OpenApiString("ZAR"),
+        },
     };
 
     private static OpenApiResponse ProblemResponse(string status, string description) => new()
