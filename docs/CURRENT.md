@@ -17,8 +17,8 @@ Ecommerce tests pass **11/11**; full unit and architecture suites remain green a
 
 WORK LOG (2026-09-14): Exposed the capture/void/refund boundary through the payment-protected
 `/api/v1/storefront/checkouts/{id}/payment/{operation}` route. Invalid operation names fail with 400;
-valid operations retain the command's state and replay checks. Route OpenAPI verification remains
-part of the pending Stage 21 PostgreSQL acceptance.
+valid operations retain the command's state and replay checks. Ecommerce OpenAPI now verifies the
+operation route is present; PostgreSQL payment integration remains pending.
 
 WORK LOG (2026-09-14): Stage 18 dispatch authorization now checks the existing quality-hold boundary
 and the inventory ledger's net expired tracked stock at the supplied business date before any bin move
