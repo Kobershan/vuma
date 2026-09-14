@@ -63,19 +63,19 @@ public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, 
 }
 public sealed class CreateEmploymentContractCommandHandler(IEmployeeRepository employees, IEmploymentContractRepository contracts, ITenantContext tenant) : ICommandHandler<CreateEmploymentContractCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(CreateEmploymentContractCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var contract = EmploymentContract.Create(tenant.TenantId, c.EmployeeId, c.StartsOn, c.EndsOn, c.HourlyRate, c.Currency); contracts.Add(contract); return contract.Id; }
+    public async Task<Guid> HandleAsync(CreateEmploymentContractCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var contract = EmploymentContract.Create(tenant.TenantId, c.EmployeeId, c.StartsOn, c.EndsOn, c.HourlyRate, c.Currency); contracts.Add(contract); return contract.Id; }
 }
 public sealed class CreateLeaveRequestCommandHandler(IEmployeeRepository employees, ILeaveRepository leaves, ITenantContext tenant) : ICommandHandler<CreateLeaveRequestCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(CreateLeaveRequestCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var leave = LeaveRequest.Create(tenant.TenantId, c.EmployeeId, c.From, c.To, c.LeaveType, c.Reason); leaves.Add(leave); return leave.Id; }
+    public async Task<Guid> HandleAsync(CreateLeaveRequestCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var leave = LeaveRequest.Create(tenant.TenantId, c.EmployeeId, c.From, c.To, c.LeaveType, c.Reason); leaves.Add(leave); return leave.Id; }
 }
 public sealed class CreateShiftCommandHandler(IEmployeeRepository employees, IShiftRepository shifts, ITenantContext tenant) : ICommandHandler<CreateShiftCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(CreateShiftCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var s = Shift.Create(tenant.TenantId, c.EmployeeId, c.StartsAt, c.EndsAt, c.Role, c.StoreId); if ((await shifts.ListAsync(c.StartsAt, c.EndsAt, c.EmployeeId, token)).Any(existing => existing.Overlaps(c.StartsAt, c.EndsAt) && existing.Status != ShiftStatus.Cancelled)) throw new InvalidOperationException("An employee cannot have overlapping shifts."); shifts.Add(s); return s.Id; }
+    public async Task<Guid> HandleAsync(CreateShiftCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var s = Shift.Create(tenant.TenantId, c.EmployeeId, c.StartsAt, c.EndsAt, c.Role, c.StoreId); if ((await shifts.ListAsync(c.StartsAt, c.EndsAt, c.EmployeeId, token)).Any(existing => existing.Overlaps(c.StartsAt, c.EndsAt) && existing.Status != ShiftStatus.Cancelled)) throw new InvalidOperationException("An employee cannot have overlapping shifts."); shifts.Add(s); return s.Id; }
 }
 public sealed class RecordAttendanceCommandHandler(IEmployeeRepository employees, IAttendanceRepository attendance, ITenantContext tenant) : ICommandHandler<RecordAttendanceCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(RecordAttendanceCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var a = AttendanceRecord.Record(tenant.TenantId, c.EmployeeId, c.ShiftId, c.EventType, c.OccurredAt, c.Source); attendance.Add(a); return a.Id; }
+    public async Task<Guid> HandleAsync(RecordAttendanceCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var a = AttendanceRecord.Record(tenant.TenantId, c.EmployeeId, c.ShiftId, c.EventType, c.OccurredAt, c.Source); attendance.Add(a); return a.Id; }
 }
 public sealed class RecordEmployeeDocumentCommandHandler(IEmployeeRepository employees, IEmployeeDocumentRepository documents, ITenantContext tenant, ICompanyContext company) : ICommandHandler<RecordEmployeeDocumentCommand, Guid>
 {
@@ -172,13 +172,14 @@ public sealed class ListEmployeesQueryHandler(IEmployeeRepository employees) : I
 public sealed class ListEmploymentContractsQueryHandler(IEmploymentContractRepository contracts) : IQueryHandler<ListEmploymentContractsQuery, IReadOnlyList<EmploymentContract>> { public Task<IReadOnlyList<EmploymentContract>> HandleAsync(ListEmploymentContractsQuery q, CancellationToken t = default) => contracts.ListAsync(q.EmployeeId, t); }
 public sealed class ListLeaveRequestsQueryHandler(ILeaveRepository leaves) : IQueryHandler<ListLeaveRequestsQuery, IReadOnlyList<LeaveRequest>> { public Task<IReadOnlyList<LeaveRequest>> HandleAsync(ListLeaveRequestsQuery q, CancellationToken t = default) => leaves.ListAsync(q.EmployeeId, t); }
 public sealed class ListShiftsQueryHandler(IShiftRepository shifts) : IQueryHandler<ListShiftsQuery, IReadOnlyList<Shift>> { public Task<IReadOnlyList<Shift>> HandleAsync(ListShiftsQuery q, CancellationToken t = default) => shifts.ListAsync(q.From, q.To, q.EmployeeId, t); }
-public sealed class GetEmployeeAvailabilityQueryHandler(IEmployeeRepository employees, IShiftRepository shifts) : IQueryHandler<GetEmployeeAvailabilityQuery, EmployeeAvailability>
+public sealed class GetEmployeeAvailabilityQueryHandler(IEmployeeRepository employees, IShiftRepository shifts, ITenantContext tenant) : IQueryHandler<GetEmployeeAvailabilityQuery, EmployeeAvailability>
 {
     public async Task<EmployeeAvailability> HandleAsync(GetEmployeeAvailabilityQuery query, CancellationToken token = default)
     {
         if (query.To <= query.From) throw new ArgumentException("Availability window must end after it starts.", nameof(query));
         Employee employee = await employees.FindAsync(query.EmployeeId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Employee was not found.");
+        if (employee.TenantId != tenant.TenantId) throw new KeyNotFoundException("Employee was not found.");
         IReadOnlyList<Shift> scheduled = await shifts.ListAsync(query.From, query.To, query.EmployeeId, token).ConfigureAwait(false);
         var activeShifts = scheduled.Where(shift => shift.Status != ShiftStatus.Cancelled && shift.Overlaps(query.From, query.To)).ToArray();
         return new EmployeeAvailability(employee.Id, employee.Status, employee.Status == EmploymentStatus.Active && activeShifts.Length == 0, activeShifts);

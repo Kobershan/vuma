@@ -91,7 +91,9 @@ public sealed class HrLifecycleTests
         employees.FindAsync(employee.Id, Arg.Any<CancellationToken>()).Returns(employee);
         shifts.ListAsync(from, from.AddHours(2), employee.Id, Arg.Any<CancellationToken>()).Returns(new[] { shift });
 
-        var result = await new GetEmployeeAvailabilityQueryHandler(employees, shifts)
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        var result = await new GetEmployeeAvailabilityQueryHandler(employees, shifts, tenant)
             .HandleAsync(new GetEmployeeAvailabilityQuery(employee.Id, from, from.AddHours(2)));
 
         result.Available.Should().BeFalse();

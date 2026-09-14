@@ -17,3 +17,6 @@ suite passes 11/11. Labour-cost integration remains open.
 2026-09-13: Added company-guarded roster publication with deterministic SHA-256 snapshots and
 tenant-scoped persistence in migration `Stage26RosterPublication`; the HR lifecycle suite passes
 11/11. Labour-cost integration and specialist review remain open.
+
+2026-09-14: Employee/shift creation and availability now validate the loaded employee tenant
+before creating or returning workforce data. HR-focused tests pass **102/102**.

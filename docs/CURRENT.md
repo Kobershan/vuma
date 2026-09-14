@@ -26,6 +26,9 @@ WORK LOG (2026-09-14): Stage 25 employee lifecycle, leave decisions and shift-sw
 validate loaded tenant scope before state changes. HR-focused tests pass **102/102**; payroll
 delivery, statutory integration, roster/availability and full acceptance remain open.
 
+VERIFICATION (2026-09-14): Stage 26 employee/shift creation and availability now reject loaded
+employees from another tenant, and HR-focused tests pass **102/102** after compilation.
+
 VERIFICATION (2026-09-14): The full PostgreSQL integration run reached **607/608** before exposing
 one stale trailing-slash expectation in the shared API contract list. The Stage 27 asset and
 maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;
