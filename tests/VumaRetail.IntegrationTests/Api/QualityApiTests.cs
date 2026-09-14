@@ -16,6 +16,7 @@ using VumaRetail.Contracts.Inventory;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Quality;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
@@ -136,6 +137,65 @@ public sealed class QualityApiTests(PostgresFixture fixture)
         LocalAvailabilityResponse unchanged = await GetAvailabilityAsync(client, locationId, itemId);
         unchanged.Promise.Reserved.Should().Be(20m);
         unchanged.Promise.Available.Should().Be(80m);
+    }
+
+    [Fact]
+    public async Task Opening_recall_through_api_traces_production_output_and_shipment_in_postgres()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, configureServices: StubCompanyRouting);
+        Guid companyId = await SeedCompanyAsync(harness);
+        Guid productionId = Guid.NewGuid();
+        Guid shipmentId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        const string inputLot = "LOT-INPUT-POSTGRES";
+        const string outputLot = "LOT-OUTPUT-POSTGRES";
+
+        await harness.InScopeAsync(async services =>
+        {
+            ITenantContext tenant = services.GetRequiredService<ITenantContext>();
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            StockLedgerEntry[] movements =
+            [
+                StockLedgerEntry.Post(tenant.TenantId, null, locationId, null, itemId, null,
+                    StockMovementType.ProductionIssue, new Quantity(-2m, "EA"), new Money(10m, "ZAR"),
+                    StockReferenceType.Production, productionId, null, "production input", inputLot),
+                StockLedgerEntry.Post(tenant.TenantId, null, locationId, null, itemId, null,
+                    StockMovementType.ProductionReceipt, new Quantity(2m, "EA"), new Money(10m, "ZAR"),
+                    StockReferenceType.Production, productionId, null, "production output", outputLot),
+                StockLedgerEntry.Post(tenant.TenantId, null, locationId, null, itemId, null,
+                    StockMovementType.SaleIssue, new Quantity(-1m, "EA"), new Money(10m, "ZAR"),
+                    StockReferenceType.Shipment, shipmentId, null, "shipment", outputLot),
+            ];
+            foreach (StockLedgerEntry movement in movements)
+            {
+                movement.AssignCompany(companyId);
+            }
+            context.StockLedgerEntries.AddRange(movements);
+            await context.SaveChangesAsync();
+        });
+
+        await harness.CreateUserAsync("quality-recall-manager", "CorrectHorseBattery1", QualityPermissions.Manage, QualityPermissions.View);
+        using HttpClient client = await harness.SignInAsync("quality-recall-manager");
+        Guid operationId = Guid.NewGuid();
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/quality/recalls/", new
+        {
+            OperationId = operationId, CompanyId = companyId, CaseNumber = "REC-POSTGRES-GENEALOGY",
+            LotReference = inputLot, Reason = "Contamination"
+        });
+        string body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.Created, body);
+        Guid recallId = (await response.Content.ReadFromJsonAsync<Guid>())!;
+
+        await harness.InScopeAsync(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            RecallCase recall = (await context.RecallCases.SingleAsync(value => value.Id == recallId));
+            recall.TraceReferences.Should().Contain(reference =>
+                reference.Kind == StockReferenceType.Production.ToString() && reference.Reference == productionId.ToString());
+            recall.TraceReferences.Should().Contain(reference =>
+                reference.Kind == StockReferenceType.Shipment.ToString() && reference.Reference == shipmentId.ToString());
+        });
     }
 
     private static async Task<LocalAvailabilityResponse> GetAvailabilityAsync(HttpClient client, Guid locationId, Guid itemId)

@@ -6,7 +6,7 @@
 CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Complete Stage 18 PostgreSQL dispatch and recall-traceability acceptance,
+NEXT STAGE (roadmap order): Complete remaining Stage 18 reservation projection traceability,
 then Stage 21 checkout/payment acceptance and Stage 21b.
 
 WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
@@ -32,7 +32,8 @@ or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query cove
 regression test. Receipt commands now carry lot, expiry and serial metadata, and the real PostgreSQL
 warehouse chain proves the expiry refusal and preserves outbound lot metadata. Application and Infrastructure Release builds compile;
 focused quality/warehouse unit tests pass **89/89**. Recall opening now traverses input lot → production
-order → output lot → shipment with tenant/company filtering; PostgreSQL genealogy acceptance remains.
+order → output lot → shipment with tenant/company filtering; the PostgreSQL quality API regression
+now verifies that genealogy path end to end.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are

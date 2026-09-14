@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** IN_PROGRESS — dispatch checks active quality holds and expired tracked stock with PostgreSQL warehouse evidence; automatic recall-traceability acceptance remains · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — dispatch and automatic recall genealogy are implemented and covered by PostgreSQL evidence; reservation projection traceability and specialist closure remain · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -8,8 +8,9 @@
 > quality-hold check in warehouse shipping; that integration is now implemented in code. PostgreSQL
 > dispatch/shelf-life execution and shipment lot identity are now covered by PostgreSQL warehouse
 > tests; automatic recall opening derives tracked shipment references from the ledger, while
-> production receipts now accept tracked lot identity, allowing recall scans to include production
-> outputs; multi-step lot-to-output genealogy remains open.
+> production receipts and issue commands now accept tracked lot identity, allowing recall scans to
+> include production outputs. The multi-step traversal is now covered through the public API against
+> PostgreSQL; reservation projection traceability remains open.
 
 Track inspection, quarantine, release, non-conformance, corrective actions and recalls across procurement and production lots. A quarantined lot must never appear as sellable availability.
 
@@ -55,8 +56,8 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
   backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
   now fails closed for active holds and expired tracked stock, with PostgreSQL boundary evidence remaining.
 - [~] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
-  Recall traversal now follows input lot → production order → output lot → shipment in the scoped
-  application path; PostgreSQL genealogy acceptance remains.
+  Recall traversal follows input lot → production order → output lot → shipment in both the scoped
+  application path and the public API against PostgreSQL.
 
 Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/STAGE-18-INDEX.md), with focused tasks [TASK-18-001](../tasks/TASK-18-001-quality-inspections.md), [TASK-18-002](../tasks/TASK-18-002-quality-holds.md), and [TASK-18-003](../tasks/TASK-18-003-quality-closure.md). Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -64,7 +65,8 @@ Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/ST
 
 Quality-focused unit tests pass **17/17** as of 2026-09-14, including the expired-hold release gate
 and multi-step lot genealogy traversal.
-PostgreSQL API and migration evidence is recorded for the implemented quality surface.
+PostgreSQL API and migration evidence is recorded for the implemented quality surface, including
+input-lot to production-output to shipment recall genealogy.
 
 Verification (2026-09-14): Quality hold release/rejection, inspection, corrective-action and
 non-conformance transitions now validate loaded tenant scope alongside company scope. Quality unit
@@ -84,7 +86,7 @@ Stage 18 remains in progress. Focused quality tests and the recorded PostgreSQL 
 cover holds, inspections, replay, scope, NCR/CAPA, certificates and recalls. Dispatch now queries the
 inventory ledger for expired tracked stock, while PostgreSQL warehouse tests cover expiry refusal and
 outbound lot metadata. Automatic lot-to-output/shipment recall traversal is implemented and covered by
-unit regression; PostgreSQL multi-step genealogy acceptance remains open. A separate
+unit regression plus a PostgreSQL API regression. Reservation projection traceability and a separate
 specialist-agent runtime was
 unavailable in this environment.
 

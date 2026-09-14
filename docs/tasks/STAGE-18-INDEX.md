@@ -4,8 +4,8 @@ This is the canonical execution queue for Stage 18. A task is complete only when
 tests, migration/API evidence and documentation are recorded.
 
 > **Audit correction (2026-09-14):** The earlier closure note overstated completion. The warehouse
-> dispatch quality gate is now implemented, but source-built regression evidence, PostgreSQL
-> shelf-life/dispatch evidence, and automatic recall traceability are still open.
+> dispatch quality gate and automatic recall traceability are implemented; reservation projection
+> traceability and specialist closure evidence remain open.
 
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
@@ -15,13 +15,13 @@ tests, migration/API evidence and documentation are recorded.
 
 ## Verification record (2026-09-14)
 
-- Quality API integration: **4/4 passed** against PostgreSQL, including OpenAPI coverage,
+- Quality API integration: **5/5 passed** against PostgreSQL, including OpenAPI coverage,
   permission denial, company-scoped quality setup, reservation-backed hold idempotency, and atomic
   shortfall refusal.
 ## Closure decision (2026-09-14)
 
 Stage 18 remains in progress. The quality unit suite is recorded at 17/17, focused quality
-integration evidence at 5/5, quality API evidence at 4/4, and migration reversibility at 1/1
+integration evidence at 5/5, quality API evidence at 5/5, and migration reversibility at 1/1
 against PostgreSQL. The warehouse chain now proves expiry refusal; application recall traversal covers
-input lot → production order → output lot → shipment, while PostgreSQL genealogy and reservation
-projection evidence remain open.
+input lot → production order → output lot → shipment, while reservation projection evidence remains
+open.
