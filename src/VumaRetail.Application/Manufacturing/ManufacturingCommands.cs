@@ -239,7 +239,10 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
                 intentId: command.OperationId,
                 legId: command.OperationId,
                 reason: "Production material issue",
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                cancellationToken: cancellationToken,
+                batchReference: command.BatchReference,
+                expiryDate: command.ExpiryDate,
+                serialNumber: command.SerialNumber).ConfigureAwait(false);
         }
         catch
         {

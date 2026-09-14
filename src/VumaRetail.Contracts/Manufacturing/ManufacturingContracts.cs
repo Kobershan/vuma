@@ -43,7 +43,7 @@ public sealed record ProductionOrderResponse(Guid Id, Guid CompanyId, Guid Finis
 public sealed record ProductionCapacityResponse(Guid ProductionOrderId, decimal PlannedQuantity, string UnitOfMeasure, decimal SetupMinutes, decimal RunMinutes, decimal TotalMinutes);
 
 /// <summary>Records a production material issue.</summary>
-public sealed record IssueProductionMaterialRequest(Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency);
+public sealed record IssueProductionMaterialRequest(Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency, string? BatchReference = null, DateOnly? ExpiryDate = null, string? SerialNumber = null);
 
 /// <summary>Records finished output.</summary>
 public sealed record ReceiveProductionOutputRequest(Guid LocationId, Guid OperationId, decimal Quantity,

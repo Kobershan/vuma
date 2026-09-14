@@ -163,7 +163,9 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
             context.StockLocations.Add(location);
             await context.CommitAsync();
             IStockLedgerPoster poster = services.GetRequiredService<IStockLedgerPoster>();
-            await poster.ReceiveAsync(location, componentItemId, null, new Quantity(1m, "EA"), new Money(5m, "ZAR"), note: null);
+            StockLedgerEntry receipt = await poster.ReceiveAsync(location, componentItemId, null,
+                new Quantity(1m, "EA"), new Money(5m, "ZAR"), note: null, batchReference: "LOT-INPUT-API");
+            receipt.AssignCompany(companyId);
             await context.CommitAsync();
             StockBalance? balance = await context.StockBalances.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.LocationId == location.Id);
             balance?.AssignCompany(companyId);
@@ -187,7 +189,7 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         releasedOrder.Materials.Should().ContainSingle();
         releasedOrder.Materials[0].ComponentItemId.Should().Be(componentItemId);
         Guid issueOperationId = Guid.NewGuid();
-        IssueProductionMaterialRequest issueRequest = new(locationId, issueOperationId, releasedOrder.Materials[0].ComponentItemId, null, 1m, "EA", 5m, "ZAR");
+        IssueProductionMaterialRequest issueRequest = new(locationId, issueOperationId, releasedOrder.Materials[0].ComponentItemId, null, 1m, "EA", 5m, "ZAR", "LOT-INPUT-API");
         HttpResponseMessage issue = await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/issues?companyId={companyId:D}", issueRequest);
         string issueBody = await issue.Content.ReadAsStringAsync();
         issue.StatusCode.Should().Be(HttpStatusCode.NoContent, issueBody);
@@ -216,7 +218,7 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
             ],
             "Production scrap"));
 
-        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts?companyId={companyId:D}", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/receipts?companyId={companyId:D}", new ReceiveProductionOutputRequest(locationId, Guid.NewGuid(), 0.5m, "EA", 5m, "ZAR", "LOT-OUTPUT-API"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         Guid scrapOperationId = Guid.NewGuid();
         (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap?companyId={companyId:D}", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await client.PostAsJsonAsync($"/api/v1/manufacturing/production-orders/{orderId:D}/scrap?companyId={companyId:D}", new RecordProductionScrapRequest(scrapOperationId, 0.5m, "EA", 5m, "ZAR"))).StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -235,6 +237,12 @@ public sealed class ManufacturingApiTests(PostgresFixture fixture)
         capacity.TotalMinutes.Should().Be(0m);
         ProductionOrderResponse genealogy = (await client.GetFromJsonAsync<ProductionOrderResponse>($"/api/v1/manufacturing/production-orders/{orderId:D}/genealogy?companyId={companyId:D}"))!;
         genealogy.Issues.Should().ContainSingle();
+        IReadOnlyList<StockLedgerEntry> productionLedger = await harness.InScopeAsync(async services =>
+            await services.GetRequiredService<VumaRetailDbContext>().StockLedgerEntries
+                .Where(entry => entry.ReferenceType == StockReferenceType.Production && entry.ReferenceId == orderId)
+                .ToListAsync());
+        productionLedger.Should().Contain(entry => entry.BatchReference == "LOT-INPUT-API");
+        productionLedger.Should().Contain(entry => entry.BatchReference == "LOT-OUTPUT-API");
     }
 
     [Fact]
