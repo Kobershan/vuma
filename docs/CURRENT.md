@@ -173,6 +173,10 @@ WORK LOG (2026-09-14): Stage 23 warranty claim approval now validates the loaded
 well as the active company before changing state. `ServiceCommandTests` passes **4/4**; SLA worker,
 financial integration and full service acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 23 repair completion and ticket resume/close now validate the loaded
+record tenant as well as company scope before changing state. StoreServer build passes with **0
+errors**; SLA worker, financial integration and full service acceptance remain open.
+
 VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
 and replaced with `Stage29ReportExportArtifactsFix`, which adds
 `reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model

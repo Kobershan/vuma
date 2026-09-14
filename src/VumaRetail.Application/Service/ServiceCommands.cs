@@ -122,7 +122,7 @@ public sealed class ApproveWarrantyClaimCommandHandler(IServiceRepository servic
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CompleteRepairCommand(Guid RepairJobId) : ICommand;
 
-public sealed class CompleteRepairCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+public sealed class CompleteRepairCommandHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<CompleteRepairCommand, Unit>
 {
     public async Task<Unit> HandleAsync(CompleteRepairCommand command, CancellationToken cancellationToken = default)
@@ -130,7 +130,7 @@ public sealed class CompleteRepairCommandHandler(IServiceRepository services, IC
         ArgumentNullException.ThrowIfNull(command);
         RepairJob job = await services.FindRepairAsync(command.RepairJobId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Repair job not found.");
-        if (company.CompanyId is not { } active || job.CompanyId != active)
+        if (job.TenantId != tenant.TenantId || company.CompanyId is not { } active || job.CompanyId != active)
             throw new InvalidOperationException("The repair company is not the active company.");
         job.Complete(clock.UtcNow);
         return Unit.Value;
@@ -143,7 +143,7 @@ public sealed record CloseServiceTicketCommand(Guid TicketId) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ResumeServiceTicketCommand(Guid TicketId) : ICommand;
 
-public sealed class ResumeServiceTicketCommandHandler(IServiceRepository services, ICompanyContext company,
+public sealed class ResumeServiceTicketCommandHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company,
     IServiceSlaClock slaClock, IClock clock) : ICommandHandler<ResumeServiceTicketCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ResumeServiceTicketCommand command, CancellationToken cancellationToken = default)
@@ -151,7 +151,7 @@ public sealed class ResumeServiceTicketCommandHandler(IServiceRepository service
         ArgumentNullException.ThrowIfNull(command);
         ServiceTicket ticket = await services.FindTicketAsync(command.TicketId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Service ticket not found.");
-        if (company.CompanyId is not { } active || ticket.CompanyId != active)
+        if (ticket.TenantId != tenant.TenantId || company.CompanyId is not { } active || ticket.CompanyId != active)
             throw new InvalidOperationException("The service company is not the active company.");
         DateTimeOffset now = clock.UtcNow;
         decimal paused = slaClock.WorkingHoursBetween(ticket.CustomerWaitStartedAtUtc!.Value, now);
@@ -160,7 +160,7 @@ public sealed class ResumeServiceTicketCommandHandler(IServiceRepository service
     }
 }
 
-public sealed class CloseServiceTicketCommandHandler(IServiceRepository services, ICompanyContext company, IClock clock)
+public sealed class CloseServiceTicketCommandHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<CloseServiceTicketCommand, Unit>
 {
     public async Task<Unit> HandleAsync(CloseServiceTicketCommand command, CancellationToken cancellationToken = default)
@@ -168,7 +168,7 @@ public sealed class CloseServiceTicketCommandHandler(IServiceRepository services
         ArgumentNullException.ThrowIfNull(command);
         ServiceTicket ticket = await services.FindTicketAsync(command.TicketId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Service ticket not found.");
-        if (company.CompanyId is not { } active || ticket.CompanyId != active)
+        if (ticket.TenantId != tenant.TenantId || company.CompanyId is not { } active || ticket.CompanyId != active)
             throw new InvalidOperationException("The service company is not the active company.");
         ticket.Close(clock.UtcNow);
         return Unit.Value;
