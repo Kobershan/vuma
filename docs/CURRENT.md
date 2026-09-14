@@ -250,3 +250,7 @@ submit timestamps as well as evidence. `ChecklistCommandTests` passes 4/4; evide
 and period-close acceptance remain open.
 The new summary route is protected by `projects.project.view`, while mutations remain on the
 high-risk manage permission.
+
+WORK LOG (2026-09-14): Stage 26 shift-swap request and approval handlers now fail closed for
+loaded shifts or swap requests outside the active company. `HrLifecycleTests` passes 13/13;
+labour-cost integration and specialist review remain open.

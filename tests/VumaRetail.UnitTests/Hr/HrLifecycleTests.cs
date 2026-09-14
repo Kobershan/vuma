@@ -60,6 +60,10 @@ public sealed class HrLifecycleTests
         invalid.Should().Throw<ArgumentException>();
 
         var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+        var company = Substitute.For<ICompanyContext>();
+        var companyId = Guid.NewGuid();
+        company.CompanyId.Returns(companyId);
+        shift.AssignCompany(companyId);
         shift.Complete();
         var cancel = () => shift.Cancel();
         cancel.Should().Throw<InvalidOperationException>();
@@ -125,6 +129,10 @@ public sealed class HrLifecycleTests
     {
         var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
         var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+        var company = Substitute.For<ICompanyContext>();
+        var companyId = Guid.NewGuid();
+        company.CompanyId.Returns(companyId);
+        shift.AssignCompany(companyId);
         var target = Employee.Create(TenantId, "E-004", "Alan", "Turing", start, EmploymentType.Permanent);
         var employees = Substitute.For<IEmployeeRepository>();
         var shifts = Substitute.For<IShiftRepository>();
@@ -134,7 +142,7 @@ public sealed class HrLifecycleTests
         shifts.FindAsync(shift.Id, Arg.Any<CancellationToken>()).Returns(shift);
         employees.FindAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
 
-        var id = await new RequestShiftSwapCommandHandler(employees, shifts, swaps, tenant)
+        var id = await new RequestShiftSwapCommandHandler(employees, shifts, swaps, tenant, company)
             .HandleAsync(new RequestShiftSwapCommand(shift.Id, EmployeeId, target.Id, start));
 
         id.Should().NotBeEmpty();
@@ -145,15 +153,20 @@ public sealed class HrLifecycleTests
     public async Task Shift_swap_decision_handler_applies_the_requested_decision()
     {
         var request = ShiftSwapRequest.Request(TenantId, Guid.NewGuid(), EmployeeId, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        var company = Substitute.For<ICompanyContext>();
+        var companyId = Guid.NewGuid();
+        company.CompanyId.Returns(companyId);
+        request.AssignCompany(companyId);
         var swaps = Substitute.For<IShiftSwapRequestRepository>();
         var shifts = Substitute.For<IShiftRepository>();
         swaps.FindAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
 
         var shift = Shift.Create(TenantId, request.FromEmployeeId, DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow.AddHours(2), "Cashier");
+        shift.AssignCompany(companyId);
         shifts.FindAsync(request.ShiftId, Arg.Any<CancellationToken>()).Returns(shift);
         shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, Arg.Any<CancellationToken>()).Returns(Array.Empty<Shift>());
 
-        await new DecideShiftSwapCommandHandler(swaps, shifts).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
+        await new DecideShiftSwapCommandHandler(swaps, shifts, company).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
 
         request.Status.Should().Be(ShiftSwapStatus.Approved);
         shift.EmployeeId.Should().Be(request.ToEmployeeId);
@@ -202,5 +215,26 @@ public sealed class HrLifecycleTests
             .HandleAsync(new PublishRosterCommand(company.CompanyId!.Value, start, start.AddDays(1), selectedStore));
 
         publications.Received(1).Add(Arg.Is<RosterPublication>(publication => publication.ShiftCount == 1));
+    }
+
+    [Fact]
+    public async Task Shift_swap_request_rejects_a_shift_from_another_active_company()
+    {
+        var start = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var shift = Shift.Create(TenantId, EmployeeId, start, start.AddHours(8), "Cashier");
+        shift.AssignCompany(Guid.NewGuid());
+        var employees = Substitute.For<IEmployeeRepository>();
+        var shifts = Substitute.For<IShiftRepository>();
+        var swaps = Substitute.For<IShiftSwapRequestRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+        shifts.FindAsync(shift.Id, Arg.Any<CancellationToken>()).Returns(shift);
+
+        await FluentActions.Invoking(() => new RequestShiftSwapCommandHandler(employees, shifts, swaps, tenant, company)
+            .HandleAsync(new RequestShiftSwapCommand(shift.Id, EmployeeId, Guid.NewGuid(), start)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        swaps.DidNotReceive().Add(Arg.Any<ShiftSwapRequest>());
     }
 }

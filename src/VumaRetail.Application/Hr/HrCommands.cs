@@ -172,11 +172,13 @@ public sealed class GetEmployeeAvailabilityQueryHandler(IEmployeeRepository empl
         return new EmployeeAvailability(employee.Id, employee.Status, employee.Status == EmploymentStatus.Active && activeShifts.Length == 0, activeShifts);
     }
 }
-public sealed class RequestShiftSwapCommandHandler(IEmployeeRepository employees, IShiftRepository shifts, IShiftSwapRequestRepository swaps, ITenantContext tenant) : ICommandHandler<RequestShiftSwapCommand, Guid>
+public sealed class RequestShiftSwapCommandHandler(IEmployeeRepository employees, IShiftRepository shifts, IShiftSwapRequestRepository swaps, ITenantContext tenant, ICompanyContext company) : ICommandHandler<RequestShiftSwapCommand, Guid>
 {
     public async Task<Guid> HandleAsync(RequestShiftSwapCommand c, CancellationToken token = default)
     {
         Shift shift = await shifts.FindAsync(c.ShiftId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift was not found.");
+        if (company.CompanyId is not { } activeCompany || shift.CompanyId != activeCompany)
+            throw new InvalidOperationException("The shift company is not the active company.");
         if (shift.EmployeeId != c.FromEmployeeId) throw new InvalidOperationException("The requesting employee does not own the shift.");
         if (shift.Status != ShiftStatus.Planned) throw new InvalidOperationException("Only planned shifts can be swapped.");
         if (await employees.FindAsync(c.ToEmployeeId, token).ConfigureAwait(false) is null) throw new KeyNotFoundException("Target employee was not found.");
@@ -200,13 +202,17 @@ public sealed class PublishRosterCommandHandler(IShiftRepository shifts, IRoster
         return publication.Id;
     }
 }
-public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts) : ICommandHandler<DecideShiftSwapCommand, Unit>
+public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts, ICompanyContext company) : ICommandHandler<DecideShiftSwapCommand, Unit>
 {
     public async Task<Unit> HandleAsync(DecideShiftSwapCommand c, CancellationToken token = default)
     {
         var request = await swaps.FindAsync(c.ShiftSwapRequestId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift swap request was not found.");
+        if (company.CompanyId is not { } activeCompany || request.CompanyId != activeCompany)
+            throw new InvalidOperationException("The shift-swap company is not the active company.");
         if (!c.Approved) { request.Reject(); return Unit.Value; }
         Shift shift = await shifts.FindAsync(request.ShiftId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift was not found.");
+        if (shift.CompanyId != activeCompany)
+            throw new InvalidOperationException("The shift company is not the active company.");
         if (shift.EmployeeId != request.FromEmployeeId) throw new InvalidOperationException("The shift owner changed while the swap was pending.");
         if ((await shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, token).ConfigureAwait(false))
             .Any(existing => existing.Id != shift.Id && existing.Status != ShiftStatus.Cancelled && existing.Overlaps(shift.StartsAt, shift.EndsAt)))
