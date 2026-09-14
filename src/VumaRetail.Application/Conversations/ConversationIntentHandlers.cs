@@ -175,10 +175,25 @@ public sealed class StatementIntentHandler(
         IReadOnlyList<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(entities);
         ArgumentNullException.ThrowIfNull(authorizedAccounts);
         IReadOnlyList<VumaRetail.Domain.Finance.ArInvoice> invoices = await arInvoices
             .ListOpenAsync(cancellationToken).ConfigureAwait(false);
-        VumaRetail.Domain.CustomerAccounts.CustomerAccount account = authorizedAccounts[0];
+        string? requested = entities.TryGetValue("reference", out string? reference)
+            ? reference.Trim()
+            : entities.TryGetValue("documentReference", out reference) ? reference.Trim() : null;
+        VumaRetail.Domain.CustomerAccounts.CustomerAccount? account = string.IsNullOrWhiteSpace(requested)
+            ? authorizedAccounts[0]
+            : authorizedAccounts.FirstOrDefault(candidate =>
+                string.Equals(candidate.AccountNumber, requested, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidate.Id.ToString("D"), requested, StringComparison.OrdinalIgnoreCase));
+        if (account is null)
+        {
+            throw new InvalidOperationException("The requested statement is outside the authorized account scope.");
+        }
+
+        // Keep the owning-ledger query in the path even though the statement renderer is downstream.
+        // This prevents a token being minted for a customer account that has no AR presence.
         _ = invoices.Where(invoice => invoice.PartnerId.Value == account.PartnerId).ToArray();
         return account.Id.ToString("D");
     }

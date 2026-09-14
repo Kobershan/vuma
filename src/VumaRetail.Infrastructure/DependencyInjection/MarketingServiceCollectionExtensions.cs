@@ -19,6 +19,7 @@ public static class MarketingServiceCollectionExtensions
         services.AddScoped<IOutboundMessageRepository, OutboundMessageRepository>();
         services.AddScoped<MarketingDeliveryPolicy>();
         services.AddScoped<MarketingDeliveryService>();
+        services.AddScoped<IMarketingDeliveryWorker, MarketingDeliveryWorker>();
         services.AddScoped<IMarketingTransport, UnavailableMarketingTransport>();
         return services;
     }

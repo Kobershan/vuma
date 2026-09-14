@@ -33,6 +33,11 @@ public sealed class MarketingDeliveryService(
             throw new InvalidOperationException("Only a scheduled campaign can deliver messages.");
         }
         DateTimeOffset now = clock.UtcNow;
+        if (message.ScheduledAt > now)
+        {
+            // A worker may safely scan ahead.  The message remains queued until its due time.
+            return MarketingDispatchOutcome.Failed;
+        }
         if (!await policy.MaySendAsync(message.CustomerId, (MarketingChannel)message.Channel,
                 (MessageClassification)message.Classification, now, cancellationToken).ConfigureAwait(false))
         {

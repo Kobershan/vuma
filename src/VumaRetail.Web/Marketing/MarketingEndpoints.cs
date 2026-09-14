@@ -28,6 +28,24 @@ public static class MarketingEndpoints
         group.MapGet("/messages", ListQueuedMessagesAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/suppress", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new SuppressOutboundMessageCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/sent", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new MarkOutboundMessageSentCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/messages/{id:guid}/dispatch", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            BindCompany(company, companyId);
+            MarketingDispatchOutcome outcome = await d.SendAsync(new DispatchOutboundMessageCommand(id), ct);
+            return outcome switch
+            {
+                MarketingDispatchOutcome.Delivered => Results.Ok(new { status = "delivered" }),
+                MarketingDispatchOutcome.Suppressed => Results.Ok(new { status = "suppressed" }),
+                _ => Results.Accepted(value: new { status = "queued_or_failed" })
+            };
+        }).RequirePermission(MarketingPermissions.Manage);
+        group.MapPost("/dispatch-due", async (Guid companyId, int? limit, ICompanyContext company,
+            IMarketingDeliveryWorker worker, CancellationToken ct) =>
+        {
+            company.SetCompany(companyId);
+            int processed = await worker.DispatchDueAsync(companyId, limit ?? 100, ct);
+            return Results.Ok(new { companyId, processed });
+        }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/webhooks/{provider}", ApplyProviderResultAsync)
             .AllowAnonymous()
             .Produces(StatusCodes.Status202Accepted)

@@ -25,3 +25,9 @@ public interface IMarketingTransport
     Task<MarketingTransportResult> SendAsync(OutboundMessage message, MarketingCampaign campaign,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>Runs due marketing messages through the durable delivery boundary.</summary>
+public interface IMarketingDeliveryWorker
+{
+    Task<int> DispatchDueAsync(Guid companyId, int limit = 100, CancellationToken cancellationToken = default);
+}

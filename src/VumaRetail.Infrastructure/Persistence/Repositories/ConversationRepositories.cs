@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Infrastructure.Persistence.Repositories;
 
 /// <summary>EF-backed delivery-token store; token fetch state is committed through the company context.</summary>
-public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db) : IDocumentDeliveryTokenStore
+public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db, ITenantContext tenant) : IDocumentDeliveryTokenStore
 {
     public async Task AddAsync(DocumentDeliveryToken token, CancellationToken cancellationToken = default)
     {
@@ -17,7 +18,8 @@ public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db) : IDocu
     public Task<DocumentDeliveryToken?> FindAsync(string token, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
-        return db.DocumentDeliveryTokens.SingleOrDefaultAsync(x => x.Token == token.Trim(), cancellationToken);
+        return db.DocumentDeliveryTokens.SingleOrDefaultAsync(x => x.Token == token.Trim()
+            && x.TenantId == tenant.TenantId, cancellationToken);
     }
 
     public async Task<DocumentDeliveryToken?> ConsumeAsync(
@@ -26,6 +28,7 @@ public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db) : IDocu
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
         DocumentDeliveryToken? candidate = await db.DocumentDeliveryTokens
             .SingleOrDefaultAsync(x => x.Token == token.Trim()
+                && x.TenantId == tenant.TenantId
                 && x.RevokedAt == null
                 && x.FetchedAt == null
                 && x.ExpiresAt >= at, cancellationToken)
@@ -37,6 +40,7 @@ public sealed class EfDocumentDeliveryTokenStore(VumaRetailDbContext db) : IDocu
 
         int consumed = await db.DocumentDeliveryTokens
             .Where(x => x.Id == candidate.Id
+                && x.TenantId == tenant.TenantId
                 && x.RevokedAt == null
                 && x.FetchedAt == null
                 && x.ExpiresAt >= at)
