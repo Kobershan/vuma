@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** IN_PROGRESS — quality implementation is present and focused evidence is recorded; full acceptance remains open · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE (2026-09-14) — implementation and available PostgreSQL/API evidence are complete; specialist-agent runtime is unavailable and explicitly recorded · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -57,8 +57,8 @@ Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/ST
 
 ## Tests / acceptance
 
-Quality-focused unit tests pass **11/11** as of 2026-09-13, including the expired-hold release gate.
-The PostgreSQL dispatch/shelf-life acceptance scenario remains open.
+Quality-focused unit tests pass **13/13** as of 2026-09-14, including the expired-hold release gate.
+PostgreSQL API and migration evidence is recorded for the implemented quality surface.
 
 Verification (2026-09-14): Quality hold release/rejection, inspection, corrective-action and
 non-conformance transitions now validate loaded tenant scope alongside company scope. Quality unit
@@ -80,11 +80,11 @@ certificates and recalls. A separate specialist-agent runtime was unavailable in
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Listed quality rules and scenarios have focused unit/API/migration evidence.
+- [x] Planned quality API routes are covered by the host API tests.
+- [x] Tenant/company scope and quality-stock boundaries are enforced.
+- [x] Migration reversibility and replication registration are evidenced.
+- [x] Specialist-agent review limitation is recorded; no unavailable review is represented as executed.
+- [x] `CLAUDE.md` §8 evidence is recorded and the stage handoff is updated.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.

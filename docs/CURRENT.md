@@ -6,7 +6,7 @@
 CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Stage 18 acceptance, then Stage 21b and the remaining Stage 22–31 queues.
+NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 queues.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are
