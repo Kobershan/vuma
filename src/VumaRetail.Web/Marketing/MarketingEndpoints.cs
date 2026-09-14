@@ -25,6 +25,7 @@ public static class MarketingEndpoints
         group.MapGet("/campaigns/{id:guid}", GetCampaignAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages", async (QueueMessageRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/messages", await d.SendAsync(new QueueOutboundMessageCommand(r.CompanyId, r.StoreId, r.CampaignId, r.CustomerId, r.IdempotencyKey, r.ScheduledAt, r.Channel, r.Classification), ct)); }).RequirePermission(MarketingPermissions.Manage);
         group.MapGet("/messages/{id:guid}", GetMessageAsync).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/messages", ListQueuedMessagesAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/suppress", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new SuppressOutboundMessageCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/sent", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new MarkOutboundMessageSentCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/webhooks/{provider}", ApplyProviderResultAsync)
@@ -53,6 +54,20 @@ public static class MarketingEndpoints
         return message is null || message.CompanyId != companyId
             ? Results.NotFound()
             : Results.Ok(new { message.Id, message.CampaignId, message.CustomerId, message.ScheduledAt, Status = message.Status.ToString(), message.ProviderEventId, message.CompanyId });
+    }
+
+    private static async Task<IResult> ListQueuedMessagesAsync(Guid companyId, bool dueOnly, int? limit,
+        ICompanyContext company, IOutboundMessageRepository messages, IClock clock, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        IReadOnlyList<OutboundMessage> queued = await messages.ListQueuedAsync(companyId, clock.UtcNow, dueOnly,
+            limit ?? 100, cancellationToken).ConfigureAwait(false);
+        return Results.Ok(queued.Select(message => new
+        {
+            message.Id, message.CampaignId, message.CustomerId, message.ScheduledAt,
+            Channel = message.Channel.ToString(), Classification = message.Classification.ToString(),
+            Status = message.Status.ToString(), message.CompanyId
+        }));
     }
 
     private static async Task<IResult> ApplyProviderResultAsync(

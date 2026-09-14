@@ -52,7 +52,7 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
   Provider-result state now persists event identity and payload fingerprints; identical callbacks
   are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
   worker remain. Outbound messages now persist channel/classification metadata, and company-scoped
-  campaign/message operator reads are exposed.
+  campaign/message operator reads and due-queue listing are exposed.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -73,6 +73,7 @@ that explicit purpose immediately before delivery rather than being treated as a
 transitions accept an explicit company selector before dispatch. StoreServer build passes with
 **0 errors**; provider-result event identity is now durable and signed callback input is replay-safe.
 Campaign and message operator reads now return not-found across company boundaries.
+Queued-message listing is bounded, ordered by scheduled time, and supports a due-only filter.
 OpenAPI/runtime route verification passes **2/2**, covering the campaign/message operator reads,
 signed provider callback route, and unsigned-callback rejection.
 
