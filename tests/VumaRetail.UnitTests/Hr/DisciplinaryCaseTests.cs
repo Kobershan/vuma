@@ -76,4 +76,26 @@ public sealed class DisciplinaryCaseTests
         result.Should().BeEmpty();
         await cases.Received(1).ListAsync(companyId, null, Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Investigation_and_decision_handlers_reject_a_case_from_another_company()
+    {
+        var tenantId = Guid.NewGuid();
+        var caseCompany = Guid.NewGuid();
+        var activeCompany = Guid.NewGuid();
+        var opened = new DateTimeOffset(2026, 9, 13, 8, 0, 0, TimeSpan.Zero);
+        var @case = DisciplinaryCase.Open(tenantId, caseCompany, Guid.NewGuid(), new DateOnly(2026, 9, 12), "Unsafe conduct", opened);
+        var cases = Substitute.For<IDisciplinaryCaseRepository>();
+        cases.FindAsync(@case.Id, Arg.Any<CancellationToken>()).Returns(@case);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompany);
+
+        await FluentActions.Invoking(() => new StartDisciplinaryInvestigationCommandHandler(cases, company)
+            .HandleAsync(new StartDisciplinaryInvestigationCommand(@case.Id, opened)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        await FluentActions.Invoking(() => new DecideDisciplinaryCaseCommandHandler(cases, company)
+            .HandleAsync(new DecideDisciplinaryCaseCommand(@case.Id, "Written warning", opened.AddHours(1))))
+            .Should().ThrowAsync<InvalidOperationException>();
+        @case.Status.Should().Be(DisciplinaryCaseStatus.Open);
+    }
 }

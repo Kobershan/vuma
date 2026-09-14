@@ -45,7 +45,9 @@ remain open.
 `Stage25DisciplinaryCases`; open, investigate and decide commands/routes are wired behind the
 dedicated high-risk `hr.disciplinary.manage` permission, and company-scoped listing is available
 behind HR view permission. `DisciplinaryCaseTests`
-passes 4/4 and the StoreServer build passes with 0 errors. Payroll export, acceptance and
+passes 4/4 and the StoreServer build passes with 0 errors. Investigation and decision handlers now
+also enforce the active company against the loaded case; `DisciplinaryCaseTests` passes 5/5.
+Payroll export, acceptance and
 specialist/runtime review remain open.
 
 2026-09-13: Added a source-only payroll export query and `GET /api/v1/hr/payroll/export`, protected

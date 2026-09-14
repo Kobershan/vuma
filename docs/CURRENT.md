@@ -79,6 +79,10 @@ WORK LOG (2026-09-13): Stage 25 disciplinary cases are now company-scoped, persi
 `DisciplinaryCaseTests` passes 3/3 and StoreServer builds with 0 errors; payroll export, case listing
 and full acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 25 disciplinary investigation and decision handlers now enforce the
+loaded case’s active company. Disciplinary tests pass 5/5; payroll and specialist acceptance remain
+open.
+
 WORK LOG (2026-09-13): Stage 25 disciplinary case listing now enforces the active company and is
 available through the HR view-protected query/API surface. `DisciplinaryCaseTests` passes 4/4;
 payroll export, acceptance and specialist review remain open.

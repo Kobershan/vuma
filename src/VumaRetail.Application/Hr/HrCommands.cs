@@ -128,22 +128,26 @@ public sealed class OpenDisciplinaryCaseCommandHandler(IEmployeeRepository emplo
         return @case.Id;
     }
 }
-public sealed class StartDisciplinaryInvestigationCommandHandler(IDisciplinaryCaseRepository cases) : ICommandHandler<StartDisciplinaryInvestigationCommand, Unit>
+public sealed class StartDisciplinaryInvestigationCommandHandler(IDisciplinaryCaseRepository cases, ICompanyContext company) : ICommandHandler<StartDisciplinaryInvestigationCommand, Unit>
 {
     public async Task<Unit> HandleAsync(StartDisciplinaryInvestigationCommand command, CancellationToken token = default)
     {
         var @case = await cases.FindAsync(command.CaseId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Disciplinary case was not found.");
+        if (company.CompanyId is not { } active || @case.CompanyId != active)
+            throw new InvalidOperationException("The HR company is not the active company.");
         @case.StartInvestigation(command.StartedAt);
         return Unit.Value;
     }
 }
-public sealed class DecideDisciplinaryCaseCommandHandler(IDisciplinaryCaseRepository cases) : ICommandHandler<DecideDisciplinaryCaseCommand, Unit>
+public sealed class DecideDisciplinaryCaseCommandHandler(IDisciplinaryCaseRepository cases, ICompanyContext company) : ICommandHandler<DecideDisciplinaryCaseCommand, Unit>
 {
     public async Task<Unit> HandleAsync(DecideDisciplinaryCaseCommand command, CancellationToken token = default)
     {
         var @case = await cases.FindAsync(command.CaseId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Disciplinary case was not found.");
+        if (company.CompanyId is not { } active || @case.CompanyId != active)
+            throw new InvalidOperationException("The HR company is not the active company.");
         @case.Decide(command.Decision, command.DecidedAt);
         return Unit.Value;
     }
