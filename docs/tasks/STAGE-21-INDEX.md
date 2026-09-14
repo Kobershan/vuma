@@ -10,8 +10,8 @@ implementation, security boundary, acceptance tests and documentation evidence a
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
 | TASK-21-001 | Storefront identity, published products and public catalogue API | Stages 14, 20, 06c | COMPLETE — identity, redacted catalogue, scope and OpenAPI evidence pass |
-| TASK-21-002 | Basket, checkout intent, store confirmation and payment orchestration | TASK-21-001 | COMPLETE — basket, authoritative price, expiry and confirmation boundaries pass |
-| TASK-21-003 | Channel connector, signed payment webhook and outage/replay acceptance | TASK-21-002 | IN_PROGRESS — replay-safe capture/void/refund boundary is exposed; order milestone, provider reconciliation, outage and PostgreSQL acceptance remain |
+| TASK-21-002 | Basket, checkout intent, store confirmation and payment orchestration | TASK-21-001 | IN_PROGRESS — basket, authoritative price, expiry, confirmation and authorization replay boundaries pass; order/reservation settlement remains |
+| TASK-21-003 | Channel connector, signed payment webhook and outage/replay acceptance | TASK-21-002 | IN_PROGRESS — replay-safe authorization/capture/void/refund boundaries are exposed; order milestone, provider reconciliation, outage and broader PostgreSQL acceptance remain |
 
 ## Closure decision (2026-09-14)
 

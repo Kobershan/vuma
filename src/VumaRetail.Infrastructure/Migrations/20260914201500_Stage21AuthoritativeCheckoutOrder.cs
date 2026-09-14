@@ -1,9 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using VumaRetail.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace VumaRetail.Infrastructure.Migrations;
 
+[DbContext(typeof(VumaRetailDbContext))]
+[Migration("20260914201500_Stage21AuthoritativeCheckoutOrder")]
 public partial class Stage21AuthoritativeCheckoutOrder : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

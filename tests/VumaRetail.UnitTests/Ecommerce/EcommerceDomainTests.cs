@@ -104,6 +104,49 @@ public sealed class EcommerceDomainTests
     }
 
     [Fact]
+    public async Task Checkout_authorization_is_replay_safe_and_persists_one_provider_attempt()
+    {
+        CheckoutIntent checkout = CheckoutIntent.Submit(TenantId, CompanyId, ChannelId, BasketId,
+            "owner", "key", "fingerprint", DateTimeOffset.UtcNow);
+        CommerceBasketLine line = CommerceBasketLine.Add(TenantId, CompanyId, BasketId,
+            Guid.NewGuid(), 2m, 1m, 100m, "ZAR");
+        var checkouts = Substitute.For<ICheckoutIntentRepository>();
+        checkouts.FindAsync(checkout.Id, Arg.Any<CancellationToken>()).Returns(checkout);
+        var lines = Substitute.For<ICommerceBasketLineRepository>();
+        lines.ListForBasketAsync(BasketId, Arg.Any<CancellationToken>()).Returns([line]);
+        var attempts = Substitute.For<IPaymentAttemptRepository>();
+        var gateway = Substitute.For<IPaymentGateway>();
+        PaymentGatewayAuthorization authorization = new("tj-payment-auth", new Uri("https://tj.example/pay"), "Authorised", "TJ-AUTH");
+        gateway.AuthorizeAsync(Arg.Any<PaymentAuthorizationRequest>(), Arg.Any<CancellationToken>()).Returns(authorization);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(CompanyId);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        var handler = new BeginCheckoutPaymentCommandHandler(checkouts, lines, attempts, gateway, company, tenant, clock);
+        BeginCheckoutPaymentCommand command = new(checkout.Id, CompanyId, "owner",
+            new Uri("https://merchant.example/return"), new Uri("https://merchant.example/cancel"),
+            new Uri("https://merchant.example/notify"));
+
+        PaymentGatewayAuthorization first = await handler.HandleAsync(command);
+        first.Should().Be(authorization);
+        attempts.Received(1).Add(Arg.Is<PaymentAttempt>(value =>
+            value.EventId == $"payment-authorization:{checkout.Id:N}" && value.Status == PaymentAttemptStatus.Authorised));
+
+        PaymentAttempt replay = PaymentAttempt.Record(TenantId, CompanyId, checkout.Id,
+            $"payment-authorization:{checkout.Id:N}",
+            string.Join('|', checkout.Id, $"VUMA-{checkout.Id:N}", 200m, "ZAR",
+                command.ReturnUrl, command.CancelUrl, command.NotificationUrl),
+            authorization.ProviderPaymentId, PaymentAttemptStatus.Authorised, authorization.ProviderReference, clock.UtcNow);
+        attempts.FindByEventIdAsync($"payment-authorization:{checkout.Id:N}", Arg.Any<CancellationToken>()).Returns(replay);
+
+        PaymentGatewayAuthorization second = await handler.HandleAsync(command);
+        second.ProviderPaymentId.Should().Be(authorization.ProviderPaymentId);
+        await gateway.Received(1).AuthorizeAsync(Arg.Any<PaymentAuthorizationRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Payment_webhook_signature_is_constant_time_verified_and_tamper_safe()
     {
         const string body = "{\"eventId\":\"evt-1\"}";

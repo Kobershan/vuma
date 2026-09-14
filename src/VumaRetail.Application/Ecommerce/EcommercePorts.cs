@@ -242,7 +242,8 @@ public sealed record BeginCheckoutPaymentCommand(Guid CheckoutId, Guid CompanyId
 
 public sealed class BeginCheckoutPaymentCommandHandler(
     ICheckoutIntentRepository checkouts, ICommerceBasketLineRepository lines,
-    IPaymentGateway gateway, ICompanyContext company)
+    IPaymentAttemptRepository attempts, IPaymentGateway gateway, ICompanyContext company,
+    ITenantContext tenant, IClock clock)
     : ICommandHandler<BeginCheckoutPaymentCommand, PaymentGatewayAuthorization>
 {
     public async Task<PaymentGatewayAuthorization> HandleAsync(BeginCheckoutPaymentCommand command,
@@ -272,9 +273,30 @@ public sealed class BeginCheckoutPaymentCommandHandler(
             throw new InvalidOperationException("A checkout cannot contain multiple currencies.");
         }
         decimal amount = basketLines.Sum(line => line.Quantity * line.AuthoritativeUnitPrice);
-        return await gateway.AuthorizeAsync(new PaymentAuthorizationRequest(checkout.Id,
-            $"VUMA-{checkout.Id:N}", amount, currency, command.ReturnUrl, command.CancelUrl,
+        string merchantReference = $"VUMA-{checkout.Id:N}";
+        string fingerprint = string.Join('|', checkout.Id, merchantReference, amount, currency.Trim().ToUpperInvariant(),
+            command.ReturnUrl, command.CancelUrl, command.NotificationUrl);
+        string eventId = $"payment-authorization:{checkout.Id:N}";
+        PaymentAttempt? replay = await attempts.FindByEventIdAsync(eventId, cancellationToken).ConfigureAwait(false);
+        if (replay is not null)
+        {
+            if (replay.CompanyId != command.CompanyId || replay.CheckoutIntentId != checkout.Id
+                || !string.Equals(replay.PayloadFingerprint, fingerprint, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Payment authorization was replayed with different content.");
+            }
+            return new PaymentGatewayAuthorization(replay.ProviderPaymentId, null, replay.Status.ToString(), replay.ProviderReference);
+        }
+
+        PaymentGatewayAuthorization authorization = await gateway.AuthorizeAsync(new PaymentAuthorizationRequest(checkout.Id,
+            merchantReference, amount, currency, command.ReturnUrl, command.CancelUrl,
             command.NotificationUrl), cancellationToken).ConfigureAwait(false);
+        if (Enum.TryParse<PaymentAttemptStatus>(authorization.Status, true, out PaymentAttemptStatus status))
+        {
+            attempts.Add(PaymentAttempt.Record(tenant.TenantId, command.CompanyId, checkout.Id, eventId,
+                fingerprint, authorization.ProviderPaymentId, status, authorization.ProviderReference, clock.UtcNow));
+        }
+        return authorization;
     }
 }
 

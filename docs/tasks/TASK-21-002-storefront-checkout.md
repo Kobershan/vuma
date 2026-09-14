@@ -1,6 +1,7 @@
 # TASK-21-002 — Basket, checkout intent and payment orchestration
 
-**Status:** COMPLETE · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
+**Status:** IN_PROGRESS — basket, checkout, authoritative pricing and authorization replay boundary
+are implemented; authoritative order/reservation settlement and outage acceptance remain · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
 
 ## Objective
 
@@ -30,6 +31,8 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
   expired pending intent cannot be decided merely because a background expiry sweep has not run.
 - Ecommerce unit tests pass **3/3** and the real-host OpenAPI contract test passes **1/1**; authoritative
   order, reservation, gateway and outage integration remain open.
+- Authorization replay is now persisted and idempotent at the application boundary; Ecommerce unit
+  coverage is **14/14** and the real PostgreSQL Ecommerce API class is **3/3**.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
 
 ## Closure

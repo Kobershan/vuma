@@ -4,7 +4,7 @@ Provider reference: [Transaction Junction IMBEKO developer documentation](https:
 The implementation must select the Hosted Payment Page or Direct API explicitly; it must not collect
 or persist card data in Vuma when the Hosted Payment Page contract is selected.
 
-**Status:** IN_PROGRESS — authorization and replay-safe capture/void/refund boundary implemented; order milestone, provider reconciliation and PostgreSQL acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
+**Status:** IN_PROGRESS — authorization persistence and replay-safe capture/void/refund boundary implemented; order milestone, provider reconciliation and broader PostgreSQL acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
 
@@ -25,6 +25,9 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
   that exactly one payment-attempt transition is persisted (`EcommerceApiTests`, 1/1).
 - Real PostgreSQL API evidence also exercises the protected capture endpoint with a configured gateway;
   replaying the same operation invokes the gateway once and persists one operation attempt.
+- Checkout authorization now uses a stable `payment-authorization:{checkoutId}` event identity,
+  persists the provider authorization attempt, and returns the persisted result on replay without
+  invoking the gateway again. The focused Ecommerce unit suite passes **14/14**.
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work
@@ -41,7 +44,7 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
-Ecommerce unit tests pass **13/13**, including the checkout order bridge, idempotent order attachment,
+Ecommerce unit tests pass **14/14**, including the checkout order bridge, idempotent order attachment,
 payment transition matrix, operation replay boundary and cross-company replay
 guard. Gateway calls, capture/
 void/refund execution and end-to-end PostgreSQL webhook replay remain open.

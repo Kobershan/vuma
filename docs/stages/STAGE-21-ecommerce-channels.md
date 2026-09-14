@@ -57,8 +57,9 @@ Declare granular `ecommerce.view`, `ecommerce.manage` and distinct high-risk app
 - [x] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
   Channel/product persistence, redacted DTOs, routes and host OpenAPI coverage are implemented.
 - [~] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
-  idempotent checkout, expiry and confirmation boundaries plus the first confirmed/captured checkout
-  → authoritative-order bridge are implemented; reservation, pricing snapshot and gateway orchestration remain.
+  idempotent checkout, expiry, confirmation, authoritative pricing and replay-safe authorization
+  boundaries plus the first confirmed/captured checkout → authoritative-order bridge are implemented;
+  reservation, settlement and outage orchestration remain.
 - [x] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -69,8 +70,9 @@ Verified 2026-09-14: Ecommerce unit tests **13/13** and real-host OpenAPI contra
 The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
 outage integration is exercised end to end.
 
-Payment state transition rules, order attachment and checkout-to-order dispatch are covered by the
-Ecommerce unit suite, which passes **13/13**; provider gateway orchestration and outage acceptance remain open.
+Payment state transition rules, order attachment, checkout-to-order dispatch and authorization replay
+are covered by the Ecommerce unit suite, which passes **14/14**; provider settlement orchestration and
+outage acceptance remain open.
 
 The basket-line price boundary is now covered by a dedicated test: the submitted advisory total is
 retained for audit, while the published product price is stored as the authoritative value.
