@@ -246,9 +246,10 @@ public sealed class EcommerceDomainTests
 
         await handler.HandleAsync(command);
 
+        string operationFingerprintInput = string.Join('|', checkoutId, PaymentOperationKind.Capture, "provider-1", "VUMA-1", 125m, "ZAR");
         attempts.FindByEventIdAsync("payment-operation:operation-1", Arg.Any<CancellationToken>())
             .Returns(PaymentAttempt.Record(TenantId, CompanyId, checkoutId, "payment-operation:operation-1",
-                string.Join('|', checkoutId, PaymentOperationKind.Capture, "provider-1", "VUMA-1", 125m, "ZAR"),
+                Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(operationFingerprintInput))),
                 "provider-1", PaymentAttemptStatus.Captured, "capture-ref", DateTimeOffset.UtcNow));
         await handler.HandleAsync(command);
         await gateway.Received(1).CaptureAsync(Arg.Any<PaymentGatewayOperation>(), Arg.Any<CancellationToken>());

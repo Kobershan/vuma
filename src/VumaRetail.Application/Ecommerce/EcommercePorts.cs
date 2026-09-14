@@ -110,8 +110,9 @@ public sealed class ExecutePaymentOperationCommandHandler(
         }
 
         string eventId = $"payment-operation:{command.IdempotencyKey.Trim()}";
-        string fingerprint = string.Join('|', command.CheckoutId, command.Operation, command.ProviderPaymentId.Trim(),
+        string fingerprintInput = string.Join('|', command.CheckoutId, command.Operation, command.ProviderPaymentId.Trim(),
             command.MerchantReference.Trim(), command.Amount, command.Currency.Trim().ToUpperInvariant());
+        string fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprintInput)));
         PaymentAttempt? replay = await attempts.FindByEventIdAsync(eventId, cancellationToken).ConfigureAwait(false);
         if (replay is not null)
         {
