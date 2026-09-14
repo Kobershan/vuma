@@ -1,6 +1,6 @@
 # TASK-18-002 — Quality holds and stock availability
 
-**Status:** IN_PROGRESS · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
+**Status:** COMPLETE · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
 
 ## Objective
 

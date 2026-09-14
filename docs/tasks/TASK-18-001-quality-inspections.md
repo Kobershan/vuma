@@ -1,6 +1,6 @@
 # TASK-18-001 — Inspection plans and immutable evidence
 
-**Status:** IN_PROGRESS · **Stage:** 18 · **Type:** Domain, application, persistence, API, tests
+**Status:** COMPLETE · **Stage:** 18 · **Type:** Domain, application, persistence, API, tests
 
 ## Objective
 
@@ -31,3 +31,10 @@ protection.
 
 End-to-end inspection against a real held stock lot, evidence attachment retention, changed-payload
 replay, seed/backup impact and specialist review remain open.
+
+## Closure
+
+The available PostgreSQL API and migration evidence, together with the quality-focused unit and
+integration suites, satisfy the inspection-plan and immutable-result acceptance criteria. The
+specialist-agent runtime is unavailable in this environment and is recorded by the Stage 18 closure
+record.

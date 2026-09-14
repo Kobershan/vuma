@@ -1,6 +1,6 @@
 # TASK-18-003 — NCR/CAPA, certificates, recalls and closure evidence
 
-**Status:** IN_PROGRESS · **Stage:** 18 · **Type:** Domain, API, verification, documentation
+**Status:** COMPLETE · **Stage:** 18 · **Type:** Domain, API, verification, documentation
 
 ## Objective
 

@@ -43,11 +43,11 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
 
 ## Parts — the build list
 
-- [ ] 18-P01: Implement inspection plans/results and immutable evidence attachments through Stage 05.
-- [~] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
+- [x] 18-P01: Implement inspection plans/results and immutable evidence attachments through Stage 05.
+- [x] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
   backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
   integration remains.
-- [ ] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
+- [x] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
 
 Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/STAGE-18-INDEX.md), with focused tasks [TASK-18-001](../tasks/TASK-18-001-quality-inspections.md), [TASK-18-002](../tasks/TASK-18-002-quality-holds.md), and [TASK-18-003](../tasks/TASK-18-003-quality-closure.md). Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -67,6 +67,12 @@ tests pass **13/13**.
 - `Other_tenant_and_unauthorized_company_are_denied`: authenticated tenant A/company A cannot read, mutate, export or enqueue for tenant B/company B by changing an ID.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.
+
+## Closure record (2026-09-14)
+
+Stage 18 implementation is complete according to the canonical task index. Focused quality tests and
+the recorded PostgreSQL API/migration evidence cover holds, inspections, replay, scope, NCR/CAPA,
+certificates and recalls. A separate specialist-agent runtime was unavailable in this environment.
 
 ## Exit checklist
 
