@@ -33,9 +33,11 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
             }
             return existing.Id;
         }
-        if (await checklists.FindAsync(c.ChecklistId, token).ConfigureAwait(false) is null)
+        StoreChecklist checklist = await checklists.FindAsync(c.ChecklistId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Checklist was not found.");
+        if (checklist.CompanyId != c.CompanyId || checklist.StoreId != c.StoreId)
         {
-            throw new KeyNotFoundException("Checklist was not found.");
+            throw new InvalidOperationException("The checklist does not belong to the selected company or store.");
         }
         var execution = ChecklistExecution.Submit(tenant.TenantId, c.StoreId, c.CompanyId, c.ChecklistId, c.OperationId, c.DeviceId, c.CapturedAt, c.SubmittedAt, c.EvidenceReference);
         checklists.Add(execution); return execution.Id;

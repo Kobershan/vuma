@@ -93,4 +93,26 @@ public sealed class ChecklistCommandTests
                 "device-2", captured.AddSeconds(1), existing.SubmittedAt, existing.EvidenceReference)))
             .Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task Submit_handler_rejects_a_checklist_from_another_company_or_store()
+    {
+        var tenantId = Guid.NewGuid();
+        var checklistCompany = Guid.NewGuid();
+        var requestedCompany = Guid.NewGuid();
+        var storeId = Guid.NewGuid();
+        var checklist = StoreChecklist.Create(tenantId, storeId, checklistCompany, "open", "Opening", ["cash"]);
+        var checklists = Substitute.For<IChecklistRepository>();
+        checklists.FindAsync(checklist.Id, Arg.Any<CancellationToken>()).Returns(checklist);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(requestedCompany);
+
+        await FluentActions.Invoking(() => new SubmitChecklistExecutionCommandHandler(checklists, tenant, company)
+            .HandleAsync(new SubmitChecklistExecutionCommand(requestedCompany, storeId, checklist.Id, Guid.NewGuid(),
+                "device-1", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "evidence/1.json")))
+            .Should().ThrowAsync<InvalidOperationException>();
+        checklists.DidNotReceive().Add(Arg.Any<ChecklistExecution>());
+    }
 }

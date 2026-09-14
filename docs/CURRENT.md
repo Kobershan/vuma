@@ -35,6 +35,10 @@ WORK LOG (2026-09-14): Stage 26 roster publications now use the selected store-f
 for both the canonical hash and shift count. HR lifecycle tests pass 12/12; distribution and
 labour-cost integration remain open.
 
+WORK LOG (2026-09-14): Stage 27 checklist submission now verifies the persisted checklist’s company
+and store ownership before accepting an execution. Checklist command tests pass 5/5; evidence
+transport and period-close acceptance remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

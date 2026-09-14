@@ -36,6 +36,10 @@ The replay guard now compares store, device, capture time, submit time and evide
 addition to company and checklist identity; `ChecklistCommandTests` passes 4/4. Altered offline
 payloads cannot reuse an operation identity.
 
+Checklist submission now also validates that the loaded checklist belongs to the requested company
+and store before creating an execution. `ChecklistCommandTests` passes 5/5, including foreign
+checklist refusal.
+
 ## Follow-up findings
 
 local queue APIs, evidence upload/download authorization and period-close acceptance remain open.
