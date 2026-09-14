@@ -68,7 +68,11 @@ public sealed class ApplyPaymentNotificationCommandHandler(
             {
                 throw new InvalidOperationException("Payment event belongs to another company.");
             }
-            if (!string.Equals(existing.PayloadFingerprint, command.PayloadFingerprint.Trim(), StringComparison.Ordinal))
+            if (existing.CheckoutIntentId != command.CheckoutId ||
+                !string.Equals(existing.PayloadFingerprint, command.PayloadFingerprint.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(existing.ProviderPaymentId, command.ProviderPaymentId.Trim(), StringComparison.Ordinal) ||
+                existing.Status != statusFromCommand(command.Status) ||
+                !string.Equals(existing.ProviderReference, command.ProviderReference?.Trim(), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Payment event was replayed with different content.");
             }
@@ -95,6 +99,11 @@ public sealed class ApplyPaymentNotificationCommandHandler(
         attempts.Add(attempt);
         return attempt.Id;
     }
+
+    private static PaymentAttemptStatus statusFromCommand(string status)
+        => Enum.TryParse<PaymentAttemptStatus>(status, true, out PaymentAttemptStatus parsed)
+            ? parsed
+            : (PaymentAttemptStatus)(-1);
 }
 
 public static class PaymentWebhookSecurity

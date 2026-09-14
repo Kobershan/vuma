@@ -91,4 +91,25 @@ public sealed class EcommerceDomainTests
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Payment event belongs to another company.");
     }
+
+    [Fact]
+    public async Task Payment_event_replay_rejects_changed_checkout_or_provider_payload()
+    {
+        Guid companyId = Guid.NewGuid();
+        Guid checkoutId = Guid.NewGuid();
+        var existing = PaymentAttempt.Record(Guid.NewGuid(), companyId, checkoutId, "evt-2", "fingerprint",
+            "provider-1", PaymentAttemptStatus.Authorised, "ref-1", DateTimeOffset.UtcNow);
+        var attempts = Substitute.For<IPaymentAttemptRepository>();
+        attempts.FindByEventIdAsync("evt-2", Arg.Any<CancellationToken>()).Returns(existing);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        var action = () => new ApplyPaymentNotificationCommandHandler(
+            Substitute.For<ICheckoutIntentRepository>(), attempts, Substitute.For<ITenantContext>(), company,
+            Substitute.For<IClock>()).HandleAsync(new ApplyPaymentNotificationCommand(
+                Guid.NewGuid(), companyId, "evt-2", "fingerprint", "provider-2", "Authorised", "ref-1"));
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Payment event was replayed with different content.");
+    }
 }

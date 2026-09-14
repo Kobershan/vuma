@@ -28,3 +28,7 @@
 Ecommerce unit tests pass **9/9**, including the payment transition matrix and cross-company replay
 guard. Gateway calls, capture/
 void/refund execution and end-to-end PostgreSQL webhook replay remain open.
+
+2026-09-14: Payment event replay validation now compares checkout identity, provider payment id,
+status and provider reference in addition to company and fingerprint. Changed provider payloads
+cannot reuse an event id; `EcommerceDomainTests` passes **10/10**.
