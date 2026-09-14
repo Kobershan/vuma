@@ -19,6 +19,38 @@ class VumaApiClient(baseUrl: String, private val accessToken: String, private va
             return OperatorSnapshot(json.optString("displayName"), json.optBoolean("isActive"), json.optJSONArray("companies")?.length() ?: 0)
         }
     }
+
+    fun dashboardOverview(): DashboardSnapshot {
+        val url = base.newBuilder().addPathSegments("api/v1/dashboard/overview").build()
+        val request = Request.Builder().url(url).header("Authorization", "Bearer $accessToken").get().build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("Vuma API returned HTTP ${response.code}")
+            val body = response.body?.string() ?: error("Vuma API returned an empty response")
+            val json = JSONObject(body)
+            val sales = json.optJSONArray("salesByCurrency")
+            val salesByCurrency = buildMap {
+                if (sales != null) for (index in 0 until sales.length()) {
+                    val row = sales.getJSONObject(index)
+                    put(row.getString("currency"), row.getDouble("amount"))
+                }
+            }
+            return DashboardSnapshot(
+                salesToday = json.optDouble("salesToday", 0.0),
+                salesByCurrency = salesByCurrency,
+                ordersToday = json.optInt("ordersToday"),
+                openOrders = json.optInt("openOrders"),
+                asAt = json.optString("asAt"),
+            )
+        }
+    }
 }
 
 data class OperatorSnapshot(val displayName: String, val active: Boolean, val companyCount: Int)
+
+data class DashboardSnapshot(
+    val salesToday: Double,
+    val salesByCurrency: Map<String, Double>,
+    val ordersToday: Int,
+    val openOrders: Int,
+    val asAt: String,
+)

@@ -70,6 +70,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   acceptance remain CI-dependent.
 - 2026-09-14: Wired `VumaApplication` to provision the Room database and secure session store for
   the app process; the durable state boundary is documented in `android/README.md`.
+- 2026-09-14: Extended `VumaApiClient` with the `/api/v1/dashboard/overview` contract, preserving
+  separate currency totals and the server AsAt timestamp for cached dashboard reads.
 
 ## Tests / acceptance
 
