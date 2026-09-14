@@ -6,6 +6,11 @@
 CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 implementation is present but final verification remains open; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
 NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 task queues.
 
+STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
+`34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are
+closed as documentation gates; TASK-06-001 was already complete. Focused Stage 00/06 tests pass
+(92 unit tests and 85 architecture tests).
+
 WORK LOG (2026-09-14): Repaired the Stage 22 marketing journey migration by scaffolding the EF
 designer/snapshot from the Release model, and corrected the three-segment manufacturing permission
 keys plus due-time marketing delivery fixtures. Release build passes with **0 errors**; unit tests

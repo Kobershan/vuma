@@ -22,6 +22,11 @@ the remaining stage-specific acceptance queues are still not claimed complete.
 `CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
 contain historical review context and are superseded where this snapshot disagrees with them.
 
+- Stage 00/06 closure update (2026-09-14): TASK-00-002 is complete with GitHub Actions run
+  `34868258264` green on `main`; Stage 06 master-data implementation was already complete. The
+  Stage 00 and Stage 06 architecture-map planning gates are now recorded as complete. Focused
+  verification passed 92 unit tests and 85 architecture tests.
+
 - Stage 21/21b audit correction (2026-09-14): the existing completion label for Stage 21 is ahead of
   its task evidence; order/reservation/gateway/outage acceptance remains open. Stage 21b remains open
   pending end-to-end supplier trading, ASN/GRN, isolation and settlement evidence.

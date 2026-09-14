@@ -11,14 +11,14 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 00-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 00-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
 | TASK-00-001 | Establish foundation and engineering constraints | — | COMPLETE |
-| TASK-00-002 | Verify outstanding foundation CI observation | TASK-00-001 | NEEDS_VERIFICATION |
+| TASK-00-002 | Verify outstanding foundation CI observation | TASK-00-001 | COMPLETE |
 
 ## Objective
 
@@ -116,12 +116,12 @@ None — this stage has no business behaviour. The rules it encodes are `CLAUDE.
 - [x] Architecture tests actually fail when the rule is violated — **proven**, see below
 - [x] `Directory.Packages.props` is the single source of package versions; no `Version=` on any
       `PackageReference`
-- [~] CI workflow written and complete, but **not pushed** — the token lacks the `workflow` scope.
-      See `docs/PROGRESS.md` §4.4 for the one command that fixes it
+- [x] CI workflow observed green on GitHub Actions — run `34868258264` on `main` completed all
+      required build, test, migration, architecture, design-system, vulnerability, Android, and
+      release-manifest jobs successfully on 2026-09-14
 - [x] `docs/CONVENTIONS.md` written
 - [x] ADRs appended — ADR-030 to ADR-034
 - [x] `docs/PROGRESS.md` updated with the handoff into Stage 01
-- [ ] CI observed green on GitHub Actions — *first run happens on the push that lands this stage*
 
 ### Enforcement proven, not assumed
 
