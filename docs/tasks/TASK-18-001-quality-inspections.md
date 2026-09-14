@@ -24,6 +24,8 @@ protection.
   instead of failing its company-context guard.
 - Replay paths validate the active company context before reading or returning an existing
   inspection result, preventing same-company replay metadata from bypassing the ambient scope.
+- Inspection replay validation now also compares the persisted inspection-plan identity, so a
+  changed plan cannot reuse an operation id. Quality hold/inspection tests pass **13/13**.
 
 ## Remaining
 

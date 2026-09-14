@@ -312,7 +312,7 @@ public sealed class RecordInspectionCommandHandler(
         InspectionResult? existing = await inspections.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
-            if (existing.HoldId != command.HoldId || existing.CompanyId != command.CompanyId || existing.Passed != command.Passed
+            if (existing.HoldId != command.HoldId || existing.CompanyId != command.CompanyId || existing.PlanId != command.PlanId || existing.Passed != command.Passed
                 || existing.SampleSize != command.SampleSize || !string.Equals(existing.Evidence, command.Evidence.Trim(), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("The inspection operation was replayed with different content.");
