@@ -54,23 +54,31 @@ public sealed class QueueOutboundMessageCommandHandler(IOutboundMessageRepositor
         return message.Id;
     }
 }
-public sealed class SuppressOutboundMessageCommandHandler(IOutboundMessageRepository messages, ICompanyContext company) : ICommandHandler<SuppressOutboundMessageCommand, Unit>
+public sealed class SuppressOutboundMessageCommandHandler(IOutboundMessageRepository messages, ICompanyContext company, ITenantContext tenant) : ICommandHandler<SuppressOutboundMessageCommand, Unit>
 {
     public async Task<Unit> HandleAsync(SuppressOutboundMessageCommand c, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(c);
         var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found.");
+        if (message.TenantId != tenant.TenantId)
+        {
+            throw new InvalidOperationException("The outbound message belongs to another tenant.");
+        }
         CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
         message.Suppress();
         return Unit.Value;
     }
 }
-public sealed class MarkOutboundMessageSentCommandHandler(IOutboundMessageRepository messages, ICompanyContext company) : ICommandHandler<MarkOutboundMessageSentCommand, Unit>
+public sealed class MarkOutboundMessageSentCommandHandler(IOutboundMessageRepository messages, ICompanyContext company, ITenantContext tenant) : ICommandHandler<MarkOutboundMessageSentCommand, Unit>
 {
     public async Task<Unit> HandleAsync(MarkOutboundMessageSentCommand c, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(c);
         var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Outbound message was not found.");
+        if (message.TenantId != tenant.TenantId)
+        {
+            throw new InvalidOperationException("The outbound message belongs to another tenant.");
+        }
         CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
         message.MarkSent();
         return Unit.Value;

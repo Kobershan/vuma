@@ -31,6 +31,10 @@ VERIFICATION (2026-09-14): Stage 22 business-identity/transfer migration accepta
 against PostgreSQL. Full transfer saga, ledger, discrepancy, and specialist closure evidence remain
 open.
 
+WORK LOG (2026-09-14): Stage 22 marketing outbound-message suppression and send handlers now fail
+closed on the loaded tenant as well as company before changing state. `MarketingDeliveryPolicyTests`
+passes **13/13**; durable transport, callbacks, attribution, and full stage acceptance remain open.
+
 VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,558/1,558**) and architecture suite
 (**85/85**) after the Stage 17–31 security hardening pass. The three executable Stage 31 release
 script tests (`activate-release`, `verify-release-manifest`, and `verify-release-signature`) pass

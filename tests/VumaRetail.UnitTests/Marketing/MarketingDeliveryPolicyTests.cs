@@ -137,9 +137,28 @@ public sealed class MarketingDeliveryPolicyTests
         messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.NewGuid());
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(message.TenantId);
 
-        await FluentActions.Invoking(() => new SuppressOutboundMessageCommandHandler(messages, company)
+        await FluentActions.Invoking(() => new SuppressOutboundMessageCommandHandler(messages, company, tenant)
             .HandleAsync(new SuppressOutboundMessageCommand(message.Id)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        message.Status.Should().Be(OutboundMessageStatus.Queued);
+    }
+
+    [Fact]
+    public async Task Sent_handler_rejects_a_message_from_another_tenant_before_company_lookup()
+    {
+        var message = OutboundMessage.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "message-tenant", DateTimeOffset.UtcNow.AddHours(1));
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(message.CompanyId!.Value);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+
+        await FluentActions.Invoking(() => new MarkOutboundMessageSentCommandHandler(messages, company, tenant)
+            .HandleAsync(new MarkOutboundMessageSentCommand(message.Id)))
             .Should().ThrowAsync<InvalidOperationException>();
         message.Status.Should().Be(OutboundMessageStatus.Queued);
     }
