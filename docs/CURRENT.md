@@ -20,6 +20,9 @@ one stale trailing-slash expectation in the shared API contract list. The Stage 
 maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;
 after correcting those expectations, `ApiContractTests` passes **35/35**.
 
+VERIFICATION (2026-09-14): Stage 23 service migration Up/Down acceptance passes **1/1** against
+PostgreSQL. SLA worker execution, financial integration, and specialist closure evidence remain open.
+
 VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,558/1,558**) and architecture suite
 (**85/85**) after the Stage 17–31 security hardening pass. The three executable Stage 31 release
 script tests (`activate-release`, `verify-release-manifest`, and `verify-release-signature`) pass
