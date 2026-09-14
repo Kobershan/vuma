@@ -25,7 +25,7 @@ tenant/company is rejected. The reversible migration is
 suppression state and cross-company replay/suppression refusal. StoreServer and CloudApi builds pass with 0 errors; the migration contains the
 `marketing.campaigns` and `marketing.outbound_messages` tables with unique idempotency keys.
 
-2026-09-14: The focused marketing run passes **15/15** after adding durable provider event identity
+2026-09-14: The focused marketing run passes **16/16** after adding durable provider event identity
 and payload fingerprints; identical callbacks are no-ops and changed-content reuse is rejected.
 
 ## Follow-up findings

@@ -176,4 +176,25 @@ public sealed class MarketingDeliveryPolicyTests
         message.Status.Should().Be(OutboundMessageStatus.Sent);
         action.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task Provider_result_handler_enforces_tenant_and_company_before_mutation()
+    {
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var message = OutboundMessage.Queue(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(),
+            "provider-handler", DateTimeOffset.UtcNow.AddHours(1));
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        await new ApplyOutboundProviderResultCommandHandler(messages, company, tenant).HandleAsync(
+            new ApplyOutboundProviderResultCommand(message.Id, "evt-2", "sha256:c", Delivered: false));
+
+        message.Status.Should().Be(OutboundMessageStatus.Failed);
+        message.ProviderEventId.Should().Be("evt-2");
+    }
 }

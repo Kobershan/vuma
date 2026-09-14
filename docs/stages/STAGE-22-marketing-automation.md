@@ -58,7 +58,7 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-Implemented evidence: the marketing-focused unit run passes **15/15**, covering channel-specific consent,
+Implemented evidence: the marketing-focused unit run passes **16/16**, covering channel-specific consent,
 transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
