@@ -20,7 +20,8 @@ tests, migration/API evidence and documentation are recorded.
   shortfall refusal.
 ## Closure decision (2026-09-14)
 
-Stage 18 remains in progress. The quality unit suite is recorded at 13/13, focused quality
+Stage 18 remains in progress. The quality unit suite is recorded at 17/17, focused quality
 integration evidence at 5/5, quality API evidence at 4/4, and migration reversibility at 1/1
-against PostgreSQL. The warehouse chain now proves expiry refusal; automatic lot-to-output/shipment
-recall traceability and reservation projection evidence remain open.
+against PostgreSQL. The warehouse chain now proves expiry refusal; application recall traversal covers
+input lot → production order → output lot → shipment, while PostgreSQL genealogy and reservation
+projection evidence remain open.

@@ -12,8 +12,9 @@ then Stage 21 checkout/payment acceptance and Stage 21b.
 WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
 capture, void and refund. Operations validate the active company, checkout, current provider state
 and idempotency fingerprint before invoking the gateway, then append the resulting payment attempt.
-Ecommerce tests pass **11/11**; full unit and architecture suites remain green at **1,583/1,583** and
-**85/85**. Authoritative order/reservation orchestration and PostgreSQL payment integration remain.
+Ecommerce tests pass **13/13**; full unit and architecture suites remain green at **1,588/1,588** and
+**85/85**. The confirmed/captured checkout-to-authoritative-order bridge is now covered; reservation
+and PostgreSQL payment integration remain.
 
 WORK LOG (2026-09-14): Real PostgreSQL API evidence now submits one signed Transaction Junction-style
 payment notification ten times and persists exactly one payment-attempt transition. Remaining Stage
@@ -30,8 +31,8 @@ and the inventory ledger's net expired tracked stock at the supplied business da
 or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query coverage and a focused
 regression test. Receipt commands now carry lot, expiry and serial metadata, and the real PostgreSQL
 warehouse chain proves the expiry refusal and preserves outbound lot metadata. Application and Infrastructure Release builds compile;
-focused quality/warehouse unit tests pass **89/89**. Automatic lot-to-output/shipment recall-
-traceability acceptance remains open.
+focused quality/warehouse unit tests pass **89/89**. Recall opening now traverses input lot → production
+order → output lot → shipment with tenant/company filtering; PostgreSQL genealogy acceptance remains.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are

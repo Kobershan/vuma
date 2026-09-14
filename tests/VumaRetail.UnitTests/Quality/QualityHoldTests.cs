@@ -71,6 +71,8 @@ public sealed class QualityHoldTests
         StockLedgerEntry shipment = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
             StockMovementType.SaleIssue, new Quantity(-2m, "EA"), new Money(5m, "ZAR"),
             StockReferenceType.Shipment, shipmentId, null, "shipment", lot);
+        receipt.AssignCompany(companyId);
+        shipment.AssignCompany(companyId);
 
         IRecallCaseRepository recalls = Substitute.For<IRecallCaseRepository>();
         RecallCase? captured = null;
@@ -93,6 +95,52 @@ public sealed class QualityHoldTests
         captured.Should().NotBeNull();
         captured!.TraceReferences.Should().ContainSingle(reference =>
             reference.Kind == StockReferenceType.Shipment.ToString() && reference.Reference == shipmentId.ToString());
+    }
+
+    [Fact]
+    public async Task Opening_a_recall_follows_a_production_input_lot_to_output_and_shipment()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid productionId = Guid.NewGuid();
+        Guid shipmentId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        string inputLot = "LOT-INPUT";
+        string outputLot = "LOT-OUTPUT";
+        StockLedgerEntry issue = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
+            StockMovementType.ProductionIssue, new Quantity(-2m, "EA"), new Money(5m, "ZAR"),
+            StockReferenceType.Production, productionId, null, "issue", inputLot);
+        StockLedgerEntry output = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
+            StockMovementType.ProductionReceipt, new Quantity(2m, "EA"), new Money(5m, "ZAR"),
+            StockReferenceType.Production, productionId, null, "output", outputLot);
+        StockLedgerEntry shipment = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
+            StockMovementType.SaleIssue, new Quantity(-1m, "EA"), new Money(5m, "ZAR"),
+            StockReferenceType.Shipment, shipmentId, null, "shipment", outputLot);
+        issue.AssignCompany(companyId);
+        output.AssignCompany(companyId);
+        shipment.AssignCompany(companyId);
+
+        var recalls = Substitute.For<IRecallCaseRepository>();
+        RecallCase? captured = null;
+        recalls.FindByOperationIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((RecallCase?)null);
+        recalls.Add(Arg.Do<RecallCase>(value => captured = value));
+        var ledger = Substitute.For<IStockLedgerRepository>();
+        ledger.ListByBatchReferenceAsync(inputLot, Arg.Any<CancellationToken>()).Returns(new[] { issue });
+        ledger.ListByReferenceAsync(StockReferenceType.Production, productionId, Arg.Any<CancellationToken>()).Returns(new[] { issue, output });
+        ledger.ListByBatchReferenceAsync(outputLot, Arg.Any<CancellationToken>()).Returns(new[] { output, shipment });
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+
+        await new OpenRecallCommandHandler(recalls, ledger, tenant, company, clock)
+            .HandleAsync(new OpenRecallCommand(Guid.NewGuid(), companyId, "REC-GENEALOGY", inputLot, "contamination"));
+
+        captured!.TraceReferences.Should().Contain(reference => reference.Kind == StockReferenceType.Production.ToString() && reference.Reference == productionId.ToString());
+        captured.TraceReferences.Should().Contain(reference => reference.Kind == StockReferenceType.Shipment.ToString() && reference.Reference == shipmentId.ToString());
     }
 
     [Fact]

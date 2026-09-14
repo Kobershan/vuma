@@ -55,12 +55,15 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
   backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
   now fails closed for active holds and expired tracked stock, with PostgreSQL boundary evidence remaining.
 - [~] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
+  Recall traversal now follows input lot → production order → output lot → shipment in the scoped
+  application path; PostgreSQL genealogy acceptance remains.
 
 Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/STAGE-18-INDEX.md), with focused tasks [TASK-18-001](../tasks/TASK-18-001-quality-inspections.md), [TASK-18-002](../tasks/TASK-18-002-quality-holds.md), and [TASK-18-003](../tasks/TASK-18-003-quality-closure.md). Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
-Quality-focused unit tests pass **13/13** as of 2026-09-14, including the expired-hold release gate.
+Quality-focused unit tests pass **17/17** as of 2026-09-14, including the expired-hold release gate
+and multi-step lot genealogy traversal.
 PostgreSQL API and migration evidence is recorded for the implemented quality surface.
 
 Verification (2026-09-14): Quality hold release/rejection, inspection, corrective-action and
@@ -80,7 +83,8 @@ tests pass **13/13**.
 Stage 18 remains in progress. Focused quality tests and the recorded PostgreSQL API/migration evidence
 cover holds, inspections, replay, scope, NCR/CAPA, certificates and recalls. Dispatch now queries the
 inventory ledger for expired tracked stock, while PostgreSQL warehouse tests cover expiry refusal and
-outbound lot metadata. Automatic lot-to-output/shipment recall traceability remains open. A separate
+outbound lot metadata. Automatic lot-to-output/shipment recall traversal is implemented and covered by
+unit regression; PostgreSQL multi-step genealogy acceptance remains open. A separate
 specialist-agent runtime was
 unavailable in this environment.
 

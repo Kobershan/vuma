@@ -196,7 +196,7 @@ public sealed class ReleaseProductionOrderCommandHandler(
 
 /// <summary>Consumes one release-snapshot material requirement.</summary>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency) : ICommand;
+public sealed record IssueProductionMaterialCommand(Guid ProductionOrderId, Guid LocationId, Guid OperationId, Guid ComponentItemId, Guid? ComponentVariantId, decimal Quantity, string UnitOfMeasure, decimal UnitCost, string Currency, string? BatchReference = null, DateOnly? ExpiryDate = null, string? SerialNumber = null) : ICommand;
 
 /// <summary>Handles one idempotent material issue.</summary>
 public sealed class IssueProductionMaterialCommandHandler(IProductionOrderRepository orders, IStockLocationRepository locations, IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company)
@@ -257,7 +257,8 @@ public sealed class IssueProductionMaterialCommandHandler(IProductionOrderReposi
         }
         try
         {
-            await poster.IssueForProductionAsync(location, command.ComponentItemId, command.ComponentVariantId, quantity, order.Id, cancellationToken).ConfigureAwait(false);
+            await poster.IssueForProductionAsync(location, command.ComponentItemId, command.ComponentVariantId, quantity, order.Id,
+                cancellationToken, command.BatchReference, command.ExpiryDate, command.SerialNumber).ConfigureAwait(false);
             await reservations.ConsumeAsync(hold.ReservationId.Value, command.OperationId, cancellationToken).ConfigureAwait(false);
         }
         catch

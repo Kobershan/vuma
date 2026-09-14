@@ -33,16 +33,50 @@ public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ISto
         }
         RecallCase recall = RecallCase.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CaseNumber,
             command.LotReference, command.Reason, clock.UtcNow);
-        IReadOnlyList<StockLedgerEntry> movements = await ledger
-            .ListByBatchReferenceAsync(command.LotReference, cancellationToken)
-            .ConfigureAwait(false);
-        foreach (StockLedgerEntry movement in movements.Where(entry => entry.ReferenceId is not null))
+        Guid tenantId = tenant.TenantId;
+        Queue<string> batches = new([command.LotReference.Trim()]);
+        HashSet<string> visitedBatches = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<Guid> visitedProductionOrders = [];
+        while (batches.TryDequeue(out string? batch))
         {
-            recall.AddTraceReference(movement.ReferenceType.ToString(), movement.ReferenceId!.Value.ToString());
+            if (!visitedBatches.Add(batch))
+            {
+                continue;
+            }
+
+            IReadOnlyList<StockLedgerEntry> movements = await ledger
+                .ListByBatchReferenceAsync(batch, cancellationToken)
+                .ConfigureAwait(false);
+            foreach (StockLedgerEntry movement in movements.Where(entry => entry.TenantId == tenantId
+                && entry.CompanyId == command.CompanyId && entry.ReferenceId is not null))
+            {
+                recall.AddTraceReference(movement.ReferenceType.ToString(), movement.ReferenceId!.Value.ToString());
+                if (movement.ReferenceType == StockReferenceType.Production
+                    && visitedProductionOrders.Add(movement.ReferenceId.Value))
+                {
+                    IReadOnlyList<StockLedgerEntry> productionMovements = await ledger
+                        .ListByReferenceAsync(StockReferenceType.Production, movement.ReferenceId.Value, cancellationToken)
+                        .ConfigureAwait(false);
+                    foreach (StockLedgerEntry productionMovement in productionMovements.Where(entry => entry.TenantId == tenantId
+                        && entry.CompanyId == command.CompanyId))
+                    {
+                        if (productionMovement.ReferenceId is not null)
+                        {
+                            recall.AddTraceReference(productionMovement.ReferenceType.ToString(), productionMovement.ReferenceId.Value.ToString());
+                        }
+                        if (productionMovement.MovementType == StockMovementType.ProductionReceipt
+                            && !string.IsNullOrWhiteSpace(productionMovement.BatchReference))
+                        {
+                            batches.Enqueue(productionMovement.BatchReference);
+                        }
+                    }
+                }
+            }
         }
         recalls.Add(recall);
         return recall.Id;
     }
+
 }
 
 [CommandSideEffect(SideEffect.Write)]

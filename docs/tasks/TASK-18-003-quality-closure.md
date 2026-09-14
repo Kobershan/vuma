@@ -1,6 +1,6 @@
 # TASK-18-003 — NCR/CAPA, certificates, recalls and closure evidence
 
-**Status:** IN_PROGRESS — lifecycle slices, dispatch, tracked shipment and production-output recall derivation implemented; multi-step lot genealogy acceptance remains · **Stage:** 18 · **Type:** Domain, API, verification, documentation
+**Status:** IN_PROGRESS — lifecycle slices, dispatch, tracked shipment and multi-step production lot recall traversal implemented; PostgreSQL genealogy acceptance remains · **Stage:** 18 · **Type:** Domain, API, verification, documentation
 
 ## Objective
 
@@ -26,12 +26,14 @@ shelf-life enforcement, then close the stage with seed, backup and specialist ev
   movements; the regression is covered by `QualityHoldTests`.
 - Production output receipt commands and API requests now carry batch, expiry and serial identity,
   so tracked production-output ledger references are available to recall derivation.
+- Production material issue commands now carry batch, expiry and serial identity; recall opening follows
+  a named input lot through its production reference, output lot and downstream shipment references,
+  while filtering ledger evidence to the active tenant and company.
 - Quality write-route company binding is covered by the authorized API suite (3/3 passed).
 - The rebuilt focused quality integration suite passes **5/5**; this verifies the current API and
   migration surface but does not replace the still-open dispatch/recall traceability scenarios.
 
 ## Closure
 
-The available quality unit, PostgreSQL API, migration and permission evidence satisfies the task
-acceptance boundary. Specialist-agent review is unavailable in this environment and is recorded by
-the Stage 18 closure record.
+The available quality unit, PostgreSQL API, migration and permission evidence covers the implemented
+quality surface. PostgreSQL multi-step genealogy execution and specialist-agent review remain open.
