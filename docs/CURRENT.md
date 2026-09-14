@@ -64,6 +64,10 @@ WORK LOG (2026-09-14): Added a dedicated `android-compose-build` GitHub job usin
 Gradle 8.9, and made packaging depend on it. Stage 30 Android compilation is now an enforced CI
 gate; its first run is pending.
 
+WORK LOG (2026-09-14): Stage 27 checklist execution replay and evidence authorization now enforce
+the loaded tenant boundary in addition to company/store scope. Asset-focused tests pass **15/15**;
+period-close, external evidence storage and full stage acceptance remain open.
+
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
 by DataStore. Android compilation and instrumentation acceptance remain CI-dependent.

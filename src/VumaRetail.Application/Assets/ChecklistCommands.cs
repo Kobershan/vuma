@@ -26,7 +26,7 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
         var existing = await checklists.FindExecutionByOperationIdAsync(c.OperationId, token).ConfigureAwait(false);
         if (existing is not null)
         {
-            if (existing.CompanyId != c.CompanyId || existing.StoreId != c.StoreId || existing.ChecklistId != c.ChecklistId ||
+            if (existing.TenantId != tenant.TenantId || existing.CompanyId != c.CompanyId || existing.StoreId != c.StoreId || existing.ChecklistId != c.ChecklistId ||
                 !string.Equals(existing.DeviceId, c.DeviceId.Trim(), StringComparison.Ordinal) ||
                 existing.CapturedAt != c.CapturedAt || existing.SubmittedAt != c.SubmittedAt ||
                 !string.Equals(existing.EvidenceReference, c.EvidenceReference.Trim(), StringComparison.Ordinal))
@@ -37,7 +37,7 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
         }
         StoreChecklist checklist = await checklists.FindAsync(c.ChecklistId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Checklist was not found.");
-        if (checklist.CompanyId != c.CompanyId || checklist.StoreId != c.StoreId)
+        if (checklist.TenantId != tenant.TenantId || checklist.CompanyId != c.CompanyId || checklist.StoreId != c.StoreId)
         {
             throw new InvalidOperationException("The checklist does not belong to the selected company or store.");
         }
@@ -47,14 +47,14 @@ public sealed class SubmitChecklistExecutionCommandHandler(IChecklistRepository 
 }
 
 public sealed class AuthorizeChecklistEvidenceDownloadQueryHandler(
-    IChecklistRepository checklists, IChecklistEvidenceAuthorizer authorizer, ICompanyContext company, IClock clock)
+    IChecklistRepository checklists, IChecklistEvidenceAuthorizer authorizer, ITenantContext tenant, ICompanyContext company, IClock clock)
     : IQueryHandler<AuthorizeChecklistEvidenceDownloadQuery, ChecklistEvidenceDownloadResult?>
 {
     public async Task<ChecklistEvidenceDownloadResult?> HandleAsync(AuthorizeChecklistEvidenceDownloadQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ChecklistExecution? execution = await checklists.FindExecutionAsync(query.ExecutionId, cancellationToken).ConfigureAwait(false);
-        if (execution is null || company.CompanyId is not { } active || execution.CompanyId != active || string.IsNullOrWhiteSpace(execution.EvidenceReference))
+        if (execution is null || execution.TenantId != tenant.TenantId || company.CompanyId is not { } active || execution.CompanyId != active || string.IsNullOrWhiteSpace(execution.EvidenceReference))
         {
             return null;
         }

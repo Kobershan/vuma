@@ -20,17 +20,38 @@ public sealed class ChecklistEvidenceTests
         repository.FindExecutionAsync(execution.Id, Arg.Any<CancellationToken>()).Returns(execution);
         ICompanyContext company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(execution.TenantId);
         IClock clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero));
         var authorizer = Substitute.For<IChecklistEvidenceAuthorizer>();
         authorizer.Create(execution, Arg.Any<DateTimeOffset>()).Returns("opaque-evidence-grant");
 
-        ChecklistEvidenceDownloadResult result = (await new AuthorizeChecklistEvidenceDownloadQueryHandler(repository, authorizer, company, clock)
+        ChecklistEvidenceDownloadResult result = (await new AuthorizeChecklistEvidenceDownloadQueryHandler(repository, authorizer, tenant, company, clock)
             .HandleAsync(new AuthorizeChecklistEvidenceDownloadQuery(execution.Id)))!;
 
         result.EvidenceReference.Should().Be("private/evidence.jpg");
         result.Token.Should().Be("opaque-evidence-grant");
         result.ExpiresAtUtc.Should().Be(clock.UtcNow.AddMinutes(15));
+    }
+
+    [Fact]
+    public async Task Evidence_authorization_rejects_another_tenant()
+    {
+        ChecklistExecution execution = ChecklistExecution.Submit(Guid.NewGuid(), null, Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), "device-1", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "private/evidence.jpg");
+        IChecklistRepository repository = Substitute.For<IChecklistRepository>();
+        repository.FindExecutionAsync(execution.Id, Arg.Any<CancellationToken>()).Returns(execution);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(execution.CompanyId);
+        var authorizer = Substitute.For<IChecklistEvidenceAuthorizer>();
+        var clock = Substitute.For<IClock>();
+
+        (await new AuthorizeChecklistEvidenceDownloadQueryHandler(repository, authorizer, tenant, company, clock)
+            .HandleAsync(new AuthorizeChecklistEvidenceDownloadQuery(execution.Id))).Should().BeNull();
+        authorizer.DidNotReceiveWithAnyArgs().Create(default!, default);
     }
 
     [Fact]

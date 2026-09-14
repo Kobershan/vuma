@@ -53,8 +53,8 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
   persistence, parts/labour capture, leases and Finance posting remain.
 - [~] 27-P03: Implement local checklist queue APIs, evidence attachments and period-close acceptance.
   Tenant/company-scoped checklist persistence, company-guarded create/submit commands, manage-
-  protected routes and operation replay tests are implemented; evidence attachment authorization
-  and period-close acceptance remain.
+  protected routes and operation replay tests are implemented; evidence download authorization now
+  enforces tenant and company scope; external evidence storage and period-close acceptance remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -70,6 +70,9 @@ Progress evidence: `AssetTests.Depreciation_stops_at_residual_after_useful_life`
 2026-09-14: The shared real-host API contract suite passes **35/35** after aligning the asset and
 maintenance collection paths with their canonical OpenAPI forms (`/api/v1/assets` and
 `/api/v1/maintenance/orders`).
+
+2026-09-14: Asset-focused unit tests pass **15/15** after adding tenant-boundary regression coverage
+for checklist operation replay and evidence-download authorization.
 
 2026-09-13: Added immutable `StoreChecklist` definitions and append-only `ChecklistExecution`
 metadata, preserving device identity, capture time, submit time, operation identity and external
