@@ -17,6 +17,8 @@ public sealed record QueueOutboundMessageCommand(Guid CompanyId, Guid? StoreId, 
 public sealed record SuppressOutboundMessageCommand(Guid MessageId) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record MarkOutboundMessageSentCommand(Guid MessageId) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ApplyOutboundProviderResultCommand(Guid MessageId, string ProviderEventId, string PayloadFingerprint, bool Delivered) : ICommand;
 
 public sealed class CreateMarketingCampaignCommandHandler(IMarketingCampaignRepository campaigns, ITenantContext tenant, ICompanyContext company) : ICommandHandler<CreateMarketingCampaignCommand, Guid>
 {
@@ -81,6 +83,24 @@ public sealed class MarkOutboundMessageSentCommandHandler(IOutboundMessageReposi
         }
         CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
         message.MarkSent();
+        return Unit.Value;
+    }
+}
+
+public sealed class ApplyOutboundProviderResultCommandHandler(IOutboundMessageRepository messages, ICompanyContext company, ITenantContext tenant)
+    : ICommandHandler<ApplyOutboundProviderResultCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ApplyOutboundProviderResultCommand c, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        var message = await messages.FindAsync(c.MessageId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Outbound message was not found.");
+        if (message.TenantId != tenant.TenantId)
+        {
+            throw new InvalidOperationException("The outbound message belongs to another tenant.");
+        }
+        CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
+        message.ApplyProviderResult(c.ProviderEventId, c.PayloadFingerprint, c.Delivered);
         return Unit.Value;
     }
 }

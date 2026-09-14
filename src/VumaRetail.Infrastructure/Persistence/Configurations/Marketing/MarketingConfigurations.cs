@@ -30,6 +30,8 @@ internal sealed class OutboundMessageConfiguration : EntityConfiguration<Outboun
         b.Property(x => x.IdempotencyKey).HasMaxLength(256).IsRequired();
         b.Property(x => x.ScheduledAt).IsRequired();
         b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        b.Property(x => x.ProviderEventId).HasMaxLength(256);
+        b.Property(x => x.ProviderPayloadFingerprint).HasMaxLength(128);
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IdempotencyKey }).IsUnique()
             .HasDatabaseName("ux_outbound_messages_tenant_company_idempotency")
             .HasFilter("deleted_at IS NULL");

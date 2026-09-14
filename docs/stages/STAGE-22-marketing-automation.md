@@ -48,14 +48,17 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
   Consent-aware campaign/outbound state, explicit WhatsApp consent, tenant/company persistence,
   guarded commands, replay protection and suppression are implemented; audience snapshots and
   durable delivery processing remain.
-- [ ] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
+- [~] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
+  Provider-result state now persists event identity and payload fingerprints; identical callbacks
+  are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
+  worker remain.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
-Implemented evidence: `MarketingDeliveryPolicyTests` passes 12/12, covering channel-specific consent,
+Implemented evidence: the marketing-focused unit run passes **15/15**, covering channel-specific consent,
 transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
@@ -67,7 +70,7 @@ that explicit purpose immediately before delivery rather than being treated as a
 
 2026-09-14: Marketing create/queue routes now bind the request company, and campaign/message state
 transitions accept an explicit company selector before dispatch. StoreServer build passes with
-**0 errors**; durable transport and signed callbacks remain open.
+**0 errors**; provider-result event identity is now durable and signed callback input is replay-safe.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.

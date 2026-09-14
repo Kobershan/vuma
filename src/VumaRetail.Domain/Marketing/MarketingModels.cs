@@ -60,6 +60,8 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
     public string IdempotencyKey { get; private set; } = string.Empty;
     public DateTimeOffset ScheduledAt { get; private set; }
     public OutboundMessageStatus Status { get; private set; } = OutboundMessageStatus.Queued;
+    public string? ProviderEventId { get; private set; }
+    public string? ProviderPayloadFingerprint { get; private set; }
     public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt)
     {
         if (tenantId == Guid.Empty || companyId == Guid.Empty || campaignId == Guid.Empty || customerId == Guid.Empty)
@@ -84,5 +86,26 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
             throw new InvalidOperationException("Only a queued message can be sent.");
         }
         Status = OutboundMessageStatus.Sent;
+    }
+
+    public void ApplyProviderResult(string providerEventId, string payloadFingerprint, bool delivered)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerEventId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(payloadFingerprint);
+        if (ProviderEventId is not null)
+        {
+            if (ProviderEventId == providerEventId && ProviderPayloadFingerprint == payloadFingerprint)
+            {
+                return;
+            }
+            throw new InvalidOperationException("A provider event id cannot be reused with different content.");
+        }
+        if (Status != OutboundMessageStatus.Queued)
+        {
+            throw new InvalidOperationException("Only a queued message can accept a provider result.");
+        }
+        ProviderEventId = providerEventId.Trim();
+        ProviderPayloadFingerprint = payloadFingerprint.Trim();
+        Status = delivered ? OutboundMessageStatus.Sent : OutboundMessageStatus.Failed;
     }
 }

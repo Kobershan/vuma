@@ -25,7 +25,12 @@ tenant/company is rejected. The reversible migration is
 suppression state and cross-company replay/suppression refusal. StoreServer and CloudApi builds pass with 0 errors; the migration contains the
 `marketing.campaigns` and `marketing.outbound_messages` tables with unique idempotency keys.
 
+2026-09-14: The focused marketing run passes **15/15** after adding durable provider event identity
+and payload fingerprints; identical callbacks are no-ops and changed-content reuse is rejected.
+
 ## Follow-up findings
 
-The durable shared delivery outbox, provider adapters, signed callback replay protection and
-operator endpoints remain open.
+The durable shared delivery outbox, provider adapters and operator endpoints remain open. Provider
+event identity and payload fingerprints now make identical callback replay a no-op and changed
+content reuse a stable conflict; migration `20260914034549_Stage22MarketingProviderResults` adds
+the durable fields.

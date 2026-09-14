@@ -162,4 +162,18 @@ public sealed class MarketingDeliveryPolicyTests
             .Should().ThrowAsync<InvalidOperationException>();
         message.Status.Should().Be(OutboundMessageStatus.Queued);
     }
+
+    [Fact]
+    public void Provider_result_replay_is_idempotent_but_changed_content_is_rejected()
+    {
+        var message = OutboundMessage.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "provider-replay", DateTimeOffset.UtcNow.AddHours(1));
+
+        message.ApplyProviderResult("evt-1", "sha256:a", delivered: true);
+        message.ApplyProviderResult("evt-1", "sha256:a", delivered: true);
+        var action = () => message.ApplyProviderResult("evt-1", "sha256:b", delivered: false);
+
+        message.Status.Should().Be(OutboundMessageStatus.Sent);
+        action.Should().Throw<InvalidOperationException>();
+    }
 }

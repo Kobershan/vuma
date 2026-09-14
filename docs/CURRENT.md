@@ -105,6 +105,10 @@ WORK LOG (2026-09-14): Extended the Kotlin API client with the `/api/v1/dashboar
 contract, preserving separate currency totals and the server AsAt timestamp for cached reads.
 Android compilation and endpoint/instrumentation acceptance remain CI-dependent.
 
+WORK LOG (2026-09-14): Stage 22 marketing provider results now persist provider event identity and
+payload fingerprints, reject changed-content callback replays, and expose a signed callback route.
+The focused marketing run passes **15/15**; transport workers and audience/operator APIs remain open.
+
 WORK LOG (2026-09-14): Wired the Android process composition root to create the Room database and
 Keystore-backed session store, and documented the durable state boundary. Android compilation and
 instrumentation acceptance remain CI-dependent.
