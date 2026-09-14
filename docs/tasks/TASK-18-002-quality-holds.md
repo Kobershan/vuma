@@ -34,8 +34,8 @@ available for allocation and partial shortages leave no persisted hold.
 
 The real PostgreSQL expiry-boundary dispatch refusal is covered by
 `WarehouseCommandTests.Shipping_a_wave_with_expired_tracked_stock_is_refused_against_postgresql`.
-Reservation projection evidence remains open; the application gate checks both active quality holds
-and expired tracked stock at the supplied business date. Production material issue commands now carry
+The application gate checks both active quality holds and expired tracked stock at the supplied
+business date. Production material issue commands now carry
 lot/expiry/serial identity into the append-only ledger for downstream genealogy. The PostgreSQL API
 regression now verifies that a tracked quality hold persists the same batch identity in the company
 reservation projection.
