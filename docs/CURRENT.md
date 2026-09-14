@@ -15,6 +15,10 @@ and idempotency fingerprint before invoking the gateway, then append the resulti
 Ecommerce tests pass **11/11**; full unit and architecture suites remain green at **1,583/1,583** and
 **85/85**. Authoritative order/reservation orchestration and PostgreSQL payment integration remain.
 
+WORK LOG (2026-09-14): Real PostgreSQL API evidence now submits one signed Transaction Junction-style
+payment notification ten times and persists exactly one payment-attempt transition. Remaining Stage
+21 work is authoritative checkout-to-order/reservation orchestration and provider-operation posting.
+
 WORK LOG (2026-09-14): Exposed the capture/void/refund boundary through the payment-protected
 `/api/v1/storefront/checkouts/{id}/payment/{operation}` route. Invalid operation names fail with 400;
 valid operations retain the command's state and replay checks. Ecommerce OpenAPI now verifies the

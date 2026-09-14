@@ -136,6 +136,7 @@ public sealed class ApiHarness : IAsyncDisposable
                 builder.UseSetting("ConnectionStrings:Vuma", connectionString);
                 builder.UseSetting("Vuma:Host:TenantId", tenantId.ToString());
                 builder.UseSetting("Vuma:Host:StoreId", storeId.ToString());
+                builder.UseSetting("Vuma:Ecommerce:PaymentWebhookSecret", "test-webhook-secret");
                 builder.UseSetting(
                     "Vuma:Licensing:StateDirectory",
                     Path.Combine(Path.GetTempPath(), "vuma-tests", Guid.NewGuid().ToString()));

@@ -21,6 +21,8 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
   result, preventing cross-company event-ID replay.
 - The signed webhook endpoint now stamps the request company into the active company context before
   dispatching the notification, so the application guard is enforced for real HTTP requests.
+- Real PostgreSQL API evidence now sends the same signed provider notification ten times and verifies
+  that exactly one payment-attempt transition is persisted (`EcommerceApiTests`, 1/1).
 - Checkout confirmation and rejection are company-scoped staff operations; customer status is owner-scoped.
 
 ## Remaining work
@@ -30,7 +32,8 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
 - Capture/void/refund transitions now have a replay-safe application boundary and append payment-attempt
   state after a successful configured gateway operation; wiring them to the authoritative order
   milestone and durable provider reconciliation remains open.
-- Add signed webhook integration tests proving ten replays create one transition/posting.
+- The ten-replay transition test is complete; order posting remains pending because authoritative
+  checkout-to-order orchestration is not yet connected.
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
