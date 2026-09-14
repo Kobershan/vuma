@@ -834,6 +834,9 @@ public sealed class VumaRegistryDbContext(
         modelBuilder.Entity<SagaLeg>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<RegistryOutboxMessage>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<CompanyLifecycleAudit>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ContactBinding>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ConversationAccountScope>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<VerificationChallenge>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupReceipt>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<GroupPaymentRun>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);
         modelBuilder.Entity<InterCompanyClearingIntent>().HasQueryFilter(x => IsTenantFilterBypassed || x.TenantId == CurrentTenantId);

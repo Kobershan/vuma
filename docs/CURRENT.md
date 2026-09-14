@@ -165,6 +165,10 @@ WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their
 campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
 build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 22b registry context now declares tenant filters for contact bindings,
+conversation account scopes and verification challenges in addition to their entity configurations.
+Both company and registry EF contexts report no pending model changes.
+
 VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
 and replaced with `Stage29ReportExportArtifactsFix`, which adds
 `reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model
