@@ -17,6 +17,10 @@ public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ITen
     public async Task<Guid> HandleAsync(OpenRecallCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The recall company is not the active company.");
+        }
         RecallCase? existing = await recalls.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -26,10 +30,6 @@ public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ITen
                 throw new InvalidOperationException("The recall operation was replayed with different content.");
             }
             return existing.Id;
-        }
-        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
-        {
-            throw new InvalidOperationException("The recall company is not the active company.");
         }
         RecallCase recall = RecallCase.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CaseNumber,
             command.LotReference, command.Reason, clock.UtcNow);
@@ -196,6 +196,10 @@ public sealed class PlaceQualityHoldCommandHandler(
         {
             throw new ArgumentException("OperationId is required.", nameof(command));
         }
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The quality hold company is not the active company.");
+        }
         QualityHold? existing = await holds.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -211,10 +215,6 @@ public sealed class PlaceQualityHoldCommandHandler(
             return existing.Id;
         }
 
-        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
-        {
-            throw new InvalidOperationException("The quality hold company is not the active company.");
-        }
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);
         ReserveOutcome reservation = await reservations.ReserveAsync(
             command.LocationId, command.ItemId, command.ItemVariantId, quantity,
@@ -305,6 +305,10 @@ public sealed class RecordInspectionCommandHandler(
     public async Task<Guid> HandleAsync(RecordInspectionCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The inspection company is not the active company.");
+        }
         InspectionResult? existing = await inspections.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -314,10 +318,6 @@ public sealed class RecordInspectionCommandHandler(
                 throw new InvalidOperationException("The inspection operation was replayed with different content.");
             }
             return existing.Id;
-        }
-        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
-        {
-            throw new InvalidOperationException("The inspection company is not the active company.");
         }
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");
@@ -353,6 +353,10 @@ public sealed class OpenNonConformanceCommandHandler(
     public async Task<Guid> HandleAsync(OpenNonConformanceCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The non-conformance company is not the active company.");
+        }
         NonConformance? existing = await nonConformances.FindByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -362,10 +366,6 @@ public sealed class OpenNonConformanceCommandHandler(
                 throw new InvalidOperationException("The non-conformance operation was replayed with different content.");
             }
             return existing.Id;
-        }
-        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
-        {
-            throw new InvalidOperationException("The non-conformance company is not the active company.");
         }
         QualityHold hold = await holds.FindAsync(command.HoldId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Quality hold not found.");

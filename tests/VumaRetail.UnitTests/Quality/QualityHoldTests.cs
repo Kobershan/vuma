@@ -121,6 +121,29 @@ public sealed class QualityHoldTests
     }
 
     [Fact]
+    public async Task Inspection_replay_requires_the_company_to_be_active_before_returning_existing_result()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid commandCompanyId = Guid.NewGuid();
+        Guid activeCompanyId = Guid.NewGuid();
+        Guid operationId = Guid.NewGuid();
+        Guid holdId = Guid.NewGuid();
+        InspectionResult existing = InspectionResult.Record(tenantId, null, commandCompanyId, holdId, null, 0,
+            operationId, true, 2, "seal intact", DateTimeOffset.UtcNow);
+        IInspectionResultRepository inspections = Substitute.For<IInspectionResultRepository>();
+        inspections.FindByOperationIdAsync(operationId, Arg.Any<CancellationToken>()).Returns(existing);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompanyId);
+        RecordInspectionCommand command = new(operationId, commandCompanyId, holdId, null, true, 2, "seal intact");
+
+        Func<Task> action = () => new RecordInspectionCommandHandler(inspections,
+            Substitute.For<IInspectionPlanRepository>(), Substitute.For<IQualityHoldRepository>(),
+            Substitute.For<ITenantContext>(), company, Substitute.For<IClock>()).HandleAsync(command);
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public void Rejected_hold_records_a_terminal_disposition()
     {
         QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null,

@@ -16,12 +16,14 @@ protection.
 
 ## Evidence
 
-- Quality unit suite: **10/10 passed**.
+- Quality unit suite: **12/12 passed**.
 - Quality API/permission suite: **3/3 passed**.
 - Stage 18 migration Up/Down: **1/1 passed** (`ManufacturingMigrationTests.Stage18_quality_migrations_up_and_down_are_reversible`).
 - Quality creation routes now bind the request `CompanyId` into the ambient company scope before
   dispatching the command; the authorized inspection-plan API test proves the route returns `201`
   instead of failing its company-context guard.
+- Replay paths validate the active company context before reading or returning an existing
+  inspection result, preventing same-company replay metadata from bypassing the ambient scope.
 
 ## Remaining
 
