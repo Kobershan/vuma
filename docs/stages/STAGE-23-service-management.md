@@ -76,6 +76,8 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   company before changing state. `ServiceCommandTests` passes **4/4**.
 - 2026-09-14: Repair completion and ticket resume/close now validate the loaded record tenant as
   well as company scope before changing state. StoreServer build passes with **0 errors**.
+- 2026-09-14: SLA deadline reads now reject tickets outside the active tenant before calculating
+  deadlines. Service unit tests pass **33/33**.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

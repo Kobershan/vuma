@@ -177,6 +177,9 @@ WORK LOG (2026-09-14): Stage 23 repair completion and ticket resume/close now va
 record tenant as well as company scope before changing state. StoreServer build passes with **0
 errors**; SLA worker, financial integration and full service acceptance remain open.
 
+VERIFICATION (2026-09-14): Stage 23 service unit tests pass **33/33** after adding tenant scope to
+SLA deadline reads and service lifecycle mutations; the StoreServer build remains at **0 errors**.
+
 VERIFICATION (2026-09-13): The originally generated empty Stage 29 artifact migration was removed
 and replaced with `Stage29ReportExportArtifactsFix`, which adds
 `reporting.report_exports.artifact_reference`. Infrastructure rebuild and EF pending-model

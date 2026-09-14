@@ -1,5 +1,6 @@
 using FluentAssertions;
 using NSubstitute;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Service;
 using VumaRetail.Domain.Service;
@@ -56,7 +57,9 @@ public sealed class ServiceSlaClockTests
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
 
-        var result = await new GetServiceSlaDeadlinesQueryHandler(repository, company, clock)
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var result = await new GetServiceSlaDeadlinesQueryHandler(repository, tenant, company, clock)
             .HandleAsync(new GetServiceSlaDeadlinesQuery(companyId, ticket.Id, "Standard",
                 new DateTimeOffset(2026, 9, 15, 15, 1, 0, TimeSpan.Zero)));
 
@@ -81,7 +84,9 @@ public sealed class ServiceSlaClockTests
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
 
-        var result = await new GetServiceSlaDeadlinesQueryHandler(repository, company, clock)
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var result = await new GetServiceSlaDeadlinesQueryHandler(repository, tenant, company, clock)
             .HandleAsync(new GetServiceSlaDeadlinesQuery(companyId, ticket.Id, "Standard",
                 new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)));
 

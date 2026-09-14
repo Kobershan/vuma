@@ -17,7 +17,7 @@ public sealed record GetServiceSlaDeadlinesQuery(Guid CompanyId, Guid TicketId, 
 public sealed record ServiceSlaDeadlineResult(Guid TicketId, string SlaName, DateTimeOffset ResponseDueAtUtc,
     DateTimeOffset ResolutionDueAtUtc, bool ResponseBreached, bool ResolutionBreached);
 
-public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository services, ICompanyContext company,
+public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company,
     IServiceSlaClock slaClock) : IQueryHandler<GetServiceSlaDeadlinesQuery, ServiceSlaDeadlineResult>
 {
     public async Task<ServiceSlaDeadlineResult> HandleAsync(GetServiceSlaDeadlinesQuery query,
@@ -27,6 +27,8 @@ public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository servic
         ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
         ServiceTicket ticket = await services.FindTicketAsync(query.TicketId, cancellationToken).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Service ticket was not found.");
+        if (ticket.TenantId != tenant.TenantId)
+            throw new KeyNotFoundException("Service ticket was not found.");
         ListServiceTicketsQueryHandler.EnsureCompany(company, ticket.CompanyId!.Value);
         ServiceSla sla = await services.FindSlaByNameAsync(query.CompanyId, query.SlaName, cancellationToken).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Service SLA was not found.");
