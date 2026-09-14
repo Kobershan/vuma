@@ -4,6 +4,10 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** Dispatch enforcement is now implemented in
+> `ShipWaveCommandHandler` and runs before stock moves into dispatch. Source-built and PostgreSQL
+> boundary evidence remain to be executed.
+
 Place and dispose quality holds through the Stage 08c reservation boundary so held quantity is not
 available for allocation and partial shortages leave no persisted hold.
 

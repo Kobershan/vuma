@@ -76,6 +76,11 @@ public sealed class QualityHoldRepository(VumaRetailDbContext context) : IQualit
     public Task<QualityHold?> FindByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
         => context.QualityHolds.FirstOrDefaultAsync(hold => hold.OperationId == operationId, cancellationToken);
 
+    public async Task<IReadOnlyList<QualityHold>> ListActiveForStockAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default)
+        => await context.QualityHolds.AsNoTracking()
+            .Where(hold => hold.LocationId == locationId && hold.ItemId == itemId && hold.ItemVariantId == itemVariantId && hold.Status == QualityHoldStatus.Held)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public void Add(QualityHold hold) => context.QualityHolds.Add(hold);
 }
 

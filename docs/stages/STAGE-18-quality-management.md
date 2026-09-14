@@ -4,6 +4,10 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** Stage 18 remains **IN_PROGRESS**. The audit found a missing
+> quality-hold check in warehouse shipping; that integration is now implemented in code. PostgreSQL
+> dispatch/shelf-life execution and automatic lot-to-output/shipment recall traceability remain open.
+
 Track inspection, quarantine, release, non-conformance, corrective actions and recalls across procurement and production lots. A quarantined lot must never appear as sellable availability.
 
 ## What this stage does not own

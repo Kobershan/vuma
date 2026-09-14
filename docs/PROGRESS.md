@@ -8,6 +8,9 @@
 `CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
 contain historical review context and are superseded where this snapshot disagrees with them.
 
+- Stage 18 audit correction (2026-09-14): the warehouse quality dispatch gate is implemented; source-built
+  regression, PostgreSQL shelf-life/dispatch execution, and automatic recall traceability remain open.
+
 - Stage 15 — Merchandise Planning: **COMPLETE and verified**; coverage collection remains environment-limited.
 - Stage 16 — BOM Setup: **COMPLETE and verified**; migration, seed, API and BOM costing evidence are present.
 - Stage 13b — Consolidated Picking: **COMPLETE and verified**.

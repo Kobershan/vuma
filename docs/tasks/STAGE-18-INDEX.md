@@ -3,6 +3,10 @@
 This is the canonical execution queue for Stage 18. A task is complete only when its code,
 tests, migration/API evidence and documentation are recorded.
 
+> **Audit correction (2026-09-14):** The earlier closure note overstated completion. The warehouse
+> dispatch quality gate is now implemented, but source-built regression evidence, PostgreSQL
+> shelf-life/dispatch evidence, and automatic recall traceability are still open.
+
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
 | TASK-18-001 | Inspection plans/results and immutable evidence | Stage 12, 17 | COMPLETE — versioning, immutable results, replay, scope and migration evidence pass |

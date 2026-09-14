@@ -4,6 +4,7 @@ using VumaRetail.Application.Inventory;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
+using VumaRetail.Application.Quality;
 
 namespace VumaRetail.Application.Warehouse.Commands;
 
@@ -497,6 +498,7 @@ public sealed class ShipWaveCommandHandler(
     IBinRepository bins,
     IBinStockMover mover,
     IOrderDispatchGate dispatchGate,
+    IQualityDispatchGate qualityDispatchGate,
     IClock clock) : ICommandHandler<ShipWaveCommand, Guid>
 {
     /// <inheritdoc />
@@ -534,9 +536,22 @@ public sealed class ShipWaveCommandHandler(
             .ConfigureAwait(false);
         Bin? packing = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Packing);
         Bin? dispatch = activeBins.FirstOrDefault(candidate => candidate.Type == BinType.Dispatch);
+
+        var pickedGroups = pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)).ToArray();
+        foreach (var group in pickedGroups)
+        {
+            Quantity total = group
+                .Select(task => task.PickedQuantity!.Value)
+                .Aggregate((a, b) => a + b);
+
+            await qualityDispatchGate.EnsureDispatchAllowedAsync(
+                    wave.LocationId, group.Key.ItemId, group.Key.ItemVariantId, total, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (packing is not null && dispatch is not null)
         {
-            foreach (var group in pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)))
+            foreach (var group in pickedGroups)
             {
                 Quantity quantity = group.Select(task => task.PickedQuantity!.Value)
                     .Aggregate((left, right) => left + right);
@@ -547,7 +562,7 @@ public sealed class ShipWaveCommandHandler(
             }
         }
 
-        foreach (var group in pickedTasks.GroupBy(task => (task.ItemId, task.ItemVariantId)))
+        foreach (var group in pickedGroups)
         {
             Quantity total = group
                 .Select(task => task.PickedQuantity!.Value)

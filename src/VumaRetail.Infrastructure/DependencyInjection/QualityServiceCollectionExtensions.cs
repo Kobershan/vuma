@@ -16,6 +16,7 @@ public static class QualityServiceCollectionExtensions
         services.AddScoped<IQualityCertificateRepository, QualityCertificateRepository>();
         services.AddScoped<IRecallCaseRepository, RecallCaseRepository>();
         services.AddScoped<IQualityHoldRepository, QualityHoldRepository>();
+        services.AddScoped<IQualityDispatchGate, QualityDispatchGate>();
         services.AddScoped<IInspectionResultRepository, InspectionResultRepository>();
         services.AddScoped<INonConformanceRepository, NonConformanceRepository>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, QualityPermissions>());

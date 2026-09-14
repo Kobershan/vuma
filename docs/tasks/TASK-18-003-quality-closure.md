@@ -4,6 +4,9 @@
 
 ## Objective
 
+> **Audit correction (2026-09-14):** This task remains open. The lifecycle domain/API exists, but
+> automatic lot-to-output/shipment recall traceability and final acceptance evidence are not done.
+
 Deliver non-conformance/corrective-action closure, certificate revocation, recall traceability and
 shelf-life enforcement, then close the stage with seed, backup and specialist evidence.
 

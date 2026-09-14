@@ -10,4 +10,8 @@ public sealed class QualityRuleException(string code, string message) : DomainEx
         => new(
             "QUALITY_HOLD_EXCEEDS_AVAILABLE",
             "The requested quality hold exceeds available stock; no hold was created.");
+
+    /// <summary>Dispatch cannot use stock covered by an active quality hold.</summary>
+    public static QualityRuleException DispatchBlocked()
+        => new("QUALITY_DISPATCH_BLOCKED", "Dispatch is blocked because the stock is under an active quality hold.");
 }

@@ -11,6 +11,10 @@ context gap on BOM reads/publication and production mutations. Company binding i
 those routes while handlers remain fail-closed. Manufacturing API integration passes **7/7** and
 manufacturing migration verification passes **2/2**; specialist closure evidence remains open.
 
+AUDIT NOTE (2026-09-14): Stage 18 dispatch enforcement is now wired into warehouse shipping before
+stock movement. The stage is not marked complete: source-built quality regression, PostgreSQL
+shelf-life/dispatch verification, and automatic recall traceability remain open.
+
 VERIFICATION (2026-09-14): Stage 18 quality API integration passes **4/4** against PostgreSQL,
 covering OpenAPI exposure, permission denial, and reservation-backed hold idempotency/shortfall
 behavior. Full quality acceptance and specialist closure evidence remain open.

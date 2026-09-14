@@ -4,6 +4,7 @@ using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Warehouse;
 using VumaRetail.Application.Warehouse.Permissions;
+using VumaRetail.Application.Quality;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Orders;
 using VumaRetail.Infrastructure.Warehouse;
@@ -52,6 +53,7 @@ public static class WarehouseServiceCollectionExtensions
         services.AddScoped<IOrderLineReader, SalesOrderLineReader>();
         services.AddHostedService<CountScheduleHostedService>();
         services.TryAddScoped<IOrderDispatchGate, NoOrderDispatchGate>();
+        services.TryAddScoped<IQualityDispatchGate, NoQualityDispatchGate>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, WarehousePermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, WarehouseModuleManifest>());

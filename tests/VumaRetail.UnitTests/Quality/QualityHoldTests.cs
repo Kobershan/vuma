@@ -248,4 +248,18 @@ public sealed class QualityHoldTests
         await action.Should().ThrowAsync<InvalidOperationException>();
         plans.DidNotReceive().Add(Arg.Any<InspectionPlan>());
     }
+
+    [Fact]
+    public async Task Quality_dispatch_gate_blocks_a_sku_with_an_active_hold()
+    {
+        IQualityHoldRepository holds = Substitute.For<IQualityHoldRepository>();
+        holds.ListActiveForStockAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns([QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null,
+                new Quantity(1m, "EA"), "inspection", DateTimeOffset.UtcNow, Guid.NewGuid())]);
+
+        Func<Task> action = () => new QualityDispatchGate(holds)
+            .EnsureDispatchAllowedAsync(Guid.NewGuid(), Guid.NewGuid(), null, new Quantity(1m, "EA"));
+
+        await action.Should().ThrowAsync<QualityRuleException>().WithMessage("*active quality hold*");
+    }
 }
