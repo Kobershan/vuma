@@ -6,8 +6,8 @@
 CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Complete remaining Stage 18 reservation projection traceability,
-then Stage 21 checkout/payment acceptance and Stage 21b.
+NEXT STAGE (roadmap order): Complete remaining Stage 18 specialist closure evidence, then Stage 21
+checkout/payment acceptance and Stage 21b.
 
 WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
 capture, void and refund. Operations validate the active company, checkout, current provider state
@@ -34,6 +34,10 @@ warehouse chain proves the expiry refusal and preserves outbound lot metadata. A
 focused quality/warehouse unit tests pass **89/89**. Recall opening now traverses input lot → production
 order → output lot → shipment with tenant/company filtering; the PostgreSQL quality API regression
 now verifies that genealogy path end to end.
+
+WORK LOG (2026-09-14): Stage 18 tracked quality-hold reservation identity is now verified through the
+public API against PostgreSQL. A 20-unit hold on a named lot persists the same lot and quantity in the
+company reservation projection; the Quality API suite passes **6/6**. TASK-18-002 is complete.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are

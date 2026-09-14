@@ -1,6 +1,6 @@
 # TASK-18-002 — Quality holds and stock availability
 
-**Status:** IN_PROGRESS — dispatch gate and PostgreSQL expiry-boundary evidence implemented; reservation projection traceability remains · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
+**Status:** COMPLETE — dispatch gate, PostgreSQL expiry-boundary evidence and tracked reservation projection traceability are verified · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
 
 ## Objective
 
@@ -36,7 +36,9 @@ The real PostgreSQL expiry-boundary dispatch refusal is covered by
 `WarehouseCommandTests.Shipping_a_wave_with_expired_tracked_stock_is_refused_against_postgresql`.
 Reservation projection evidence remains open; the application gate checks both active quality holds
 and expired tracked stock at the supplied business date. Production material issue commands now carry
-lot/expiry/serial identity into the append-only ledger for downstream genealogy.
+lot/expiry/serial identity into the append-only ledger for downstream genealogy. The PostgreSQL API
+regression now verifies that a tracked quality hold persists the same batch identity in the company
+reservation projection.
 
 ## Work log
 
@@ -48,3 +50,5 @@ lot/expiry/serial identity into the append-only ledger for downstream genealogy.
 - 2026-09-14: Receipt commands now carry lot, expiry and serial metadata. The real PostgreSQL
   warehouse chain proves an expired tracked lot is refused before shipment posting; outbound shipment
   ledger entries retain lot metadata for downstream recall tracing.
+- 2026-09-14: Tracked quality holds now have PostgreSQL API evidence proving the batch identity and
+  held quantity are preserved in the company reservation projection.

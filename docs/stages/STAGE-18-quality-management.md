@@ -52,9 +52,10 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
 ## Parts — the build list
 
 - [x] 18-P01: Implement inspection plans/results and immutable evidence attachments through Stage 05.
-- [~] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
-  backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
-  now fails closed for active holds and expired tracked stock, with PostgreSQL boundary evidence remaining.
+- [x] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
+  backed holds, atomic shortage handling, tracked reservation identity and expired-hold release refusal
+  are implemented; dispatch fails closed for active holds and expired tracked stock with PostgreSQL
+  boundary evidence.
 - [~] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
   Recall traversal follows input lot → production order → output lot → shipment in both the scoped
   application path and the public API against PostgreSQL.
@@ -86,8 +87,7 @@ Stage 18 remains in progress. Focused quality tests and the recorded PostgreSQL 
 cover holds, inspections, replay, scope, NCR/CAPA, certificates and recalls. Dispatch now queries the
 inventory ledger for expired tracked stock, while PostgreSQL warehouse tests cover expiry refusal and
 outbound lot metadata. Automatic lot-to-output/shipment recall traversal is implemented and covered by
-unit regression plus a PostgreSQL API regression. Reservation projection traceability and a separate
-specialist-agent runtime was
+unit regression plus PostgreSQL API regressions. A separate specialist-agent runtime was
 unavailable in this environment.
 
 ## Exit checklist

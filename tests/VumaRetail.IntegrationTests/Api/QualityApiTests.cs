@@ -173,6 +173,7 @@ public sealed class QualityApiTests(PostgresFixture fixture)
             }
             context.StockLedgerEntries.AddRange(movements);
             await context.SaveChangesAsync();
+            return 0;
         });
 
         await harness.CreateUserAsync("quality-recall-manager", "CorrectHorseBattery1", QualityPermissions.Manage, QualityPermissions.View);
@@ -195,6 +196,62 @@ public sealed class QualityApiTests(PostgresFixture fixture)
                 reference.Kind == StockReferenceType.Production.ToString() && reference.Reference == productionId.ToString());
             recall.TraceReferences.Should().Contain(reference =>
                 reference.Kind == StockReferenceType.Shipment.ToString() && reference.Reference == shipmentId.ToString());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Quality_hold_through_api_preserves_tracked_identity_in_company_reservation_projection()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, configureServices: StubCompanyRouting);
+        Guid companyId = await SeedCompanyAsync(harness);
+        (Guid locationId, Guid itemId) = await SeedStockAsync(harness, companyId, 100m);
+        const string batchReference = "LOT-QUALITY-HOLD-POSTGRES";
+        await harness.InScopeAsync(async services =>
+        {
+            services.GetRequiredService<ICompanyContext>().SetCompany(companyId);
+            ICompanyDbContextFactory companies = services.GetRequiredService<ICompanyDbContextFactory>();
+            await using VumaRetailDbContext context = await companies.CreateAsync();
+            StockLedgerEntry receipt = StockLedgerEntry.Post(
+                harness.TenantId, null, locationId, null, itemId, null, StockMovementType.Receipt,
+                new Quantity(30m, "EA"), new Money(10m, "ZAR"), StockReferenceType.Manual, null, null,
+                "Tracked quality seed", batchReference);
+            receipt.AssignCompany(companyId);
+            context.StockLedgerEntries.Add(receipt);
+            await context.SaveChangesAsync();
+            return 0;
+        });
+
+        await harness.CreateUserAsync("tracked-quality-manager", "CorrectHorseBattery1", QualityPermissions.Manage, QualityPermissions.View);
+        using HttpClient client = await harness.SignInAsync("tracked-quality-manager");
+        Guid operationId = Guid.NewGuid();
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/v1/quality/holds/", new
+        {
+            OperationId = operationId, CompanyId = companyId, LocationId = locationId,
+            ItemId = itemId, ItemVariantId = (Guid?)null, Quantity = 20m,
+            UnitOfMeasure = "EA", Reason = "Tracked incoming inspection",
+            BatchReference = batchReference, ExpiryDate = (DateOnly?)null, SerialNumber = (string?)null
+        });
+        string body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.Created, body);
+        Guid holdId = (await response.Content.ReadFromJsonAsync<Guid>())!;
+
+        await harness.InScopeAsync(async services =>
+        {
+            ICompanyContext company = services.GetRequiredService<ICompanyContext>();
+            company.SetCompany(companyId);
+            ICompanyDbContextFactory companies = services.GetRequiredService<ICompanyDbContextFactory>();
+            await using VumaRetailDbContext context = await companies.CreateAsync();
+            StockReservation reservation = await context.StockReservations
+                .SingleAsync(value => value.SourceDocumentId == operationId && value.State == ReservationState.Held);
+            reservation.BatchReference.Should().Be(batchReference);
+            reservation.Quantity.Value.Should().Be(20m);
+
+            VumaRetailDbContext tenantContext = services.GetRequiredService<VumaRetailDbContext>();
+            QualityHold hold = await tenantContext.QualityHolds.SingleAsync(value => value.Id == holdId);
+            hold.BatchReference.Should().Be(batchReference);
+            hold.ReservationId.Should().Be(reservation.ReservationId);
+            return 0;
         });
     }
 

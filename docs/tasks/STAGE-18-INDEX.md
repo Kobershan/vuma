@@ -10,18 +10,19 @@ tests, migration/API evidence and documentation are recorded.
 | ID | Scope | Dependencies | Status |
 |---|---|---|---|
 | TASK-18-001 | Inspection plans/results and immutable evidence | Stage 12, 17 | COMPLETE — versioning, immutable results, replay, scope and migration evidence pass |
-| TASK-18-002 | Quality holds, dispositions and stock availability | TASK-18-001, Stage 08c | IN_PROGRESS — reservation-backed availability and PostgreSQL expiry dispatch pass; reservation projection traceability remains |
+| TASK-18-002 | Quality holds, dispositions and stock availability | TASK-18-001, Stage 08c | COMPLETE — reservation-backed availability, expiry dispatch and tracked reservation projection pass |
 | TASK-18-003 | NCR/CAPA, certificates, recalls, shelf life and closure | TASK-18-002, Stage 24 | IN_PROGRESS — lifecycle/API evidence passes; automatic lot-to-output/shipment recall traceability remains |
 
 ## Verification record (2026-09-14)
 
 - Quality API integration: **5/5 passed** against PostgreSQL, including OpenAPI coverage,
   permission denial, company-scoped quality setup, reservation-backed hold idempotency, and atomic
-  shortfall refusal.
+  shortfall refusal; the tracked quality-hold reservation projection scenario is also green (**6/6**).
 ## Closure decision (2026-09-14)
 
 Stage 18 remains in progress. The quality unit suite is recorded at 17/17, focused quality
-integration evidence at 5/5, quality API evidence at 5/5, and migration reversibility at 1/1
+integration evidence at 5/5, quality API evidence at 6/6, and migration reversibility at 1/1
 against PostgreSQL. The warehouse chain now proves expiry refusal; application recall traversal covers
-input lot → production order → output lot → shipment, while reservation projection evidence remains
-open.
+input lot → production order → output lot → shipment, and tracked quality holds preserve their batch
+identity in the company reservation projection. TASK-18-002 is complete; TASK-18-003 remains open
+for specialist closure evidence.
