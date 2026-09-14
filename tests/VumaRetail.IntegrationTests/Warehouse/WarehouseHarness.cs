@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Catalog;
 using VumaRetail.Application.Inventory;
+using VumaRetail.Application.Quality;
 using VumaRetail.Application.Warehouse;
 using VumaRetail.Domain.Catalog;
 using VumaRetail.Domain.Inventory;
@@ -87,6 +88,7 @@ public sealed class WarehouseHarness : IAsyncDisposable
         services.AddSingleton<IBinStockMover, BinStockMover>();
         services.AddSingleton<IPickAllocationStrategy, LargestBinFirstAllocationStrategy>();
         services.AddSingleton<IOrderDispatchGate, NoOrderDispatchGate>();
+        services.AddSingleton<IQualityDispatchGate, NoQualityDispatchGate>();
 
         services.AddVumaMessaging();
 

@@ -48,6 +48,68 @@ public interface IPaymentAttemptRepository
     void Add(PaymentAttempt attempt);
 }
 
+/// <summary>Explicit payment-provider boundary. Hosted checkout never carries card data through Vuma.</summary>
+public interface IPaymentGateway
+{
+    Task<PaymentGatewayAuthorization> AuthorizeAsync(PaymentAuthorizationRequest request, CancellationToken cancellationToken = default);
+    Task<PaymentGatewayResult> CaptureAsync(PaymentGatewayOperation request, CancellationToken cancellationToken = default);
+    Task<PaymentGatewayResult> VoidAsync(PaymentGatewayOperation request, CancellationToken cancellationToken = default);
+    Task<PaymentGatewayResult> RefundAsync(PaymentGatewayOperation request, CancellationToken cancellationToken = default);
+}
+
+public sealed record PaymentAuthorizationRequest(Guid CheckoutId, string MerchantReference, decimal Amount,
+    string Currency, Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl);
+
+public sealed record PaymentGatewayOperation(string ProviderPaymentId, string MerchantReference,
+    decimal Amount, string Currency, string IdempotencyKey);
+
+public sealed record PaymentGatewayAuthorization(string ProviderPaymentId, Uri? RedirectUrl, string Status,
+    string? ProviderReference = null);
+
+public sealed record PaymentGatewayResult(string ProviderPaymentId, string Status, string? ProviderReference = null);
+
+[CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.Payment)]
+public sealed record BeginCheckoutPaymentCommand(Guid CheckoutId, Guid CompanyId, string OwnerKey,
+    Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl) : ICommand<PaymentGatewayAuthorization>;
+
+public sealed class BeginCheckoutPaymentCommandHandler(
+    ICheckoutIntentRepository checkouts, ICommerceBasketLineRepository lines,
+    IPaymentGateway gateway, ICompanyContext company)
+    : ICommandHandler<BeginCheckoutPaymentCommand, PaymentGatewayAuthorization>
+{
+    public async Task<PaymentGatewayAuthorization> HandleAsync(BeginCheckoutPaymentCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "payment");
+        CheckoutIntent checkout = await checkouts.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (checkout.CompanyId != command.CompanyId || !string.Equals(checkout.OwnerKey, command.OwnerKey.Trim(), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Checkout intent is not available to this owner.");
+        }
+        if (checkout.Status != CheckoutIntentStatus.Pending && checkout.Status != CheckoutIntentStatus.Confirmed)
+        {
+            throw new InvalidOperationException("Only a pending or confirmed checkout can start payment.");
+        }
+
+        IReadOnlyList<CommerceBasketLine> basketLines = await lines.ListForBasketAsync(checkout.BasketId, cancellationToken).ConfigureAwait(false);
+        if (basketLines.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot authorize payment for an empty checkout.");
+        }
+        string currency = basketLines[0].Currency;
+        if (basketLines.Any(line => !string.Equals(line.Currency, currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("A checkout cannot contain multiple currencies.");
+        }
+        decimal amount = basketLines.Sum(line => line.Quantity * line.AuthoritativeUnitPrice);
+        return await gateway.AuthorizeAsync(new PaymentAuthorizationRequest(checkout.Id,
+            $"VUMA-{checkout.Id:N}", amount, currency, command.ReturnUrl, command.CancelUrl,
+            command.NotificationUrl), cancellationToken).ConfigureAwait(false);
+    }
+}
+
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ApplyPaymentNotificationCommand(Guid CheckoutId, Guid CompanyId, string EventId,
     string PayloadFingerprint, string ProviderPaymentId, string Status, string? ProviderReference) : ICommand<Guid>;

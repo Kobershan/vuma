@@ -53,6 +53,10 @@ public static class EcommerceEndpoints
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Manage)
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Rejects a checkout with an explicit business reason.");
+        storefront.MapPost("/checkouts/{id:guid}/payment", BeginCheckoutPaymentAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Payment)
+            .Produces<PaymentGatewayAuthorization>(StatusCodes.Status200OK)
+            .WithSummary("Starts Transaction Junction payment without handling card data in Vuma.");
         storefront.MapPost("/webhooks/payments", ApplyPaymentWebhookAsync)
             .AllowAnonymous()
             .Produces<Guid>(StatusCodes.Status202Accepted)
@@ -116,7 +120,9 @@ public static class EcommerceEndpoints
     {
         string idempotencyKey = http.Headers["Idempotency-Key"].ToString();
         if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
             return Results.BadRequest(new { error = "Idempotency-Key is required." });
+        }
         Guid id = await dispatcher.SendAsync(new SubmitCheckoutCommand(request.BasketId, request.CompanyId,
             request.OwnerKey, idempotencyKey, request.ContentFingerprint), cancellationToken).ConfigureAwait(false);
         return Results.Accepted($"/api/v1/storefront/checkouts/{id:D}", new CheckoutAcceptedResponse(id, "Pending", clock.UtcNow.AddHours(24)));
@@ -144,6 +150,15 @@ public static class EcommerceEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> BeginCheckoutPaymentAsync(
+        Guid id, BeginPaymentRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        PaymentGatewayAuthorization result = await dispatcher.SendAsync(new BeginCheckoutPaymentCommand(id,
+            request.CompanyId, request.OwnerKey, request.ReturnUrl, request.CancelUrl, request.NotificationUrl), cancellationToken)
+            .ConfigureAwait(false);
+        return Results.Ok(result);
+    }
+
     private static async Task<IResult> ApplyPaymentWebhookAsync(
         HttpRequest http, IConfiguration configuration, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -151,10 +166,14 @@ public static class EcommerceEndpoints
         string body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         string secret = configuration["Vuma:Ecommerce:PaymentWebhookSecret"] ?? string.Empty;
         if (!PaymentWebhookSecurity.Verify(body, http.Headers["X-Vuma-Payment-Signature"].ToString(), secret))
+        {
             return Results.Unauthorized();
+        }
         PaymentWebhookRequest? request = JsonSerializer.Deserialize<PaymentWebhookRequest>(body);
         if (request is null)
+        {
             return Results.BadRequest();
+        }
         company.SetCompany(request.CompanyId);
         string fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         Guid id = await dispatcher.SendAsync(new ApplyPaymentNotificationCommand(request.CheckoutId, request.CompanyId,
@@ -172,6 +191,7 @@ public static class EcommerceEndpoints
     public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
     public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
     public sealed record CheckoutDecisionRequest(Guid CompanyId, string Reason = "Store authority rejected the checkout.");
+    public sealed record BeginPaymentRequest(Guid CompanyId, string OwnerKey, Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl);
     public sealed record PaymentWebhookRequest(Guid CheckoutId, Guid CompanyId, string EventId,
         string ProviderPaymentId, string Status, string? ProviderReference);
 }
