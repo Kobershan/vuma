@@ -4,7 +4,7 @@ Provider reference: [Transaction Junction IMBEKO developer documentation](https:
 The implementation must select the Hosted Payment Page or Direct API explicitly; it must not collect
 or persist card data in Vuma when the Hosted Payment Page contract is selected.
 
-**Status:** COMPLETE · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
+**Status:** IN_PROGRESS — authorization and replay-safe capture/void/refund boundary implemented; order milestone, provider reconciliation and PostgreSQL acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
 
