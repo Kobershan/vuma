@@ -72,6 +72,11 @@ VERIFICATION (2026-09-14): All four local Stage 31 release-script tests pass (**
 full unit suite passes **1,561/1,561** after the Stage 27 tenant-scope change. GitHub workflow
 completion, Android assembly, DR, packaging and specialist closure remain open.
 
+VERIFICATION (2026-09-14): GitHub CI run `34800395226` completed green across release-manifest
+verification, backend build, unit/integration tests, architecture, migration, vulnerability,
+design-system, Android Compose, and Windows package jobs. The later tenant-wide metadata fix is
+running in a separate authoritative workflow and still requires its own result.
+
 WORK LOG (2026-09-14): Added deterministic release-manifest generation with exclusions for source
 control, build caches, local configuration and signing material. The complete local release-script
 set now passes **4/4**; packaging, DR and GitHub workflow completion remain open.

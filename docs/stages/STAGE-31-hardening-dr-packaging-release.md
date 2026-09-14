@@ -69,6 +69,10 @@ paths and symlink payloads before hashing; packaging and restore acceptance rema
 The CI workflow now executes manifest generation, verification and activation tests on each current
 revision, while superseded branch runs are cancelled to keep the latest gate authoritative.
 
+GitHub CI run `34800395226` completed green for the complete configured release pipeline, including
+backend build/test/migration checks, Android Compose compilation, vulnerability scanning and Windows
+packaging. The subsequent demo-scope correction is pending its own workflow result.
+
 - `Store_survives_cloud_outage`: block cloud and vendor network for 24 hours; local cash trading completes and reconnect replay changes no totals.
 - `Fresh_hardware_restore_trades`: restore the pilot registry, all company databases and documents onto a fresh machine within 4 hours; reconcile stock/GL and complete a sale.
 - `Tampered_update_is_refused`: flip one byte in a release package; the updater refuses it and records the reason without deleting tenant data.
