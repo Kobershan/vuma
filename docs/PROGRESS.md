@@ -14,6 +14,11 @@ because the suite disables parallelization and creates an isolated database per 
 insufficient evidence for full integration closure. Open stages below remain open until their
 acceptance and specialist evidence is executed.
 
+The post-pull repair checkpoint is also green: Release build **0 errors**; unit **1,579/1,579**;
+architecture **85/85**; focused PostgreSQL migration/marketing/conversation **8/8**; and focused
+manufacturing/quality/ecommerce/marketing/logistics API **15/15**. The full integration suite and
+the remaining stage-specific acceptance queues are still not claimed complete.
+
 `CURRENT.md` is the latest implementation handoff. The older status table and next-session notes below
 contain historical review context and are superseded where this snapshot disagrees with them.
 

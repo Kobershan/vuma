@@ -6,6 +6,12 @@
 CURRENT STAGE: Stages 17–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 implementation is present but final verification remains open; 12 numbered stages plus 21b, 22b and 30b remain open. Latest verified checkpoints are HR/workforce lifecycle tests, Stage 31 release-manifest verification, Stage 29 export persistence, Stage 28/27 APIs, Stage 23 service APIs, Stage 21 payment/price invariants, Stage 18 company-scoped replay refusal, and Stage 30 endpoint-bound sessions.
 NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 task queues.
 
+WORK LOG (2026-09-14): Repaired the Stage 22 marketing journey migration by scaffolding the EF
+designer/snapshot from the Release model, and corrected the three-segment manufacturing permission
+keys plus due-time marketing delivery fixtures. Release build passes with **0 errors**; unit tests
+pass **1,579/1,579**, architecture tests **85/85**, focused migration/marketing/conversation tests
+**8/8**, and focused manufacturing/quality/ecommerce/marketing/logistics API tests **15/15**.
+
 VERIFICATION (2026-09-14): Release unit tests pass **1,566/1,566** and architecture tests pass
 **85/85**. A focused PostgreSQL manufacturing migration run passes **2/2**. The complete
 integration suite was started twice but exceeded a five-minute diagnostic limit without emitting a

@@ -8,10 +8,10 @@ namespace VumaRetail.Application.Manufacturing;
 public sealed class ManufacturingPermissions : IModulePermissions
 {
     /// <summary>Read BOM definitions, production orders, genealogy, and capacity.</summary>
-    public const string View = "manufacturing.view";
+    public const string View = "manufacturing.bom.view";
 
     /// <summary>Create, publish, and execute manufacturing orders.</summary>
-    public const string Manage = "manufacturing.manage";
+    public const string Manage = "manufacturing.production.manage";
 
     /// <inheritdoc />
     public string Module => "manufacturing";

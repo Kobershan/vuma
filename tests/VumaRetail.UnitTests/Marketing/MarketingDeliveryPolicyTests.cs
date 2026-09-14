@@ -212,9 +212,10 @@ public sealed class MarketingDeliveryPolicyTests
     [Fact]
     public async Task Delivery_service_suppresses_a_recipient_who_withdraws_consent()
     {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Consent", "consent-v1",
-            DateTimeOffset.UtcNow.AddHours(1));
-        campaign.Schedule(DateTimeOffset.UtcNow);
+            now);
+        campaign.Schedule(now);
         var message = OutboundMessage.Queue(campaign.TenantId, null, campaign.CompanyId!.Value, campaign.Id, Guid.NewGuid(),
             "dispatch-consent", campaign.ScheduledAt);
         var campaigns = Substitute.For<IMarketingCampaignRepository>();
@@ -239,9 +240,10 @@ public sealed class MarketingDeliveryPolicyTests
     [Fact]
     public async Task Delivery_service_applies_provider_result_when_consent_allows_send()
     {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Delivery", "delivery-v1",
-            DateTimeOffset.UtcNow.AddHours(1));
-        campaign.Schedule(DateTimeOffset.UtcNow);
+            now);
+        campaign.Schedule(now);
         var message = OutboundMessage.Queue(campaign.TenantId, null, campaign.CompanyId!.Value, campaign.Id, Guid.NewGuid(),
             "dispatch-delivery", campaign.ScheduledAt);
         var campaigns = Substitute.For<IMarketingCampaignRepository>();
