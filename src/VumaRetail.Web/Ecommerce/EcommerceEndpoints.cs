@@ -165,13 +165,14 @@ public static class EcommerceEndpoints
     }
 
     private static async Task<IResult> ExecutePaymentOperationAsync(
-        Guid id, string operation, ExecutePaymentOperationRequest request, IDispatcher dispatcher,
+        Guid id, string operation, ExecutePaymentOperationRequest request, ICompanyContext company, IDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
         if (!Enum.TryParse<PaymentOperationKind>(operation, true, out PaymentOperationKind kind))
         {
             return Results.BadRequest(new { error = "Operation must be capture, void or refund." });
         }
+        company.SetCompany(request.CompanyId);
         PaymentGatewayResult result = await dispatcher.SendAsync(new ExecutePaymentOperationCommand(id,
             request.CompanyId, kind, request.ProviderPaymentId, request.MerchantReference, request.Amount,
             request.Currency, request.IdempotencyKey), cancellationToken).ConfigureAwait(false);

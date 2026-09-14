@@ -17,7 +17,8 @@ Ecommerce tests pass **11/11**; full unit and architecture suites remain green a
 
 WORK LOG (2026-09-14): Real PostgreSQL API evidence now submits one signed Transaction Junction-style
 payment notification ten times and persists exactly one payment-attempt transition. Remaining Stage
-21 work is authoritative checkout-to-order/reservation orchestration and provider-operation posting.
+21 work is authoritative checkout-to-order/reservation orchestration and provider reconciliation;
+the protected capture endpoint’s PostgreSQL replay test invokes the configured gateway once.
 
 WORK LOG (2026-09-14): Exposed the capture/void/refund boundary through the payment-protected
 `/api/v1/storefront/checkouts/{id}/payment/{operation}` route. Invalid operation names fail with 400;

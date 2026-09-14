@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using VumaRetail.Application.Ecommerce;
 using VumaRetail.Domain.Ecommerce;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.IntegrationTests.Harness;
@@ -101,5 +103,78 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
             await services.GetRequiredService<VumaRetailDbContext>().PaymentAttempts
                 .CountAsync(attempt => attempt.EventId == "tj-event-replay-1"));
         persisted.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Payment_capture_endpoint_replays_without_a_second_gateway_call()
+    {
+        StubPaymentGateway gateway = new();
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture, configureServices: services =>
+        {
+            services.RemoveAll<IPaymentGateway>();
+            services.AddSingleton<IPaymentGateway>(gateway);
+        });
+        Guid companyId = Guid.NewGuid();
+        Guid checkoutId = await harness.InScopeAsync(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            CheckoutIntent checkout = CheckoutIntent.Submit(harness.TenantId, companyId, Guid.NewGuid(), Guid.NewGuid(),
+                "customer-capture", "checkout-key", "basket-fingerprint", DateTimeOffset.UtcNow);
+            context.CheckoutIntents.Add(checkout);
+            context.PaymentAttempts.Add(PaymentAttempt.Record(harness.TenantId, companyId, checkout.Id,
+                "authorization-event", "authorization-fingerprint", "tj-payment-1",
+                PaymentAttemptStatus.Authorised, "TJ-AUTH-1", DateTimeOffset.UtcNow));
+            await context.CommitAsync();
+            return checkout.Id;
+        });
+
+        await harness.CreateUserAsync("payment-operator", "CorrectHorseBattery1", EcommercePermissions.Payment);
+        using HttpClient client = await harness.SignInAsync("payment-operator");
+        var request = new
+        {
+            CompanyId = companyId,
+            ProviderPaymentId = "tj-payment-1",
+            MerchantReference = "VUMA-CAPTURE-1",
+            Amount = 125m,
+            Currency = "ZAR",
+            IdempotencyKey = "capture-operation-1"
+        };
+
+        HttpResponseMessage first = await client.PostAsJsonAsync(
+            $"/api/v1/storefront/checkouts/{checkoutId:D}/payment/capture", request);
+        HttpResponseMessage replay = await client.PostAsJsonAsync(
+            $"/api/v1/storefront/checkouts/{checkoutId:D}/payment/capture", request);
+
+        first.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        replay.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        gateway.CaptureCalls.Should().Be(1);
+        int persisted = await harness.InScopeAsync(async services =>
+            await services.GetRequiredService<VumaRetailDbContext>().PaymentAttempts
+                .CountAsync(attempt => attempt.EventId == "payment-operation:capture-operation-1"));
+        persisted.Should().Be(1);
+    }
+
+    private sealed class StubPaymentGateway : IPaymentGateway
+    {
+        public int CaptureCalls { get; private set; }
+
+        public Task<PaymentGatewayAuthorization> AuthorizeAsync(PaymentAuthorizationRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new PaymentGatewayAuthorization("tj-payment-1", null, "Authorised", "TJ-AUTH-1"));
+
+        public Task<PaymentGatewayResult> CaptureAsync(PaymentGatewayOperation request,
+            CancellationToken cancellationToken = default)
+        {
+            CaptureCalls++;
+            return Task.FromResult(new PaymentGatewayResult(request.ProviderPaymentId, "Captured", "TJ-CAP-1"));
+        }
+
+        public Task<PaymentGatewayResult> VoidAsync(PaymentGatewayOperation request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new PaymentGatewayResult(request.ProviderPaymentId, "Reversed", "TJ-VOID-1"));
+
+        public Task<PaymentGatewayResult> RefundAsync(PaymentGatewayOperation request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new PaymentGatewayResult(request.ProviderPaymentId, "Reversed", "TJ-REFUND-1"));
     }
 }
