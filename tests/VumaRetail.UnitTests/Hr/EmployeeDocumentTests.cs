@@ -2,6 +2,8 @@ using VumaRetail.Domain.HrManagement;
 using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Hr;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using Microsoft.Extensions.Configuration;
 using VumaRetail.Infrastructure.Security;
 
@@ -34,10 +36,13 @@ public sealed class EmployeeDocumentTests
     public async Task Document_listing_returns_metadata_without_external_blob_key()
     {
         var document = EmployeeDocument.Record(Guid.NewGuid(), Guid.NewGuid(), "Contract", "private/key.pdf", new string('b', 64));
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+        document.AssignCompany(company.CompanyId.Value);
         var repository = Substitute.For<IEmployeeDocumentRepository>();
         repository.ListAsync(document.EmployeeId, Arg.Any<CancellationToken>()).Returns([document]);
 
-        EmployeeDocumentResult result = (await new ListEmployeeDocumentsQueryHandler(repository)
+        EmployeeDocumentResult result = (await new ListEmployeeDocumentsQueryHandler(repository, company)
             .HandleAsync(new ListEmployeeDocumentsQuery(document.EmployeeId)))[0];
 
         result.DocumentType.Should().Be("Contract");
@@ -51,6 +56,9 @@ public sealed class EmployeeDocumentTests
     {
         var document = EmployeeDocument.Record(Guid.NewGuid(), Guid.NewGuid(), "Contract", "private/key.pdf", new string('c', 64),
             new DateOnly(2026, 9, 30));
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+        document.AssignCompany(company.CompanyId.Value);
         var repository = Substitute.For<IEmployeeDocumentRepository>();
         var authorizer = Substitute.For<IEmployeeDocumentDownloadAuthorizer>();
         var clock = Substitute.For<VumaRetail.Application.Abstractions.IClock>();
@@ -58,7 +66,7 @@ public sealed class EmployeeDocumentTests
         authorizer.Create(document, Arg.Any<DateTimeOffset>()).Returns("opaque-grant");
         repository.FindAsync(document.EmployeeId, document.Id, Arg.Any<CancellationToken>()).Returns(document);
 
-        EmployeeDocumentDownloadResult result = (await new AuthorizeEmployeeDocumentDownloadQueryHandler(repository, authorizer, clock)
+        EmployeeDocumentDownloadResult result = (await new AuthorizeEmployeeDocumentDownloadQueryHandler(repository, authorizer, company, clock)
             .HandleAsync(new AuthorizeEmployeeDocumentDownloadQuery(document.EmployeeId, document.Id)))!;
 
         result.Token.Should().Be("opaque-grant");
@@ -78,5 +86,24 @@ public sealed class EmployeeDocumentTests
         authorizer.Validate(token, document.Id, expiry.AddMinutes(-1)).Should().BeTrue();
         authorizer.Validate(token + "x", document.Id, expiry.AddMinutes(-1)).Should().BeFalse();
         authorizer.Validate(token, document.Id, expiry).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Recording_document_rejects_employee_from_another_active_company()
+    {
+        var employee = Employee.Create(Guid.NewGuid(), "E-100", "Ada", "Lovelace", DateTimeOffset.UtcNow, EmploymentType.Permanent);
+        employee.AssignCompany(Guid.NewGuid());
+        var employees = Substitute.For<IEmployeeRepository>();
+        employees.FindAsync(employee.Id, Arg.Any<CancellationToken>()).Returns(employee);
+        var documents = Substitute.For<IEmployeeDocumentRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(employee.TenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        await FluentActions.Invoking(() => new RecordEmployeeDocumentCommandHandler(employees, documents, tenant, company)
+            .HandleAsync(new RecordEmployeeDocumentCommand(employee.Id, "Contract", "private/contract.pdf", new string('f', 64))))
+            .Should().ThrowAsync<InvalidOperationException>();
+        documents.DidNotReceive().Add(Arg.Any<EmployeeDocument>());
     }
 }

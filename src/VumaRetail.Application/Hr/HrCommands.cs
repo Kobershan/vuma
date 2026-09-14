@@ -77,10 +77,19 @@ public sealed class RecordAttendanceCommandHandler(IEmployeeRepository employees
 {
     public async Task<Guid> HandleAsync(RecordAttendanceCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var a = AttendanceRecord.Record(tenant.TenantId, c.EmployeeId, c.ShiftId, c.EventType, c.OccurredAt, c.Source); attendance.Add(a); return a.Id; }
 }
-public sealed class RecordEmployeeDocumentCommandHandler(IEmployeeRepository employees, IEmployeeDocumentRepository documents, ITenantContext tenant) : ICommandHandler<RecordEmployeeDocumentCommand, Guid>
+public sealed class RecordEmployeeDocumentCommandHandler(IEmployeeRepository employees, IEmployeeDocumentRepository documents, ITenantContext tenant, ICompanyContext company) : ICommandHandler<RecordEmployeeDocumentCommand, Guid>
 {
     public async Task<Guid> HandleAsync(RecordEmployeeDocumentCommand c, CancellationToken token = default)
-    { if (await employees.FindAsync(c.EmployeeId, token) is null) throw new KeyNotFoundException("Employee was not found."); var document = EmployeeDocument.Record(tenant.TenantId, c.EmployeeId, c.DocumentType, c.BlobKey, c.ContentSha256, c.ExpiresOn); documents.Add(document); return document.Id; }
+    {
+        Employee employee = await employees.FindAsync(c.EmployeeId, token).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Employee was not found.");
+        if (company.CompanyId is not { } activeCompany || employee.CompanyId != activeCompany)
+            throw new InvalidOperationException("The employee company is not the active company.");
+        EmployeeDocument document = EmployeeDocument.Record(tenant.TenantId, c.EmployeeId, c.DocumentType, c.BlobKey, c.ContentSha256, c.ExpiresOn);
+        document.AssignCompany(activeCompany);
+        documents.Add(document);
+        return document.Id;
+    }
 }
 
 public sealed class SuspendEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<SuspendEmployeeCommand, Unit>
@@ -224,23 +233,25 @@ public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository sw
         return Unit.Value;
     }
 }
-public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocumentResult>>
+public sealed class ListEmployeeDocumentsQueryHandler(IEmployeeDocumentRepository documents, ICompanyContext company) : IQueryHandler<ListEmployeeDocumentsQuery, IReadOnlyList<EmployeeDocumentResult>>
 {
     public async Task<IReadOnlyList<EmployeeDocumentResult>> HandleAsync(ListEmployeeDocumentsQuery q, CancellationToken t = default)
         => (await documents.ListAsync(q.EmployeeId, t).ConfigureAwait(false))
+            .Where(x => company.CompanyId is { } activeCompany && x.CompanyId == activeCompany)
             .Select(x => new EmployeeDocumentResult(x.Id, x.EmployeeId, x.DocumentType, x.ContentSha256, x.ExpiresOn))
             .ToArray();
 }
 
 public sealed class AuthorizeEmployeeDocumentDownloadQueryHandler(IEmployeeDocumentRepository documents,
-    IEmployeeDocumentDownloadAuthorizer authorizer, IClock clock)
+    IEmployeeDocumentDownloadAuthorizer authorizer, ICompanyContext company, IClock clock)
     : IQueryHandler<AuthorizeEmployeeDocumentDownloadQuery, EmployeeDocumentDownloadResult?>
 {
     public async Task<EmployeeDocumentDownloadResult?> HandleAsync(AuthorizeEmployeeDocumentDownloadQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         EmployeeDocument? document = await documents.FindAsync(query.EmployeeId, query.DocumentId, cancellationToken).ConfigureAwait(false);
-        if (document is null || (document.ExpiresOn is { } expiresOn && expiresOn < DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)))
+        if (document is null || company.CompanyId is not { } activeCompany || document.CompanyId != activeCompany ||
+            (document.ExpiresOn is { } expiresOn && expiresOn < DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)))
             return null;
         DateTimeOffset expiresAt = clock.UtcNow.AddMinutes(15);
         return new EmployeeDocumentDownloadResult(document.Id, authorizer.Create(document, expiresAt), expiresAt);

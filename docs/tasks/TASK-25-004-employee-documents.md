@@ -15,3 +15,7 @@ external storage blob key. Secure, expiring download authorization remains a sep
 validation. Expired document metadata is refused, the signing key is configuration-only and requires
 at least 32 bytes, and the blob key is not included in the grant payload. Storage adapter integration
 and retention/deletion remain.
+
+2026-09-14: Record, list and download-authorization handlers now explicitly validate the loaded
+employee/document company against the active company; new document metadata is stamped with that
+company before persistence. `EmployeeDocumentTests` passes 8/8, including cross-company refusal.

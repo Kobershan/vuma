@@ -258,3 +258,7 @@ labour-cost integration and specialist review remain open.
 WORK LOG (2026-09-14): Stage 26 roster publication now filters by active company before store
 selection, canonical hashing and shift counting. `HrLifecycleTests` remains green at 13/13;
 external distribution, labour-cost integration and specialist review remain open.
+
+WORK LOG (2026-09-14): Stage 25 employee-document record, list and download authorization paths
+now explicitly enforce the active company. `EmployeeDocumentTests` passes 8/8; storage adapter,
+retention/deletion and full PostgreSQL acceptance remain open.
