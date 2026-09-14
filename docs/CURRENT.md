@@ -23,6 +23,10 @@ WORK LOG (2026-09-13): Stage 22 now has validated campaign scheduling and append
 message state with suppression and per-recipient idempotency metadata. Marketing tests pass 6/6;
 durable transport integration and APIs remain open.
 
+WORK LOG (2026-09-14): Stage 23 ticket and service-part replay paths now validate the active company
+before returning existing records. Service command tests pass 4/4; PostgreSQL availability and
+financial acceptance remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

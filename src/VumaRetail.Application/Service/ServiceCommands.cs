@@ -36,6 +36,7 @@ public sealed class OpenServiceTicketCommandHandler(IServiceRepository services,
     public async Task<Guid> HandleAsync(OpenServiceTicketCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        EnsureCompany(company, command.CompanyId);
         ServiceTicket? existing = await services.FindTicketByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -44,7 +45,6 @@ public sealed class OpenServiceTicketCommandHandler(IServiceRepository services,
                 throw new InvalidOperationException("The service ticket operation was replayed with different content.");
             return existing.Id;
         }
-        EnsureCompany(company, command.CompanyId);
         ServiceTicket ticket = ServiceTicket.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CustomerId,
             command.Subject, clock.UtcNow);
         services.Add(ticket);
@@ -191,6 +191,8 @@ public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServic
     public async Task<Guid> HandleAsync(IssueServicePartCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+            throw new InvalidOperationException("The service company is not the active company.");
         ServicePartUsage? existing = await services.FindPartUsageByOperationIdAsync(command.OperationId, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
@@ -201,8 +203,6 @@ public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServic
             return existing.Id;
         }
 
-        if (company.CompanyId is not { } active || active != command.CompanyId)
-            throw new InvalidOperationException("The service company is not the active company.");
         if ((command.ItemId is null) == (command.ItemVariantId is null))
             throw new ArgumentException("A service part must identify exactly one item or variant.");
         Quantity quantity = new(command.Quantity, command.UnitOfMeasure);

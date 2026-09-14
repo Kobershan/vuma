@@ -36,3 +36,5 @@ OpenAPI verification passes **2/2** on PostgreSQL.
 Service-part consumption is now reserved, issued through the shared stock ledger, consumed against the
 hold, and protected by operation replay checks; parts integration remains subject to full end-to-end
 PostgreSQL availability and financial acceptance.
+Replay handling now validates the active company context before looking up an existing ticket or
+service-part usage, closing a same-company replay bypass; the service command suite passes **4/4**.

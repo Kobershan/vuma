@@ -72,4 +72,23 @@ public sealed class ServiceCommandTests
         result.Should().Be(usage.Id);
         services.DidNotReceive().Add(Arg.Any<ServicePartUsage>());
     }
+
+    [Fact]
+    public async Task Service_ticket_replay_requires_the_company_to_be_active_before_returning_existing_ticket()
+    {
+        Guid companyId = Guid.NewGuid();
+        Guid operationId = Guid.NewGuid();
+        Guid customerId = Guid.NewGuid();
+        ServiceTicket existing = ServiceTicket.Open(Guid.NewGuid(), null, companyId, operationId, customerId,
+            "Laptop repair", DateTimeOffset.UtcNow);
+        IServiceRepository repository = Substitute.For<IServiceRepository>();
+        repository.FindTicketByOperationIdAsync(operationId, Arg.Any<CancellationToken>()).Returns(existing);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+
+        Func<Task> action = () => new OpenServiceTicketCommandHandler(repository, Substitute.For<ITenantContext>(), company,
+            Substitute.For<IClock>()).HandleAsync(new OpenServiceTicketCommand(operationId, companyId, customerId, "Laptop repair"));
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+    }
 }
