@@ -11,12 +11,13 @@ namespace VumaRetail.Application.Service;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateServiceSlaCommand(Guid CompanyId, string Name, decimal ResponseHours, decimal ResolutionHours) : ICommand<Guid>;
 
-public sealed class CreateServiceSlaCommandHandler(IServiceRepository services, ITenantContext tenant)
+public sealed class CreateServiceSlaCommandHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateServiceSlaCommand, Guid>
 {
     public async Task<Guid> HandleAsync(CreateServiceSlaCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        EnsureCompany(company, command.CompanyId);
         if (command.CompanyId == Guid.Empty) throw new ArgumentException("Company is required.");
         ArgumentException.ThrowIfNullOrWhiteSpace(command.Name);
         if (await services.FindSlaByNameAsync(command.CompanyId, command.Name, cancellationToken).ConfigureAwait(false) is not null)
@@ -24,6 +25,12 @@ public sealed class CreateServiceSlaCommandHandler(IServiceRepository services, 
         ServiceSla sla = ServiceSla.Create(tenant.TenantId, command.CompanyId, command.Name, command.ResponseHours, command.ResolutionHours);
         services.Add(sla);
         return sla.Id;
+    }
+
+    private static void EnsureCompany(ICompanyContext company, Guid expected)
+    {
+        if (company.CompanyId is not { } active || active != expected)
+            throw new InvalidOperationException("The service company is not the active company.");
     }
 }
 

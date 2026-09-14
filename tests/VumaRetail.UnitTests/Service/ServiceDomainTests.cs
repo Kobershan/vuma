@@ -1,6 +1,7 @@
 using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Service;
 using VumaRetail.Domain.Service;
 
@@ -18,7 +19,9 @@ public sealed class ServiceDomainTests
         IServiceRepository services = Substitute.For<IServiceRepository>();
         ITenantContext tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(TenantId);
-        CreateServiceSlaCommandHandler handler = new(services, tenant);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(CompanyId);
+        CreateServiceSlaCommandHandler handler = new(services, tenant, company);
         CreateServiceSlaCommand command = new(CompanyId, "Standard", 4m, 24m);
 
         Guid id = await handler.HandleAsync(command);

@@ -8,3 +8,5 @@ existing service repository, and the permissioned `POST /api/v1/service/slas` ro
 
 Evidence: Service-focused unit suite **28/28 passed** and the StoreServer application compiled as part
 of that run. Full SLA assignment, pause/resume clocks, worker escalation and stage closure remain open.
+The SLA creation handler now also enforces the ambient active-company context before duplicate lookup
+or persistence; the focused service-domain suite passes **6/6**.
