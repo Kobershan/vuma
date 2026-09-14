@@ -64,6 +64,10 @@ WORK LOG (2026-09-14): Added a dedicated `android-compose-build` GitHub job usin
 Gradle 8.9, and made packaging depend on it. Stage 30 Android compilation is now an enforced CI
 gate; its first run is pending.
 
+WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
+pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
+by DataStore. Android compilation and instrumentation acceptance remain CI-dependent.
+
 WORK LOG (2026-09-13): Stage 25 employee lifecycle operations are now exposed as suspend, activate
 and terminate commands with HR manage-protected routes. StoreServer Release build passes with 0
 errors and the HR unit suite passes 9/9. Disciplinary workflows, payroll export, roster/availability

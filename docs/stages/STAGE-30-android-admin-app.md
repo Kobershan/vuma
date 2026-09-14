@@ -65,6 +65,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   delegated to the GitHub package workflow.
 - 2026-09-14: Added the `android-compose-build` GitHub job using JDK 17 and Gradle 8.9; packaging now
   depends on this Kotlin/Compose compilation gate. The first run is pending.
+- 2026-09-14: Added Room-backed tenant/company dashboard and pending-action persistence and an
+  Android Keystore AES-GCM refresh-token store backed by DataStore. Android compilation and device
+  acceptance remain CI-dependent.
 
 ## Tests / acceptance
 
