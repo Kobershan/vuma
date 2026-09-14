@@ -110,8 +110,8 @@ payload fingerprints, reject changed-content callback replays, and expose a sign
 The focused marketing run passes **16/16**; company-scoped campaign/message operator reads are now
 available, while transport workers and audience APIs remain open.
 
-VERIFICATION (2026-09-14): Marketing OpenAPI integration coverage passes **1/1** for the operator
-read and signed provider callback routes.
+VERIFICATION (2026-09-14): Marketing API integration coverage passes **2/2**, including OpenAPI
+route discovery and runtime rejection of an unsigned provider callback.
 
 WORK LOG (2026-09-14): Wired the Android process composition root to create the Room database and
 Keystore-backed session store, and documented the durable state boundary. Android compilation and

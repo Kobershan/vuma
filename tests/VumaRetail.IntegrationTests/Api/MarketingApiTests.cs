@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Net;
+using System.Net.Http.Json;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Api;
@@ -20,5 +22,20 @@ public sealed class MarketingApiTests(PostgresFixture fixture)
         message.TryGetProperty("get", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/marketing/webhooks/{provider}", out JsonElement webhook).Should().BeTrue();
         webhook.TryGetProperty("post", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Marketing_provider_callback_rejects_an_unsigned_request()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        HttpResponseMessage response = await harness.Client.PostAsJsonAsync(
+            "/api/v1/marketing/webhooks/fake-provider",
+            new
+            {
+                MessageId = Guid.NewGuid(), CompanyId = Guid.NewGuid(),
+                ProviderEventId = "evt-unsigned", PayloadFingerprint = "sha256:test", Delivered = true
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

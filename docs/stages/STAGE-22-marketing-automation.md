@@ -72,8 +72,8 @@ that explicit purpose immediately before delivery rather than being treated as a
 transitions accept an explicit company selector before dispatch. StoreServer build passes with
 **0 errors**; provider-result event identity is now durable and signed callback input is replay-safe.
 Campaign and message operator reads now return not-found across company boundaries.
-OpenAPI route verification passes **1/1** for the campaign/message operator reads and signed
-provider callback route.
+OpenAPI/runtime route verification passes **2/2**, covering the campaign/message operator reads,
+signed provider callback route, and unsigned-callback rejection.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.
