@@ -357,12 +357,34 @@ jobs:
             exit 1
           fi
 
+  android-compose-build:
+    name: Android Compose build
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compile Kotlin/Compose admin app
+        working-directory: android
+        run: gradle --no-daemon --stacktrace assembleDebug
+
   package:
     name: Package
     # Flutter 3.35's precompiled Windows tool selects VS 2019 when run on the newer
     # windows-latest image. Pin the image to the supported VS 2022 toolchain.
     runs-on: windows-2022
-    needs: [test, architecture-tests, design-system-verification, migrate-check, vulnerability-scan]
+    needs: [test, architecture-tests, design-system-verification, migrate-check, vulnerability-scan, android-compose-build]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4

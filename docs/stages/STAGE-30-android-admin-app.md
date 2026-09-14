@@ -63,6 +63,8 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-13: Added `MobileSessionGuard` to clear bearer credentials when the enrolled endpoint changes
   and to return authorization only for the exact endpoint/tenant profile. Android compilation remains
   delegated to the GitHub package workflow.
+- 2026-09-14: Added the `android-compose-build` GitHub job using JDK 17 and Gradle 8.9; packaging now
+  depends on this Kotlin/Compose compilation gate. The first run is pending.
 
 ## Tests / acceptance
 

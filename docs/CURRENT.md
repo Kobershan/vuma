@@ -60,6 +60,10 @@ script tests (`activate-release`, `verify-release-manifest`, and `verify-release
 (**3/3**). Android assembly remains a GitHub-only check on this machine because the Gradle executable
 is not installed locally; the pushed CI workflow is the authoritative Android build gate.
 
+WORK LOG (2026-09-14): Added a dedicated `android-compose-build` GitHub job using JDK 17 and
+Gradle 8.9, and made packaging depend on it. Stage 30 Android compilation is now an enforced CI
+gate; its first run is pending.
+
 WORK LOG (2026-09-13): Stage 25 employee lifecycle operations are now exposed as suspend, activate
 and terminate commands with HR manage-protected routes. StoreServer Release build passes with 0
 errors and the HR unit suite passes 9/9. Disciplinary workflows, payroll export, roster/availability
