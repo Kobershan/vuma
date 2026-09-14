@@ -54,7 +54,7 @@ approval and milestone billing now fail closed on both tenant and company scope.
 replay check also validates the persisted tenant/company boundary. Focused project tests pass **7/7**;
 Finance, labour/procurement adapters and job-cost reporting remain open.
 
-VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,558/1,558**) and architecture suite
+VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,561/1,561**) and architecture suite
 (**85/85**) after the Stage 17–31 security hardening pass. The three executable Stage 31 release
 script tests (`activate-release`, `verify-release-manifest`, and `verify-release-signature`) pass
 (**3/3**). Android assembly remains a GitHub-only check on this machine because the Gradle executable
@@ -67,6 +67,10 @@ gate; its first run is pending.
 WORK LOG (2026-09-14): Stage 27 checklist execution replay and evidence authorization now enforce
 the loaded tenant boundary in addition to company/store scope. Asset-focused tests pass **15/15**;
 period-close, external evidence storage and full stage acceptance remain open.
+
+VERIFICATION (2026-09-14): All three local Stage 31 release-script tests pass (**3/3**), and the
+full unit suite passes **1,561/1,561** after the Stage 27 tenant-scope change. GitHub workflow
+completion, Android assembly, DR, packaging and specialist closure remain open.
 
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
