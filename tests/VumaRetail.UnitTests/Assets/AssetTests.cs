@@ -1,4 +1,7 @@
 using FluentAssertions;
+using NSubstitute;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Assets;
 using VumaRetail.Domain.Assets;
 using VumaRetail.Domain.Primitives;
 
@@ -52,5 +55,19 @@ public sealed class AssetTests
         var action = () => ChecklistExecution.Submit(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(),
             Guid.NewGuid(), "device-7", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMinutes(-1), "evidence");
         action.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task Asset_mutation_rejects_inactive_company_before_loading_the_asset()
+    {
+        var assets = Substitute.For<IAssetRepository>();
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(Guid.NewGuid());
+        var requestedCompany = Guid.NewGuid();
+
+        await FluentActions.Invoking(() => new PlaceAssetInServiceCommandHandler(assets, company)
+            .HandleAsync(new PlaceAssetInServiceCommand(requestedCompany, Guid.NewGuid())))
+            .Should().ThrowAsync<InvalidOperationException>();
+        await assets.DidNotReceive().FindAssetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 }

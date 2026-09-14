@@ -39,9 +39,9 @@ public sealed class PlaceAssetInServiceCommandHandler(IAssetRepository assets, I
     public async Task<Unit> HandleAsync(PlaceAssetInServiceCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
         FixedAsset asset = await assets.FindAssetAsync(command.AssetId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Fixed asset not found.");
-        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
         if (asset.CompanyId != command.CompanyId) throw new InvalidOperationException("The asset company is not the active company.");
         asset.PlaceInService();
         return Unit.Value;
@@ -57,9 +57,9 @@ public sealed class DisposeFixedAssetCommandHandler(IAssetRepository assets, ICo
     public async Task<Unit> HandleAsync(DisposeFixedAssetCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
         FixedAsset asset = await assets.FindAssetAsync(command.AssetId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Fixed asset not found.");
-        CreateFixedAssetCommandHandler.EnsureCompany(company, command.CompanyId);
         if (asset.CompanyId != command.CompanyId) throw new InvalidOperationException("The asset company is not the active company.");
         asset.Dispose(command.DisposedOn);
         return Unit.Value;

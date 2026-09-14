@@ -13,6 +13,8 @@ straight-line depreciation calculator with a residual-value floor.
   `DepreciationCalculator`.
 - `tests/VumaRetail.UnitTests/Assets/AssetTests.cs` proves no charge is produced after useful life
   and the net book value does not fall below residual value; the focused test passes **1/1**.
+- Asset mutation handlers now validate active-company scope before loading assets; the expanded
+  asset-focused suite passes **5/5**.
 
 ## Remaining
 

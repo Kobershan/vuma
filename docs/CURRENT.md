@@ -51,6 +51,10 @@ WORK LOG (2026-09-14): Stage 23 SLA creation now enforces active-company scope b
 lookup or persistence. Service domain tests pass 6/6; worker escalation and full acceptance remain
 open.
 
+WORK LOG (2026-09-14): Stage 27 asset placement/disposal now validate active-company scope before
+loading the asset. Asset-focused tests pass 5/5; persistence, finance posting, and period-close
+acceptance remain open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and
