@@ -22,6 +22,10 @@ tests pass **13/13**; NCR/CAPA, recall, certificate and full acceptance remain o
 VERIFICATION (2026-09-14): The quality suite was rerun after the tenant guards compiled; **13/13**
 tests passed and the Application build reports **0 errors**.
 
+WORK LOG (2026-09-14): Stage 25 employee lifecycle, leave decisions and shift-swap decisions now
+validate loaded tenant scope before state changes. HR-focused tests pass **102/102**; payroll
+delivery, statutory integration, roster/availability and full acceptance remain open.
+
 VERIFICATION (2026-09-14): The full PostgreSQL integration run reached **607/608** before exposing
 one stale trailing-slash expectation in the shared API contract list. The Stage 27 asset and
 maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;

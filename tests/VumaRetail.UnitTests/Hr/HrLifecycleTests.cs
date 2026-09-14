@@ -166,7 +166,9 @@ public sealed class HrLifecycleTests
         shifts.FindAsync(request.ShiftId, Arg.Any<CancellationToken>()).Returns(shift);
         shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, Arg.Any<CancellationToken>()).Returns(Array.Empty<Shift>());
 
-        await new DecideShiftSwapCommandHandler(swaps, shifts, company).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(TenantId);
+        await new DecideShiftSwapCommandHandler(swaps, shifts, tenant, company).HandleAsync(new DecideShiftSwapCommand(request.Id, true));
 
         request.Status.Should().Be(ShiftSwapStatus.Approved);
         shift.EmployeeId.Should().Be(request.ToEmployeeId);

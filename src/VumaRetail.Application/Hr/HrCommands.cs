@@ -92,34 +92,37 @@ public sealed class RecordEmployeeDocumentCommandHandler(IEmployeeRepository emp
     }
 }
 
-public sealed class SuspendEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<SuspendEmployeeCommand, Unit>
+public sealed class SuspendEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant) : ICommandHandler<SuspendEmployeeCommand, Unit>
 {
     public async Task<Unit> HandleAsync(SuspendEmployeeCommand command, CancellationToken token = default)
     {
         Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Employee was not found.");
+        if (employee.TenantId != tenant.TenantId) throw new KeyNotFoundException("Employee was not found.");
         employee.Suspend();
         return Unit.Value;
     }
 }
 
-public sealed class ActivateEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<ActivateEmployeeCommand, Unit>
+public sealed class ActivateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant) : ICommandHandler<ActivateEmployeeCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ActivateEmployeeCommand command, CancellationToken token = default)
     {
         Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Employee was not found.");
+        if (employee.TenantId != tenant.TenantId) throw new KeyNotFoundException("Employee was not found.");
         employee.Activate();
         return Unit.Value;
     }
 }
 
-public sealed class TerminateEmployeeCommandHandler(IEmployeeRepository employees) : ICommandHandler<TerminateEmployeeCommand, Unit>
+public sealed class TerminateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant) : ICommandHandler<TerminateEmployeeCommand, Unit>
 {
     public async Task<Unit> HandleAsync(TerminateEmployeeCommand command, CancellationToken token = default)
     {
         Employee employee = await employees.FindAsync(command.EmployeeId, token).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Employee was not found.");
+        if (employee.TenantId != tenant.TenantId) throw new KeyNotFoundException("Employee was not found.");
         employee.Terminate(command.TerminatedAt);
         return Unit.Value;
     }
@@ -161,9 +164,9 @@ public sealed class DecideDisciplinaryCaseCommandHandler(IDisciplinaryCaseReposi
         return Unit.Value;
     }
 }
-public sealed class DecideLeaveCommandHandler(ILeaveRepository leaves, IClock clock) : ICommandHandler<DecideLeaveCommand, Unit>
+public sealed class DecideLeaveCommandHandler(ILeaveRepository leaves, ITenantContext tenant, IClock clock) : ICommandHandler<DecideLeaveCommand, Unit>
 {
-    public async Task<Unit> HandleAsync(DecideLeaveCommand c, CancellationToken token = default) { var leave = await leaves.FindAsync(c.LeaveRequestId, token) ?? throw new KeyNotFoundException("Leave request was not found."); if (c.Approved) leave.Approve(clock.UtcNow); else leave.Reject(clock.UtcNow); return Unit.Value; }
+    public async Task<Unit> HandleAsync(DecideLeaveCommand c, CancellationToken token = default) { var leave = await leaves.FindAsync(c.LeaveRequestId, token) ?? throw new KeyNotFoundException("Leave request was not found."); if (leave.TenantId != tenant.TenantId) throw new KeyNotFoundException("Leave request was not found."); if (c.Approved) leave.Approve(clock.UtcNow); else leave.Reject(clock.UtcNow); return Unit.Value; }
 }
 public sealed class ListEmployeesQueryHandler(IEmployeeRepository employees) : IQueryHandler<ListEmployeesQuery, IReadOnlyList<Employee>> { public Task<IReadOnlyList<Employee>> HandleAsync(ListEmployeesQuery q, CancellationToken t = default) => employees.ListAsync(t); }
 public sealed class ListEmploymentContractsQueryHandler(IEmploymentContractRepository contracts) : IQueryHandler<ListEmploymentContractsQuery, IReadOnlyList<EmploymentContract>> { public Task<IReadOnlyList<EmploymentContract>> HandleAsync(ListEmploymentContractsQuery q, CancellationToken t = default) => contracts.ListAsync(q.EmployeeId, t); }
@@ -213,16 +216,16 @@ public sealed class PublishRosterCommandHandler(IShiftRepository shifts, IRoster
         return publication.Id;
     }
 }
-public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts, ICompanyContext company) : ICommandHandler<DecideShiftSwapCommand, Unit>
+public sealed class DecideShiftSwapCommandHandler(IShiftSwapRequestRepository swaps, IShiftRepository shifts, ITenantContext tenant, ICompanyContext company) : ICommandHandler<DecideShiftSwapCommand, Unit>
 {
     public async Task<Unit> HandleAsync(DecideShiftSwapCommand c, CancellationToken token = default)
     {
         var request = await swaps.FindAsync(c.ShiftSwapRequestId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift swap request was not found.");
-        if (company.CompanyId is not { } activeCompany || request.CompanyId != activeCompany)
+        if (request.TenantId != tenant.TenantId || company.CompanyId is not { } activeCompany || request.CompanyId != activeCompany)
             throw new InvalidOperationException("The shift-swap company is not the active company.");
         if (!c.Approved) { request.Reject(); return Unit.Value; }
         Shift shift = await shifts.FindAsync(request.ShiftId, token).ConfigureAwait(false) ?? throw new KeyNotFoundException("Shift was not found.");
-        if (shift.CompanyId != activeCompany)
+        if (shift.TenantId != tenant.TenantId || shift.CompanyId != activeCompany)
             throw new InvalidOperationException("The shift company is not the active company.");
         if (shift.EmployeeId != request.FromEmployeeId) throw new InvalidOperationException("The shift owner changed while the swap was pending.");
         if ((await shifts.ListAsync(shift.StartsAt, shift.EndsAt, request.ToEmployeeId, token).ConfigureAwait(false))
