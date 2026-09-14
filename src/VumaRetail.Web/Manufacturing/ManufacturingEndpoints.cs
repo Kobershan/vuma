@@ -34,8 +34,9 @@ public static class ManufacturingEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> CreateAsync(CreateBillOfMaterialsRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateAsync(CreateBillOfMaterialsRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateBillOfMaterialsCommand(
             request.CompanyId,
             request.FinishedItemId,

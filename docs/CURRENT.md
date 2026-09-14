@@ -39,6 +39,10 @@ WORK LOG (2026-09-14): Stage 27 checklist submission now verifies the persisted 
 and store ownership before accepting an execution. Checklist command tests pass 5/5; evidence
 transport and period-close acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 17 BOM creation now enforces the active company at the API and command
+boundaries. Manufacturing command tests pass 6/6; broader execution and closure evidence remain
+open.
+
 WORK LOG (2026-09-13): Marketing WhatsApp now maps to a dedicated explicit CRM consent purpose;
 policy tests verify the consent check immediately before delivery. Campaign and outbound-message
 state now has tenant/company-scoped EF mappings, repositories, company-guarded commands and

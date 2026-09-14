@@ -37,13 +37,17 @@ public sealed class CreateBillOfMaterialsCommandValidator : AbstractValidator<Cr
 }
 
 /// <summary>Creates a draft BOM and rejects a duplicate live version.</summary>
-public sealed class CreateBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms, ITenantContext tenant)
+public sealed class CreateBillOfMaterialsCommandHandler(IBillOfMaterialsRepository boms, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateBillOfMaterialsCommand, Guid>
 {
     /// <inheritdoc />
     public async Task<Guid> HandleAsync(CreateBillOfMaterialsCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } activeCompany || activeCompany != command.CompanyId)
+        {
+            throw new InvalidOperationException("The BOM company is not the active company.");
+        }
         if (await boms.FindVersionAsync(command.FinishedItemId, command.FinishedVariantId, command.Version, cancellationToken).ConfigureAwait(false) is not null)
         {
             throw ManufacturingRuleException.DuplicateVersion(command.FinishedItemId, command.Version);

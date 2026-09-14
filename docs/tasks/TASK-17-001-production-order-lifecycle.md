@@ -60,3 +60,6 @@ duplicate operation tests, migration reversibility and architecture classificati
 - 2026-09-14: production-order creation now requires the active company context in the handler, and
   the API binds the request company before dispatch. Manufacturing command tests pass 6/6, including
   refusal before repository access for an inactive company.
+- 2026-09-14: BOM creation now applies the same active-company guard at the handler and API boundary.
+  The manufacturing command suite passes 6/6; broader PostgreSQL execution and stage-closure
+  evidence remain open.
