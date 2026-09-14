@@ -67,6 +67,10 @@ command acceptance remains.
 
 Progress evidence: `AssetTests.Depreciation_stops_at_residual_after_useful_life` passes **1/1**.
 
+2026-09-14: The shared real-host API contract suite passes **35/35** after aligning the asset and
+maintenance collection paths with their canonical OpenAPI forms (`/api/v1/assets` and
+`/api/v1/maintenance/orders`).
+
 2026-09-13: Added immutable `StoreChecklist` definitions and append-only `ChecklistExecution`
 metadata, preserving device identity, capture time, submit time, operation identity and external
 evidence reference for offline replay. Asset-focused tests now cover this foundation.

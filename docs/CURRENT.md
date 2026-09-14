@@ -15,6 +15,11 @@ VERIFICATION (2026-09-14): Stage 18 quality API integration passes **4/4** again
 covering OpenAPI exposure, permission denial, and reservation-backed hold idempotency/shortfall
 behavior. Full quality acceptance and specialist closure evidence remain open.
 
+VERIFICATION (2026-09-14): The full PostgreSQL integration run reached **607/608** before exposing
+one stale trailing-slash expectation in the shared API contract list. The Stage 27 asset and
+maintenance paths use canonical `/api/v1/assets` and `/api/v1/maintenance/orders` OpenAPI paths;
+after correcting those expectations, `ApiContractTests` passes **35/35**.
+
 VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,558/1,558**) and architecture suite
 (**85/85**) after the Stage 17–31 security hardening pass. The three executable Stage 31 release
 script tests (`activate-release`, `verify-release-manifest`, and `verify-release-signature`) pass
