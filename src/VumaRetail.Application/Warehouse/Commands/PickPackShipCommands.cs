@@ -489,6 +489,7 @@ public sealed class ShipWaveCommandValidator : AbstractValidator<ShipWaveCommand
 /// <param name="bins">Staging-bin lookup.</param>
 /// <param name="mover">Moves packed stock into dispatch.</param>
 /// <param name="dispatchGate">Refuses the ship while a COD order behind the wave is unpaid and unauthorised.</param>
+/// <param name="qualityDispatchGate">Refuses the ship while matching stock is under an active quality hold.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class ShipWaveCommandHandler(
     IPickWaveRepository waves,
