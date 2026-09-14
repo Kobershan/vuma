@@ -30,7 +30,9 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
 ## Remaining work
 
 - Connect a checkout intent to authoritative order creation, reservation, pricing and payment gateway
-  authorization without trusting browser totals.
+  authorization without trusting browser totals. The first order bridge slice now creates and confirms
+  an order from a confirmed, captured checkout using published catalog references and server-side
+  sellable-item resolution; reservation, pricing snapshot and gateway authorization remain open.
 - Capture/void/refund transitions now have a replay-safe application boundary and append payment-attempt
   state after a successful configured gateway operation; wiring them to the authoritative order
   milestone and durable provider reconciliation remains open.
@@ -39,8 +41,8 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
 - Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
-Ecommerce unit tests pass **11/11**, including the payment transition matrix, operation replay boundary
-and cross-company replay
+Ecommerce unit tests pass **13/13**, including the checkout order bridge, idempotent order attachment,
+payment transition matrix, operation replay boundary and cross-company replay
 guard. Gateway calls, capture/
 void/refund execution and end-to-end PostgreSQL webhook replay remain open.
 

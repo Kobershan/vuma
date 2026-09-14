@@ -34,6 +34,7 @@ public sealed class CheckoutIntent : Entity
     public DateTimeOffset ExpiresAtUtc { get; private set; }
     public DateTimeOffset? DecidedAtUtc { get; private set; }
     public string? DecisionReason { get; private set; }
+    public Guid? AuthoritativeOrderId { get; private set; }
 
     public static CheckoutIntent Submit(Guid tenantId, Guid companyId, Guid channelId, Guid basketId,
         string ownerKey, string idempotencyKey, string contentFingerprint, DateTimeOffset createdAt)
@@ -63,6 +64,19 @@ public sealed class CheckoutIntent : Entity
         Status = CheckoutIntentStatus.Rejected;
         DecisionReason = reason.Trim();
         DecidedAtUtc = at;
+    }
+
+    public void AttachAuthoritativeOrder(Guid orderId)
+    {
+        if (orderId == Guid.Empty)
+        {
+            throw new ArgumentException("An authoritative order identity is required.", nameof(orderId));
+        }
+        if (AuthoritativeOrderId is { } existing && existing != orderId)
+        {
+            throw new InvalidOperationException("A different authoritative order is already attached.");
+        }
+        AuthoritativeOrderId = orderId;
     }
 
     public void Expire(DateTimeOffset at)

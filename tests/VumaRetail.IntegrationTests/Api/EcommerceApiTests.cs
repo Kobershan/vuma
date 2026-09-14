@@ -44,6 +44,8 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
         checkout.TryGetProperty("get", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/storefront/checkouts/{id}/confirm", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/storefront/checkouts/{id}/reject", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/storefront/checkouts/{id}/order", out JsonElement orders).Should().BeTrue();
+        orders.TryGetProperty("post", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/storefront/checkouts/{id}/payment/{operation}", out JsonElement operations).Should().BeTrue();
         operations.TryGetProperty("post", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/storefront/webhooks/payments", out JsonElement webhooks).Should().BeTrue();

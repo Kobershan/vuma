@@ -2,8 +2,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using VumaRetail.Domain.Ecommerce;
+using VumaRetail.Domain.Orders;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Orders.Commands;
+using VumaRetail.Application.Pos;
 
 namespace VumaRetail.Application.Ecommerce;
 
@@ -45,6 +48,7 @@ public interface IPaymentAttemptRepository
 {
     Task<PaymentAttempt?> FindByEventIdAsync(string eventId, CancellationToken cancellationToken = default);
     Task<PaymentAttempt?> FindLatestForCheckoutAsync(Guid checkoutId, string providerPaymentId, CancellationToken cancellationToken = default);
+    Task<bool> HasCapturedForCheckoutAsync(Guid checkoutId, CancellationToken cancellationToken = default);
     void Add(PaymentAttempt attempt);
 }
 
@@ -145,6 +149,90 @@ public sealed class ExecutePaymentOperationCommandHandler(
         attempts.Add(PaymentAttempt.Record(tenant.TenantId, command.CompanyId, command.CheckoutId, eventId,
             fingerprint, result.ProviderPaymentId, next, result.ProviderReference, clock.UtcNow));
         return result;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateAuthoritativeOrderFromCheckoutCommand(
+    Guid CheckoutId,
+    Guid CompanyId,
+    string OwnerKey,
+    Guid FulfillingLocationId,
+    OrderFulfilmentType FulfilmentType,
+    string? DeliveryLine1 = null,
+    string? DeliveryLine2 = null,
+    string? DeliveryCity = null,
+    string? DeliveryRegion = null,
+    string? DeliveryPostalCode = null,
+    string? DeliveryCountryCode = null,
+    string? DeliverySuburb = null,
+    Guid? PartnerId = null) : ICommand<Guid>;
+
+public sealed class CreateAuthoritativeOrderFromCheckoutCommandHandler(
+    ICheckoutIntentRepository checkouts,
+    ICommerceBasketRepository baskets,
+    ICommerceBasketLineRepository basketLines,
+    IPublishedProductRepository products,
+    IPaymentAttemptRepository attempts,
+    ISellableItemResolver catalog,
+    IDispatcher dispatcher,
+    ICompanyContext company)
+    : ICommandHandler<CreateAuthoritativeOrderFromCheckoutCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(CreateAuthoritativeOrderFromCheckoutCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        RegisterChannelCommandHandler.EnsureCompany(company, command.CompanyId, "checkout order");
+        CheckoutIntent checkout = await checkouts.FindAsync(command.CheckoutId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Checkout intent not found.");
+        if (checkout.CompanyId != command.CompanyId ||
+            !string.Equals(checkout.OwnerKey, command.OwnerKey.Trim(), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Checkout intent is not available to this owner.");
+        }
+        if (checkout.AuthoritativeOrderId is { } existingOrderId)
+        {
+            return existingOrderId;
+        }
+        if (checkout.Status != CheckoutIntentStatus.Confirmed)
+        {
+            throw new InvalidOperationException("Only a store-confirmed checkout can create an order.");
+        }
+        if (!await attempts.HasCapturedForCheckoutAsync(checkout.Id, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("A captured payment is required before order creation.");
+        }
+
+        CommerceBasket basket = await baskets.FindAsync(checkout.BasketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Basket not found.");
+        IReadOnlyList<CommerceBasketLine> lines = await basketLines.ListForBasketAsync(basket.Id, cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyList<PublishedProduct> published = await products.ListAsync(basket.ChannelConnectionId, 200, cancellationToken)
+            .ConfigureAwait(false);
+        if (lines.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot create an order from an empty checkout.");
+        }
+
+        string currency = lines[0].Currency;
+        Guid orderId = await dispatcher.SendAsync(new CreateOrderCommand(command.PartnerId, SalesChannel.Online,
+            command.FulfilmentType, command.FulfillingLocationId, command.DeliveryLine1, command.DeliveryLine2,
+            command.DeliveryCity, command.DeliveryRegion, command.DeliveryPostalCode, command.DeliveryCountryCode,
+            currency, null, command.DeliverySuburb, CompanyId: command.CompanyId), cancellationToken).ConfigureAwait(false);
+
+        foreach (CommerceBasketLine line in lines)
+        {
+            PublishedProduct product = published.FirstOrDefault(value => value.Id == line.PublishedProductId)
+                ?? throw new InvalidOperationException("Checkout contains a product no longer published on its channel.");
+            SellableItem item = await catalog.ResolveAsync(product.ItemId, product.ItemVariantId, cancellationToken)
+                .ConfigureAwait(false);
+            await dispatcher.SendAsync(new AddOrderLineCommand(orderId, item.ItemId, item.ItemVariantId,
+                line.Quantity, item.UnitOfMeasureCode), cancellationToken).ConfigureAwait(false);
+        }
+        await dispatcher.SendAsync(new ConfirmOrderCommand(orderId), cancellationToken).ConfigureAwait(false);
+        checkout.AttachAuthoritativeOrder(orderId);
+        return orderId;
     }
 }
 

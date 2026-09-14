@@ -53,6 +53,11 @@ public static class EcommerceEndpoints
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Manage)
             .Produces(StatusCodes.Status204NoContent)
             .WithSummary("Rejects a checkout with an explicit business reason.");
+        storefront.MapPost("/checkouts/{id:guid}/order", CreateAuthoritativeOrderAsync)
+            .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Checkout)
+            .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithSummary("Creates and confirms the authoritative order through the existing order and reservation pipeline.");
         storefront.MapPost("/checkouts/{id:guid}/payment", BeginCheckoutPaymentAsync)
             .RequirePermission(VumaRetail.Application.Ecommerce.EcommercePermissions.Payment)
             .Produces<PaymentGatewayAuthorization>(StatusCodes.Status200OK)
@@ -155,6 +160,19 @@ public static class EcommerceEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> CreateAuthoritativeOrderAsync(
+        Guid id, CreateAuthoritativeOrderRequest request, ICompanyContext company, IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        company.SetCompany(request.CompanyId);
+        Guid orderId = await dispatcher.SendAsync(new CreateAuthoritativeOrderFromCheckoutCommand(id,
+            request.CompanyId, request.OwnerKey, request.FulfillingLocationId, request.FulfilmentType,
+            request.DeliveryLine1, request.DeliveryLine2, request.DeliveryCity, request.DeliveryRegion,
+            request.DeliveryPostalCode, request.DeliveryCountryCode, request.DeliverySuburb, request.PartnerId),
+            cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/orders/{orderId:D}", orderId);
+    }
+
     private static async Task<IResult> BeginCheckoutPaymentAsync(
         Guid id, BeginPaymentRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -211,6 +229,11 @@ public static class EcommerceEndpoints
     public sealed record CheckoutAcceptedResponse(Guid OperationId, string Status, DateTimeOffset ExpiresAt);
     public sealed record GetCheckoutStatusRequest(Guid CompanyId, string OwnerKey);
     public sealed record CheckoutDecisionRequest(Guid CompanyId, string Reason = "Store authority rejected the checkout.");
+    public sealed record CreateAuthoritativeOrderRequest(Guid CompanyId, string OwnerKey, Guid FulfillingLocationId,
+        VumaRetail.Domain.Orders.OrderFulfilmentType FulfilmentType, string? DeliveryLine1 = null,
+        string? DeliveryLine2 = null, string? DeliveryCity = null, string? DeliveryRegion = null,
+        string? DeliveryPostalCode = null, string? DeliveryCountryCode = null, string? DeliverySuburb = null,
+        Guid? PartnerId = null);
     public sealed record BeginPaymentRequest(Guid CompanyId, string OwnerKey, Uri ReturnUrl, Uri CancelUrl, Uri NotificationUrl);
     public sealed record ExecutePaymentOperationRequest(Guid CompanyId, string ProviderPaymentId,
         string MerchantReference, decimal Amount, string Currency, string IdempotencyKey);

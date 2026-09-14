@@ -5843,6 +5843,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("decision_reason");
 
+                    b.Property<Guid?>("AuthoritativeOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("authoritative_order_id");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");

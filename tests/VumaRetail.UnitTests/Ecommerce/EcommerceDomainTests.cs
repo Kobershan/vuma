@@ -5,7 +5,10 @@ using NSubstitute;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Orders.Commands;
+using VumaRetail.Application.Pos;
 using VumaRetail.Domain.Ecommerce;
+using VumaRetail.Domain.Orders;
 
 namespace VumaRetail.UnitTests.Ecommerce;
 
@@ -38,6 +41,66 @@ public sealed class EcommerceDomainTests
             .Should().Throw<InvalidOperationException>();
         intent.Status.Should().Be(CheckoutIntentStatus.Expired);
         intent.DecidedAtUtc.Should().Be(created.AddHours(24));
+    }
+
+    [Fact]
+    public void Checkout_authoritative_order_attachment_is_idempotent_and_rejects_replacement()
+    {
+        CheckoutIntent intent = CheckoutIntent.Submit(TenantId, CompanyId, ChannelId, BasketId, "customer-1", "key-1", "fingerprint", DateTimeOffset.UtcNow);
+        Guid orderId = Guid.NewGuid();
+
+        intent.AttachAuthoritativeOrder(orderId);
+        intent.AttachAuthoritativeOrder(orderId);
+
+        intent.AuthoritativeOrderId.Should().Be(orderId);
+        FluentActions.Invoking(() => intent.AttachAuthoritativeOrder(Guid.NewGuid()))
+            .Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Confirmed_paid_checkout_creates_and_confirms_one_authoritative_order()
+    {
+        Guid checkoutId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid orderId = Guid.NewGuid();
+        DateTimeOffset created = DateTimeOffset.UtcNow;
+        CheckoutIntent checkout = CheckoutIntent.Submit(TenantId, CompanyId, ChannelId, BasketId, "owner", "key-1", "fingerprint", created);
+        checkout.Confirm(created.AddMinutes(1));
+        CommerceBasket basket = CommerceBasket.Open(TenantId, CompanyId, ChannelId, "owner", created);
+        PublishedProduct product = PublishedProduct.Publish(TenantId, CompanyId, ChannelId, itemId, null, "SKU-1", "Item 1", null, 100m, "ZAR", 10m, created, 1);
+        CommerceBasketLine line = CommerceBasketLine.Add(TenantId, CompanyId, BasketId, product.Id, 2m, 90m, 100m, "ZAR");
+
+        var checkouts = Substitute.For<ICheckoutIntentRepository>();
+        checkouts.FindAsync(checkoutId, Arg.Any<CancellationToken>()).Returns(checkout);
+        var baskets = Substitute.For<ICommerceBasketRepository>();
+        baskets.FindAsync(BasketId, Arg.Any<CancellationToken>()).Returns(basket);
+        var basketLines = Substitute.For<ICommerceBasketLineRepository>();
+        basketLines.ListForBasketAsync(basket.Id, Arg.Any<CancellationToken>()).Returns(new[] { line });
+        var products = Substitute.For<IPublishedProductRepository>();
+        products.ListAsync(ChannelId, 200, Arg.Any<CancellationToken>()).Returns(new[] { product });
+        var attempts = Substitute.For<IPaymentAttemptRepository>();
+        attempts.HasCapturedForCheckoutAsync(checkout.Id, Arg.Any<CancellationToken>()).Returns(true);
+        var catalog = Substitute.For<ISellableItemResolver>();
+        catalog.ResolveAsync(itemId, null, Arg.Any<CancellationToken>())
+            .Returns(new SellableItem(itemId, null, "Item 1", "EA", "STANDARD"));
+        var dispatcher = Substitute.For<IDispatcher>();
+        dispatcher.SendAsync<Guid>(Arg.Any<ICommand<Guid>>(), Arg.Any<CancellationToken>()).Returns(orderId);
+        dispatcher.SendAsync<Unit>(Arg.Any<ICommand<Unit>>(), Arg.Any<CancellationToken>()).Returns(Unit.Value);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(CompanyId);
+
+        var handler = new CreateAuthoritativeOrderFromCheckoutCommandHandler(
+            checkouts, baskets, basketLines, products, attempts, catalog, dispatcher, company);
+
+        Guid result = await handler.HandleAsync(new CreateAuthoritativeOrderFromCheckoutCommand(
+            checkoutId, CompanyId, "owner", locationId, OrderFulfilmentType.ClickAndCollect));
+
+        result.Should().Be(orderId);
+        checkout.AuthoritativeOrderId.Should().Be(orderId);
+        await dispatcher.Received(1).SendAsync<Guid>(Arg.Is<ICommand<Guid>>(value => value is CreateOrderCommand), Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).SendAsync<Guid>(Arg.Is<ICommand<Guid>>(value => value is AddOrderLineCommand), Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).SendAsync<Unit>(Arg.Is<ICommand<Unit>>(value => value is ConfirmOrderCommand), Arg.Any<CancellationToken>());
     }
 
     [Fact]

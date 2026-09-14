@@ -56,21 +56,21 @@ Declare granular `ecommerce.view`, `ecommerce.manage` and distinct high-risk app
 
 - [x] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
   Channel/product persistence, redacted DTOs, routes and host OpenAPI coverage are implemented.
-- [x] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
-  idempotent checkout, expiry and confirmation boundaries are implemented; authoritative order,
-  reservation and gateway orchestration remain.
+- [~] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
+  idempotent checkout, expiry and confirmation boundaries plus the first confirmed/captured checkout
+  → authoritative-order bridge are implemented; reservation, pricing snapshot and gateway orchestration remain.
 - [x] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
-Verified 2026-09-13: Ecommerce unit tests **4/4** and real-host OpenAPI contract test **1/1** passed.
+Verified 2026-09-14: Ecommerce unit tests **13/13** and real-host OpenAPI contract test **1/1** passed.
 The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
 outage integration is exercised end to end.
 
-Payment state transition rules are now covered by the Ecommerce unit suite, which passes **8/8**;
-provider gateway orchestration and end-to-end webhook replay remain open.
+Payment state transition rules, order attachment and checkout-to-order dispatch are covered by the
+Ecommerce unit suite, which passes **13/13**; provider gateway orchestration and outage acceptance remain open.
 
 The basket-line price boundary is now covered by a dedicated test: the submitted advisory total is
 retained for audit, while the published product price is stored as the authoritative value.
@@ -82,13 +82,6 @@ retained for audit, while the published product price is stored as the authorita
 - `Other_tenant_and_unauthorized_company_are_denied`: authenticated tenant A/company A cannot read, mutate, export or enqueue for tenant B/company B by changing an ID.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.
-
-## Closure record (2026-09-14)
-
-Stage 21 is complete according to the canonical task index. The available Ecommerce unit and
-real-host OpenAPI evidence covers storefront identity, redacted products, baskets, authoritative
-pricing, checkout expiry, signed payment notifications and replay protection. Live gateway/vendor
-and outage execution were unavailable in this environment and are explicitly recorded as such.
 
 ## Exit checklist
 

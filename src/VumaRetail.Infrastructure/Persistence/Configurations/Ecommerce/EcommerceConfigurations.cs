@@ -101,6 +101,7 @@ internal sealed class CheckoutIntentConfiguration : EntityConfiguration<Checkout
         builder.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.CreatedAtUtc).IsRequired();
         builder.Property(x => x.ExpiresAtUtc).IsRequired();
+        builder.Property(x => x.AuthoritativeOrderId);
         builder.HasIndex(x => new { x.TenantId, x.OwnerKey, x.IdempotencyKey })
             .IsUnique().HasFilter("deleted_at IS NULL");
     }
