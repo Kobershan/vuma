@@ -57,11 +57,13 @@ public sealed class ReportingDomainTests
         reports.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
         var clock = Substitute.For<IClock>();
         var completedAt = new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
         clock.UtcNow.Returns(completedAt);
 
-        await new CompleteReportExportCommandHandler(reports, company, clock)
+        await new CompleteReportExportCommandHandler(reports, tenant, company, clock)
             .HandleAsync(new CompleteReportExportCommand(companyId, export.Id, "blob/report.csv"));
 
         export.Status.Should().Be(ReportExportStatus.Completed);
@@ -76,8 +78,10 @@ public sealed class ReportingDomainTests
         reports.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.NewGuid());
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
 
-        await FluentActions.Invoking(() => new FailReportExportCommandHandler(reports, company)
+        await FluentActions.Invoking(() => new FailReportExportCommandHandler(reports, tenant, company)
             .HandleAsync(new FailReportExportCommand(company.CompanyId!.Value, export.Id, "provider unavailable")))
             .Should().ThrowAsync<InvalidOperationException>();
     }
@@ -116,13 +120,15 @@ public sealed class ReportingDomainTests
     public async Task Export_status_is_not_visible_to_another_company()
     {
         IReportingRepository repository = Substitute.For<IReportingRepository>();
+        ITenantContext tenant = Substitute.For<ITenantContext>();
         ICompanyContext company = Substitute.For<ICompanyContext>();
         Guid exportCompany = Guid.NewGuid();
+        tenant.TenantId.Returns(Guid.NewGuid());
         company.CompanyId.Returns(Guid.NewGuid());
         ReportExport export = ReportExport.Queue(Guid.NewGuid(), null, exportCompany, Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
         repository.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
 
-        (await new GetReportExportQueryHandler(repository, company).HandleAsync(new GetReportExportQuery(export.Id))).Should().BeNull();
+        (await new GetReportExportQueryHandler(repository, tenant, company).HandleAsync(new GetReportExportQuery(export.Id))).Should().BeNull();
     }
 
     [Fact]
@@ -132,6 +138,8 @@ public sealed class ReportingDomainTests
         var export = ReportExport.Queue(Guid.NewGuid(), null, companyId, Guid.NewGuid(), "sales", DateTimeOffset.UtcNow);
         export.Complete(DateTimeOffset.UtcNow, "blob/report.csv");
         var repository = Substitute.For<IReportingRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(export.TenantId);
         repository.FindExportAsync(export.Id, Arg.Any<CancellationToken>()).Returns(export);
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
@@ -140,7 +148,7 @@ public sealed class ReportingDomainTests
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero));
 
-        ReportExportDownloadResult? result = await new AuthorizeReportExportDownloadQueryHandler(repository, authorizer, company, clock)
+        ReportExportDownloadResult? result = await new AuthorizeReportExportDownloadQueryHandler(repository, authorizer, tenant, company, clock)
             .HandleAsync(new AuthorizeReportExportDownloadQuery(export.Id));
 
         result.Should().NotBeNull();

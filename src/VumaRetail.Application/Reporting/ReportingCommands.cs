@@ -40,37 +40,43 @@ public sealed class RequestReportExportCommandHandler(IReportingRepository repor
     }
 }
 
-public sealed class CompleteReportExportCommandHandler(IReportingRepository reports, ICompanyContext company, IClock clock) : ICommandHandler<CompleteReportExportCommand, Unit>
+public sealed class CompleteReportExportCommandHandler(IReportingRepository reports, ITenantContext tenant, ICompanyContext company, IClock clock) : ICommandHandler<CompleteReportExportCommand, Unit>
 {
     public async Task<Unit> HandleAsync(CompleteReportExportCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        EnsureCompany(company, command.CompanyId);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+        {
+            throw new InvalidOperationException("The report company is not the active company.");
+        }
         ReportExport export = await reports.FindExportAsync(command.ExportId, cancellationToken).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Report export was not found.");
-        EnsureCompany(company, export.CompanyId!.Value);
+        EnsureScope(tenant, company, export.TenantId, export.CompanyId!.Value);
         export.Complete(clock.UtcNow, command.ArtifactReference);
         return Unit.Value;
     }
 
-    internal static void EnsureCompany(ICompanyContext context, Guid expected)
+    internal static void EnsureScope(ITenantContext tenant, ICompanyContext context, Guid expectedTenant, Guid expectedCompany)
     {
-        if (context.CompanyId is not { } active || active != expected)
+        if (tenant.TenantId != expectedTenant || context.CompanyId is not { } active || active != expectedCompany)
         {
-            throw new InvalidOperationException("The report company is not the active company.");
+            throw new InvalidOperationException("The report is outside the active tenant/company scope.");
         }
     }
 }
 
-public sealed class FailReportExportCommandHandler(IReportingRepository reports, ICompanyContext company) : ICommandHandler<FailReportExportCommand, Unit>
+public sealed class FailReportExportCommandHandler(IReportingRepository reports, ITenantContext tenant, ICompanyContext company) : ICommandHandler<FailReportExportCommand, Unit>
 {
     public async Task<Unit> HandleAsync(FailReportExportCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        CompleteReportExportCommandHandler.EnsureCompany(company, command.CompanyId);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+        {
+            throw new InvalidOperationException("The report company is not the active company.");
+        }
         ReportExport export = await reports.FindExportAsync(command.ExportId, cancellationToken).ConfigureAwait(false)
             ?? throw new KeyNotFoundException("Report export was not found.");
-        CompleteReportExportCommandHandler.EnsureCompany(company, export.CompanyId!.Value);
+        CompleteReportExportCommandHandler.EnsureScope(tenant, company, export.TenantId, export.CompanyId!.Value);
         export.Fail(command.Reason);
         return Unit.Value;
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Reporting;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -31,13 +32,14 @@ public static class ReportingEndpoints
             ReportExportDownloadResult? result = await dispatcher.QueryAsync(new AuthorizeReportExportDownloadQuery(id), cancellationToken).ConfigureAwait(false);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission(ReportingPermissions.View);
-        group.MapPost("/exports/{id:guid}/complete", async (Guid id, CompleteExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new CompleteReportExportCommand(request.CompanyId, id, request.ArtifactReference), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
-        group.MapPost("/exports/{id:guid}/fail", async (Guid id, FailExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken) => { await dispatcher.SendAsync(new FailReportExportCommand(request.CompanyId, id, request.Reason), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
+        group.MapPost("/exports/{id:guid}/complete", async (Guid id, CompleteExportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) => { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new CompleteReportExportCommand(request.CompanyId, id, request.ArtifactReference), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
+        group.MapPost("/exports/{id:guid}/fail", async (Guid id, FailExportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) => { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new FailReportExportCommand(request.CompanyId, id, request.Reason), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
         return endpoints;
     }
 
-    private static async Task<IResult> RequestExportAsync(RequestExportRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> RequestExportAsync(RequestExportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new RequestReportExportCommand(request.CompanyId, request.OperationId, request.ReportCode), cancellationToken).ConfigureAwait(false);
         return Results.Accepted($"/api/v1/reports/exports/{id:D}", id);
     }

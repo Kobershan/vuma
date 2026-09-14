@@ -23,13 +23,13 @@ public sealed class GetReportDefinitionQueryHandler(IReportingRepository reports
     }
 }
 
-public sealed class GetReportExportQueryHandler(IReportingRepository reports, ICompanyContext company) : IQueryHandler<GetReportExportQuery, ReportExportResult?>
+public sealed class GetReportExportQueryHandler(IReportingRepository reports, ITenantContext tenant, ICompanyContext company) : IQueryHandler<GetReportExportQuery, ReportExportResult?>
 {
     public async Task<ReportExportResult?> HandleAsync(GetReportExportQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ReportExport? export = await reports.FindExportAsync(query.Id, cancellationToken).ConfigureAwait(false);
-        if (export is not null && (company.CompanyId is not { } activeCompany || export.CompanyId != activeCompany))
+        if (export is not null && (tenant.TenantId != export.TenantId || company.CompanyId is not { } activeCompany || export.CompanyId != activeCompany))
         {
             return null;
         }
@@ -38,14 +38,14 @@ public sealed class GetReportExportQueryHandler(IReportingRepository reports, IC
 }
 
 public sealed class AuthorizeReportExportDownloadQueryHandler(IReportingRepository reports,
-    IReportExportDownloadAuthorizer authorizer, ICompanyContext company, IClock clock)
+    IReportExportDownloadAuthorizer authorizer, ITenantContext tenant, ICompanyContext company, IClock clock)
     : IQueryHandler<AuthorizeReportExportDownloadQuery, ReportExportDownloadResult?>
 {
     public async Task<ReportExportDownloadResult?> HandleAsync(AuthorizeReportExportDownloadQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         ReportExport? export = await reports.FindExportAsync(query.Id, cancellationToken).ConfigureAwait(false);
-        if (export is null || company.CompanyId is not { } active || export.CompanyId != active ||
+        if (export is null || tenant.TenantId != export.TenantId || company.CompanyId is not { } active || export.CompanyId != active ||
             export.Status != ReportExportStatus.Completed || string.IsNullOrWhiteSpace(export.ArtifactReference))
         {
             return null;
