@@ -34,4 +34,17 @@ public sealed class LogisticsDomainTests
         typeof(ProofOfDelivery).Should().BeAssignableTo<VumaRetail.Domain.Entities.IImmutableRecord>();
         typeof(ProofOfDelivery).GetProperties().Where(x => x.CanWrite).Should().OnlyContain(x => !x.SetMethod!.IsPublic);
     }
+
+    [Theory]
+    [InlineData(ProofOfDeliveryOutcome.Partial)]
+    [InlineData(ProofOfDeliveryOutcome.Refused)]
+    [InlineData(ProofOfDeliveryOutcome.Damaged)]
+    public void Non_delivery_outcomes_are_not_delivered(ProofOfDeliveryOutcome outcome)
+    {
+        Shipment shipment = Shipment.Create(TenantId, null, "S-2", null, null, null, null, "1 Main", null, "Durban", "4001", "ZA");
+        shipment.Dispatch(Now);
+        if (outcome == ProofOfDeliveryOutcome.Delivered) shipment.MarkDelivered(Now);
+        else shipment.MarkException();
+        shipment.Status.Should().Be(LogisticsShipmentStatus.Exception);
+    }
 }

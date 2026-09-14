@@ -11,6 +11,7 @@ public interface ILogisticsRepository
     Task<Shipment?> FindShipmentByNumberAsync(string number, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Shipment>> ListShipmentsAsync(LogisticsShipmentStatus? status, CancellationToken cancellationToken = default);
     Task<DeliveryRun?> FindRunAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<DeliveryStop?> FindStopAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeliveryStop>> ListStopsAsync(Guid runId, CancellationToken cancellationToken = default);
     Task<ProofOfDelivery?> FindPodAsync(Guid shipmentId, CancellationToken cancellationToken = default);
     void Add(Carrier carrier);
