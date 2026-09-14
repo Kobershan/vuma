@@ -71,4 +71,23 @@ public sealed class ProjectCostTests
         result.EntryCount.Should().Be(3);
         result.Totals.Should().ContainInOrder(new ProjectCostTotal("USD", 10m), new ProjectCostTotal("ZAR", 75m));
     }
+
+    [Fact]
+    public async Task Cost_allocation_rejects_a_project_from_another_tenant()
+    {
+        Guid activeTenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(activeTenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        Project project = Project.Create(Guid.NewGuid(), null, companyId, "P-foreign", "Foreign", "ZAR");
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+
+        await FluentActions.Invoking(() => new AllocateProjectCostCommandHandler(repository, tenant, company)
+            .HandleAsync(new AllocateProjectCostCommand(companyId, project.Id, "foreign", ProjectCostKind.Other, 1m, "ZAR")))
+            .Should().ThrowAsync<InvalidOperationException>();
+        repository.DidNotReceive().Add(Arg.Any<ProjectCostEntry>());
+    }
 }

@@ -66,6 +66,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-13: Added company-scoped project cost allocation with immutable source-reference
   idempotency and changed-content conflict refusal at `/api/v1/projects/{projectId}/costs`;
   focused Project tests pass **5/5**.
+- 2026-09-14: Added tenant-and-company scope checks to project cost allocation, budget approval,
+  contract variation approval and milestone billing, including persisted scope validation on cost
+  replay. Focused project tests pass **7/7**.
 
 ## Tests / acceptance
 

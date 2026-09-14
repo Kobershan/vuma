@@ -35,6 +35,11 @@ WORK LOG (2026-09-14): Stage 22 marketing outbound-message suppression and send 
 closed on the loaded tenant as well as company before changing state. `MarketingDeliveryPolicyTests`
 passes **13/13**; durable transport, callbacks, attribution, and full stage acceptance remain open.
 
+WORK LOG (2026-09-14): Stage 28 project cost allocation, budget approval, contract variation
+approval and milestone billing now fail closed on both tenant and company scope. The changed-content
+replay check also validates the persisted tenant/company boundary. Focused project tests pass **7/7**;
+Finance, labour/procurement adapters and job-cost reporting remain open.
+
 VERIFICATION (2026-09-14): Re-ran the full Release unit suite (**1,558/1,558**) and architecture suite
 (**85/85**) after the Stage 17–31 security hardening pass. The three executable Stage 31 release
 script tests (`activate-release`, `verify-release-manifest`, and `verify-release-signature`) pass

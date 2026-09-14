@@ -38,11 +38,11 @@ public sealed class AllocateProjectCostCommandHandler(IProjectRepository project
         CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
         Project project = await projects.FindProjectAsync(command.ProjectId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Project not found.");
-        if (project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project company is not the active company.");
+        if (project.TenantId != tenant.TenantId || project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project is outside the active tenant/company scope.");
         ProjectCostEntry? existing = await projects.FindCostBySourceAsync(command.ProjectId, command.SourceReference, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
         {
-            if (existing.Kind != command.Kind || existing.Amount != new Money(command.Amount, command.Currency))
+            if (existing.TenantId != tenant.TenantId || existing.CompanyId != command.CompanyId || existing.Kind != command.Kind || existing.Amount != new Money(command.Amount, command.Currency))
                 throw new InvalidOperationException("The cost source was already allocated with different content.");
             return existing.Id;
         }
@@ -56,7 +56,7 @@ public sealed class AllocateProjectCostCommandHandler(IProjectRepository project
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ApproveProjectBudgetCommand(Guid CompanyId, Guid BudgetId) : ICommand;
 
-public sealed class ApproveProjectBudgetCommandHandler(IProjectRepository projects, ICompanyContext company)
+public sealed class ApproveProjectBudgetCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
     : ICommandHandler<ApproveProjectBudgetCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ApproveProjectBudgetCommand command, CancellationToken cancellationToken = default)
@@ -64,7 +64,7 @@ public sealed class ApproveProjectBudgetCommandHandler(IProjectRepository projec
         ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
         ProjectBudget budget = await projects.FindBudgetAsync(command.BudgetId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Project budget not found.");
-        if (budget.CompanyId != command.CompanyId) throw new InvalidOperationException("The budget company is not the active company.");
+        if (budget.TenantId != tenant.TenantId || budget.CompanyId != command.CompanyId) throw new InvalidOperationException("The budget is outside the active tenant/company scope.");
         budget.Submit(); budget.Approve(); return Unit.Value;
     }
 }
@@ -72,7 +72,7 @@ public sealed class ApproveProjectBudgetCommandHandler(IProjectRepository projec
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ApproveContractVariationCommand(Guid CompanyId, Guid VariationId) : ICommand;
 
-public sealed class ApproveContractVariationCommandHandler(IProjectRepository projects, ICompanyContext company)
+public sealed class ApproveContractVariationCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
     : ICommandHandler<ApproveContractVariationCommand, Unit>
 {
     public async Task<Unit> HandleAsync(ApproveContractVariationCommand command, CancellationToken cancellationToken = default)
@@ -80,7 +80,7 @@ public sealed class ApproveContractVariationCommandHandler(IProjectRepository pr
         ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
         ContractVariation variation = await projects.FindVariationAsync(command.VariationId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Contract variation not found.");
-        if (variation.CompanyId != command.CompanyId) throw new InvalidOperationException("The variation company is not the active company.");
+        if (variation.TenantId != tenant.TenantId || variation.CompanyId != command.CompanyId) throw new InvalidOperationException("The variation is outside the active tenant/company scope.");
         variation.Approve(); return Unit.Value;
     }
 }
@@ -88,7 +88,7 @@ public sealed class ApproveContractVariationCommandHandler(IProjectRepository pr
 [CommandSideEffect(SideEffect.Write)]
 public sealed record BillMilestoneCommand(Guid CompanyId, Guid MilestoneId) : ICommand<Guid>;
 
-public sealed class BillMilestoneCommandHandler(IProjectRepository projects, ICompanyContext company)
+public sealed class BillMilestoneCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
     : ICommandHandler<BillMilestoneCommand, Guid>
 {
     public async Task<Guid> HandleAsync(BillMilestoneCommand command, CancellationToken cancellationToken = default)
@@ -96,7 +96,7 @@ public sealed class BillMilestoneCommandHandler(IProjectRepository projects, ICo
         ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
         BillingMilestone milestone = await projects.FindMilestoneAsync(command.MilestoneId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Billing milestone not found.");
-        if (milestone.CompanyId != command.CompanyId) throw new InvalidOperationException("The milestone company is not the active company.");
+        if (milestone.TenantId != tenant.TenantId || milestone.CompanyId != command.CompanyId) throw new InvalidOperationException("The milestone is outside the active tenant/company scope.");
         milestone.MarkBilled(); return milestone.Id;
     }
 }
