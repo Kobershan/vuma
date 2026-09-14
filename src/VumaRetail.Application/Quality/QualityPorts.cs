@@ -61,18 +61,23 @@ public sealed class QualityDispatchGate(IQualityHoldRepository holds, IStockLedg
     public Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
         CancellationToken cancellationToken = default)
         => EnsureDispatchAllowedAsync(locationId, itemId, itemVariantId, quantity,
-            DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            null, cancellationToken);
 
     public async Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
         DateOnly asOfDate, CancellationToken cancellationToken = default)
+        => await EnsureDispatchAllowedAsync(locationId, itemId, itemVariantId, quantity,
+            (DateOnly?)asOfDate, cancellationToken).ConfigureAwait(false);
+
+    private async Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        DateOnly? asOfDate, CancellationToken cancellationToken)
     {
         if (await holds.ListActiveForStockAsync(locationId, itemId, itemVariantId, cancellationToken).ConfigureAwait(false) is { Count: > 0 })
         {
             throw QualityRuleException.DispatchBlocked();
         }
 
-        if (ledger is not null && await ledger.HasExpiredTrackedStockAsync(
-                locationId, itemId, itemVariantId, asOfDate, cancellationToken)
+        if (ledger is not null && asOfDate is { } date && await ledger.HasExpiredTrackedStockAsync(
+                locationId, itemId, itemVariantId, date, cancellationToken)
                 .ConfigureAwait(false))
         {
             throw QualityRuleException.DispatchBlockedForExpiredStock();
