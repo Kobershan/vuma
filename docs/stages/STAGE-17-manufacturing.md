@@ -45,9 +45,13 @@ Declare granular `manufacturing.view`, `manufacturing.manage` and distinct high-
 
 ## Parts — the build list
 
-- [ ] 17-P01: Snapshot BOM and define production lifecycle and repositories.
-- [ ] 17-P02: Implement reservation, issue, receipt, scrap and per-company financial event integration.
-- [ ] 17-P03: Add capacity/genealogy queries, API routes, offline replay and closure evidence.
+- [~] 17-P01: Snapshot BOM and define production lifecycle and repositories. Production order,
+  BOM snapshot, lifecycle, persistence and command coverage are implemented; full closure evidence remains.
+- [~] 17-P02: Implement reservation, issue, receipt, scrap and per-company financial event integration.
+  Execution records, financial event publishing and API behavior are implemented; disposable database
+  and end-to-end stock/WIP reconciliation evidence remains.
+- [~] 17-P03: Add capacity/genealogy queries, API routes, offline replay and closure evidence. API and
+  genealogy coverage passes 9/9; offline replay, capacity coverage and specialist closure remain.
 
 Execute parts in this order. The canonical queue is [STAGE-17-INDEX](../tasks/STAGE-17-INDEX.md), with
 focused tasks [TASK-17-001](../tasks/TASK-17-001-production-order-lifecycle.md),
@@ -56,6 +60,9 @@ focused tasks [TASK-17-001](../tasks/TASK-17-001-production-order-lifecycle.md),
 existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
+
+2026-09-14: Manufacturing unit tests pass **24/24** and manufacturing integration/API tests pass
+**9/9** after registering the marketing dispatch dependencies and fail-closed unconfigured transport.
 
 - `Ten_units_consume_twenty_components_once`: BOM requires 2 components/unit; reserve 20 for 10 finished units; duplicate issue/receipt requests leave consumption 20 and output 10.
 - `Scrap_reconciles_wip`: issue cost ZAR 200; receipt value ZAR 180 and scrap ZAR 20; closing WIP is zero and every journal balances.
