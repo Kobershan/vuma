@@ -4,7 +4,7 @@
 
 ## Objective
 
-The first operator-safe release primitives are `scripts/verify-release-manifest.sh` and
+The first operator-safe release primitives are `scripts/generate-release-manifest.sh`, `scripts/verify-release-manifest.sh` and
 `scripts/activate-release.sh`: the former validates every listed payload file before activation and
 the latter switches a release through same-filesystem renames while retaining the previous target for
 rollback. Both have self-tests under `scripts/tests/`.
@@ -58,7 +58,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Tests / acceptance
 
-Implemented evidence: `scripts/tests/verify-release-manifest.test.sh` passes, covering a valid
+Implemented evidence: `scripts/tests/generate-release-manifest.test.sh` and
+`scripts/tests/verify-release-manifest.test.sh` pass. Manifest generation deterministically sorts
+eligible payloads and excludes source-control, build-cache, local configuration and key material.
+The verifier covers a valid
 payload, tampering, path traversal and an empty manifest. `scripts/tests/verify-release-signature.test.sh`
 also passes for a generated RSA signature and tampering. The verifier rejects absolute or parent
 paths and symlink payloads before hashing; packaging and restore acceptance remain open.

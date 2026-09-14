@@ -68,9 +68,13 @@ WORK LOG (2026-09-14): Stage 27 checklist execution replay and evidence authoriz
 the loaded tenant boundary in addition to company/store scope. Asset-focused tests pass **15/15**;
 period-close, external evidence storage and full stage acceptance remain open.
 
-VERIFICATION (2026-09-14): All three local Stage 31 release-script tests pass (**3/3**), and the
+VERIFICATION (2026-09-14): All four local Stage 31 release-script tests pass (**4/4**), and the
 full unit suite passes **1,561/1,561** after the Stage 27 tenant-scope change. GitHub workflow
 completion, Android assembly, DR, packaging and specialist closure remain open.
+
+WORK LOG (2026-09-14): Added deterministic release-manifest generation with exclusions for source
+control, build caches, local configuration and signing material. The complete local release-script
+set now passes **4/4**; packaging, DR and GitHub workflow completion remain open.
 
 WORK LOG (2026-09-14): Stage 30 now includes Room-backed tenant/company dashboard cache and
 pending-action persistence, plus an Android Keystore AES-GCM encrypted refresh-token store backed
