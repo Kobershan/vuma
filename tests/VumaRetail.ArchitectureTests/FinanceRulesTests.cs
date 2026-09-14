@@ -46,6 +46,7 @@ public sealed class FinanceRulesTests
         typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
         typeof(VumaRetail.PublicApi.AssemblyMarker).Assembly,
         typeof(VumaRetail.Contracts.AssemblyMarker).Assembly,
+        typeof(VumaRetail.Hardware.AssemblyMarker).Assembly,
     ];
 
     [Fact]

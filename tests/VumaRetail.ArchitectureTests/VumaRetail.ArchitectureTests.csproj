@@ -32,6 +32,7 @@
     <ProjectReference Include="..\..\src\VumaRetail.PublicApi\VumaRetail.PublicApi.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.Web\VumaRetail.Web.csproj" />
     <ProjectReference Include="..\..\src\VumaRetail.TokenGenerator\VumaRetail.TokenGenerator.csproj" />
+    <ProjectReference Include="..\..\src\VumaRetail.Hardware\VumaRetail.Hardware.csproj" />
   </ItemGroup>
 
   <ItemGroup>

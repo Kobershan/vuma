@@ -22,6 +22,7 @@ public sealed class LayeringTests
     private static readonly Assembly Workflow = typeof(VumaRetail.Workflow.AssemblyMarker).Assembly;
     private static readonly Assembly PublicApi = typeof(VumaRetail.PublicApi.AssemblyMarker).Assembly;
     private static readonly Assembly Web = typeof(VumaRetail.Web.VumaWebExtensions).Assembly;
+    private static readonly Assembly Hardware = typeof(VumaRetail.Hardware.AssemblyMarker).Assembly;
 
     [Fact]
     public void Domain_depends_on_nothing_in_the_solution()
@@ -104,6 +105,24 @@ public sealed class LayeringTests
             .NotHaveDependencyOnAny("VumaRetail.StoreServer", "VumaRetail.CloudApi", "VumaRetail.PublicApi")
             .GetResult()
             .ShouldPass("The same sync protocol runs on the store server and in the cloud.");
+    }
+
+    [Fact]
+    public void Hardware_stays_below_application_and_host_layers()
+    {
+        Types.InAssembly(Hardware)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "VumaRetail.Application",
+                "VumaRetail.Contracts",
+                "VumaRetail.Infrastructure",
+                "VumaRetail.Sync",
+                "VumaRetail.StoreServer",
+                "VumaRetail.CloudApi",
+                "VumaRetail.PublicApi",
+                "VumaRetail.Web")
+            .GetResult()
+            .ShouldPass("Hardware protocols may depend on the domain, but never on application or host layers.");
     }
 
     [Fact]
