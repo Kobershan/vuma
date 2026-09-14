@@ -5,7 +5,13 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-android { namespace = "com.vuma.retail.mobile"; compileSdk = 35
+android {
+    namespace = "com.vuma.retail.mobile"
+    compileSdk = 35
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
     defaultConfig { applicationId = "com.vuma.retail.mobile"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0" }
 }
 
