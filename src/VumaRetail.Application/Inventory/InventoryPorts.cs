@@ -62,6 +62,14 @@ public interface IStockLedgerRepository
         string? serialNumber,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Returns whether any expired tracked stock remains for a stock-keeping unit at a location.</summary>
+    Task<bool> HasExpiredTrackedStockAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        DateOnly asOfDate,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lists all tracked movements for a lot, for quality recall trace construction.</summary>
     Task<IReadOnlyList<StockLedgerEntry>> ListByBatchReferenceAsync(
         string batchReference,

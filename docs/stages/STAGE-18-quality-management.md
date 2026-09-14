@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** COMPLETE (2026-09-14) — implementation and available PostgreSQL/API evidence are complete; specialist-agent runtime is unavailable and explicitly recorded · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — dispatch now checks active quality holds and expired tracked stock; PostgreSQL dispatch and automatic recall-traceability acceptance remain · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -48,10 +48,10 @@ Declare granular `quality.view`, `quality.manage` and distinct high-risk approva
 ## Parts — the build list
 
 - [x] 18-P01: Implement inspection plans/results and immutable evidence attachments through Stage 05.
-- [x] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
+- [~] 18-P02: Integrate quality holds and releases with stock/picking and approval policies. Reservation
   backed holds, atomic shortage handling and expired-hold release refusal are implemented; dispatch
-  integration remains.
-- [x] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
+  now fails closed for active holds and expired tracked stock, with PostgreSQL boundary evidence remaining.
+- [~] 18-P03: Deliver NCR/CAPA, shelf-life checks, certificates, recall traceability and API acceptance.
 
 Execute parts in this order. The canonical queue is [STAGE-18-INDEX](../tasks/STAGE-18-INDEX.md), with focused tasks [TASK-18-001](../tasks/TASK-18-001-quality-inspections.md), [TASK-18-002](../tasks/TASK-18-002-quality-holds.md), and [TASK-18-003](../tasks/TASK-18-003-quality-closure.md). Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -74,9 +74,11 @@ tests pass **13/13**.
 
 ## Closure record (2026-09-14)
 
-Stage 18 implementation is complete according to the canonical task index. Focused quality tests and
-the recorded PostgreSQL API/migration evidence cover holds, inspections, replay, scope, NCR/CAPA,
-certificates and recalls. A separate specialist-agent runtime was unavailable in this environment.
+Stage 18 remains in progress. Focused quality tests and the recorded PostgreSQL API/migration evidence
+cover holds, inspections, replay, scope, NCR/CAPA, certificates and recalls. Dispatch now queries the
+inventory ledger for expired tracked stock, while PostgreSQL dispatch execution and automatic
+lot-to-output/shipment recall traceability remain open. A separate specialist-agent runtime was
+unavailable in this environment.
 
 ## Exit checklist
 

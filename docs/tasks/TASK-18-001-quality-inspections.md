@@ -30,7 +30,8 @@ protection.
 ## Remaining
 
 End-to-end inspection against a real held stock lot, evidence attachment retention, changed-payload
-replay, seed/backup impact and specialist review remain open.
+replay, seed/backup impact and specialist review remain open; these are tracked in the Stage 18
+closure pass rather than claimed by this task.
 
 ## Closure
 

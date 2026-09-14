@@ -1,6 +1,6 @@
 # TASK-18-003 — NCR/CAPA, certificates, recalls and closure evidence
 
-**Status:** COMPLETE · **Stage:** 18 · **Type:** Domain, API, verification, documentation
+**Status:** IN_PROGRESS — lifecycle slices complete; dispatch and automatic recall-traceability acceptance remain · **Stage:** 18 · **Type:** Domain, API, verification, documentation
 
 ## Objective
 

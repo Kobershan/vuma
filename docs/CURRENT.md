@@ -6,7 +6,15 @@
 CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Stage 21b acceptance, then the remaining Stage 22–31 queues.
+NEXT STAGE (roadmap order): Complete Stage 18 PostgreSQL dispatch and recall-traceability acceptance,
+then Stage 21 checkout/payment acceptance and Stage 21b.
+
+WORK LOG (2026-09-14): Stage 18 dispatch authorization now checks the existing quality-hold boundary
+and the inventory ledger's net expired tracked stock at the supplied business date before any bin move
+or shipment issue. Added `QUALITY_DISPATCH_EXPIRED_STOCK`, repository query coverage and a focused
+regression test. Application and Infrastructure Release builds compile; focused quality/warehouse
+unit tests pass **89/89**. Real PostgreSQL dispatch-boundary and automatic lot-to-output/shipment
+recall-traceability acceptance remain open.
 
 STAGES 00 AND 06 UPDATE (2026-09-14): TASK-00-002 is complete after GitHub Actions run
 `34868258264` passed on `main`. The Stage 00 and Stage 06 architecture-map planning rows are

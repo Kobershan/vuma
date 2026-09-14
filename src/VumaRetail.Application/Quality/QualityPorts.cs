@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Quality;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Application.Inventory;
 
 namespace VumaRetail.Application.Quality;
 
@@ -36,24 +37,45 @@ public interface IQualityHoldRepository
 /// <summary>Dispatch boundary used by Warehouse to prevent held stock leaving the site.</summary>
 public interface IQualityDispatchGate
 {
-    Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity, CancellationToken cancellationToken = default);
+    Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        CancellationToken cancellationToken = default);
+    Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        DateOnly asOfDate, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Default gate when Quality is not hosted.</summary>
 public sealed class NoQualityDispatchGate : IQualityDispatchGate
 {
-    public Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity, CancellationToken cancellationToken = default)
+    public Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        DateOnly asOfDate, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }
 
 /// <summary>Blocks dispatch whenever the requested SKU has an active quality hold.</summary>
-public sealed class QualityDispatchGate(IQualityHoldRepository holds) : IQualityDispatchGate
+public sealed class QualityDispatchGate(IQualityHoldRepository holds, IStockLedgerRepository? ledger = null) : IQualityDispatchGate
 {
-    public async Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity, CancellationToken cancellationToken = default)
+    public Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        CancellationToken cancellationToken = default)
+        => EnsureDispatchAllowedAsync(locationId, itemId, itemVariantId, quantity,
+            DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+
+    public async Task EnsureDispatchAllowedAsync(Guid locationId, Guid? itemId, Guid? itemVariantId, Quantity quantity,
+        DateOnly asOfDate, CancellationToken cancellationToken = default)
     {
         if (await holds.ListActiveForStockAsync(locationId, itemId, itemVariantId, cancellationToken).ConfigureAwait(false) is { Count: > 0 })
         {
             throw QualityRuleException.DispatchBlocked();
+        }
+
+        if (ledger is not null && await ledger.HasExpiredTrackedStockAsync(
+                locationId, itemId, itemVariantId, asOfDate, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw QualityRuleException.DispatchBlockedForExpiredStock();
         }
     }
 }

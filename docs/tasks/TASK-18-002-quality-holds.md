@@ -1,6 +1,6 @@
 # TASK-18-002 — Quality holds and stock availability
 
-**Status:** COMPLETE · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
+**Status:** IN_PROGRESS — dispatch gate implementation added; PostgreSQL boundary evidence remains · **Stage:** 18 · **Type:** Domain, inventory integration, API, tests
 
 ## Objective
 
@@ -32,8 +32,9 @@ available for allocation and partial shortages leave no persisted hold.
 
 ## Remaining
 
-The expiry boundary dispatch refusal and real PostgreSQL reservation projection evidence remain open;
-the release command gate itself is covered by the unit test above.
+The real PostgreSQL expiry-boundary dispatch refusal and reservation projection evidence remain open;
+the application gate now checks both active quality holds and expired tracked stock at the supplied
+business date.
 
 ## Work log
 

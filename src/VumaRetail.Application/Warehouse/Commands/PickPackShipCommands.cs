@@ -546,7 +546,8 @@ public sealed class ShipWaveCommandHandler(
                 .Aggregate((a, b) => a + b);
 
             await qualityDispatchGate.EnsureDispatchAllowedAsync(
-                    wave.LocationId, group.Key.ItemId, group.Key.ItemVariantId, total, cancellationToken)
+                    wave.LocationId, group.Key.ItemId, group.Key.ItemVariantId, total,
+                    DateOnly.FromDateTime(now.UtcDateTime), cancellationToken)
                 .ConfigureAwait(false);
         }
 

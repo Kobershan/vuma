@@ -153,6 +153,23 @@ public sealed class StockLedgerRepository(VumaRetailDbContext context) : IStockL
     }
 
     /// <inheritdoc />
+    public Task<bool> HasExpiredTrackedStockAsync(
+        Guid locationId,
+        Guid? itemId,
+        Guid? itemVariantId,
+        DateOnly asOfDate,
+        CancellationToken cancellationToken = default)
+        => context.StockLedgerEntries
+            .Where(entry => entry.LocationId == locationId
+                && entry.ItemId == itemId
+                && entry.ItemVariantId == itemVariantId
+                && entry.ExpiryDate != null
+                && entry.ExpiryDate <= asOfDate)
+            .GroupBy(entry => new { entry.BatchReference, entry.ExpiryDate, entry.SerialNumber })
+            .Select(group => group.Sum(entry => entry.Quantity.Value))
+            .AnyAsync(quantity => quantity > 0m, cancellationToken);
+
+    /// <inheritdoc />
     public void Add(StockLedgerEntry entry) => context.StockLedgerEntries.Add(entry);
 }
 

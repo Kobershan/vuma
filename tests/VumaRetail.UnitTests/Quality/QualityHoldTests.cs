@@ -262,4 +262,21 @@ public sealed class QualityHoldTests
 
         await action.Should().ThrowAsync<QualityRuleException>().WithMessage("*active quality hold*");
     }
+
+    [Fact]
+    public async Task Quality_dispatch_gate_blocks_expired_tracked_stock_at_the_business_date()
+    {
+        IQualityHoldRepository holds = Substitute.For<IQualityHoldRepository>();
+        IStockLedgerRepository ledger = Substitute.For<IStockLedgerRepository>();
+        ledger.HasExpiredTrackedStockAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<Guid?>(),
+                new DateOnly(2026, 9, 14), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        Func<Task> action = () => new QualityDispatchGate(holds, ledger)
+            .EnsureDispatchAllowedAsync(Guid.NewGuid(), Guid.NewGuid(), null, new Quantity(1m, "EA"),
+                new DateOnly(2026, 9, 14));
+
+        await action.Should().ThrowAsync<QualityRuleException>()
+            .WithMessage("*tracked stock has expired*");
+    }
 }
