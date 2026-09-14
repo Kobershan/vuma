@@ -7,12 +7,16 @@ root=$(realpath "$1")
 manifest=$2
 [ -d "$root" ] || { echo "release root not found: $root" >&2; exit 2; }
 case "$manifest" in /*) ;; *) manifest=$(realpath -m "$manifest") ;; esac
+manifest=$(realpath -m "$manifest")
 mkdir -p "$(dirname "$manifest")"
 
 tmp=$(mktemp "${manifest}.tmp.XXXXXX")
 trap 'rm -f "$tmp"' EXIT
 
 while IFS= read -r -d '' file; do
+  case "$file" in
+    "$manifest"|"$manifest".tmp.*) continue ;;
+  esac
   relative=${file#"$root/"}
   case "/$relative/" in
     */.git/*|*/.git|*/bin/*|*/obj/*|*/.gradle/*|*/build/*|*/node_modules/*) continue ;;
