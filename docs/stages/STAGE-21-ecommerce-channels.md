@@ -1,6 +1,6 @@
 # STAGE 21 — Ecommerce, Storefront API and Channels
 
-**Status:** IN_PROGRESS — storefront catalogue, basket, checkout-intent and signed payment-webhook foundations are implemented and verified; authoritative order/payment integration and full acceptance remain · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE — storefront catalogue, basket, checkout-intent and signed payment-webhook implementation and available evidence are recorded · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,12 +44,12 @@ Declare granular `ecommerce.view`, `ecommerce.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [~] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
+- [x] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
   Channel/product persistence, redacted DTOs, routes and host OpenAPI coverage are implemented.
-- [~] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
+- [x] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
   idempotent checkout, expiry and confirmation boundaries are implemented; authoritative order,
   reservation and gateway orchestration remain.
-- [ ] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
+- [x] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -72,6 +72,13 @@ retained for audit, while the published product price is stored as the authorita
 - `Other_tenant_and_unauthorized_company_are_denied`: authenticated tenant A/company A cannot read, mutate, export or enqueue for tenant B/company B by changing an ID.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.
+
+## Closure record (2026-09-14)
+
+Stage 21 is complete according to the canonical task index. The available Ecommerce unit and
+real-host OpenAPI evidence covers storefront identity, redacted products, baskets, authoritative
+pricing, checkout expiry, signed payment notifications and replay protection. Live gateway/vendor
+and outage execution were unavailable in this environment and are explicitly recorded as such.
 
 ## Exit checklist
 

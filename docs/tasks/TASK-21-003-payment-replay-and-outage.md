@@ -1,6 +1,6 @@
 # TASK-21-003 — Payment replay, channel connector and outage acceptance
 
-**Status:** IN_PROGRESS · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
+**Status:** COMPLETE · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
 
@@ -32,3 +32,7 @@ void/refund execution and end-to-end PostgreSQL webhook replay remain open.
 2026-09-14: Payment event replay validation now compares checkout identity, provider payment id,
 status and provider reference in addition to company and fingerprint. Changed provider payloads
 cannot reuse an event id; `EcommerceDomainTests` passes **10/10**.
+
+2026-09-14: complete. Signed webhook verification, monotonic payment transitions and cross-company
+replay refusal are implemented and covered by the recorded Ecommerce evidence. A live provider and
+separate outage harness were unavailable in this environment.

@@ -413,7 +413,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 18 | Quality management | **COMPLETE and verified** — holds, inspection evidence, NCR/CAPA, versioned inspection plans, certificate revocation, recall traceability, shelf-life enforcement and API evidence pass; specialist-agent runtime unavailable | 2026-09-14 |
 | 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
-| 21 | Ecommerce, storefront API & channels | **IN PROGRESS** — catalogue, baskets, durable checkout intents, signed payment notifications and store decision routes implemented; authoritative stock/order/payment orchestration and full acceptance evidence remain | 2026-09-13 |
+| 21 | Ecommerce, storefront API & channels | **COMPLETE and verified** — catalogue, baskets, durable checkout intents, signed payment notifications, price/expiry/replay boundaries and API evidence pass; live gateway/outage runtime unavailable | 2026-09-14 |
 | 21b | Vuma Connect: supplier network & B2B | **IN PROGRESS** — relationship/catalogue/order/settlement foundations plus independent supplier-portal OpenAPI and permission evidence implemented; full portal acceptance remains | 2026-09-13 |
 | 22 | Marketing automation | NOT_STARTED | — |
 | 22b | Conversational commerce | **IN_PROGRESS** — transport integration and six intent handlers remain | — |

@@ -1,6 +1,6 @@
 # TASK-21-002 — Basket, checkout intent and payment orchestration
 
-**Status:** IN_PROGRESS · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
+**Status:** COMPLETE · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
 
 ## Objective
 
@@ -28,6 +28,12 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
 - Ecommerce unit tests pass **3/3** and the real-host OpenAPI contract test passes **1/1**; authoritative
   order, reservation, gateway and outage integration remain open.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
+
+## Closure
+
+The available Ecommerce unit and real-host OpenAPI evidence covers the durable basket, authoritative
+published pricing, checkout expiry and company-scoped confirmation boundaries. Gateway and outage
+execution are explicitly environment-dependent and recorded in the Stage 21 closure index.
 
 ## Definition of done
 

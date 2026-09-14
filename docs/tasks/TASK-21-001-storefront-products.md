@@ -1,6 +1,6 @@
 # TASK-21-001 — Storefront identity, published products and catalogue API
 
-**Status:** IN_PROGRESS · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
+**Status:** COMPLETE · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
 
 ## Objective
 
@@ -63,3 +63,5 @@ committed/pushed. Remaining checkout/payment work is recorded in TASK-21-002.
 
 - 2026-09-13: task decomposed from Stage 21-P01; channel identity, published-product persistence/read/publication routes and OpenAPI evidence implemented. Basket foundation begins in TASK-21-002.
 - 2026-09-13: Ecommerce unit tests pass **3/3** and the real-host OpenAPI contract test passes **1/1**.
+- 2026-09-14: complete. Storefront identity, published-product persistence, redacted catalogue
+  responses, scope protection and OpenAPI evidence satisfy the task boundary.
