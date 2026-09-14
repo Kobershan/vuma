@@ -57,6 +57,45 @@ public sealed class QualityHoldTests
     }
 
     [Fact]
+    public async Task Opening_a_recall_derives_tracked_shipment_references_from_the_ledger()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        Guid shipmentId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        string lot = "LOT-TRACE-1";
+        StockLedgerEntry receipt = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
+            StockMovementType.Receipt, new Quantity(10m, "EA"), new Money(5m, "ZAR"),
+            StockReferenceType.Manual, null, null, "receipt", lot);
+        StockLedgerEntry shipment = StockLedgerEntry.Post(tenantId, null, locationId, null, itemId, null,
+            StockMovementType.SaleIssue, new Quantity(-2m, "EA"), new Money(5m, "ZAR"),
+            StockReferenceType.Shipment, shipmentId, null, "shipment", lot);
+
+        IRecallCaseRepository recalls = Substitute.For<IRecallCaseRepository>();
+        RecallCase? captured = null;
+        recalls.FindByOperationIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((RecallCase?)null);
+        recalls.Add(Arg.Do<RecallCase>(value => captured = value));
+        IStockLedgerRepository ledger = Substitute.For<IStockLedgerRepository>();
+        ledger.ListByBatchReferenceAsync(lot, Arg.Any<CancellationToken>())
+            .Returns(new[] { receipt, shipment });
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+
+        Guid result = await new OpenRecallCommandHandler(recalls, ledger, tenant, company, clock)
+            .HandleAsync(new OpenRecallCommand(Guid.NewGuid(), companyId, "REC-TRACE", lot, "contamination"));
+
+        result.Should().NotBeEmpty();
+        captured.Should().NotBeNull();
+        captured!.TraceReferences.Should().ContainSingle(reference =>
+            reference.Kind == StockReferenceType.Shipment.ToString() && reference.Reference == shipmentId.ToString());
+    }
+
+    [Fact]
     public void A_hold_can_only_be_disposed_once()
     {
         QualityHold hold = QualityHold.Place(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
