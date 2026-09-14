@@ -11,7 +11,7 @@ namespace VumaRetail.Application.Quality;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record OpenRecallCommand(Guid OperationId, Guid CompanyId, string CaseNumber, string LotReference, string Reason) : ICommand<Guid>;
 
-public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ITenantContext tenant, ICompanyContext company, IClock clock)
+public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, IStockLedgerRepository ledger, ITenantContext tenant, ICompanyContext company, IClock clock)
     : ICommandHandler<OpenRecallCommand, Guid>
 {
     public async Task<Guid> HandleAsync(OpenRecallCommand command, CancellationToken cancellationToken = default)
@@ -33,6 +33,13 @@ public sealed class OpenRecallCommandHandler(IRecallCaseRepository recalls, ITen
         }
         RecallCase recall = RecallCase.Open(tenant.TenantId, null, command.CompanyId, command.OperationId, command.CaseNumber,
             command.LotReference, command.Reason, clock.UtcNow);
+        IReadOnlyList<StockLedgerEntry> movements = await ledger
+            .ListByBatchReferenceAsync(command.LotReference, cancellationToken)
+            .ConfigureAwait(false);
+        foreach (StockLedgerEntry movement in movements.Where(entry => entry.ReferenceId is not null))
+        {
+            recall.AddTraceReference(movement.ReferenceType.ToString(), movement.ReferenceId!.Value.ToString());
+        }
         recalls.Add(recall);
         return recall.Id;
     }

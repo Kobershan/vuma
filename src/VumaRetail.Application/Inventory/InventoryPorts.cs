@@ -62,6 +62,11 @@ public interface IStockLedgerRepository
         string? serialNumber,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Lists all tracked movements for a lot, for quality recall trace construction.</summary>
+    Task<IReadOnlyList<StockLedgerEntry>> ListByBatchReferenceAsync(
+        string batchReference,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Appends a new entry. Nothing already added through this method is ever updated or removed.</summary>
     void Add(StockLedgerEntry entry);
 }

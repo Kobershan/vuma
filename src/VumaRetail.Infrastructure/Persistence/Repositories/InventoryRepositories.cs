@@ -137,6 +137,22 @@ public sealed class StockLedgerRepository(VumaRetailDbContext context) : IStockL
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<StockLedgerEntry>> ListByBatchReferenceAsync(
+        string batchReference,
+        CancellationToken cancellationToken = default)
+    {
+        string batch = StockTracking.Normalise(batchReference, nameof(batchReference))
+            ?? throw new ArgumentException("A batch reference is required.", nameof(batchReference));
+
+        return await context.StockLedgerEntries
+            .AsNoTracking()
+            .Where(entry => entry.BatchReference == batch)
+            .OrderBy(entry => entry.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public void Add(StockLedgerEntry entry) => context.StockLedgerEntries.Add(entry);
 }
 
