@@ -262,3 +262,7 @@ external distribution, labour-cost integration and specialist review remain open
 WORK LOG (2026-09-14): Stage 25 employee-document record, list and download authorization paths
 now explicitly enforce the active company. `EmployeeDocumentTests` passes 8/8; storage adapter,
 retention/deletion and full PostgreSQL acceptance remain open.
+
+WORK LOG (2026-09-14): Broad verification after the Stage 25/26 hardening passes: the full unit
+suite is 1,556/1,556 and architecture tests are 85/85. Existing warnings remain non-fatal; the
+open-stage integration, specialist-review and workflow gates remain tracked per task.
