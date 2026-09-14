@@ -10,6 +10,30 @@ namespace VumaRetail.UnitTests.Service;
 public sealed class ServiceSlaClockTests
 {
     private readonly BusinessHoursServiceSlaClock clock = new(new TimeOnly(9, 0), new TimeOnly(17, 0));
+    private static readonly DateTimeOffset Now = new(2026, 9, 14, 10, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task Resuming_a_ticket_that_is_not_waiting_returns_a_business_error()
+    {
+        Guid ticketId = Guid.NewGuid();
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        ServiceTicket ticket = ServiceTicket.Open(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), "Screen is blank", Now);
+        var services = Substitute.For<IServiceRepository>();
+        services.FindTicketAsync(ticketId, Arg.Any<CancellationToken>()).Returns(ticket);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        var clockNow = Substitute.For<IClock>();
+        clockNow.UtcNow.Returns(Now.AddHours(1));
+
+        Func<Task> action = () => new ResumeServiceTicketCommandHandler(services, tenant, company, clock, clockNow)
+            .HandleAsync(new ResumeServiceTicketCommand(ticketId));
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Only a ticket waiting for the customer can resume.");
+    }
 
     [Fact]
     public void Counts_only_weekday_business_hours()

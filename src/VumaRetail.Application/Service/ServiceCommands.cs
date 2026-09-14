@@ -153,8 +153,10 @@ public sealed class ResumeServiceTicketCommandHandler(IServiceRepository service
             ?? throw new InvalidOperationException("Service ticket not found.");
         if (ticket.TenantId != tenant.TenantId || company.CompanyId is not { } active || ticket.CompanyId != active)
             throw new InvalidOperationException("The service company is not the active company.");
+        if (ticket.CustomerWaitStartedAtUtc is not { } waitStarted)
+            throw new InvalidOperationException("Only a ticket waiting for the customer can resume.");
         DateTimeOffset now = clock.UtcNow;
-        decimal paused = slaClock.WorkingHoursBetween(ticket.CustomerWaitStartedAtUtc!.Value, now);
+        decimal paused = slaClock.WorkingHoursBetween(waitStarted, now);
         ticket.ResumeFromCustomer(now, paused);
         return Unit.Value;
     }
