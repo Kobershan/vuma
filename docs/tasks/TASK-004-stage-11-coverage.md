@@ -66,4 +66,10 @@ are updated.
 
 ## Status
 
-NOT_STARTED
+COMPLETE (2026-09-15)
+
+Added meaningful Stage 11 aggregate state-machine tests covering remapping invalidation, incomplete
+validation verdicts, commit/rollback ordering and recounts, lifecycle refusal, malformed parsing,
+and unknown-row recording. Combined `dotnet-coverage` measurement over the full UnitTests run and
+the Imports integration run is **3187/3926 = 81.18%** for Stage 11 Domain/Application import code.
+The full UnitTests run passed **1620/1620** and the Imports integration run passed **15/15**.
