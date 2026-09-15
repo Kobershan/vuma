@@ -15,7 +15,7 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 ## Task index
 
-Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, settlement-replay, supplier-portal route, OpenAPI and permission-boundary foundations are implemented and verified. Full portal acceptance remains.
+Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, settlement-replay, supplier-portal route, OpenAPI and permission-boundary foundations are implemented and verified. Full portal acceptance remains. See [TASK-21B-002](../tasks/TASK-21B-002-connect-settlement-supplier-portal.md) for the executable work item.
 
 2026-09-15: Connect confirm/dispatch command adapters now reject unknown order-line identifiers
 before invoking the aggregate, preserving deterministic validation for supplier portal payloads.
