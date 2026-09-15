@@ -80,6 +80,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   destructive downgrade behavior.
 - 2026-09-14: Added `MobileActionStore` as the durable adapter for enqueue, authenticated-session
   claiming, state transitions and retry metadata, and exposed it from `VumaApplication`.
+- 2026-09-15: Repository-side Android review confirms the Room cache, encrypted refresh-token store,
+  dashboard API client and endpoint-switch guard are present. The workflow-equivalent assemble check
+  remains **UNVERIFIED** locally because this environment has JDK 17 but neither Gradle nor a checked-in
+  Gradle wrapper; GitHub's Gradle 8.9 job remains the authoritative compilation gate.
 
 ## Tests / acceptance
 
