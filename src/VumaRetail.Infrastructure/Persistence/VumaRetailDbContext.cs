@@ -578,6 +578,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Service.RepairJob> RepairJobs => Set<Domain.Service.RepairJob>();
     public DbSet<Domain.Service.ServicePartUsage> ServicePartUsages => Set<Domain.Service.ServicePartUsage>();
     public DbSet<Domain.Service.ServiceSla> ServiceSlas => Set<Domain.Service.ServiceSla>();
+    public DbSet<Domain.Service.ServiceSlaBreachEvent> ServiceSlaBreachEvents => Set<Domain.Service.ServiceSlaBreachEvent>();
 
     /// <summary>Fixed assets and company-specific depreciation books (Stage 27).</summary>
     public DbSet<Domain.Assets.FixedAsset> FixedAssets => Set<Domain.Assets.FixedAsset>();

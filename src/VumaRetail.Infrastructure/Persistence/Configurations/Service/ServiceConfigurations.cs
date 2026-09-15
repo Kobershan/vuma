@@ -104,3 +104,19 @@ internal sealed class ServiceSlaConfiguration : EntityConfiguration<ServiceSla>
             .HasDatabaseName("ux_service_slas_tenant_company_name").HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class ServiceSlaBreachEventConfiguration : EntityConfiguration<ServiceSlaBreachEvent>
+{
+    protected override string Schema => Schemas.Service;
+    protected override string TableName => "service_sla_breach_events";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<ServiceSlaBreachEvent> builder)
+    {
+        builder.Property(x => x.TicketId).IsRequired();
+        builder.Property(x => x.SlaName).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.BreachType).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(x => x.DueAtUtc).IsRequired();
+        builder.Property(x => x.ObservedAtUtc).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.TicketId, x.SlaName, x.BreachType }).IsUnique();
+    }
+}

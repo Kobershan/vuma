@@ -36,12 +36,17 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
 
     public Task<ServiceSla?> FindSlaByNameAsync(Guid companyId, string name, CancellationToken cancellationToken = default)
         => context.ServiceSlas.FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Name == name.Trim(), cancellationToken);
+    public Task<ServiceSlaBreachEvent?> FindSlaBreachAsync(Guid ticketId, string slaName,
+        ServiceSlaBreachType breachType, CancellationToken cancellationToken = default)
+        => context.ServiceSlaBreachEvents.FirstOrDefaultAsync(x => x.TicketId == ticketId
+            && x.SlaName == slaName.Trim() && x.BreachType == breachType, cancellationToken);
 
     public void Add(ServiceTicket ticket) => context.ServiceTickets.Add(ticket);
     public void Add(WarrantyClaim claim) => context.WarrantyClaims.Add(claim);
     public void Add(RepairJob job) => context.RepairJobs.Add(job);
     public void Add(ServicePartUsage usage) => context.ServicePartUsages.Add(usage);
     public void Add(ServiceSla sla) => context.ServiceSlas.Add(sla);
+    public void Add(ServiceSlaBreachEvent breach) => context.ServiceSlaBreachEvents.Add(breach);
 
     public Task<FixedAsset?> FindAssetAsync(Guid id, CancellationToken cancellationToken = default)
         => context.FixedAssets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

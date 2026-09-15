@@ -16,11 +16,14 @@ public interface IServiceRepository
     Task<RepairJob?> FindRepairAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServicePartUsage?> FindPartUsageByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     Task<ServiceSla?> FindSlaByNameAsync(Guid companyId, string name, CancellationToken cancellationToken = default);
+    Task<ServiceSlaBreachEvent?> FindSlaBreachAsync(Guid ticketId, string slaName, ServiceSlaBreachType breachType,
+        CancellationToken cancellationToken = default);
     void Add(ServiceTicket ticket);
     void Add(WarrantyClaim claim);
     void Add(RepairJob job);
     void Add(ServicePartUsage usage);
     void Add(ServiceSla sla);
+    void Add(ServiceSlaBreachEvent breach);
 }
 
 /// <summary>Calculates elapsed service time using the configured working calendar.</summary>
@@ -74,6 +77,18 @@ public sealed class ServiceSlaWorker(IServiceRepository services, ICompanyContex
             bool resolutionBreached = asOf > resolutionDue;
             if (responseBreached || resolutionBreached)
             {
+                if (responseBreached && await services.FindSlaBreachAsync(ticket.Id, sla.Name,
+                    ServiceSlaBreachType.Response, cancellationToken).ConfigureAwait(false) is null)
+                {
+                    services.Add(ServiceSlaBreachEvent.Record(tenant.TenantId, ticket.StoreId, companyId, ticket.Id,
+                        sla.Name, ServiceSlaBreachType.Response, responseDue, asOf));
+                }
+                if (resolutionBreached && await services.FindSlaBreachAsync(ticket.Id, sla.Name,
+                    ServiceSlaBreachType.Resolution, cancellationToken).ConfigureAwait(false) is null)
+                {
+                    services.Add(ServiceSlaBreachEvent.Record(tenant.TenantId, ticket.StoreId, companyId, ticket.Id,
+                        sla.Name, ServiceSlaBreachType.Resolution, resolutionDue, asOf));
+                }
                 breaches.Add(new(ticket.Id, responseBreached, resolutionBreached, responseDue, resolutionDue));
             }
         }

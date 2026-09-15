@@ -88,6 +88,14 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         remainingAssetTables.Should().BeEquivalentTo(["asset_books", "fixed_assets"], options => options.WithStrictOrdering());
 
         await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260915054037_Stage23SlaBreachEvents").ConfigureAwait(false);
+        IReadOnlyList<string> breachTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'service' AND table_name = 'service_sla_breach_events'
+            """).ToListAsync().ConfigureAwait(false);
+        breachTables.Should().ContainSingle("service_sla_breach_events");
+        await context.Database.MigrateAsync("20260913171313_Stage23_ServiceCustodyEvents").ConfigureAwait(false);
         IReadOnlyList<string> revertedLogisticsTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
