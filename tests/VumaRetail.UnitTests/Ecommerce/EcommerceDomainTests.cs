@@ -84,23 +84,27 @@ public sealed class EcommerceDomainTests
         var catalog = Substitute.For<ISellableItemResolver>();
         catalog.ResolveAsync(itemId, null, Arg.Any<CancellationToken>())
             .Returns(new SellableItem(itemId, null, "Item 1", "EA", "STANDARD"));
-        var dispatcher = Substitute.For<IDispatcher>();
-        dispatcher.SendAsync<Guid>(Arg.Any<ICommand<Guid>>(), Arg.Any<CancellationToken>()).Returns(orderId);
-        dispatcher.SendAsync<Unit>(Arg.Any<ICommand<Unit>>(), Arg.Any<CancellationToken>()).Returns(Unit.Value);
+        var createOrder = Substitute.For<ICommandHandler<CreateOrderCommand, Guid>>();
+        createOrder.HandleAsync(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>()).Returns(orderId);
+        var addOrderLine = Substitute.For<ICommandHandler<AddOrderLineCommand, Guid>>();
+        addOrderLine.HandleAsync(Arg.Any<AddOrderLineCommand>(), Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
+        var confirmOrder = Substitute.For<ICommandHandler<ConfirmOrderCommand, Unit>>();
+        confirmOrder.HandleAsync(Arg.Any<ConfirmOrderCommand>(), Arg.Any<CancellationToken>()).Returns(Unit.Value);
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(CompanyId);
 
         var handler = new CreateAuthoritativeOrderFromCheckoutCommandHandler(
-            checkouts, baskets, basketLines, products, attempts, catalog, dispatcher, company);
+            checkouts, baskets, basketLines, products, attempts, catalog, createOrder, addOrderLine,
+            confirmOrder, company);
 
         Guid result = await handler.HandleAsync(new CreateAuthoritativeOrderFromCheckoutCommand(
             checkoutId, CompanyId, "owner", locationId, OrderFulfilmentType.ClickAndCollect));
 
         result.Should().Be(orderId);
         checkout.AuthoritativeOrderId.Should().Be(orderId);
-        await dispatcher.Received(1).SendAsync<Guid>(Arg.Is<ICommand<Guid>>(value => value is CreateOrderCommand), Arg.Any<CancellationToken>());
-        await dispatcher.Received(1).SendAsync<Guid>(Arg.Is<ICommand<Guid>>(value => value is AddOrderLineCommand), Arg.Any<CancellationToken>());
-        await dispatcher.Received(1).SendAsync<Unit>(Arg.Is<ICommand<Unit>>(value => value is ConfirmOrderCommand), Arg.Any<CancellationToken>());
+        await createOrder.Received(1).HandleAsync(Arg.Is<CreateOrderCommand>(value => value.CompanyId == CompanyId), Arg.Any<CancellationToken>());
+        await addOrderLine.Received(1).HandleAsync(Arg.Any<AddOrderLineCommand>(), Arg.Any<CancellationToken>());
+        await confirmOrder.Received(1).HandleAsync(Arg.Is<ConfirmOrderCommand>(value => value.SalesOrderId == orderId), Arg.Any<CancellationToken>());
     }
 
     [Fact]
