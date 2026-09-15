@@ -29,6 +29,10 @@ for a retailer party, including response contract and permission wiring. Connect
 **3/3** and the integration project builds with **0 errors**; full portal trading and offline
 convergence remain open.
 
+WORK LOG (2026-09-15): A dispatched Connect ASN now has real HTTP replay coverage: repeated ASN-to-
+receipt requests persist exactly one draft goods receipt and line. Connect API tests pass **4/4**;
+explicit GRN completion and offline convergence remain open.
+
 WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV export boundary
 (`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
 permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.

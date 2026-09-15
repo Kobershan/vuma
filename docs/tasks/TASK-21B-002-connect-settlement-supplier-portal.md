@@ -51,3 +51,8 @@ remain open.
 2026-09-15: Added real HTTP API coverage for a retailer reading a connection's supplier portal
 grant. The API/OpenAPI/permission suite passes **3/3** and the integration project builds with 0
 errors. Full portal trading, ASN/GRN completion, settlement isolation and offline convergence remain open.
+
+2026-09-15: Added a real HTTP replay test for a dispatched ASN creating a draft goods receipt. Two
+identical requests return Created while exactly one receipt and receipt line persist. The Connect API
+suite passes **4/4** and the integration project builds with 0 errors. Explicit GRN completion and
+offline convergence remain open.

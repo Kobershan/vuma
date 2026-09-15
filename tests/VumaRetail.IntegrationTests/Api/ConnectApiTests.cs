@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Connect;
 using VumaRetail.Domain.Connect;
+using VumaRetail.Domain.Procurement;
+using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.IntegrationTests.Harness;
 
@@ -88,5 +91,70 @@ public sealed class ConnectApiTests(PostgresFixture fixture)
         JsonElement grants = await response.Content.ReadFromJsonAsync<JsonElement>();
         grants.GetArrayLength().Should().Be(1);
         grants[0].GetProperty("accessRole").GetString().Should().Be("orders");
+    }
+
+    [Fact]
+    public async Task Dispatched_asn_creates_one_draft_receipt_when_the_request_is_replayed()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        Guid supplierTenant = Guid.NewGuid();
+        Guid purchaseOrderId = Guid.NewGuid();
+        Guid connectOrderId = Guid.NewGuid();
+        Guid purchaseOrderLineId = Guid.Empty;
+
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            PurchaseOrder purchaseOrder = PurchaseOrder.Raise(
+                harness.TenantId, harness.StoreId, "PO-CONNECT-RECEIPT", Guid.NewGuid(), "ZAR",
+                Guid.NewGuid(), DateOnly.FromDateTime(now.UtcDateTime.AddDays(7)), null, null, now);
+            purchaseOrderId = purchaseOrder.Id;
+            PurchaseOrderLine line = purchaseOrder.AddLine(
+                Guid.NewGuid(), null, "Connect milk", new Quantity(5, "EA"), new Money(10, "ZAR"),
+                "STANDARD", new Money(10, "ZAR"), Money.Zero("ZAR"), null);
+            purchaseOrder.Approve(Guid.NewGuid(), now);
+            purchaseOrder.Issue(now);
+
+            TradingConnection connection = TradingConnection.Request(
+                supplierTenant, harness.TenantId, "SUP-RECEIPT", "RET-RECEIPT", now);
+            connection.Accept("ZAR", 25_000m, 5, 100m, now);
+            ConnectOrder connectOrder = ConnectOrder.Place(
+                harness.TenantId, supplierTenant, connection.Id, purchaseOrder.Id, "PO-CONNECT-RECEIPT", now);
+            connectOrder.AddLine(
+                "MILK-1L", "Connect milk", new Quantity(5, "EA"), new Money(10, "ZAR"), line.Id);
+            connectOrder.Confirm(
+                new Dictionary<Guid, Quantity> { [connectOrder.Lines.Single().Id] = new Quantity(5, "EA") },
+                now.AddDays(3));
+            connectOrder.Dispatch(
+                "DN-CONNECT-RECEIPT",
+                new Dictionary<Guid, Quantity> { [connectOrder.Lines.Single().Id] = new Quantity(5, "EA") }, now);
+
+            context.AddRange(purchaseOrder, connection, connectOrder);
+            await context.SaveChangesAsync();
+            purchaseOrderLineId = line.Id;
+            connectOrderId = connectOrder.Id;
+            return null;
+        });
+
+        await harness.CreateUserAsync("connect-receiver", permissions: ConnectPermissions.Order);
+        using HttpClient client = await harness.SignInAsync("connect-receiver");
+        HttpResponseMessage first = await client.PostAsJsonAsync(
+            $"/api/v1/connect/orders/{connectOrderId}/asn/receipt", new { DeliveryNoteNumber = "DN-CONNECT-RECEIPT" });
+        HttpResponseMessage replay = await client.PostAsJsonAsync(
+            $"/api/v1/connect/orders/{connectOrderId}/asn/receipt", new { DeliveryNoteNumber = "DN-CONNECT-RECEIPT" });
+
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        replay.StatusCode.Should().Be(HttpStatusCode.Created);
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            (await context.GoodsReceipts.CountAsync(receipt =>
+                receipt.PurchaseOrderId == purchaseOrderId && receipt.DeliveryNoteNumber == "DN-CONNECT-RECEIPT"))
+                .Should().Be(1);
+            (await context.GoodsReceiptLines.CountAsync(line => line.PurchaseOrderLineId == purchaseOrderLineId))
+                .Should().Be(1);
+            return null;
+        });
     }
 }
