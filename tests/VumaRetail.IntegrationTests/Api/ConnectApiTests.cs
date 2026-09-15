@@ -157,4 +157,48 @@ public sealed class ConnectApiTests(PostgresFixture fixture)
             return null;
         });
     }
+
+    [Fact]
+    public async Task Settlement_replay_returns_the_same_remittance_and_supplier_can_read_it()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        Guid supplierTenant = Guid.NewGuid();
+        Guid connectionId = await harness.InScopeAsync(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            TradingConnection connection = TradingConnection.Request(
+                supplierTenant, harness.TenantId, "SUP-SETTLE", "RET-SETTLE", now);
+            connection.Accept("ZAR", 25_000m, 5, 100m, now);
+            context.Add(connection);
+            await context.SaveChangesAsync();
+            return connection.Id;
+        });
+
+        await harness.CreateUserAsync(
+            "settlement-operator", permissions: [ConnectPermissions.Order, ConnectPermissions.View]);
+        using HttpClient client = await harness.SignInAsync("settlement-operator");
+        Guid paymentId = Guid.NewGuid();
+        object request = new
+        {
+            PaymentId = paymentId, ConnectionId = connectionId, InvoiceReference = "INV-CONNECT-API",
+            Amount = 125.50m, Currency = "ZAR", Method = ConnectPaymentMethod.Eft
+        };
+
+        HttpResponseMessage first = await client.PostAsJsonAsync("/api/v1/connect/payments/settle", request);
+        JsonElement firstBody = await first.Content.ReadFromJsonAsync<JsonElement>();
+        HttpResponseMessage replay = await client.PostAsJsonAsync("/api/v1/connect/payments/settle", request);
+        JsonElement replayBody = await replay.Content.ReadFromJsonAsync<JsonElement>();
+
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        replay.StatusCode.Should().Be(HttpStatusCode.OK);
+        replayBody.GetProperty("remittanceReference").GetString()
+            .Should().Be(firstBody.GetProperty("remittanceReference").GetString());
+
+        HttpResponseMessage remittance = await client.GetAsync(
+            $"/api/v1/connect/payments/{paymentId}/remittance");
+        remittance.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await remittance.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("invoiceReference").GetString().Should().Be("INV-CONNECT-API");
+    }
 }

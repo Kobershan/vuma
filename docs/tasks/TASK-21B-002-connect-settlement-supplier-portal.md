@@ -56,3 +56,8 @@ errors. Full portal trading, ASN/GRN completion, settlement isolation and offlin
 identical requests return Created while exactly one receipt and receipt line persist. The Connect API
 suite passes **4/4** and the integration project builds with 0 errors. Explicit GRN completion and
 offline convergence remain open.
+
+2026-09-15: Added real HTTP settlement replay coverage using the configured provider seam. Repeated
+settlement returns the same durable remittance and the connected retailer can read it through the
+remittance endpoint. The focused settlement test passes **1/1**; supplier-side and cross-tenant
+settlement isolation plus offline convergence remain open.

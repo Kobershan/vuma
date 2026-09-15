@@ -33,6 +33,11 @@ WORK LOG (2026-09-15): A dispatched Connect ASN now has real HTTP replay coverag
 receipt requests persist exactly one draft goods receipt and line. Connect API tests pass **4/4**;
 explicit GRN completion and offline convergence remain open.
 
+WORK LOG (2026-09-15): Connect settlement now has real HTTP replay coverage through the configured
+provider seam: repeated settlement returns the same durable remittance, which the connected retailer
+can read. Focused settlement replay passes **1/1**; supplier-side/cross-tenant isolation and offline
+convergence remain open.
+
 WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV export boundary
 (`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
 permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.
