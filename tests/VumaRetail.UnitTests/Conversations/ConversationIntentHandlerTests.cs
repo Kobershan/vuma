@@ -8,7 +8,10 @@ using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.FieldSales;
+using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Domain.Sales.Invoices;
+using VumaRetail.Domain.FieldSales;
 
 namespace VumaRetail.UnitTests.Conversations;
 
@@ -126,6 +129,36 @@ public sealed class ConversationIntentHandlerTests
 
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Credit-note requests are not available until the Stage 14b approval flow is connected.");
+    }
+
+    [Fact]
+    public async Task Credit_note_handler_refuses_a_proposal_outside_the_binding_company_scope()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid bindingId = Guid.NewGuid();
+        Guid authorizedCompanyId = Guid.NewGuid();
+        Guid foreignCompanyId = Guid.NewGuid();
+        ProFormaCreditNote note = ProFormaCreditNote.Capture(tenantId, null, "PFC-1", Guid.NewGuid(),
+            foreignCompanyId, Guid.NewGuid(), "INV-1", "damaged", "Damaged", "ZAR", "credit-key",
+            DateTimeOffset.UtcNow);
+
+        IConversationScopeReader scopes = Substitute.For<IConversationScopeReader>();
+        scopes.ListAsync(bindingId, Arg.Any<CancellationToken>()).Returns([
+            new ConversationAccountScope(tenantId, bindingId, authorizedCompanyId, Guid.NewGuid())]);
+        IProFormaCreditNoteRepository credits = Substitute.For<IProFormaCreditNoteRepository>();
+        credits.FindAsync(note.Id, Arg.Any<CancellationToken>()).Returns(note);
+        IDispatcher dispatcher = Substitute.For<IDispatcher>();
+
+        Func<Task> action = () => new CreditNoteRequestIntentHandler(
+            scopes, Substitute.For<ICustomerAccountRepository>(), Substitute.For<IContactBindingManagementService>(),
+            new DocumentDeliveryService(), Substitute.For<IClock>(), credits, dispatcher)
+            .HandleAsync(
+                new Conversation(tenantId, bindingId, ConversationChannel.WhatsApp, DateTimeOffset.UtcNow),
+                new Dictionary<string, string> { ["creditNoteId"] = note.Id.ToString("D") }, "credit-key");
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("The credit-note proposal is outside the authorized company scope.");
+        await dispatcher.DidNotReceive().SendAsync<Unit>(Arg.Any<SubmitProFormaCreditNoteCommand>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

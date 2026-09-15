@@ -91,6 +91,10 @@ public abstract class ScopedDocumentIntentHandler(
     /// <summary>Human-readable document name used in the response.</summary>
     protected abstract string EntityName { get; }
 
+    /// <summary>Reads the binding's durable account/company grants for specialized handlers.</summary>
+    protected Task<IReadOnlyList<ConversationAccountScope>> GetGrantedScopesAsync(
+        Guid bindingId, CancellationToken cancellationToken) => scopes.ListAsync(bindingId, cancellationToken);
+
     /// <inheritdoc />
     public virtual async Task<IntentResult> HandleAsync(
         Conversation conversation,
@@ -105,8 +109,8 @@ public abstract class ScopedDocumentIntentHandler(
         ContactBinding binding = await bindings.FindAsync(conversation.ContactBindingId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The conversation binding no longer exists.");
-        IReadOnlyList<ConversationAccountScope> granted = await scopes
-            .ListAsync(conversation.ContactBindingId, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ConversationAccountScope> granted = await GetGrantedScopesAsync(
+            conversation.ContactBindingId, cancellationToken).ConfigureAwait(false);
         List<VumaRetail.Domain.CustomerAccounts.CustomerAccount> authorizedAccounts = [];
         foreach (ConversationAccountScope scope in granted)
         {
@@ -348,6 +352,12 @@ public sealed class CreditNoteRequestIntentHandler(
 
         VumaRetail.Domain.FieldSales.ProFormaCreditNote note = await credits.FindAsync(creditNoteId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The credit-note proposal was not found.");
+        IReadOnlyList<ConversationAccountScope> granted = await GetGrantedScopesAsync(
+            conversation.ContactBindingId, cancellationToken).ConfigureAwait(false);
+        if (!granted.Any(scope => scope.OperatingCompanyId == note.CompanyId))
+        {
+            throw new InvalidOperationException("The credit-note proposal is outside the authorized company scope.");
+        }
         await dispatcher.SendAsync(new SubmitProFormaCreditNoteCommand(note.Id), cancellationToken).ConfigureAwait(false);
         return new IntentResult(note.Id, [$"Credit-note request {note.CreditNoteNumber} was submitted for approval."], IdempotencyKey: idempotencyKey);
     }
