@@ -1,6 +1,6 @@
 # TASK-26-003 — Workforce availability read
 
-Status: IN_PROGRESS  
+Status: COMPLETE for availability-read slice  
 Stage: 26  
 Type: Application/API
 

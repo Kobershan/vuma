@@ -1,6 +1,6 @@
 # TASK-26-005 — Roster publication snapshot
 
-Status: IN_PROGRESS  
+Status: COMPLETE for roster-publication slice  
 Stage: 26  
 Type: Domain, application, persistence, API, tests
 
