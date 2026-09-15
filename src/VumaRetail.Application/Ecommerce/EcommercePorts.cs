@@ -176,7 +176,9 @@ public sealed class CreateAuthoritativeOrderFromCheckoutCommandHandler(
     IPublishedProductRepository products,
     IPaymentAttemptRepository attempts,
     ISellableItemResolver catalog,
-    IDispatcher dispatcher,
+    ICommandHandler<CreateOrderCommand, Guid> createOrder,
+    ICommandHandler<AddOrderLineCommand, Guid> addOrderLine,
+    ICommandHandler<ConfirmOrderCommand, Unit> confirmOrder,
     ICompanyContext company)
     : ICommandHandler<CreateAuthoritativeOrderFromCheckoutCommand, Guid>
 {
@@ -217,7 +219,7 @@ public sealed class CreateAuthoritativeOrderFromCheckoutCommandHandler(
         }
 
         string currency = lines[0].Currency;
-        Guid orderId = await dispatcher.SendAsync(new CreateOrderCommand(command.PartnerId, SalesChannel.Online,
+        Guid orderId = await createOrder.HandleAsync(new CreateOrderCommand(command.PartnerId, SalesChannel.Online,
             command.FulfilmentType, command.FulfillingLocationId, command.DeliveryLine1, command.DeliveryLine2,
             command.DeliveryCity, command.DeliveryRegion, command.DeliveryPostalCode, command.DeliveryCountryCode,
             currency, null, command.DeliverySuburb, CompanyId: command.CompanyId), cancellationToken).ConfigureAwait(false);
@@ -228,10 +230,10 @@ public sealed class CreateAuthoritativeOrderFromCheckoutCommandHandler(
                 ?? throw new InvalidOperationException("Checkout contains a product no longer published on its channel.");
             SellableItem item = await catalog.ResolveAsync(product.ItemId, product.ItemVariantId, cancellationToken)
                 .ConfigureAwait(false);
-            await dispatcher.SendAsync(new AddOrderLineCommand(orderId, item.ItemId, item.ItemVariantId,
+            await addOrderLine.HandleAsync(new AddOrderLineCommand(orderId, item.ItemId, item.ItemVariantId,
                 line.Quantity, item.UnitOfMeasureCode), cancellationToken).ConfigureAwait(false);
         }
-        await dispatcher.SendAsync(new ConfirmOrderCommand(orderId), cancellationToken).ConfigureAwait(false);
+        await confirmOrder.HandleAsync(new ConfirmOrderCommand(orderId), cancellationToken).ConfigureAwait(false);
         checkout.AttachAuthoritativeOrder(orderId);
         return orderId;
     }

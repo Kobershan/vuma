@@ -1,7 +1,7 @@
 # TASK-21-002 — Basket, checkout intent and payment orchestration
 
-**Status:** IN_PROGRESS — basket, checkout, authoritative pricing and authorization replay boundary
-are implemented; authoritative order/reservation settlement and outage acceptance remain · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
+**Status:** COMPLETE (2026-09-15) — basket, checkout, authoritative pricing, order confirmation and
+reservation settlement are implemented and covered by focused PostgreSQL evidence · **Stage:** 21 · **Type:** Domain / application / infrastructure / API / test
 
 ## Objective
 
@@ -33,6 +33,10 @@ idempotent checkout intents, store-authoritative confirmation, and explicit paym
   order, reservation, gateway and outage integration remain open.
 - Authorization replay is now persisted and idempotent at the application boundary; Ecommerce unit
   coverage is **14/14** and the real PostgreSQL Ecommerce API class is **4/4**.
+- Confirmed paid checkouts now compose order creation, line insertion and confirmation in the same
+  application unit of work; the order is priced from tenant-wide definitions, allocated from the
+  company-bound bin projection, and linked to the held reservation. The focused PostgreSQL regression
+  `Confirmed_paid_checkout_creates_order_and_company_reservation_through_api` passes **1/1**.
 - Add migration Up/Down, replay, tampered-total, last-item, outage and permission-denial evidence.
 
 ## Closure

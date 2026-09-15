@@ -110,6 +110,21 @@ internal static class OrdersHarnessSetup
                 balance.AssignCompany(companyId);
             }
 
+            foreach (Zone zone in await db.Zones.ToListAsync().ConfigureAwait(false))
+            {
+                zone.AssignCompany(companyId);
+            }
+
+            foreach (Domain.Warehouse.Bin bin in await db.Bins.ToListAsync().ConfigureAwait(false))
+            {
+                bin.AssignCompany(companyId);
+            }
+
+            foreach (Domain.Warehouse.BinStock binStock in await db.BinStocks.ToListAsync().ConfigureAwait(false))
+            {
+                binStock.AssignCompany(companyId);
+            }
+
             await db.SaveChangesAsync().ConfigureAwait(false);
             return 0;
         }).ConfigureAwait(false);

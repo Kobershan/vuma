@@ -696,6 +696,13 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         typeof(Domain.Catalog.Item),
         typeof(Domain.Catalog.ItemVariant),
         typeof(Domain.Catalog.UnitOfMeasure),
+        // Sales pricing and promotion definitions are tenant-wide configuration. A company-bound
+        // order must still resolve the same effective price and promotion rules as an unbound read;
+        // the resulting order and financial rows remain company-scoped.
+        typeof(Domain.Sales.PriceList),
+        typeof(Domain.Sales.PriceListLine),
+        typeof(Domain.Sales.Promotion),
+        typeof(Domain.Sales.PromotionLine),
     ];
 
     /// <inheritdoc />

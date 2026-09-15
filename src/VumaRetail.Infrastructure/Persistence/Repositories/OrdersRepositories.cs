@@ -17,9 +17,17 @@ public sealed class SalesOrderRepository(VumaRetailDbContext context) : ISalesOr
 {
     /// <inheritdoc />
     public Task<SalesOrder?> FindAsync(Guid salesOrderId, CancellationToken cancellationToken = default)
-        => context.SalesOrders
-            .Include(order => order.Lines)
-            .FirstOrDefaultAsync(order => order.Id == salesOrderId, cancellationToken);
+    {
+        // Composite command handlers can create an order and then continue through another
+        // handler in the same unit of work. EF queries do not reliably return Added aggregates
+        // from the database query, so consult the identity map before hitting PostgreSQL.
+        SalesOrder? tracked = context.SalesOrders.Local.FirstOrDefault(order => order.Id == salesOrderId);
+        return tracked is not null
+            ? Task.FromResult<SalesOrder?>(tracked)
+            : context.SalesOrders
+                .Include(order => order.Lines)
+                .FirstOrDefaultAsync(order => order.Id == salesOrderId, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task<SalesOrder?> FindByOrderNumberAsync(string orderNumber, CancellationToken cancellationToken = default)

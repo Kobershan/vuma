@@ -5,10 +5,15 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Domain.Ecommerce;
+using VumaRetail.Domain.Inventory;
+using VumaRetail.Domain.Orders;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Harness;
+using VumaRetail.IntegrationTests.Orders;
 
 namespace VumaRetail.IntegrationTests.Api;
 
@@ -202,6 +207,70 @@ public sealed class EcommerceApiTests(PostgresFixture fixture)
             await services.GetRequiredService<VumaRetailDbContext>().PaymentAttempts
                 .CountAsync(attempt => attempt.CheckoutIntentId == checkoutId && attempt.EventId == $"payment-authorization:{checkoutId:N}"));
         persisted.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Confirmed_paid_checkout_creates_order_and_company_reservation_through_api()
+    {
+        (ApiHarness harness, OrdersScenario scenario, Guid companyId) = await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
+        {
+            Guid checkoutId = await harness.InScopeAsync(async services =>
+            {
+                DateTimeOffset now = harness.Clock.UtcNow;
+                VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+                ChannelConnection channel = ChannelConnection.Register(harness.TenantId, companyId, "WEB", "checkout.example");
+                channel.Activate();
+                PublishedProduct product = PublishedProduct.Publish(harness.TenantId, companyId, channel.Id,
+                    scenario.InStockItemId, null, "MILK-2L-WEB", "Full cream milk 2L", null, 59.99m, "ZAR", 50m, now, 1);
+                CommerceBasket basket = CommerceBasket.Open(harness.TenantId, companyId, channel.Id, "checkout-owner", now);
+                CommerceBasketLine line = CommerceBasketLine.Add(harness.TenantId, companyId, basket.Id,
+                    product.Id, 2m, 1m, product.Price, product.Currency);
+                CheckoutIntent checkout = CheckoutIntent.Submit(harness.TenantId, companyId, channel.Id, basket.Id,
+                    "checkout-owner", "checkout-order-key", "checkout-order-fingerprint", now);
+                checkout.Confirm(now.AddMinutes(1));
+                PaymentAttempt payment = PaymentAttempt.Record(harness.TenantId, companyId, checkout.Id,
+                    "payment-event-order", "payment-order-fingerprint", "tj-payment-order",
+                    PaymentAttemptStatus.Captured, "TJ-CAPTURED", now);
+                context.ChannelConnections.Add(channel);
+                context.PublishedProducts.Add(product);
+                context.CommerceBaskets.Add(basket);
+                context.CommerceBasketLines.Add(line);
+                context.CheckoutIntents.Add(checkout);
+                context.PaymentAttempts.Add(payment);
+                await context.CommitAsync();
+                return checkout.Id;
+            });
+
+            await harness.CreateUserAsync("checkout-order-owner", "CorrectHorseBattery1", EcommercePermissions.Checkout);
+            using HttpClient client = await harness.SignInAsync("checkout-order-owner");
+            HttpResponseMessage response = await client.PostAsJsonAsync($"/api/v1/storefront/checkouts/{checkoutId:D}/order", new
+            {
+                CompanyId = companyId, OwnerKey = "checkout-owner", FulfillingLocationId = scenario.LocationId,
+                FulfilmentType = OrderFulfilmentType.ClickAndCollect
+            });
+            string body = await response.Content.ReadAsStringAsync();
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, body);
+            Guid orderId = (await response.Content.ReadFromJsonAsync<Guid>())!;
+
+            SalesOrder order = await harness.InScopeAsync(async services =>
+                await services.GetRequiredService<VumaRetailDbContext>().SalesOrders
+                    .Include(value => value.Lines).SingleAsync(value => value.Id == orderId));
+            order.Lines.Should().ContainSingle(line => line.ReservationId.HasValue && line.RequestedQuantity.Value == 2m);
+
+            await harness.InScopeAsync(async services =>
+            {
+                services.GetRequiredService<ICompanyContext>().SetCompany(companyId);
+                VumaRetailDbContext context = await services.GetRequiredService<ICompanyDbContextFactory>().CreateAsync();
+                await using (context)
+                {
+                    StockReservation reservation = await context.StockReservations.SingleAsync(value =>
+                        value.SourceDocumentId == orderId && value.State == ReservationState.Held);
+                    reservation.Quantity.Value.Should().Be(2m);
+                }
+                return 0;
+            });
+        }
     }
 
     private sealed class StubPaymentGateway : IPaymentGateway

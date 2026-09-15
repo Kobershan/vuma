@@ -8,6 +8,12 @@ API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documen
 limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Stage 21 checkout/payment acceptance, then Stage 21b.
 
+WORK LOG (2026-09-15): Stage 21 TASK-21-002 authoritative checkout settlement is now verified through
+the real PostgreSQL API: a confirmed, captured checkout creates a server-priced order, allocates from
+the company-bound bin projection, and persists a two-unit held reservation. The implementation keeps
+order creation, line insertion and confirmation in one application unit of work; tenant-wide pricing
+definitions remain visible to company-bound resolution. Focused regression passes 1/1.
+
 VERIFICATION (2026-09-15): Stage 18 closure was independently rerun: Quality unit tests **17/17**
 and PostgreSQL quality integration tests **7/7** passed. The specialist-agent runtime is unavailable
 in this environment and remains documented as an explicit limitation, not a fabricated review result.

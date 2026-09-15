@@ -4,7 +4,8 @@ Provider reference: [Transaction Junction IMBEKO developer documentation](https:
 The implementation must select the Hosted Payment Page or Direct API explicitly; it must not collect
 or persist card data in Vuma when the Hosted Payment Page contract is selected.
 
-**Status:** IN_PROGRESS — authorization persistence and replay-safe capture/void/refund boundary implemented; order milestone, provider reconciliation and broader PostgreSQL acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
+**Status:** IN_PROGRESS — authorization persistence, replay-safe payment operations and the paid-checkout
+order milestone are implemented; live-provider reconciliation and outage acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
 
@@ -34,9 +35,9 @@ or persist card data in Vuma when the Hosted Payment Page contract is selected.
 ## Remaining work
 
 - Connect a checkout intent to authoritative order creation, reservation, pricing and payment gateway
-  authorization without trusting browser totals. The first order bridge slice now creates and confirms
-  an order from a confirmed, captured checkout using published catalog references and server-side
-  sellable-item resolution; reservation, pricing snapshot and gateway authorization remain open.
+  authorization without trusting browser totals. The order bridge now creates and confirms an order
+  from a confirmed, captured checkout using published catalog references and server-side sellable-item
+  resolution; the focused PostgreSQL regression verifies the company reservation and pricing path.
 - Capture/void/refund transitions now have a replay-safe application boundary and append payment-attempt
   state after a successful configured gateway operation; wiring them to the authoritative order
   milestone and durable provider reconciliation remains open.
