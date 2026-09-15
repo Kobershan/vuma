@@ -50,6 +50,7 @@ public interface IConnectClaimRepository
 public interface ISupplierPortalGrantRepository
 {
     Task<SupplierPortalGrant?> FindForTenantAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SupplierPortalGrant>> ListForConnectionAsync(Guid connectionId, Guid tenantId, CancellationToken cancellationToken = default);
     void Add(SupplierPortalGrant grant);
 }
 

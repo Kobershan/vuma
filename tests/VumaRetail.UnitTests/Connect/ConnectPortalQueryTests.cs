@@ -11,6 +11,29 @@ namespace VumaRetail.UnitTests.Connect;
 public sealed class ConnectPortalQueryTests
 {
     [Fact]
+    public async Task Portal_grants_are_listed_only_for_a_party_to_the_connection()
+    {
+        Guid retailer = Guid.NewGuid();
+        Guid supplier = Guid.NewGuid();
+        Guid connectionId = Guid.NewGuid();
+        SupplierPortalGrant grant = SupplierPortalGrant.Create(supplier, retailer, connectionId,
+            Guid.NewGuid(), "orders", DateTimeOffset.UtcNow);
+        ISupplierPortalGrantRepository grants = Substitute.For<ISupplierPortalGrantRepository>();
+        grants.ListForConnectionAsync(connectionId, supplier, Arg.Any<CancellationToken>()).Returns([grant]);
+        ITradingConnectionRepository connections = Substitute.For<ITradingConnectionRepository>();
+        TradingConnection connection = TradingConnection.Request(supplier, retailer, null, null, DateTimeOffset.UtcNow);
+        connections.FindForTenantAsync(connectionId, supplier, Arg.Any<CancellationToken>()).Returns(connection);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(supplier);
+
+        IReadOnlyList<SupplierPortalGrantResult> result = await new ListSupplierPortalGrantsQueryHandler(
+            grants, connections, tenant).HandleAsync(new ListSupplierPortalGrantsQuery(connectionId));
+
+        result.Should().ContainSingle().Which.AccessRole.Should().Be("orders");
+        await grants.Received(1).ListForConnectionAsync(connectionId, supplier, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Asn_query_returns_only_a_dispatched_order_for_a_party_tenant()
     {
         Guid retailer = Guid.NewGuid();

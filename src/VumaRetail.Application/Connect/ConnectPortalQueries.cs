@@ -76,3 +76,23 @@ public sealed class ListConnectSuppliersQueryHandler(
         return result;
     }
 }
+
+public sealed record ListSupplierPortalGrantsQuery(Guid ConnectionId) : IQuery<IReadOnlyList<SupplierPortalGrantResult>>;
+public sealed record SupplierPortalGrantResult(Guid Id, Guid ConnectionId, Guid RetailerTenantId,
+    Guid SupplierTenantId, Guid ContactId, string AccessRole, DateTimeOffset GrantedAt, DateTimeOffset? RevokedAt);
+
+public sealed class ListSupplierPortalGrantsQueryHandler(
+    ISupplierPortalGrantRepository grants, ITradingConnectionRepository connections, ITenantContext tenant)
+    : IQueryHandler<ListSupplierPortalGrantsQuery, IReadOnlyList<SupplierPortalGrantResult>>
+{
+    public async Task<IReadOnlyList<SupplierPortalGrantResult>> HandleAsync(ListSupplierPortalGrantsQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        TradingConnection connection = await connections.FindForTenantAsync(query.ConnectionId, tenant.TenantId, cancellationToken)
+            .ConfigureAwait(false) ?? throw new InvalidOperationException("Connection not found.");
+        IReadOnlyList<SupplierPortalGrant> rows = await grants.ListForConnectionAsync(query.ConnectionId,
+            tenant.TenantId, cancellationToken).ConfigureAwait(false);
+        return rows.Select(x => new SupplierPortalGrantResult(x.Id, x.ConnectionId, x.RetailerTenantId,
+            x.SupplierTenantId, x.ContactId, x.AccessRole, x.GrantedAt, x.RevokedAt)).ToList();
+    }
+}

@@ -25,6 +25,10 @@ through `GET /api/v1/connect/payments/{paymentId}/remittance`; unrelated tenants
 pass **21/21** and the Web Release build has **0 errors**. End-to-end portal trading, settlement integration,
 isolation sweep and offline convergence remain open.
 
+WORK LOG (2026-09-15): Supplier portal access grants are now auditable through the party-scoped
+`GET /api/v1/connect/connections/{id}/granted-users` route. Connect unit tests pass **22/22** and Web
+Release has **0 errors**; full portal trading and offline convergence remain open.
+
 WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/reverse transfer
 creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration
 reversibility pass the focused registry suite (**9/9** integration tests).

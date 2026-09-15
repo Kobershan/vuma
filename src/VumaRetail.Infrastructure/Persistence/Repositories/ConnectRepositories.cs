@@ -86,5 +86,11 @@ public sealed class SupplierPortalGrantRepository(VumaRetailDbContext context) :
         => context.SupplierPortalGrants.SingleOrDefaultAsync(x => x.Id == id &&
             (x.RetailerTenantId == tenantId || x.SupplierTenantId == tenantId), cancellationToken);
 
+    public async Task<IReadOnlyList<SupplierPortalGrant>> ListForConnectionAsync(Guid connectionId, Guid tenantId, CancellationToken cancellationToken = default)
+        => await context.SupplierPortalGrants.AsNoTracking()
+            .Where(x => x.ConnectionId == connectionId &&
+                (x.RetailerTenantId == tenantId || x.SupplierTenantId == tenantId) && x.DeletedAt == null)
+            .OrderByDescending(x => x.GrantedAt).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public void Add(SupplierPortalGrant grant) => context.SupplierPortalGrants.Add(grant);
 }
