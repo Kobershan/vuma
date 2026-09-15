@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Json;
 
 namespace VumaRetail.ControlPlane;
 
@@ -25,10 +26,25 @@ public interface ILicenseSigner
     Task<string> SignAsync(string payload, CancellationToken cancellationToken = default);
 }
 
-public sealed class ExternalLicenseSigner : ILicenseSigner
+public sealed class ExternalLicenseSigner(HttpClient client, IConfiguration configuration) : ILicenseSigner
 {
-    public Task<string> SignAsync(string payload, CancellationToken cancellationToken = default)
-        => throw new InvalidOperationException("No external licence signer is configured.");
+    public async Task<string> SignAsync(string payload, CancellationToken cancellationToken = default)
+    {
+        string endpoint = configuration["ControlPlane:SignerEndpoint"]?.Trim() ?? string.Empty;
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException("No HTTPS external licence signer is configured.");
+        using HttpResponseMessage response = await client.PostAsJsonAsync(uri, new { payload }, cancellationToken)
+            .ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException("The external licence signer is unavailable.");
+        SignResponse? result = await response.Content.ReadFromJsonAsync<SignResponse>(cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return !string.IsNullOrWhiteSpace(result?.Signature)
+            ? result.Signature
+            : throw new InvalidOperationException("The external licence signer returned no signature.");
+    }
+
+    private sealed record SignResponse(string Signature);
 }
 
 public sealed class ControlPlaneStore

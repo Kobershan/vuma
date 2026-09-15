@@ -109,3 +109,5 @@ metering routes, external signer boundary, replay protection, non-negative allow
 unknown-node refusal. Lease refresh and idempotent heartbeat/metering replay are also covered.
 `VumaRetail.ControlPlane.Tests` passes **4/4** and the solution build has **0**
 errors. Production persistence, KMS/HSM, certificate provisioning and real-install acceptance remain.
+The host now requires HTTPS plus a client certificate outside Development and resolves signing only
+through a configured HTTPS signer endpoint; missing signer configuration fails closed.

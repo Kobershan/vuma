@@ -2,9 +2,26 @@ using VumaRetail.ControlPlane;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<ControlPlaneStore>();
-builder.Services.AddSingleton<ILicenseSigner, ExternalLicenseSigner>();
+builder.Services.AddHttpClient<ExternalLicenseSigner>();
+builder.Services.AddSingleton<ILicenseSigner>(sp => sp.GetRequiredService<ExternalLicenseSigner>());
 builder.Services.AddOpenApi();
 WebApplication app = builder.Build();
+if (!app.Environment.IsDevelopment())
+{
+    if (!Uri.TryCreate(app.Configuration["ControlPlane:SignerEndpoint"], UriKind.Absolute, out Uri? signer)
+        || signer.Scheme != Uri.UriSchemeHttps)
+        throw new InvalidOperationException("Production control plane requires an HTTPS signer endpoint.");
+    app.Use(async (context, next) =>
+    {
+        if (!context.Request.IsHttps || await context.Connection.GetClientCertificateAsync() is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+        await next();
+    });
+}
+app.UseHttpsRedirection();
 app.MapOpenApi();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 RouteGroupBuilder device = app.MapGroup("/device/v1");

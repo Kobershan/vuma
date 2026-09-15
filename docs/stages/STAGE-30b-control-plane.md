@@ -27,6 +27,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 activation, lease, heartbeat and metering contract surface with signer isolation and replay-safe
 requests. Dedicated tests pass **4/4**; production persistence, KMS/HSM, mTLS deployment and vendor
 surfaces remain.
+
+The host's non-development boundary now requires HTTPS, a client certificate and an HTTPS external
+signer endpoint; missing signing configuration fails closed. Dedicated tests remain **4/4**.
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
 Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"
