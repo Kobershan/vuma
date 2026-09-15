@@ -75,6 +75,11 @@ transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quie
 2026-09-15: Attribution recording and company-scoped listing are exposed through the marketing API;
 the focused marketing suite and runtime route verification cover the operator boundary.
 
+2026-09-15: Durable due-queue execution is covered through the marketing worker: processing is
+bounded by the requested company/limit, successful provider delivery transitions the queued row to
+sent, and transport failures remain queued with an incremented attempt count and bounded failure
+reason. Marketing unit tests pass **26/26**.
+
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
 metadata with per-recipient idempotency keys and suppression state. Marketing-focused tests now pass
 8/8; campaign persistence, audience snapshots, transports, signed callbacks and APIs remain open.

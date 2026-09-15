@@ -40,6 +40,9 @@ Focused transport tests pass **2/2**; provider-specific callback deployment rema
 2026-09-15: Company-scoped attribution recording/listing and journey operator routes are implemented;
 marketing-focused tests remain green at **19/19**.
 
+2026-09-15: The durable delivery worker now has bounded due-queue execution coverage; successful
+delivery and retryable transport failure state are verified in the marketing unit suite (**26/26**).
+
 ## Follow-up findings
 
 The durable shared delivery outbox and provider callback deployment remain open. Outbound rows now
