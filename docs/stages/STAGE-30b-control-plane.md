@@ -11,17 +11,22 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 30b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | NOT_STARTED |
+| 30b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-30B-001 | Build control-plane device/licence APIs | Stages 04b, 29, 30 | NOT_STARTED |
+| TASK-30B-001 | Build control-plane device/licence APIs | Stages 04b, 29, 30 | IN_PROGRESS |
 | TASK-30B-002 | Implement metering, billing, dunning, and analytics | TASK-30B-001; Stage 21 | NOT_STARTED |
 | TASK-30B-003 | Implement abuse, fleet, support, provisioning, and vendor surfaces | TASK-30B-001, TASK-30B-002; Stage 30 | NOT_STARTED |
 
 ## Objective
+
+2026-09-15: The separate `VumaRetail.ControlPlane` deployable now provides the initial device
+activation, heartbeat and metering contract surface with signer isolation and replay-safe requests.
+Dedicated tests pass **3/3**; production persistence, KMS/HSM, mTLS deployment and vendor surfaces
+remain.
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
 Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"
