@@ -26,6 +26,8 @@ public sealed class MarketingApiTests(PostgresFixture fixture)
         queued.TryGetProperty("get", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/marketing/webhooks/{provider}", out JsonElement webhook).Should().BeTrue();
         webhook.TryGetProperty("post", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/marketing/attribution", out JsonElement attribution).Should().BeTrue();
+        attribution.TryGetProperty("get", out _).Should().BeTrue();
     }
 
     [Fact]

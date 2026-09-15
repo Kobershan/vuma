@@ -54,6 +54,7 @@ public static class MarketingEndpoints
         { company.SetCompany(r.CompanyId); Guid enrollment = await d.SendAsync(new EnrollJourneyCommand(r.CompanyId, id, r.CustomerId, r.IdempotencyKey, r.NextRunAt), ct); return Results.Created($"/api/v1/marketing/journeys/{id}/enrollments/{enrollment}", new { id = enrollment }); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/attribution", async (RecordAttributionRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
         { company.SetCompany(r.CompanyId); Guid id = await d.SendAsync(new RecordAttributionEventCommand(r.CompanyId, r.CampaignId, r.MessageId, r.CustomerId, r.EventType), ct); return Results.Created($"/api/v1/marketing/attribution/{id}", new { id }); }).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/attribution", ListAttributionAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/webhooks/{provider}", ApplyProviderResultAsync)
             .AllowAnonymous()
             .Produces(StatusCodes.Status202Accepted)
@@ -93,6 +94,27 @@ public static class MarketingEndpoints
             message.Id, message.CampaignId, message.CustomerId, message.ScheduledAt,
             Channel = message.Channel.ToString(), Classification = message.Classification.ToString(),
             Status = message.Status.ToString(), message.CompanyId
+        }));
+    }
+
+    private static async Task<IResult> ListAttributionAsync(Guid companyId, DateTimeOffset? from,
+        DateTimeOffset? to, Guid? campaignId, ICompanyContext company, IAttributionEventRepository events,
+        IClock clock, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        DateTimeOffset end = (to ?? clock.UtcNow).ToUniversalTime();
+        DateTimeOffset start = (from ?? end.AddDays(-30)).ToUniversalTime();
+        if (start > end)
+        {
+            return Results.BadRequest(new { error = "from must be before to" });
+        }
+
+        IReadOnlyList<AttributionEvent> values = await events
+            .ListAsync(companyId, campaignId, start, end, cancellationToken).ConfigureAwait(false);
+        return Results.Ok(values.Select(value => new
+        {
+            value.Id, value.CampaignId, value.OutboundMessageId, value.CustomerId,
+            value.EventType, value.OccurredAt, value.CompanyId
         }));
     }
 
