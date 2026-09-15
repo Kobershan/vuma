@@ -7,6 +7,25 @@ using VumaRetail.Domain.Primitives;
 namespace VumaRetail.Application.Connect;
 
 public sealed record ConnectOrderLineInput(string SupplierSku, string Description, decimal Quantity, string UnitOfMeasure, decimal UnitPrice, string Currency);
+
+internal static class ConnectOrderQuantityMapper
+{
+    public static IReadOnlyDictionary<Guid, Quantity> ToQuantities(
+        IReadOnlyDictionary<Guid, decimal> quantities, ConnectOrder order)
+    {
+        Dictionary<Guid, Quantity> result = [];
+        foreach ((Guid lineId, decimal value) in quantities)
+        {
+            ConnectOrderLine? line = order.Lines.FirstOrDefault(candidate => candidate.Id == lineId);
+            if (line is null)
+            {
+                throw new ArgumentException("The order contains an unknown line.", nameof(quantities));
+            }
+            result[lineId] = new Quantity(value, line.RequestedQuantity.UnitOfMeasure);
+        }
+        return result;
+    }
+}
 [CommandSideEffect(SideEffect.Write)]
 public sealed record PlaceConnectOrderCommand(Guid ConnectionId, Guid PurchaseOrderId, string OrderNumber, IReadOnlyList<ConnectOrderLineInput> Lines) : ICommand<Guid>;
 [CommandSideEffect(SideEffect.Write)]
@@ -58,7 +77,7 @@ public sealed class ConfirmConnectOrderCommandHandler(IConnectOrderRepository or
         ConnectOrder order = await orders.FindForTenantAsync(command.OrderId, tenant.TenantId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Connect order not found.");
         if (order.SupplierTenantId != tenant.TenantId) throw new UnauthorizedAccessException("Only the supplier can confirm an order.");
-        order.Confirm(command.Quantities.ToDictionary(x => x.Key, x => new Quantity(x.Value, order.Lines.First(line => line.Id == x.Key).RequestedQuantity.UnitOfMeasure)), command.PromisedAt);
+        order.Confirm(ConnectOrderQuantityMapper.ToQuantities(command.Quantities, order), command.PromisedAt);
         return Unit.Value;
     }
 }
@@ -86,7 +105,7 @@ public sealed class DispatchConnectOrderCommandHandler(IConnectOrderRepository o
         ConnectOrder order = await orders.FindForTenantAsync(command.OrderId, tenant.TenantId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Connect order not found.");
         if (order.SupplierTenantId != tenant.TenantId) throw new UnauthorizedAccessException("Only the supplier can dispatch an order.");
-        order.Dispatch(command.DispatchNoteNumber, command.Quantities.ToDictionary(x => x.Key, x => new Quantity(x.Value, order.Lines.First(line => line.Id == x.Key).RequestedQuantity.UnitOfMeasure)), command.DispatchedAt);
+        order.Dispatch(command.DispatchNoteNumber, ConnectOrderQuantityMapper.ToQuantities(command.Quantities, order), command.DispatchedAt);
         return Unit.Value;
     }
 }
