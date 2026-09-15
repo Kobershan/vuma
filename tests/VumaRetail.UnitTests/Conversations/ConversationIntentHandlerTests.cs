@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.CustomerAccounts;
@@ -188,6 +189,41 @@ public sealed class ConversationIntentHandlerTests
 
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("No customer account is authorized for this binding.");
+    }
+
+    [Fact]
+    public async Task Document_intent_ignores_a_grant_for_a_different_active_company()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid bindingId = Guid.NewGuid();
+        Guid activeCompanyId = Guid.NewGuid();
+        Guid otherCompanyId = Guid.NewGuid();
+        DateTimeOffset now = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        ContactBinding binding = new(tenantId, "+27110000003", Guid.NewGuid(), ConversationChannel.Email);
+        binding.Verify(now);
+        binding.GrantConsent();
+        Conversation conversation = new(tenantId, bindingId, ConversationChannel.Email, now);
+        Guid otherAccountId = Guid.NewGuid();
+        ConversationAccountScope otherScope = new(tenantId, bindingId, otherCompanyId, otherAccountId);
+        CustomerAccount otherAccount = CustomerAccount.Open(tenantId, null, "OTHER-1", Guid.NewGuid(),
+            new Money(100m, "ZAR"), 30);
+        IConversationScopeReader scopes = Substitute.For<IConversationScopeReader>();
+        scopes.ListAsync(bindingId, Arg.Any<CancellationToken>()).Returns([otherScope]);
+        ICustomerAccountRepository accounts = Substitute.For<ICustomerAccountRepository>();
+        accounts.FindAsync(otherAccountId, Arg.Any<CancellationToken>()).Returns(otherAccount);
+        IContactBindingManagementService bindings = Substitute.For<IContactBindingManagementService>();
+        bindings.FindAsync(bindingId, Arg.Any<CancellationToken>()).Returns(binding);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(activeCompanyId);
+
+        Func<Task> action = () => new InvoiceCopyIntentHandler(
+            scopes, accounts, bindings, new DocumentDeliveryService(), Substitute.For<IClock>(),
+            Substitute.For<IInvoiceRepository>(), company)
+            .HandleAsync(conversation, new Dictionary<string, string>(), "idem-company");
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("No customer account is authorized for this binding.");
+        await accounts.DidNotReceive().FindAsync(otherAccountId, Arg.Any<CancellationToken>());
     }
 
     [Fact]
