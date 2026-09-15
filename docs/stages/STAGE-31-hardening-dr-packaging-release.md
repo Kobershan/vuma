@@ -66,6 +66,10 @@ payload, tampering, path traversal and an empty manifest. `scripts/tests/verify-
 also passes for a generated RSA signature and tampering. The verifier rejects absolute or parent
 paths and symlink payloads before hashing; packaging and restore acceptance remain open.
 
+2026-09-15: Re-ran all four repository release-tool self-tests locally — activation, deterministic
+manifest generation, manifest verification and RSA signature verification — with all four passing.
+Android/Windows packaging, restore rehearsal and the dependent Stage 30b control plane remain open.
+
 The CI workflow now executes manifest generation, verification and activation tests on each current
 revision, while superseded branch runs are cancelled to keep the latest gate authoritative.
 
