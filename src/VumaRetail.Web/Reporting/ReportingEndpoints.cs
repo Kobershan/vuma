@@ -15,6 +15,12 @@ public static class ReportingEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/reports")
             .WithTags("Reporting").RequireModule("reporting");
+        endpoints.MapVumaApi().MapGet("/dashboard/overview", async (Guid companyId, DateOnly businessDate,
+            ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await dispatcher.QueryAsync(new GetDashboardOverviewQuery(companyId, businessDate), cancellationToken));
+        }).WithTags("Reporting").RequireModule("reporting").RequirePermission(ReportingPermissions.View);
         group.MapGet("/{code}", GetDefinitionAsync)
             .RequirePermission(ReportingPermissions.View)
             .Produces<ReportDefinitionResult>()

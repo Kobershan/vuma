@@ -55,7 +55,8 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
   and tested; persistence and module adapters remain.
 - [~] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
   definitions and projection checkpoints are persisted, and a permission/module-scoped report-definition
-  API is mapped; projection adapters, aggregate dashboard freshness queries and export execution remain.
+  API is mapped; a company-scoped dashboard freshness query is now exposed, while projection adapters,
+  aggregate measures and export execution remain.
 - [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
   idempotent export requests and status routes are implemented; worker execution, scheduling, rebuild
   and full acceptance remain.
@@ -84,6 +85,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: Added tenant scope enforcement to export completion, failure, status and download
   authorization, with explicit company binding on export handoff routes. `ReportingDomainTests`
   passes **9/9**.
+- 2026-09-15: Added company-scoped `GET /api/v1/dashboard/overview`, backed by persisted projection
+  checkpoints and a 24-hour stale-contributor rule. `DashboardQueryTests` passes **2/2**; aggregate
+  dashboard measures and projection adapters remain.
 
 ## Tests / acceptance
 
