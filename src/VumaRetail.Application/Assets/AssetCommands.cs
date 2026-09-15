@@ -70,7 +70,8 @@ public sealed class DisposeFixedAssetCommandHandler(IAssetRepository assets, ICo
 public sealed record RunDepreciationCommand(Guid CompanyId, Guid AssetBookId, DateOnly Period) : ICommand<Guid>;
 
 public sealed class RunDepreciationCommandHandler(IAssetRepository assets, ITenantContext tenant,
-    ICompanyContext company) : ICommandHandler<RunDepreciationCommand, Guid>
+    ICompanyContext company, IAssetDepreciationFinancialEventPublisher financialEvents)
+    : ICommandHandler<RunDepreciationCommand, Guid>
 {
     public async Task<Guid> HandleAsync(RunDepreciationCommand command, CancellationToken cancellationToken = default)
     {
@@ -87,6 +88,7 @@ public sealed class RunDepreciationCommandHandler(IAssetRepository assets, ITena
         DepreciationRun run = DepreciationRun.Record(tenant.TenantId, null, command.CompanyId,
             DepreciationCalculator.Calculate(asset, book, command.Period));
         assets.Add(run);
+        await financialEvents.PublishAsync(run, cancellationToken).ConfigureAwait(false);
         return run.Id;
     }
 }

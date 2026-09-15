@@ -16,6 +16,12 @@ public interface IAssetRepository
     void Add(DepreciationRun run);
 }
 
+/// <summary>Raises depreciation runs through Finance's posting-rule boundary.</summary>
+public interface IAssetDepreciationFinancialEventPublisher
+{
+    Task PublishAsync(DepreciationRun run, CancellationToken cancellationToken = default);
+}
+
 public interface IChecklistRepository
 {
     Task<StoreChecklist?> FindAsync(Guid id, CancellationToken cancellationToken = default);

@@ -467,9 +467,10 @@ Scoped ticket and custody list queries/GET routes are now available under `servi
 company/customer filters. Custody migration Up/Down plus service OpenAPI verification passes 2/2.
 Service part issue now uses a dedicated inventory movement/reference and reservation-backed availability;
 the command is operation-idempotent and the service-part route is included in the OpenAPI contract.
-Stage 27 asset foundation is now present: fixed-asset lifecycle, company ownership, asset books, and
-residual-floor straight-line depreciation are covered by a focused test (1/1); persistence and Finance
-integration remain open.
+Stage 27 asset foundation now includes company-owned fixed-asset lifecycle, asset books, idempotent
+period depreciation persistence, and the Finance event boundary (`assets.depreciation.recorded`) through
+the posting-rules port; the focused asset suite passes 16/16. PostgreSQL journal/closed-period acceptance
+remains open.
 
 WORK LOG (2026-09-13): HR/workforce lifecycle coverage added in `HrLifecycleTests` (4/4), alongside
 the existing HR architecture rules (6/6). Canonical employee-core task documentation was added;

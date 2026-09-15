@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Assets;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Service;
@@ -18,6 +19,10 @@ public static class ServiceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IServiceRepository, ServiceRepository>();
         services.TryAddScoped<IAssetRepository>(provider => provider.GetRequiredService<ServiceRepository>());
+        services.TryAddScoped<IAssetDepreciationFinancialEventPublisher>(provider
+            => provider.GetService<IFinancialEventPoster>() is null
+                ? ActivatorUtilities.CreateInstance<LoggingAssetDepreciationEventPublisher>(provider)
+                : ActivatorUtilities.CreateInstance<FinancialAssetDepreciationEventPublisher>(provider));
         services.TryAddScoped<IChecklistRepository>(provider => provider.GetRequiredService<ServiceRepository>());
         services.TryAddScoped<IChecklistEvidenceAuthorizer, ChecklistEvidenceAuthorizer>();
         services.TryAddSingleton<IServiceSlaClock>(_ =>

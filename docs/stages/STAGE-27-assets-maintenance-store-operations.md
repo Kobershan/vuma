@@ -46,8 +46,8 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
 
 - [~] 27-P01: Implement asset books, capitalization, custody and depreciation schedules. Domain lifecycle,
   book invariants, residual floor and useful-life calculation are implemented; persistence, lifecycle
-  command seams, period idempotency and the initial command API are implemented; finance integration
-  and full acceptance remain.
+  command seams, period idempotency, the initial command API, and the Finance event boundary are
+  implemented; PostgreSQL journal/closed-period acceptance remains.
 - [~] 27-P02: Integrate maintenance, leases, procurement and Finance posting events. The
   company-scoped maintenance-order lifecycle is now implemented and covered by `MaintenanceOrderTests`;
   persistence, parts/labour capture, leases and Finance posting remain.

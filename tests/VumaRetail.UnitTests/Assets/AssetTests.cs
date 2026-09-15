@@ -1,9 +1,12 @@
 using FluentAssertions;
 using NSubstitute;
+using Microsoft.Extensions.Logging;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Assets;
 using VumaRetail.Domain.Assets;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.UnitTests.Assets;
 
@@ -69,5 +72,28 @@ public sealed class AssetTests
             .HandleAsync(new PlaceAssetInServiceCommand(requestedCompany, Guid.NewGuid())))
             .Should().ThrowAsync<InvalidOperationException>();
         await assets.DidNotReceive().FindAssetAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Depreciation_publisher_raises_named_finance_event_without_accounts()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        FixedAsset asset = FixedAsset.Create(tenantId, null, companyId, "A-3", "Till",
+            new DateOnly(2026, 1, 1), new Money(1200m, "ZAR"));
+        AssetBook book = AssetBook.Create(tenantId, null, companyId, asset.Id, "Local",
+            new DateOnly(2026, 1, 1), Money.Zero("ZAR"), 12);
+        DepreciationRun run = DepreciationRun.Record(tenantId, null, companyId,
+            DepreciationCalculator.Calculate(asset, book, new DateOnly(2026, 2, 1)));
+        var poster = Substitute.For<IFinancialEventPoster>();
+        var logger = Substitute.For<ILogger<FinancialAssetDepreciationEventPublisher>>();
+
+        await new FinancialAssetDepreciationEventPublisher(poster, logger).PublishAsync(run);
+
+        await poster.Received(1).PostAsync(Arg.Is<IFinancialEvent>(e =>
+            e.EventType == FinancialAssetDepreciationEventPublisher.DepreciationRecordedEventType
+            && e.SourceReference == run.Id.ToString()
+            && e.Amounts[FinancialAssetDepreciationEventPublisher.DepreciationAmountKey] == run.Amount),
+            Arg.Any<CancellationToken>());
     }
 }
