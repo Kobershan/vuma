@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace VumaRetail.ControlPlane;
 
@@ -47,7 +48,7 @@ public sealed class ExternalLicenseSigner(HttpClient client, IConfiguration conf
     private sealed record SignResponse(string Signature);
 }
 
-public sealed class ControlPlaneStore
+public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null)
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, (string Fingerprint, DeviceResponse Response)> _requests = [];
@@ -61,6 +62,16 @@ public sealed class ControlPlaneStore
         ArgumentException.ThrowIfNullOrWhiteSpace(request.InstallId);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Fingerprint);
         string fingerprint = Fingerprint(request);
+        if (database is not null)
+        {
+            ControlPlaneRequest? persisted = await database.Requests.FindAsync([request.RequestId], cancellationToken).ConfigureAwait(false);
+            if (persisted is not null)
+            {
+                if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return JsonSerializer.Deserialize<DeviceResponse>(persisted.ResponseJson)
+                    ?? throw new InvalidOperationException("Persisted activation response is invalid.");
+            }
+        }
         lock (_gate)
         {
             if (_requests.TryGetValue(request.RequestId, out var replay))
@@ -79,29 +90,45 @@ public sealed class ControlPlaneStore
             _nodes[nodeId] = request.InstallId;
             _requests[request.RequestId] = (fingerprint, response);
         }
+        if (database is not null)
+        {
+            database.Devices.Add(new ControlPlaneDevice { NodeId = nodeId, InstallId = request.InstallId,
+                Fingerprint = request.Fingerprint, LeaseId = leaseId, ActivatedAtUtc = DateTimeOffset.UtcNow });
+            database.Requests.Add(new ControlPlaneRequest { RequestId = request.RequestId, Fingerprint = fingerprint,
+                ResponseJson = JsonSerializer.Serialize(response) });
+            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+                Action = "device.activation", NodeId = nodeId, RequestId = request.RequestId.ToString("D") });
+            await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
         return response;
     }
 
-    public DeviceResponse Heartbeat(HeartbeatRequest request)
+    public async Task<DeviceResponse> HeartbeatAsync(HeartbeatRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateNonNegative(request.TerminalsOnline, nameof(request.TerminalsOnline));
         ValidateNonNegative(request.TerminalsRegistered, nameof(request.TerminalsRegistered));
         ValidateNonNegative(request.SyncLagSeconds, nameof(request.SyncLagSeconds));
         ValidateNonNegative(request.OutboxDepth, nameof(request.OutboxDepth));
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        string fingerprint = JsonSerializer.Serialize(request);
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return persistedResponse;
+        DeviceResponse response;
         lock (_gate)
         {
-            if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
-            string fingerprint = JsonSerializer.Serialize(request);
+            if (!known) throw new KeyNotFoundException("Unknown device node.");
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
                 if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
                 return replay.Response;
             }
-            DeviceResponse response = new(request.RequestId.ToString("D"), request.NodeId, null, null, []);
+            response = new(request.RequestId.ToString("D"), request.NodeId, null, null, []);
             _requests[request.RequestId] = (fingerprint, response);
-            return response;
         }
+        await PersistResponseAsync(request.RequestId, fingerprint, response, "device.heartbeat", request.NodeId).ConfigureAwait(false);
+        return response;
     }
 
     public async Task<DeviceResponse> RefreshLeaseAsync(LeaseRequest request, ILicenseSigner signer,
@@ -110,10 +137,14 @@ public sealed class ControlPlaneStore
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(signer);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.NodeId);
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        string fingerprint = JsonSerializer.Serialize(request);
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return persistedResponse;
         lock (_gate)
         {
-            if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
-            string fingerprint = JsonSerializer.Serialize(request);
+            if (!known) throw new KeyNotFoundException("Unknown device node.");
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
                 if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
@@ -126,12 +157,19 @@ public sealed class ControlPlaneStore
         DeviceResponse response = new(request.RequestId.ToString("D"), request.NodeId, leaseId, signature, []);
         lock (_gate)
         {
-            _requests[request.RequestId] = (JsonSerializer.Serialize(request), response);
+            _requests[request.RequestId] = (fingerprint, response);
+        }
+        await PersistResponseAsync(request.RequestId, fingerprint, response, "device.lease", request.NodeId).ConfigureAwait(false);
+        if (database is not null)
+        {
+            ControlPlaneDevice? device = await database.Devices.FindAsync([request.NodeId], cancellationToken).ConfigureAwait(false);
+            if (device is not null) device.LeaseId = leaseId;
+            await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
         return response;
     }
 
-    public void AcceptMetering(MeteringRequest request)
+    public async Task AcceptMeteringAsync(MeteringRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateNonNegative(request.Counts.Transactions, nameof(request.Counts.Transactions));
@@ -139,10 +177,23 @@ public sealed class ControlPlaneStore
         ValidateNonNegative(request.Counts.StorageBytes, nameof(request.Counts.StorageBytes));
         if (request.ModuleUsage.Keys.Any(string.IsNullOrWhiteSpace) || request.ModuleUsage.Values.Any(x => x < 0))
             throw new ArgumentException("Metering module usage is invalid.", nameof(request));
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        string fingerprint = JsonSerializer.Serialize(request);
+        if (database is not null)
+        {
+            ControlPlaneMeteringReceipt? persisted = await database.MeteringReceipts
+                .SingleOrDefaultAsync(x => x.RequestId == request.RequestId ||
+                    x.NodeId == request.NodeId && x.Period == request.Period).ConfigureAwait(false);
+            if (persisted is not null)
+            {
+                if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Metering replay content differs.");
+                return;
+            }
+        }
         lock (_gate)
         {
-            if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
-            string fingerprint = JsonSerializer.Serialize(request);
+            if (!known) throw new KeyNotFoundException("Unknown device node.");
             if (_meteringRequests.TryGetValue(request.RequestId, out string? existing))
             {
                 if (existing != fingerprint) throw new InvalidOperationException("Request replay content differs.");
@@ -150,6 +201,36 @@ public sealed class ControlPlaneStore
             }
             _meteringRequests[request.RequestId] = fingerprint;
         }
+        if (database is not null)
+        {
+            database.MeteringReceipts.Add(new ControlPlaneMeteringReceipt { RequestId = request.RequestId,
+                NodeId = request.NodeId, Period = request.Period, Fingerprint = fingerprint,
+                ReceivedAtUtc = DateTimeOffset.UtcNow });
+            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+                Action = "device.metering", NodeId = request.NodeId, RequestId = request.RequestId.ToString("D") });
+            await database.SaveChangesAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task<DeviceResponse?> ReadPersistedResponseAsync(Guid requestId, string fingerprint)
+    {
+        if (database is null) return null;
+        ControlPlaneRequest? persisted = await database.Requests.FindAsync([requestId]).ConfigureAwait(false);
+        if (persisted is null) return null;
+        if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+        return JsonSerializer.Deserialize<DeviceResponse>(persisted.ResponseJson)
+            ?? throw new InvalidOperationException("Persisted control-plane response is invalid.");
+    }
+
+    private async Task PersistResponseAsync(Guid requestId, string fingerprint, DeviceResponse response,
+        string action, string nodeId)
+    {
+        if (database is null || await database.Requests.FindAsync([requestId]).ConfigureAwait(false) is not null) return;
+        database.Requests.Add(new ControlPlaneRequest { RequestId = requestId, Fingerprint = fingerprint,
+            ResponseJson = JsonSerializer.Serialize(response) });
+        database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+            Action = action, NodeId = nodeId, RequestId = requestId.ToString("D") });
+        await database.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private static string Fingerprint(ActivationRequest request) => JsonSerializer.Serialize(request);

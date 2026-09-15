@@ -1,6 +1,6 @@
 # TASK-30B-001 — Control-plane device and licence APIs
 
-Status: IN_PROGRESS — repository deployable/device-contract foundation implemented  
+Status: IN_PROGRESS — device API and durable control-plane state implemented; production deployment acceptance remains  
 Stage: 30b  
 Type: Separate deployable, application, API, security
 
@@ -106,8 +106,10 @@ acceptance remain for the stage.
 2026-09-15: Task selected after the stage architecture map was made canonical.
 2026-09-15: Added `VumaRetail.ControlPlane` to the solution with device activation, heartbeat and
 metering routes, external signer boundary, replay protection, non-negative allow-listed counters and
-unknown-node refusal. Lease refresh and idempotent heartbeat/metering replay are also covered.
-`VumaRetail.ControlPlane.Tests` passes **4/4** and the solution build has **0**
-errors. Production persistence, KMS/HSM, certificate provisioning and real-install acceptance remain.
-The host now requires HTTPS plus a client certificate outside Development and resolves signing only
-through a configured HTTPS signer endpoint; missing signer configuration fails closed.
+unknown-node refusal. Lease refresh and idempotent heartbeat/metering replay are also covered. The
+host requires HTTPS plus a client certificate outside Development and resolves signing only through a
+configured HTTPS signer endpoint; missing signer configuration fails closed. Control-plane-owned
+SQLite persistence stores devices, request responses, metering receipts and append-only audit facts,
+and reloads idempotency state across store instances without any tenant persistence dependency.
+`VumaRetail.ControlPlane.Tests` passes **6/6**. Production KMS/HSM, certificate provisioning and
+real-install acceptance remain deployment boundaries.

@@ -1,4 +1,6 @@
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using VumaRetail.ControlPlane;
 
@@ -46,10 +48,10 @@ public sealed class ControlPlaneStoreTests
         var metering = new MeteringRequest(Guid.NewGuid(), node.NodeId, new DateOnly(2026, 9, 15),
             new MeteringCounts(1, 2, 3, 1, 1, 10, 4, 0, 0),
             new Dictionary<string, long> { ["sales"] = 1 }, new MeteringHealth(0, 0, 0, 0));
-        store.AcceptMetering(metering);
-        FluentActions.Invoking(() => store.AcceptMetering(metering with
+        await store.AcceptMeteringAsync(metering);
+        await FluentActions.Invoking(() => store.AcceptMeteringAsync(metering with
             { Counts = metering.Counts with { Transactions = -1 } }))
-            .Should().Throw<ArgumentOutOfRangeException>();
+            .Should().ThrowAsync<ArgumentOutOfRangeException>();
     }
 
     [Fact]
@@ -65,7 +67,60 @@ public sealed class ControlPlaneStoreTests
         (await store.RefreshLeaseAsync(lease, signer, CancellationToken.None)).Should().BeEquivalentTo(firstLease);
         HeartbeatRequest heartbeat = new(Guid.NewGuid(), node.NodeId, DateTimeOffset.UtcNow, 10, "1.0",
             1, 1, 0, 0, null, null, 1, "boot-1", false, "ok", 0);
-        store.Heartbeat(heartbeat).Should().BeEquivalentTo(store.Heartbeat(heartbeat));
+        (await store.HeartbeatAsync(heartbeat)).Should().BeEquivalentTo(await store.HeartbeatAsync(heartbeat));
+    }
+
+    [Fact]
+    public async Task Device_state_and_request_replays_survive_a_new_store_instance()
+    {
+        await using SqliteConnection connection = new("Data Source=:memory:");
+        await connection.OpenAsync();
+        DbContextOptions<ControlPlaneDbContext> options = new DbContextOptionsBuilder<ControlPlaneDbContext>()
+            .UseSqlite(connection).Options;
+        ActivationRequest request = new(Guid.NewGuid(), "licence-1", "persistent-install", "fp", "1.0");
+        await using (ControlPlaneDbContext database = new(options))
+        {
+            await database.Database.EnsureCreatedAsync();
+            var store = new ControlPlaneStore(database);
+            await store.ActivateAsync(request, new TestSigner(), CancellationToken.None);
+        }
+
+        await using (ControlPlaneDbContext database = new(options))
+        {
+            var store = new ControlPlaneStore(database);
+            DeviceResponse first = await store.ActivateAsync(request, new TestSigner(), CancellationToken.None);
+            first.Should().NotBeNull();
+            database.AuditEntries.Should().ContainSingle(x => x.Action == "device.activation");
+        }
+    }
+
+    [Fact]
+    public async Task Metering_is_deduplicated_by_node_and_period_across_store_instances()
+    {
+        await using SqliteConnection connection = new("Data Source=:memory:");
+        await connection.OpenAsync();
+        DbContextOptions<ControlPlaneDbContext> options = new DbContextOptionsBuilder<ControlPlaneDbContext>()
+            .UseSqlite(connection).Options;
+        string nodeId;
+        await using (ControlPlaneDbContext database = new(options))
+        {
+            await database.Database.EnsureCreatedAsync();
+            nodeId = (await new ControlPlaneStore(database).ActivateAsync(
+                new ActivationRequest(Guid.NewGuid(), "licence-1", "metering-install", "fp", "1.0"),
+                new TestSigner(), CancellationToken.None)).NodeId;
+        }
+        MeteringRequest metering = new(Guid.NewGuid(), nodeId, new DateOnly(2026, 9, 15),
+            new MeteringCounts(1, 1, 1, 1, 1, 1, 1, 1, 1), new Dictionary<string, long>(),
+            new MeteringHealth(0, 0, 0, 0));
+        await using (ControlPlaneDbContext database = new(options))
+            await new ControlPlaneStore(database).AcceptMeteringAsync(metering);
+        await using (ControlPlaneDbContext database = new(options))
+        {
+            var store = new ControlPlaneStore(database);
+            await store.AcceptMeteringAsync(metering);
+            await FluentActions.Invoking(() => store.AcceptMeteringAsync(metering with { RequestId = Guid.NewGuid() }))
+                .Should().ThrowAsync<InvalidOperationException>();
+        }
     }
 
     private sealed class TestSigner : ILicenseSigner

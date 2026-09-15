@@ -1,11 +1,18 @@
 using VumaRetail.ControlPlane;
+using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton<ControlPlaneStore>();
+builder.Services.AddDbContext<ControlPlaneDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("ControlPlane") ?? "Data Source=control-plane.db"));
+builder.Services.AddScoped<ControlPlaneStore>();
 builder.Services.AddHttpClient<ExternalLicenseSigner>();
 builder.Services.AddSingleton<ILicenseSigner>(sp => sp.GetRequiredService<ExternalLicenseSigner>());
 builder.Services.AddOpenApi();
 WebApplication app = builder.Build();
+using (IServiceScope scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>().Database.EnsureCreatedAsync();
+}
 if (!app.Environment.IsDevelopment())
 {
     if (!Uri.TryCreate(app.Configuration["ControlPlane:SignerEndpoint"], UriKind.Absolute, out Uri? signer)
@@ -33,14 +40,14 @@ device.MapPost("/activations", async (ActivationRequest request, ControlPlaneSto
     { return Results.Problem("Licence issuance is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable); }
     catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
 });
-device.MapPost("/heartbeat", (HeartbeatRequest request, ControlPlaneStore store) =>
-    Results.Ok(store.Heartbeat(request)));
+device.MapPost("/heartbeat", async (HeartbeatRequest request, ControlPlaneStore store) =>
+    Results.Ok(await store.HeartbeatAsync(request)));
 device.MapPost("/lease", async (LeaseRequest request, ControlPlaneStore store, ILicenseSigner signer,
     CancellationToken cancellationToken) =>
     Results.Ok(await store.RefreshLeaseAsync(request, signer, cancellationToken)));
-device.MapPost("/metering", (MeteringRequest request, ControlPlaneStore store) =>
+device.MapPost("/metering", async (MeteringRequest request, ControlPlaneStore store) =>
 {
-    store.AcceptMetering(request);
+    await store.AcceptMeteringAsync(request);
     return Results.Accepted();
 });
 app.Run();
