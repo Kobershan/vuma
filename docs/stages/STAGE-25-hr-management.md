@@ -1,6 +1,6 @@
 # Stage 25 — HR Management
 
-**Status:** IN_PROGRESS — employee, contract, leave and employee-document metadata persistence, permissions and API foundations are implemented and tested; disciplinary workflows, payroll export and full acceptance remain.
+**Status:** IN_PROGRESS — employee, contract, leave, employee-document metadata, disciplinary workflows and source payroll export are implemented and tested; durable payroll delivery, statutory-provider integration, full acceptance and specialist review remain.
 
 Owns tenant employees, employment terms and leave. All tables use `hr_management`; cross-module
 references are identifiers or published contracts, never database foreign keys.
