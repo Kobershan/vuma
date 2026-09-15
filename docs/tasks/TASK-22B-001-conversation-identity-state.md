@@ -25,8 +25,8 @@ conversation work, and persist an explicit conversation state machine.
 - Scope migration Up/Down passes on real PostgreSQL; the conversation unit slice is 17/17 green.
 - All account-backed document intents now reduce persisted grants to the active operating company
   before resolving account or document references; conversation handler tests remain 32/32 green.
-- Real HTTP webhook coverage rejects an invalid signature and gives an unbound sender onboarding only;
-  the focused API checks pass 2/2.
+- Real HTTP webhook coverage rejects an invalid signature, gives an unbound sender onboarding only,
+  and refuses a binding owned by another tenant; the focused API checks pass 3/3.
 - Transcript data classification, tenant ownership, retention policy and permission-gated audit
   handling are recorded in `docs/SECURITY.md` §5.
 
