@@ -106,5 +106,6 @@ acceptance remain for the stage.
 2026-09-15: Task selected after the stage architecture map was made canonical.
 2026-09-15: Added `VumaRetail.ControlPlane` to the solution with device activation, heartbeat and
 metering routes, external signer boundary, replay protection, non-negative allow-listed counters and
-unknown-node refusal. `VumaRetail.ControlPlane.Tests` passes **3/3** and the solution build has **0**
+unknown-node refusal. Lease refresh and idempotent heartbeat/metering replay are also covered.
+`VumaRetail.ControlPlane.Tests` passes **4/4** and the solution build has **0**
 errors. Production persistence, KMS/HSM, certificate provisioning and real-install acceptance remain.

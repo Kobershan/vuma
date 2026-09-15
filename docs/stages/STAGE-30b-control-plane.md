@@ -24,9 +24,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 ## Objective
 
 2026-09-15: The separate `VumaRetail.ControlPlane` deployable now provides the initial device
-activation, heartbeat and metering contract surface with signer isolation and replay-safe requests.
-Dedicated tests pass **3/3**; production persistence, KMS/HSM, mTLS deployment and vendor surfaces
-remain.
+activation, lease, heartbeat and metering contract surface with signer isolation and replay-safe
+requests. Dedicated tests pass **4/4**; production persistence, KMS/HSM, mTLS deployment and vendor
+surfaces remain.
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
 Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"

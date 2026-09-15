@@ -18,6 +18,9 @@ device.MapPost("/activations", async (ActivationRequest request, ControlPlaneSto
 });
 device.MapPost("/heartbeat", (HeartbeatRequest request, ControlPlaneStore store) =>
     Results.Ok(store.Heartbeat(request)));
+device.MapPost("/lease", async (LeaseRequest request, ControlPlaneStore store, ILicenseSigner signer,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await store.RefreshLeaseAsync(request, signer, cancellationToken)));
 device.MapPost("/metering", (MeteringRequest request, ControlPlaneStore store) =>
 {
     store.AcceptMetering(request);

@@ -52,6 +52,22 @@ public sealed class ControlPlaneStoreTests
             .Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Fact]
+    public async Task Lease_and_heartbeat_replays_return_the_original_response()
+    {
+        var store = new ControlPlaneStore();
+        var signer = new TestSigner();
+        DeviceResponse node = await store.ActivateAsync(
+            new ActivationRequest(Guid.NewGuid(), "licence-1", "install-2", "fp-2", "1.0"), signer, CancellationToken.None);
+        LeaseRequest lease = new(Guid.NewGuid(), node.NodeId, node.LeaseId!, "fp-2", 1,
+            DateTimeOffset.UtcNow, "boot-1", "1.0");
+        DeviceResponse firstLease = await store.RefreshLeaseAsync(lease, signer, CancellationToken.None);
+        (await store.RefreshLeaseAsync(lease, signer, CancellationToken.None)).Should().BeEquivalentTo(firstLease);
+        HeartbeatRequest heartbeat = new(Guid.NewGuid(), node.NodeId, DateTimeOffset.UtcNow, 10, "1.0",
+            1, 1, 0, 0, null, null, 1, "boot-1", false, "ok", 0);
+        store.Heartbeat(heartbeat).Should().BeEquivalentTo(store.Heartbeat(heartbeat));
+    }
+
     private sealed class TestSigner : ILicenseSigner
     {
         public int Calls { get; private set; }

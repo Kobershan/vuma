@@ -35,6 +35,7 @@ public sealed class ControlPlaneStore
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, (string Fingerprint, DeviceResponse Response)> _requests = [];
+    private readonly Dictionary<Guid, string> _meteringRequests = [];
     private readonly Dictionary<string, string> _nodes = new(StringComparer.Ordinal);
 
     public async Task<DeviceResponse> ActivateAsync(ActivationRequest request, ILicenseSigner signer,
@@ -67,6 +68,7 @@ public sealed class ControlPlaneStore
 
     public DeviceResponse Heartbeat(HeartbeatRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ValidateNonNegative(request.TerminalsOnline, nameof(request.TerminalsOnline));
         ValidateNonNegative(request.TerminalsRegistered, nameof(request.TerminalsRegistered));
         ValidateNonNegative(request.SyncLagSeconds, nameof(request.SyncLagSeconds));
@@ -74,12 +76,48 @@ public sealed class ControlPlaneStore
         lock (_gate)
         {
             if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
-            return new(request.RequestId.ToString("D"), request.NodeId, null, null, []);
+            string fingerprint = JsonSerializer.Serialize(request);
+            if (_requests.TryGetValue(request.RequestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return replay.Response;
+            }
+            DeviceResponse response = new(request.RequestId.ToString("D"), request.NodeId, null, null, []);
+            _requests[request.RequestId] = (fingerprint, response);
+            return response;
         }
+    }
+
+    public async Task<DeviceResponse> RefreshLeaseAsync(LeaseRequest request, ILicenseSigner signer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(signer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.NodeId);
+        lock (_gate)
+        {
+            if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
+            string fingerprint = JsonSerializer.Serialize(request);
+            if (_requests.TryGetValue(request.RequestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return replay.Response;
+            }
+        }
+        string leaseId = Guid.NewGuid().ToString("N");
+        string signature = await signer.SignAsync($"{request.NodeId}|{leaseId}|{request.Version}", cancellationToken)
+            .ConfigureAwait(false);
+        DeviceResponse response = new(request.RequestId.ToString("D"), request.NodeId, leaseId, signature, []);
+        lock (_gate)
+        {
+            _requests[request.RequestId] = (JsonSerializer.Serialize(request), response);
+        }
+        return response;
     }
 
     public void AcceptMetering(MeteringRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ValidateNonNegative(request.Counts.Transactions, nameof(request.Counts.Transactions));
         ValidateNonNegative(request.Counts.ActiveUsers, nameof(request.Counts.ActiveUsers));
         ValidateNonNegative(request.Counts.StorageBytes, nameof(request.Counts.StorageBytes));
@@ -88,6 +126,13 @@ public sealed class ControlPlaneStore
         lock (_gate)
         {
             if (!_nodes.ContainsKey(request.NodeId)) throw new KeyNotFoundException("Unknown device node.");
+            string fingerprint = JsonSerializer.Serialize(request);
+            if (_meteringRequests.TryGetValue(request.RequestId, out string? existing))
+            {
+                if (existing != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return;
+            }
+            _meteringRequests[request.RequestId] = fingerprint;
         }
     }
 
