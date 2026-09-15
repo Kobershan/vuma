@@ -403,6 +403,10 @@ public sealed class PlaceOrderIntentHandler(
             }
             VumaRetail.Domain.FieldSales.ProFormaOrder order = await proFormas.FindAsync(proFormaId, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("The pro forma order was not found.");
+            if (order.TenantId != conversation.TenantId)
+            {
+                throw new InvalidOperationException("The pro forma order is outside the conversation tenant scope.");
+            }
             if (!(await scopes.ListAsync(conversation.ContactBindingId, cancellationToken).ConfigureAwait(false))
                 .Any(scope => scope.OperatingCompanyId == order.CompanyId))
             {
