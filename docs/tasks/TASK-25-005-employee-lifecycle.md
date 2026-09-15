@@ -1,6 +1,6 @@
 # TASK-25-005 — Employee lifecycle operations
 
-Status: IN_PROGRESS  
+Status: COMPLETE for lifecycle slice  
 Stage: 25  
 Type: Application/API
 
