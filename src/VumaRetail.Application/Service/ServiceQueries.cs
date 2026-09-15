@@ -19,6 +19,28 @@ public sealed record GetServiceSlaDeadlinesQuery(Guid CompanyId, Guid TicketId, 
 public sealed record ServiceSlaDeadlineResult(Guid TicketId, string SlaName, DateTimeOffset ResponseDueAtUtc,
     DateTimeOffset ResolutionDueAtUtc, bool ResponseBreached, bool ResolutionBreached);
 
+public sealed record ListServiceSlaBreachesQuery(Guid CompanyId, Guid? TicketId = null)
+    : IQuery<IReadOnlyList<ServiceSlaBreachResult>>;
+
+public sealed record ServiceSlaBreachResult(Guid Id, Guid TicketId, string SlaName, string BreachType,
+    DateTimeOffset DueAtUtc, DateTimeOffset ObservedAtUtc);
+
+public sealed class ListServiceSlaBreachesQueryHandler(IServiceRepository services, ICompanyContext company,
+    ITenantContext tenant) : IQueryHandler<ListServiceSlaBreachesQuery, IReadOnlyList<ServiceSlaBreachResult>>
+{
+    public async Task<IReadOnlyList<ServiceSlaBreachResult>> HandleAsync(ListServiceSlaBreachesQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
+        return (await services.ListSlaBreachesAsync(query.CompanyId, query.TicketId, cancellationToken)
+                .ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.CompanyId == query.CompanyId)
+            .Select(x => new ServiceSlaBreachResult(x.Id, x.TicketId, x.SlaName, x.BreachType.ToString(),
+                x.DueAtUtc, x.ObservedAtUtc)).ToArray();
+    }
+}
+
 public sealed class GetServiceSlaDeadlinesQueryHandler(IServiceRepository services, ITenantContext tenant, ICompanyContext company,
     IServiceSlaClock slaClock) : IQueryHandler<GetServiceSlaDeadlinesQuery, ServiceSlaDeadlineResult>
 {

@@ -40,6 +40,12 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
         ServiceSlaBreachType breachType, CancellationToken cancellationToken = default)
         => context.ServiceSlaBreachEvents.FirstOrDefaultAsync(x => x.TicketId == ticketId
             && x.SlaName == slaName.Trim() && x.BreachType == breachType, cancellationToken);
+    public async Task<IReadOnlyList<ServiceSlaBreachEvent>> ListSlaBreachesAsync(Guid companyId,
+        Guid? ticketId = null, CancellationToken cancellationToken = default)
+        => await context.ServiceSlaBreachEvents.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && (ticketId == null || x.TicketId == ticketId))
+            .OrderByDescending(x => x.ObservedAtUtc).ThenBy(x => x.TicketId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
     public void Add(ServiceTicket ticket) => context.ServiceTickets.Add(ticket);
     public void Add(WarrantyClaim claim) => context.WarrantyClaims.Add(claim);

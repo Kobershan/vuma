@@ -18,6 +18,8 @@ public interface IServiceRepository
     Task<ServiceSla?> FindSlaByNameAsync(Guid companyId, string name, CancellationToken cancellationToken = default);
     Task<ServiceSlaBreachEvent?> FindSlaBreachAsync(Guid ticketId, string slaName, ServiceSlaBreachType breachType,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ServiceSlaBreachEvent>> ListSlaBreachesAsync(Guid companyId, Guid? ticketId = null,
+        CancellationToken cancellationToken = default);
     void Add(ServiceTicket ticket);
     void Add(WarrantyClaim claim);
     void Add(RepairJob job);

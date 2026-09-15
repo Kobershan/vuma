@@ -1,6 +1,6 @@
 # STAGE 23 — Service Management
 
-**Status:** IN_PROGRESS — ticket/SLA slices, bounded breach worker, and durable breach audits implemented; full API/isolation acceptance and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
+**Status:** IN_PROGRESS — ticket/SLA slices, bounded breach worker, durable breach audits and company-scoped breach reads/API are implemented; full API/isolation acceptance and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
 use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
