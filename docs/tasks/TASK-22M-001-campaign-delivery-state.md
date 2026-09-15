@@ -42,8 +42,9 @@ marketing-focused tests remain green at **19/19**.
 
 ## Follow-up findings
 
-The durable shared delivery outbox and provider callback deployment remain open. The provider adapter
-boundary is now implemented and fail-closed when unconfigured. Provider
+The durable shared delivery outbox and provider callback deployment remain open. Outbound rows now
+record retryable transport attempts and bounded failure reasons while remaining queued for a later
+worker pass. The provider adapter boundary is now implemented and fail-closed when unconfigured. Provider
 event identity and payload fingerprints now make identical callback replay a no-op and changed
 content reuse a stable conflict; migration `20260914034549_Stage22MarketingProviderResults` adds
 the durable fields.

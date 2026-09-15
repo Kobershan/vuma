@@ -45,7 +45,21 @@ public sealed class MarketingDeliveryService(
             return MarketingDispatchOutcome.Suppressed;
         }
 
-        MarketingTransportResult result = await transport.SendAsync(message, campaign, cancellationToken).ConfigureAwait(false);
+        message.RecordDeliveryAttempt(now);
+        MarketingTransportResult result;
+        try
+        {
+            result = await transport.SendAsync(message, campaign, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception failure)
+        {
+            message.RecordDeliveryFailure(failure.Message);
+            return MarketingDispatchOutcome.Failed;
+        }
         message.ApplyProviderResult(result.ProviderEventId, result.PayloadFingerprint, result.Delivered);
         return result.Delivered ? MarketingDispatchOutcome.Delivered : MarketingDispatchOutcome.Failed;
     }

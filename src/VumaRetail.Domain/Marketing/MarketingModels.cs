@@ -67,6 +67,9 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
     public MarketingMessageClassification Classification { get; private set; } = MarketingMessageClassification.Marketing;
     public string? ProviderEventId { get; private set; }
     public string? ProviderPayloadFingerprint { get; private set; }
+    public int DeliveryAttemptCount { get; private set; }
+    public DateTimeOffset? LastDeliveryAttemptAtUtc { get; private set; }
+    public string? LastDeliveryFailure { get; private set; }
     public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt,
         MarketingMessageChannel channel = MarketingMessageChannel.Email, MarketingMessageClassification classification = MarketingMessageClassification.Marketing)
     {
@@ -116,6 +119,29 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
         }
         ProviderEventId = providerEventId.Trim();
         ProviderPayloadFingerprint = payloadFingerprint.Trim();
+        LastDeliveryFailure = delivered ? null : LastDeliveryFailure;
         Status = delivered ? OutboundMessageStatus.Sent : OutboundMessageStatus.Failed;
+    }
+
+    /// <summary>Records a provider attempt without changing the durable queued state.</summary>
+    public void RecordDeliveryAttempt(DateTimeOffset attemptedAtUtc)
+    {
+        if (Status != OutboundMessageStatus.Queued)
+        {
+            throw new InvalidOperationException("Only a queued message can be attempted.");
+        }
+        DeliveryAttemptCount++;
+        LastDeliveryAttemptAtUtc = attemptedAtUtc.ToUniversalTime();
+    }
+
+    /// <summary>Records a retryable transport failure while leaving the message queued.</summary>
+    public void RecordDeliveryFailure(string reason)
+    {
+        if (Status != OutboundMessageStatus.Queued)
+        {
+            throw new InvalidOperationException("Only a queued message can record a delivery failure.");
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        LastDeliveryFailure = reason.Trim()[..Math.Min(reason.Trim().Length, 1024)];
     }
 }

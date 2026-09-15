@@ -32,6 +32,9 @@ internal sealed class OutboundMessageConfiguration : EntityConfiguration<Outboun
         b.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         b.Property(x => x.ProviderEventId).HasMaxLength(256);
         b.Property(x => x.ProviderPayloadFingerprint).HasMaxLength(128);
+        b.Property(x => x.DeliveryAttemptCount).IsRequired();
+        b.Property(x => x.LastDeliveryAttemptAtUtc);
+        b.Property(x => x.LastDeliveryFailure).HasMaxLength(1024);
         b.Property(x => x.Channel).HasConversion<string>().HasMaxLength(16).IsRequired();
         b.Property(x => x.Classification).HasConversion<string>().HasMaxLength(16).IsRequired();
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IdempotencyKey }).IsUnique()

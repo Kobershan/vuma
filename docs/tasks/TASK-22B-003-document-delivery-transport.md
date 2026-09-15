@@ -1,6 +1,6 @@
 # TASK-22B-003 — Document delivery and transport integration
 
-**Status:** IN_PROGRESS — token and transport wiring slice complete; durable delivery retry audit remains · **Stage:** 22b · **Type:** Application / infrastructure / integration
+**Status:** IN_PROGRESS — token, transport wiring, and durable retry metadata slice complete; conversational delivery retry audit remains · **Stage:** 22b · **Type:** Application / infrastructure / integration
 
 ## Objective
 

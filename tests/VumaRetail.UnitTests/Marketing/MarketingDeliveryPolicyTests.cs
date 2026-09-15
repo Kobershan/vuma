@@ -266,4 +266,34 @@ public sealed class MarketingDeliveryPolicyTests
         message.Status.Should().Be(OutboundMessageStatus.Sent);
         message.ProviderEventId.Should().Be("provider-event-1");
     }
+
+    [Fact]
+    public async Task Delivery_service_records_retryable_transport_failure()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var campaign = MarketingCampaign.Create(Guid.NewGuid(), null, Guid.NewGuid(), "Retry", "retry-v1", now);
+        campaign.Schedule(now);
+        var message = OutboundMessage.Queue(campaign.TenantId, null, campaign.CompanyId!.Value, campaign.Id,
+            Guid.NewGuid(), "dispatch-retry", now);
+        var campaigns = Substitute.For<IMarketingCampaignRepository>();
+        campaigns.FindAsync(campaign.Id, Arg.Any<CancellationToken>()).Returns(campaign);
+        var messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        var consent = Substitute.For<IConsentService>();
+        consent.IsValidAsync(message.CustomerId, ConsentType.MarketingEmail,
+            Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(true);
+        var transport = Substitute.For<IMarketingTransport>();
+        transport.SendAsync(message, campaign, Arg.Any<CancellationToken>()).Returns<Task<MarketingTransportResult>>(
+            _ => throw new HttpRequestException("provider unavailable"));
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(now);
+
+        MarketingDispatchOutcome outcome = await new MarketingDeliveryService(campaigns, messages,
+            new MarketingDeliveryPolicy(consent), transport, clock).DispatchAsync(message.Id);
+
+        outcome.Should().Be(MarketingDispatchOutcome.Failed);
+        message.Status.Should().Be(OutboundMessageStatus.Queued);
+        message.DeliveryAttemptCount.Should().Be(1);
+        message.LastDeliveryFailure.Should().Be("provider unavailable");
+    }
 }
