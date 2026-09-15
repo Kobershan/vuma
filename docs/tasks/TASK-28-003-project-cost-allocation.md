@@ -1,6 +1,6 @@
 # TASK-28-003 — Project cost allocation
 
-Status: IN_PROGRESS  
+Status: COMPLETE for project-cost allocation/summary slice  
 Stage: 28  
 Type: Application/API
 
