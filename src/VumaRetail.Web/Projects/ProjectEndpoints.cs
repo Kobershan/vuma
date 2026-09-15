@@ -17,6 +17,7 @@ public static class ProjectEndpoints
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/projects").WithTags("Projects").RequireModule("projects");
         group.MapPost("/", CreateAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{projectId:guid}/costs", AllocateCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/{projectId:guid}/labour-costs", AllocateLabourCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapGet("/{projectId:guid}/costs/summary", async (Guid projectId, Guid companyId, IDispatcher dispatcher, CancellationToken cancellationToken) =>
             Results.Ok(await dispatcher.QueryAsync(new GetProjectCostSummaryQuery(companyId, projectId), cancellationToken)))
             .RequirePermission(ProjectPermissions.View);
@@ -46,6 +47,14 @@ public static class ProjectEndpoints
         return Results.Created($"/api/v1/projects/{projectId:D}/costs/{id:D}", id);
     }
 
+    private static async Task<IResult> AllocateLabourCostAsync(Guid projectId, AllocateProjectLabourCostRequest request,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(new AllocateProjectLabourCostCommand(request.CompanyId, projectId,
+            request.EmployeeId, request.From, request.To), cancellationToken).ConfigureAwait(false);
+        return Results.Created($"/api/v1/projects/{projectId:D}/costs/{id:D}", id);
+    }
+
     private static async Task<IResult> ApproveVariationAsync(Guid id, ProjectCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         await dispatcher.SendAsync(new ApproveContractVariationCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false);
@@ -62,4 +71,5 @@ public static class ProjectEndpoints
     public sealed record ProjectCompanyRequest(Guid CompanyId);
     public sealed record AllocateProjectCostRequest(Guid CompanyId, string SourceReference, ProjectCostKind Kind,
         decimal Amount, string Currency);
+    public sealed record AllocateProjectLabourCostRequest(Guid CompanyId, Guid EmployeeId, DateOnly From, DateOnly To);
 }

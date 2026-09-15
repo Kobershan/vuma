@@ -49,7 +49,8 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
   commands and authorization remain.
 - [~] 28-P02: Integrate labour/procurement cost allocation, WIP and milestone billing. Project
   creation, approval and milestone billing commands are now exposed through the scoped
-  `/api/v1/projects` API; labour/procurement allocation and invoice integration remain.
+  `/api/v1/projects` API; labour allocation from closed HR attendance is now available, while
+  procurement allocation, WIP and invoice integration remain.
 - [ ] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
@@ -69,6 +70,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: Added tenant-and-company scope checks to project cost allocation, budget approval,
   contract variation approval and milestone billing, including persisted scope validation on cost
   replay. Focused project tests pass **7/7**.
+- 2026-09-15: Added `POST /api/v1/projects/{projectId}/labour-costs`, deriving a replay-safe labour
+  allocation from closed attendance and the applicable employment contract. `ProjectCostTests`
+  passes **5/5**; procurement/WIP/invoice integration and PostgreSQL/API acceptance remain.
 
 ## Tests / acceptance
 

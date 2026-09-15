@@ -3,6 +3,9 @@ using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Projects;
+using VumaRetail.Application.Hr;
+using VumaRetail.Domain.HrManagement;
+using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Projects;
 
@@ -89,5 +92,44 @@ public sealed class ProjectCostTests
             .HandleAsync(new AllocateProjectCostCommand(companyId, project.Id, "foreign", ProjectCostKind.Other, 1m, "ZAR")))
             .Should().ThrowAsync<InvalidOperationException>();
         repository.DidNotReceive().Add(Arg.Any<ProjectCostEntry>());
+    }
+
+    [Fact]
+    public async Task Labour_cost_allocation_prices_closed_attendance_and_replays_by_period()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        DateOnly day = new(2026, 9, 1);
+        DateTimeOffset start = new(day.ToDateTime(new TimeOnly(8)), TimeSpan.Zero);
+        Employee employee = Employee.Create(tenantId, "E-100", "Ada", "Lovelace", start, EmploymentType.Permanent);
+        employee.AssignCompany(companyId);
+        EmploymentContract contract = EmploymentContract.Create(tenantId, employee.Id, day, null, 30m, "ZAR");
+        Project project = Project.Create(tenantId, null, companyId, "P-2", "Refit", "ZAR");
+        var projects = Substitute.For<IProjectRepository>();
+        projects.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+        var employees = Substitute.For<IEmployeeRepository>();
+        employees.FindAsync(employee.Id, Arg.Any<CancellationToken>()).Returns(employee);
+        var contracts = Substitute.For<IEmploymentContractRepository>();
+        contracts.ListAsync(employee.Id, Arg.Any<CancellationToken>()).Returns(new[] { contract });
+        var attendance = Substitute.For<IAttendanceRepository>();
+        attendance.ListAsync(Arg.Any<DateTimeOffset>(), Arg.Any<DateTimeOffset>(), employee.Id, Arg.Any<CancellationToken>())
+            .Returns(new[]
+            {
+                AttendanceRecord.Record(tenantId, employee.Id, null, AttendanceEventType.ClockIn, start),
+                AttendanceRecord.Record(tenantId, employee.Id, null, AttendanceEventType.ClockOut, start.AddHours(3)),
+            });
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        Guid id = await new AllocateProjectLabourCostCommandHandler(projects, employees, contracts,
+            attendance, tenant, company).HandleAsync(new AllocateProjectLabourCostCommand(
+            companyId, project.Id, employee.Id, day, day));
+
+        projects.Received(1).Add(Arg.Is<ProjectCostEntry>(x => x.Kind == ProjectCostKind.Labour
+            && x.Amount == new Money(90m, "ZAR")
+            && x.SourceReference == $"labour:{employee.Id:D}:2026-09-01:2026-09-01"));
+        id.Should().NotBeEmpty();
     }
 }

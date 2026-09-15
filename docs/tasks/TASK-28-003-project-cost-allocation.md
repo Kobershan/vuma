@@ -22,8 +22,10 @@ surface.
 
 ## Follow-up findings
 
-Labour/time-sheet and procurement adapters, Finance posting, budget measure updates, cross-company
-sagas, job-cost reports and PostgreSQL/API integration acceptance remain open.
+Labour attendance allocation is now implemented through `POST /api/v1/projects/{projectId}/labour-costs`
+with deterministic period/source identity and contract pricing. Procurement adapters, Finance
+posting, budget measure updates, cross-company sagas, job-cost reports and PostgreSQL/API integration
+acceptance remain open.
 
 2026-09-13: Added a company-scoped `GET /api/v1/projects/{projectId}/costs/summary` query. It groups
 immutable actual cost entries by currency, includes reversals, never combines currencies without FX,

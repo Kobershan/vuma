@@ -1,7 +1,10 @@
 #pragma warning disable CS1591, IDE0011
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Hr;
 using VumaRetail.Domain.Projects;
+using VumaRetail.Domain.HrManagement;
+using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Projects;
@@ -12,6 +15,10 @@ public sealed record CreateProjectCommand(Guid CompanyId, string Code, string Na
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AllocateProjectCostCommand(Guid CompanyId, Guid ProjectId, string SourceReference,
     ProjectCostKind Kind, decimal Amount, string Currency) : ICommand<Guid>;
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record AllocateProjectLabourCostCommand(Guid CompanyId, Guid ProjectId, Guid EmployeeId,
+    DateOnly From, DateOnly To) : ICommand<Guid>;
 
 public sealed class CreateProjectCommandHandler(IProjectRepository projects, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateProjectCommand, Guid>
@@ -50,6 +57,41 @@ public sealed class AllocateProjectCostCommandHandler(IProjectRepository project
             command.SourceReference, command.Kind, new Money(command.Amount, command.Currency));
         projects.Add(entry);
         return entry.Id;
+    }
+}
+
+public sealed class AllocateProjectLabourCostCommandHandler(
+    IProjectRepository projects, IEmployeeRepository employees,
+    IEmploymentContractRepository contracts, IAttendanceRepository attendance,
+    ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<AllocateProjectLabourCostCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(AllocateProjectLabourCostCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        if (command.To < command.From) throw new ArgumentException("Labour period cannot end before it starts.", nameof(command));
+        Employee employee = await employees.FindAsync(command.EmployeeId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Employee not found.");
+        if (employee.TenantId != tenant.TenantId || employee.CompanyId != command.CompanyId)
+            throw new InvalidOperationException("The employee is outside the active tenant/company scope.");
+        DateTimeOffset from = new(command.From.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        DateTimeOffset to = new(command.To.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        AttendanceRecord[] events = (await attendance.ListAsync(from, to, employee.Id, cancellationToken)
+                .ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId).OrderBy(x => x.OccurredAt).ToArray();
+        decimal hours = PayrollHoursCalculator.Calculate(events);
+        EmploymentContract contract = (await contracts.ListAsync(employee.Id, cancellationToken)
+                .ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.StartsOn <= command.To
+                && (x.EndsOn is null || x.EndsOn >= command.From))
+            .OrderByDescending(x => x.StartsOn).FirstOrDefault()
+            ?? throw new InvalidOperationException("Employee has no contract for the labour period.");
+        string source = $"labour:{employee.Id:D}:{command.From:yyyy-MM-dd}:{command.To:yyyy-MM-dd}";
+        return await new AllocateProjectCostCommandHandler(projects, tenant, company).HandleAsync(
+            new AllocateProjectCostCommand(command.CompanyId, command.ProjectId, source,
+                ProjectCostKind.Labour, decimal.Round(hours * contract.HourlyRate, 2, MidpointRounding.AwayFromZero), contract.Currency),
+            cancellationToken).ConfigureAwait(false);
     }
 }
 
