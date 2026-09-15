@@ -16,7 +16,20 @@ pwsh scripts/build-windows-server-bundle.ps1
 The bundle is created in `artifacts/windows-server` and contains:
 
 - `VumaRetail.StoreServer.exe` — self-contained `win-x64` service executable;
-- `install-vuma-storeserver.ps1` — service registration and configuration script.
+- `install-vuma-storeserver.ps1` — production service registration and configuration script;
+- `install-vuma-local-server.ps1` — local/demo installation with Docker PostgreSQL, migrations and seed.
+
+For a local installation, install Docker Desktop, copy the complete bundle to the Windows server,
+open PowerShell as Administrator, and run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\install-vuma-local-server.ps1 -InstallLocalPostgres -DatabasePassword 'choose-a-local-password'
+```
+
+This creates the database, applies migrations, seeds the development administrator, installs the
+`VumaRetailStoreServer` Windows Service, and opens the API on port 7243 for the private network.
+The bootstrap login is `admin` / `Admin@Vuma2026!`; deactivate it after creating the real admin.
 
 ## Install on the local server
 
