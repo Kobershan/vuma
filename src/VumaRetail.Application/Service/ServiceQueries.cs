@@ -1,4 +1,6 @@
 #pragma warning disable CS1591, IDE0011
+using System.Globalization;
+using System.Text;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Service;
@@ -69,6 +71,27 @@ public sealed record ListServiceCustodyQuery(Guid CompanyId, Guid? CustomerId = 
 
 public sealed record ServiceCustodyResult(Guid Id, Guid CompanyId, Guid TicketId, Guid CustomerId,
     string EventType, string ItemReference, DateTimeOffset OccurredAtUtc);
+
+public static class ServiceCustodyCsv
+{
+    public static string Serialize(IReadOnlyCollection<ServiceCustodyResult> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        static string Escape(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+        StringBuilder csv = new("id,company_id,ticket_id,customer_id,event_type,item_reference,occurred_at_utc\n");
+        foreach (ServiceCustodyResult row in rows)
+        {
+            csv.Append(row.Id.ToString("D")).Append(',')
+                .Append(row.CompanyId.ToString("D")).Append(',')
+                .Append(row.TicketId.ToString("D")).Append(',')
+                .Append(row.CustomerId.ToString("D")).Append(',')
+                .Append(Escape(row.EventType)).Append(',')
+                .Append(Escape(row.ItemReference)).Append(',')
+                .Append(row.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)).Append('\n');
+        }
+        return csv.ToString();
+    }
+}
 
 public sealed class ListServiceCustodyQueryHandler(IServiceRepository services, ICompanyContext company)
     : IQueryHandler<ListServiceCustodyQuery, IReadOnlyList<ServiceCustodyResult>>

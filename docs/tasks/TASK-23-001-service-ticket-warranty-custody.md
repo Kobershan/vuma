@@ -41,4 +41,5 @@ service-part usage, closing a same-company replay bypass; the service command su
 
 2026-09-15: Added the high-risk `service.custody.export` permission and a company-scoped CSV
 custody export route. The web Release build succeeds with 0 errors and the permission catalogue
-suite passes **9/9**. PostgreSQL tenant/company export isolation remains a Stage 23 acceptance gate.
+suite passes **9/9**; deterministic CSV escaping/column-order coverage passes **1/1**. PostgreSQL
+tenant/company export isolation remains a Stage 23 acceptance gate.
