@@ -352,6 +352,10 @@ public sealed class CreditNoteRequestIntentHandler(
 
         VumaRetail.Domain.FieldSales.ProFormaCreditNote note = await credits.FindAsync(creditNoteId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The credit-note proposal was not found.");
+        if (note.TenantId != conversation.TenantId)
+        {
+            throw new InvalidOperationException("The credit-note proposal is outside the conversation tenant scope.");
+        }
         IReadOnlyList<ConversationAccountScope> granted = await GetGrantedScopesAsync(
             conversation.ContactBindingId, cancellationToken).ConfigureAwait(false);
         if (!granted.Any(scope => scope.OperatingCompanyId == note.CompanyId))
