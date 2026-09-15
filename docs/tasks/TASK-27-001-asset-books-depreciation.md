@@ -1,7 +1,7 @@
 # TASK-27-001 — Asset books and depreciation foundation
 
-**Status:** COMPLETE for asset-books, idempotent depreciation, and Finance-event foundation; full
-acceptance remains a Stage 27 follow-up
+**Status:** COMPLETE for asset-books, idempotent depreciation, Finance-event foundation and
+closed-period error propagation; full acceptance remains a Stage 27 follow-up
 
 ## Scope
 

@@ -5,6 +5,7 @@ using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Assets;
 using VumaRetail.Domain.Assets;
+using VumaRetail.Domain.Finance;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
@@ -95,5 +96,25 @@ public sealed class AssetTests
             && e.SourceReference == run.Id.ToString()
             && e.Amounts[FinancialAssetDepreciationEventPublisher.DepreciationAmountKey] == run.Amount),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Depreciation_publisher_does_not_swallow_a_closed_financial_period()
+    {
+        Guid tenantId = Guid.NewGuid();
+        FixedAsset asset = FixedAsset.Create(tenantId, null, Guid.NewGuid(), "A-4", "Freezer",
+            new DateOnly(2026, 1, 1), new Money(1200m, "ZAR"));
+        AssetBook book = AssetBook.Create(tenantId, null, asset.CompanyId!.Value, asset.Id, "Local",
+            new DateOnly(2026, 1, 1), Money.Zero("ZAR"), 12);
+        DepreciationRun run = DepreciationRun.Record(tenantId, null, asset.CompanyId.Value,
+            DepreciationCalculator.Calculate(asset, book, new DateOnly(2026, 2, 1)));
+        var poster = Substitute.For<IFinancialEventPoster>();
+        poster.PostAsync(Arg.Any<IFinancialEvent>(), Arg.Any<CancellationToken>())
+            .Returns<Guid>(_ => throw new NoOpenPeriodException(run.Period));
+        var logger = Substitute.For<ILogger<FinancialAssetDepreciationEventPublisher>>();
+
+        await FluentActions.Invoking(() => new FinancialAssetDepreciationEventPublisher(poster, logger)
+                .PublishAsync(run))
+            .Should().ThrowAsync<NoOpenPeriodException>();
     }
 }

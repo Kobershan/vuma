@@ -47,7 +47,7 @@ Declare granular `assets.view`, `assets.manage` and distinct high-risk approval/
 - [~] 27-P01: Implement asset books, capitalization, custody and depreciation schedules. Domain lifecycle,
   book invariants, residual floor and useful-life calculation are implemented; persistence, lifecycle
   command seams, period idempotency, the initial command API, and the Finance event boundary are
-  implemented; PostgreSQL journal/closed-period acceptance remains.
+  implemented; publisher propagation is covered, while PostgreSQL journal/closed-period acceptance remains.
 - [~] 27-P02: Integrate maintenance, leases, procurement and Finance posting events. The
   company-scoped maintenance-order lifecycle is now implemented and covered by `MaintenanceOrderTests`;
   persistence, parts/labour capture, leases and Finance posting remain.
@@ -77,6 +77,10 @@ for checklist operation replay and evidence-download authorization.
 2026-09-13: Added immutable `StoreChecklist` definitions and append-only `ChecklistExecution`
 metadata, preserving device identity, capture time, submit time, operation identity and external
 evidence reference for offline replay. Asset-focused tests now cover this foundation.
+
+2026-09-15: Depreciation posting has an explicit closed-period regression: Finance's
+`NoOpenPeriodException` is propagated instead of being converted into a successful asset run.
+The focused asset suite is now **17/17**.
 
 - `Depreciation_stops_at_residual`: cost ZAR 12,000, residual zero, useful life 12 months, straight-line monthly policy; 12 charges of ZAR 1,000, no thirteenth charge.
 - `Depreciation_period_retry_is_noop`: run the same asset-book-period twice; one journal only.
