@@ -6,6 +6,7 @@ using VumaRetail.Application.Marketing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Domain.Marketing;
+using VumaRetail.Infrastructure.Marketing;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -23,14 +24,9 @@ public static class MarketingServiceCollectionExtensions
         services.AddScoped<MarketingDeliveryPolicy>();
         services.AddScoped<MarketingDeliveryService>();
         services.AddScoped<IMarketingDeliveryWorker, MarketingDeliveryWorker>();
-        services.AddScoped<IMarketingTransport, UnavailableMarketingTransport>();
+        services.AddOptions<MarketingTransportOptions>()
+            .BindConfiguration(MarketingTransportOptions.SectionName);
+        services.AddHttpClient<IMarketingTransport, HttpMarketingTransport>();
         return services;
     }
-}
-
-internal sealed class UnavailableMarketingTransport : IMarketingTransport
-{
-    public Task<MarketingTransportResult> SendAsync(OutboundMessage message, MarketingCampaign campaign,
-        CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("No marketing provider transport is configured.");
 }

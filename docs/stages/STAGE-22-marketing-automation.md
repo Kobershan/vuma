@@ -58,7 +58,9 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
   worker remain. Outbound messages now persist channel/classification metadata, and company-scoped
     campaign/message operator reads and due-queue listing are exposed. A consent-aware application
     dispatch boundary now suppresses withdrawn recipients before invoking a transport and applies
-    provider results idempotently; provider adapter and durable worker wiring remain.
+    provider results idempotently. A configured HTTPS transport adapter is registered with
+    deployment-provided bearer credentials and a fail-closed no-endpoint default; focused transport
+    coverage passes 2/2. Provider-specific callback deployment remains.
 - [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.

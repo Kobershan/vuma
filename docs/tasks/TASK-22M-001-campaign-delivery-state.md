@@ -31,9 +31,15 @@ and payload fingerprints; identical callbacks are no-ops and changed-content reu
 2026-09-14: The application dispatch boundary now rechecks consent before transport, suppresses
 withdrawn recipients, and applies provider delivery results. Focused marketing tests pass **19/19**.
 
+2026-09-15: A configured HTTPS marketing transport adapter is now registered for production delivery.
+It sends durable message identity and idempotency metadata, requires a provider event identity,
+supports deployment-provided bearer credentials, and remains fail-closed when no endpoint is configured.
+Focused transport tests pass **2/2**; provider-specific callback deployment remains environment configuration.
+
 ## Follow-up findings
 
-The durable shared delivery outbox, provider adapters and operator endpoints remain open. Provider
+The durable shared delivery outbox and provider callback deployment remain open. The provider adapter
+boundary is now implemented and fail-closed when unconfigured. Provider
 event identity and payload fingerprints now make identical callback replay a no-op and changed
 content reuse a stable conflict; migration `20260914034549_Stage22MarketingProviderResults` adds
 the durable fields.

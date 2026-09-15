@@ -12,6 +12,11 @@ WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/
 creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration
 reversibility pass the focused registry suite (**9/9** integration tests).
 
+WORK LOG (2026-09-15): Stage 22 marketing delivery now has a registered HTTPS transport adapter with
+durable idempotency metadata, required provider event identity and deployment bearer credentials;
+missing configuration fails closed. Focused transport tests pass **2/2**. Provider-specific callback
+deployment remains open.
+
 WORK LOG (2026-09-15): Stage 21 TASK-21-002 authoritative checkout settlement is now verified through
 the real PostgreSQL API: a confirmed, captured checkout creates a server-priced order, allocates from
 the company-bound bin projection, and persists a two-unit held reservation. The implementation keeps
