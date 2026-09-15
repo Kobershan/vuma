@@ -47,6 +47,12 @@ public interface IConnectClaimRepository
     void Add(ConnectDeliveryClaim claim);
 }
 
+public interface ISupplierPortalGrantRepository
+{
+    Task<SupplierPortalGrant?> FindForTenantAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
+    void Add(SupplierPortalGrant grant);
+}
+
 public sealed record ConnectConnectionResult(Guid Id, Guid SupplierTenantId, Guid RetailerTenantId, TradingConnectionStatus Status, string Currency, decimal CreditLimit, int LeadTimeDays, decimal MinimumOrderValue);
 public sealed record ConnectCodeResult(Guid Id, string Code, DateTimeOffset ExpiresAt, int MaxUses, string? PriceTier, string? Territory, bool GrantsPortalAccess);
 public sealed record ConnectPublicationResult(Guid Id, Guid ConnectionId, int Version, DateTimeOffset EffectiveFrom, DateTimeOffset? RolledBackAt, IReadOnlyList<ConnectPublicationLineResult> Lines);

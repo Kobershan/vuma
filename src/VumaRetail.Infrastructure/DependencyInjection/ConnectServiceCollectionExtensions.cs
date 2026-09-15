@@ -25,6 +25,7 @@ public static class ConnectServiceCollectionExtensions
         services.TryAddScoped<IConnectLedgerPoster, InMemoryConnectLedgerPoster>();
         services.AddScoped<IConnectRemittanceRepository, ConnectRemittanceRepository>();
         services.AddScoped<IConnectClaimRepository, ConnectClaimRepository>();
+        services.AddScoped<ISupplierPortalGrantRepository, SupplierPortalGrantRepository>();
         return services;
     }
 }

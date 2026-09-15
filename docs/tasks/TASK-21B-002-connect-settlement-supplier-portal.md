@@ -1,6 +1,6 @@
 # TASK-21B-002 — Connect settlement and supplier portal
 
-Status: IN_PROGRESS — settlement, remittance persistence, supplier portal route, and permission foundations implemented
+Status: IN_PROGRESS — settlement, remittance persistence, supplier portal access, and permission foundations implemented
 Stage: 21b
 Type: Cross-tenant network, settlement, portal, API
 
@@ -21,6 +21,7 @@ ASN/GRN and end-to-end settlement evidence remain open.
 
 ## Work log
 
-2026-09-15: Existing Connect foundations verified: Connect unit suite 15/15 and PostgreSQL API suite
-5/5. Canonical task file created; remaining portal, ASN/GRN and offline-convergence work is retained
-as IN_PROGRESS.
+2026-09-15: Existing Connect foundations verified: Connect unit suite 19/19, PostgreSQL API suite
+5/5, and migration suite 20/20. Added explicit supplier portal grants with party-scoped revoke,
+tenant-admin-compatible endpoints, and migration `20260915071141_Stage21bSupplierPortalGrants`.
+Remaining ASN/GRN integration and offline-convergence work is retained as IN_PROGRESS.

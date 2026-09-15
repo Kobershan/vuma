@@ -25,6 +25,8 @@ public static class ConnectEndpoints
         api.MapPost("/connections/{id:guid}/accept", async (Guid id, AcceptConnectionRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Ok(await d.SendAsync(new AcceptTradingConnectionCommand(id, r.Currency, r.CreditLimit, r.LeadTimeDays, r.MinimumOrderValue), ct))).RequirePermission(ConnectPermissions.Manage);
         api.MapPost("/connections/{id:guid}/suspend", async (Guid id, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new SuspendTradingConnectionCommand(id), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Manage);
         api.MapPost("/connections/{id:guid}/end", async (Guid id, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new EndTradingConnectionCommand(id), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Manage);
+        api.MapPost("/connections/{id:guid}/granted-users", async (Guid id, GrantPortalAccessRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Created($"/api/v1/connect/granted-users/{await d.SendAsync(new GrantSupplierPortalAccessCommand(id, r.ContactId, r.AccessRole), ct)}", new { })).RequirePermission(ConnectPermissions.Manage);
+        api.MapDelete("/granted-users/{id:guid}", async (Guid id, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new RevokeSupplierPortalAccessCommand(id), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Manage);
 
         api.MapPost("/catalogue/publish", async (PublishCatalogueRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Created($"/api/v1/connect/catalogue/{await d.SendAsync(new PublishCatalogueCommand(r.ConnectionId, r.Version, r.EffectiveFrom, r.VersionNote, r.Lines.Select(x => new PublishCatalogueLine(x.SupplierSku, x.Description, x.Barcode, x.PackSize, x.MinimumOrderQuantity, x.LeadTimeDays)).ToList()), ct)}", new { })).RequirePermission(ConnectPermissions.Publish);
         api.MapGet("/catalogue/{id:guid}", async (Guid id, IDispatcher d, CancellationToken ct) => { ConnectPublicationResult? value = await d.QueryAsync(new GetConnectPublicationQuery(id), ct); return value is null ? Results.NotFound() : Results.Ok(value); }).RequirePermission(ConnectPermissions.View);
@@ -52,6 +54,7 @@ public static class ConnectEndpoints
     public sealed record IssueCodeRequest(string Code, int Uses, DateTimeOffset ExpiresAt, string? PriceTier, string? Territory, bool GrantsPortalAccess);
     public sealed record RedeemCodeRequest(string Code, string? RetailerAccountReference);
     public sealed record AcceptConnectionRequest(string Currency, decimal CreditLimit, int LeadTimeDays, decimal MinimumOrderValue);
+    public sealed record GrantPortalAccessRequest(Guid ContactId, string AccessRole);
     public sealed record PublishCatalogueRequest(Guid ConnectionId, int Version, DateTimeOffset EffectiveFrom, string? VersionNote, IReadOnlyList<PublishCatalogueLineRequest> Lines);
     public sealed record PublishCatalogueLineRequest(string SupplierSku, string Description, string? Barcode, int PackSize, decimal? MinimumOrderQuantity, int? LeadTimeDays);
     public sealed record PublishPriceRequest(Guid ConnectionId, DateTimeOffset EffectiveFrom, DateTimeOffset? ExpiresAt, string? VersionNote, IReadOnlyList<PublishPriceLineRequest> Lines);

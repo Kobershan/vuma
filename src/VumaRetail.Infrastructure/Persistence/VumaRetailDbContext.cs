@@ -377,6 +377,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Connect.ConnectOrder> ConnectOrders => Set<Domain.Connect.ConnectOrder>();
     public DbSet<Domain.Connect.ConnectRemittanceAdvice> ConnectRemittances => Set<Domain.Connect.ConnectRemittanceAdvice>();
     public DbSet<Domain.Connect.ConnectDeliveryClaim> ConnectClaims => Set<Domain.Connect.ConnectDeliveryClaim>();
+    public DbSet<Domain.Connect.SupplierPortalGrant> SupplierPortalGrants => Set<Domain.Connect.SupplierPortalGrant>();
 
     /// <summary>Lines on connection-scoped purchase orders.</summary>
     public DbSet<Domain.Connect.ConnectOrderLine> ConnectOrderLines => Set<Domain.Connect.ConnectOrderLine>();

@@ -153,3 +153,14 @@ internal sealed class ConnectClaimConfiguration : EntityConfiguration<ConnectDel
         builder.HasIndex(x => new { x.TenantId, x.ClaimNumber }).IsUnique().HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class SupplierPortalGrantConfiguration : EntityConfiguration<SupplierPortalGrant>
+{
+    protected override string Schema => Schemas.Connect;
+    protected override string TableName => "supplier_portal_grants";
+    protected override void ConfigureEntity(EntityTypeBuilder<SupplierPortalGrant> builder)
+    {
+        builder.Property(x => x.AccessRole).HasMaxLength(64).IsRequired();
+        builder.HasIndex(x => new { x.TenantId, x.ConnectionId, x.ContactId }).IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}

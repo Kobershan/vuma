@@ -75,3 +75,12 @@ public sealed class ConnectClaimRepository(VumaRetailDbContext context) : IConne
             (x.RetailerTenantId == tenantId || x.SupplierTenantId == tenantId), cancellationToken);
     public void Add(ConnectDeliveryClaim claim) => context.ConnectClaims.Add(claim);
 }
+
+public sealed class SupplierPortalGrantRepository(VumaRetailDbContext context) : ISupplierPortalGrantRepository
+{
+    public Task<SupplierPortalGrant?> FindForTenantAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+        => context.SupplierPortalGrants.SingleOrDefaultAsync(x => x.Id == id &&
+            (x.RetailerTenantId == tenantId || x.SupplierTenantId == tenantId), cancellationToken);
+
+    public void Add(SupplierPortalGrant grant) => context.SupplierPortalGrants.Add(grant);
+}

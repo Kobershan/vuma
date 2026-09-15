@@ -106,4 +106,17 @@ public sealed class ConnectDomainTests
         claim.CreditNoteReference.Should().Be("CN-1");
         FluentActions.Invoking(() => claim.IssueCreditNote("CN-2", Now.AddHours(2))).Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void Supplier_portal_grant_is_party_scoped_and_revokeable_by_retailer()
+    {
+        Guid supplier = Guid.NewGuid();
+        Guid retailer = Guid.NewGuid();
+        SupplierPortalGrant grant = SupplierPortalGrant.Create(supplier, retailer, Guid.NewGuid(), Guid.NewGuid(), "orders", DateTimeOffset.UtcNow);
+
+        grant.Revoke(retailer, DateTimeOffset.UtcNow);
+        grant.IsActive.Should().BeFalse();
+        FluentActions.Invoking(() => grant.Revoke(Guid.NewGuid(), DateTimeOffset.UtcNow))
+            .Should().Throw<UnauthorizedAccessException>();
+    }
 }
