@@ -1,6 +1,6 @@
 # TASK-23-004 — Service SLA deadline calculation
 
-Status: IN_PROGRESS — deadline and pause-accounting slices implemented; breach worker and acceptance remain
+Status: COMPLETE for deadline/pause-accounting slice — breach worker and acceptance remain a Stage 23 follow-up
 Stage: 23  
 Type: Application
 
