@@ -48,6 +48,7 @@ public interface IConnectLedgerPoster
 
 public interface IConnectRemittanceRepository
 {
+    Task<ConnectRemittanceAdvice?> FindAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SettlementResult?> FindSettlementAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default);
     void Add(VumaRetail.Domain.Connect.ConnectRemittanceAdvice remittance);
 }

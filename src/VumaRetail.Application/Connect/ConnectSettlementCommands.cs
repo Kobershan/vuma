@@ -38,8 +38,19 @@ public sealed class SettleConnectPaymentCommandHandler(
 
         ConnectPaymentRequest request = new(command.PaymentId, connection.Id, connection.RetailerTenantId,
             connection.SupplierTenantId, [], new Money(command.Amount, command.Currency), command.Method, command.InvoiceReference);
-        SettlementResult? existing = await remittances.FindSettlementAsync(command.PaymentId, tenant.TenantId, cancellationToken).ConfigureAwait(false);
-        if (existing is not null) return existing;
+        ConnectRemittanceAdvice? existing = await remittances.FindAsync(command.PaymentId, tenant.TenantId, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            if (existing.ConnectionId != command.ConnectionId || existing.InvoiceReference != command.InvoiceReference
+                || existing.Amount.Amount != command.Amount || existing.Amount.Currency != command.Currency
+                || existing.Method != command.Method)
+                throw new InvalidOperationException("Payment replay content differs.");
+            return new SettlementResult(ConnectPaymentStatus.Captured, existing.RemittanceReference);
+        }
+        // Keep the result-only port fallback for provider/test implementations that do not expose
+        // remittance details; durable repositories use the content-checked path above.
+        SettlementResult? existingResult = await remittances.FindSettlementAsync(command.PaymentId, tenant.TenantId, cancellationToken).ConfigureAwait(false);
+        if (existingResult is not null) return existingResult;
 
         GatewayPaymentResult authorised = await gateway.AuthoriseAsync(request, cancellationToken).ConfigureAwait(false);
         if (authorised.Status != ConnectPaymentStatus.Authorised)

@@ -33,6 +33,7 @@ public sealed class ConnectSettlementTests
             .Returns(new SettlementResult(ConnectPaymentStatus.Captured, "REM-1"));
         IConnectLedgerPoster ledger = Substitute.For<IConnectLedgerPoster>();
         IConnectRemittanceRepository remittances = Substitute.For<IConnectRemittanceRepository>();
+        remittances.FindAsync(paymentId, retailer, Arg.Any<CancellationToken>()).Returns((ConnectRemittanceAdvice?)null);
         remittances.FindSettlementAsync(paymentId, retailer, Arg.Any<CancellationToken>())
             .Returns((SettlementResult?)null);
         ITenantContext tenant = Substitute.For<ITenantContext>();
@@ -59,6 +60,7 @@ public sealed class ConnectSettlementTests
         Guid paymentId = Guid.NewGuid();
         SettlementResult existing = new(ConnectPaymentStatus.Captured, "REM-REPLAY");
         IConnectRemittanceRepository remittances = Substitute.For<IConnectRemittanceRepository>();
+        remittances.FindAsync(paymentId, retailer, Arg.Any<CancellationToken>()).Returns((ConnectRemittanceAdvice?)null);
         remittances.FindSettlementAsync(paymentId, retailer, Arg.Any<CancellationToken>()).Returns(existing);
         ITenantContext tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(retailer);
@@ -75,5 +77,30 @@ public sealed class ConnectSettlementTests
                 paymentId, Guid.NewGuid(), "INV-1", 100m, "ZAR", ConnectPaymentMethod.Card));
 
         result.Should().BeSameAs(existing);
+    }
+
+    [Fact]
+    public async Task Replayed_payment_with_changed_content_is_rejected()
+    {
+        Guid retailer = Guid.NewGuid();
+        Guid supplier = Guid.NewGuid();
+        Guid connectionId = Guid.NewGuid();
+        Guid paymentId = Guid.NewGuid();
+        TradingConnection connection = TradingConnection.Request(supplier, retailer, "SUP", "RET", Now);
+        connection.Accept("ZAR", 1000m, 3, 10m, Now);
+        ConnectRemittanceAdvice remittance = ConnectRemittanceAdvice.Issue(retailer, supplier, connectionId,
+            paymentId, "INV-1", new Money(100m, "ZAR"), ConnectPaymentMethod.Card, "PROV", "REM", Now);
+        IConnectRemittanceRepository remittances = Substitute.For<IConnectRemittanceRepository>();
+        remittances.FindAsync(paymentId, retailer, Arg.Any<CancellationToken>()).Returns(remittance);
+        ITradingConnectionRepository connections = Substitute.For<ITradingConnectionRepository>();
+        connections.FindForTenantAsync(connectionId, retailer, Arg.Any<CancellationToken>()).Returns(connection);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(retailer);
+
+        await FluentActions.Invoking(() => new SettleConnectPaymentCommandHandler(
+            Substitute.For<IPaymentGateway>(), Substitute.For<ISettlementProvider>(),
+            Substitute.For<IConnectLedgerPoster>(), remittances, connections, tenant, Substitute.For<IClock>())
+            .HandleAsync(new SettleConnectPaymentCommand(paymentId, connectionId, "INV-CHANGED", 100m, "ZAR", ConnectPaymentMethod.Card)))
+            .Should().ThrowAsync<InvalidOperationException>();
     }
 }

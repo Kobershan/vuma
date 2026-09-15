@@ -56,6 +56,9 @@ public sealed class ConnectOrderRepository(VumaRetailDbContext context) : IConne
 
 public sealed class ConnectRemittanceRepository(VumaRetailDbContext context) : IConnectRemittanceRepository
 {
+    public Task<ConnectRemittanceAdvice?> FindAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default)
+        => context.ConnectRemittances.SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.TenantId == tenantId, cancellationToken);
+
     public async Task<SettlementResult?> FindSettlementAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         ConnectRemittanceAdvice? row = await context.ConnectRemittances.AsNoTracking()
