@@ -51,7 +51,9 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
   creation, approval and milestone billing commands are now exposed through the scoped
   `/api/v1/projects` API; labour allocation from closed HR attendance is now available, while
   procurement allocation, WIP and invoice integration remain.
-- [ ] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports.
+- [~] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports. The
+  currency-aware `RebateAgreement` lifecycle, threshold and percentage calculation are implemented
+  and unit-tested; persistence, reconciliation records, APIs and scoped job-cost reports remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -73,6 +75,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-15: Added `POST /api/v1/projects/{projectId}/labour-costs`, deriving a replay-safe labour
   allocation from closed attendance and the applicable employment contract. `ProjectCostTests`
   passes **5/5**; procurement/WIP/invoice integration and PostgreSQL/API acceptance remain.
+- 2026-09-15: Added the currency-explicit `RebateAgreement` lifecycle with thresholded, rounded
+  percentage calculation and reconciliation transition. `RebateAgreementTests` passes **2/2**;
+  persistence, reconciliation records, APIs and job-cost reports remain.
 
 ## Tests / acceptance
 

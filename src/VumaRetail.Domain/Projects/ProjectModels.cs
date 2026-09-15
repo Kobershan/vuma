@@ -9,6 +9,7 @@ public enum ProjectBudgetStatus { Draft, Submitted, Approved }
 public enum ContractVariationStatus { Proposed, Approved, Rejected }
 public enum BillingMilestoneStatus { Planned, Approved, Billed }
 public enum ProjectCostKind { Labour, Procurement, Other, Reversal }
+public enum RebateAgreementStatus { Draft, Active, Reconciled, Cancelled }
 
 [Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
 public sealed class Project : Entity
@@ -131,4 +132,52 @@ public sealed class BillingMilestone : Entity
     { if (contractId == Guid.Empty || amount.Amount < 0m) throw new ArgumentException("Milestone identity and amount are invalid."); ArgumentException.ThrowIfNullOrWhiteSpace(name); return new(tenantId, storeId, companyId, contractId, name, amount); }
     public void Approve() { if (Status != BillingMilestoneStatus.Planned) throw new InvalidOperationException("Only a planned milestone can be approved."); Status = BillingMilestoneStatus.Approved; }
     public void MarkBilled() { if (Status != BillingMilestoneStatus.Approved) throw new InvalidOperationException("Only an approved milestone can be billed."); Status = BillingMilestoneStatus.Billed; }
+}
+
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.StoreWins)]
+public sealed class RebateAgreement : Entity
+{
+    private RebateAgreement(Guid tenantId, Guid? storeId, Guid companyId, string number,
+        decimal rate, Money threshold) : base(tenantId, storeId)
+    {
+        AssignCompany(companyId);
+        Number = number.Trim();
+        Rate = rate;
+        Threshold = threshold;
+        Status = RebateAgreementStatus.Draft;
+    }
+
+    private RebateAgreement() { }
+    public string Number { get; private set; } = string.Empty;
+    public decimal Rate { get; private set; }
+    public Money Threshold { get; private set; }
+    public RebateAgreementStatus Status { get; private set; }
+
+    public static RebateAgreement Create(Guid tenantId, Guid? storeId, Guid companyId, string number,
+        decimal rate, Money threshold)
+    {
+        if (tenantId == Guid.Empty || companyId == Guid.Empty) throw new ArgumentException("Tenant and company are required.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(number);
+        if (rate is < 0m or > 100m) throw new ArgumentOutOfRangeException(nameof(rate));
+        if (threshold.Amount < 0m) throw new ArgumentOutOfRangeException(nameof(threshold));
+        return new RebateAgreement(tenantId, storeId, companyId, number, rate, threshold);
+    }
+
+    public void Activate()
+    {
+        if (Status != RebateAgreementStatus.Draft) throw new InvalidOperationException("Only a draft rebate can be activated.");
+        Status = RebateAgreementStatus.Active;
+    }
+
+    public Money Calculate(Money eligibleAmount)
+    {
+        if (eligibleAmount.Currency != Threshold.Currency) throw new InvalidOperationException("Rebate amounts must use the agreement currency.");
+        if (Status != RebateAgreementStatus.Active && Status != RebateAgreementStatus.Reconciled)
+            throw new InvalidOperationException("Only an active or reconciled rebate can be calculated.");
+        if (eligibleAmount.Amount < Threshold.Amount) return Money.Zero(Threshold.Currency);
+        return new Money(decimal.Round(eligibleAmount.Amount * Rate / 100m, 2, MidpointRounding.AwayFromZero), Threshold.Currency);
+    }
+
+    public void Reconcile() { if (Status != RebateAgreementStatus.Active) throw new InvalidOperationException("Only an active rebate can be reconciled."); Status = RebateAgreementStatus.Reconciled; }
+    public void Cancel() { if (Status == RebateAgreementStatus.Reconciled) throw new InvalidOperationException("A reconciled rebate cannot be cancelled."); Status = RebateAgreementStatus.Cancelled; }
 }
