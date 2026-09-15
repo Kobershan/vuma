@@ -8,6 +8,10 @@ API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documen
 limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Stage 21b Vuma Connect settlement and supplier portal.
 
+WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV export boundary
+(`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
+permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.
+
 WORK LOG (2026-09-15): Stage 21b Connect confirm/dispatch handlers now reject unknown order-line
 identifiers before aggregate mutation. Connect unit tests pass **15/15** and the PostgreSQL API
 class passes **5/5**; supplier-portal end-to-end, ASN/GRN and offline-convergence acceptance remain.

@@ -1,4 +1,6 @@
 #pragma warning disable CS1591
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -29,6 +31,8 @@ public static class ServiceEndpoints
         service.MapPost("/parts", IssuePartAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapPost("/slas", CreateSlaAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapGet("/custody", ListCustodyAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceCustodyResult>>();
+        service.MapGet("/custody/export.csv", ExportCustodyAsync).RequirePermission(ServicePermissions.Export)
+            .Produces<string>(StatusCodes.Status200OK, "text/csv");
         return endpoints;
     }
 
@@ -78,6 +82,27 @@ public static class ServiceEndpoints
         IReadOnlyList<ServiceCustodyResult> result = await dispatcher.QueryAsync(
             new ListServiceCustodyQuery(companyId, customerId), cancellationToken).ConfigureAwait(false);
         return Results.Ok(result);
+    }
+
+    private static async Task<IResult> ExportCustodyAsync(Guid companyId, Guid? customerId, ICompanyContext company,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        IReadOnlyList<ServiceCustodyResult> result = await dispatcher.QueryAsync(
+            new ListServiceCustodyQuery(companyId, customerId), cancellationToken).ConfigureAwait(false);
+        static string Escape(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+        StringBuilder csv = new("id,company_id,ticket_id,customer_id,event_type,item_reference,occurred_at_utc\n");
+        foreach (ServiceCustodyResult row in result)
+        {
+            csv.Append(row.Id.ToString("D")).Append(',')
+                .Append(row.CompanyId.ToString("D")).Append(',')
+                .Append(row.TicketId.ToString("D")).Append(',')
+                .Append(row.CustomerId.ToString("D")).Append(',')
+                .Append(Escape(row.EventType)).Append(',')
+                .Append(Escape(row.ItemReference)).Append(',')
+                .Append(row.OccurredAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)).Append('\n');
+        }
+        return Results.Text(csv.ToString(), "text/csv; charset=utf-8");
     }
 
     private static async Task<IResult> ApproveWarrantyAsync(Guid id, ApproveWarrantyRequest request,

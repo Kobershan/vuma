@@ -1,6 +1,6 @@
 # TASK-23-001 — Service ticket, warranty snapshot, and custody foundation
 
-**Status:** IN_PROGRESS · **Stage:** 23 · **Part:** 23-P01
+**Status:** COMPLETE for ticket/warranty/custody foundation slice · **Stage:** 23 · **Part:** 23-P01
 
 ## Evidence
 
@@ -38,3 +38,7 @@ hold, and protected by operation replay checks; parts integration remains subjec
 PostgreSQL availability and financial acceptance.
 Replay handling now validates the active company context before looking up an existing ticket or
 service-part usage, closing a same-company replay bypass; the service command suite passes **4/4**.
+
+2026-09-15: Added the high-risk `service.custody.export` permission and a company-scoped CSV
+custody export route. The web Release build succeeds with 0 errors and the permission catalogue
+suite passes **9/9**. PostgreSQL tenant/company export isolation remains a Stage 23 acceptance gate.

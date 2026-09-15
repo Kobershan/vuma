@@ -11,12 +11,14 @@ public sealed class ServicePermissions : IModulePermissions
     public const string View = "service.ticket.view";
     public const string Manage = "service.ticket.manage";
     public const string ApproveWarranty = "service.warranty.approve";
+    public const string Export = "service.custody.export";
     public string Module => "service";
     public IReadOnlyCollection<PermissionDescriptor> Permissions =>
     [
         new(PermissionKey.Parse(View), "View service tickets and custody records."),
         new(PermissionKey.Parse(Manage), "Manage service tickets, repairs and parts.", IsHighRisk: true),
         new(PermissionKey.Parse(ApproveWarranty), "Approve warranty claims.", IsHighRisk: true),
+        new(PermissionKey.Parse(Export), "Export customer custody records.", IsHighRisk: true),
     ];
 }
 
