@@ -87,10 +87,18 @@ public sealed class ConnectDomainTests
         ConnectOrder order = ConnectOrder.Place(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-2", Now);
         ConnectOrderLine line = order.AddLine("SKU-2", "Bread", new Quantity(4, "EA"), new Money(8, "ZAR"));
         order.Confirm(new Dictionary<Guid, Quantity> { [line.Id] = new(4, "EA") }, Now.AddHours(1));
-        order.Dispatch("ASN-2", new Dictionary<Guid, Quantity> { [line.Id] = new(3, "EA") }, Now.AddHours(2));
+        order.Dispatch("ASN-2", new Dictionary<Guid, Quantity> { [line.Id] = new(3, "EA") }, Now.AddHours(2),
+            new Dictionary<Guid, ConnectAsnLineDetails>
+            {
+                [line.Id] = new("BATCH-7", "SER-1,SER-2", new DateOnly(2027, 1, 1), "PALLET-4")
+            });
 
         order.Status.Should().Be(ConnectOrderStatus.Dispatched);
         order.DispatchNoteNumber.Should().Be("ASN-2");
+        line.BatchNumber.Should().Be("BATCH-7");
+        line.SerialNumbers.Should().Be("SER-1,SER-2");
+        line.ExpiryDate.Should().Be(new DateOnly(2027, 1, 1));
+        line.PackageReference.Should().Be("PALLET-4");
         order.MarkReceived();
         order.Status.Should().Be(ConnectOrderStatus.Received);
     }

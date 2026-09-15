@@ -118,6 +118,9 @@ internal sealed class ConnectOrderLineConfiguration : EntityConfiguration<Connec
         builder.HasQuantity(x => x.ConfirmedQuantity, "confirmed_quantity");
         builder.HasQuantity(x => x.DispatchedQuantity, "dispatched_quantity");
         builder.HasMoney(x => x.UnitPrice, "unit_price");
+        builder.Property(x => x.BatchNumber).HasMaxLength(128);
+        builder.Property(x => x.SerialNumbers).HasMaxLength(2000);
+        builder.Property(x => x.PackageReference).HasMaxLength(128);
         builder.HasIndex(x => new { x.TenantId, x.OrderId, x.SupplierSku }).IsUnique().HasFilter("deleted_at IS NULL");
     }
 }

@@ -93,7 +93,8 @@ public sealed class ConnectOrder : Entity
         Status = ConnectOrderStatus.Rejected;
     }
 
-    public void Dispatch(string dispatchNoteNumber, IReadOnlyDictionary<Guid, Quantity> quantities, DateTimeOffset dispatchedAt)
+    public void Dispatch(string dispatchNoteNumber, IReadOnlyDictionary<Guid, Quantity> quantities, DateTimeOffset dispatchedAt,
+        IReadOnlyDictionary<Guid, ConnectAsnLineDetails>? details = null)
     {
         EnsureHasLines();
         if (Status is not (ConnectOrderStatus.Confirmed or ConnectOrderStatus.PartiallyConfirmed))
@@ -103,7 +104,11 @@ public sealed class ConnectOrder : Entity
         {
             if (!quantities.TryGetValue(line.Id, out Quantity quantity)) continue;
             line.Dispatch(quantity);
+            if (details is not null && details.TryGetValue(line.Id, out ConnectAsnLineDetails? detail))
+                line.SetAsnDetails(detail);
         }
+        if (details is not null && details.Keys.Any(id => _lines.All(line => line.Id != id)))
+            throw new ArgumentException("ASN contains an unknown order line.", nameof(details));
         if (_lines.Any(line => line.DispatchedQuantity > line.ConfirmedQuantity))
             throw new InvalidOperationException("A dispatch cannot exceed the confirmed quantity.");
         DispatchNoteNumber = dispatchNoteNumber.Trim();
@@ -138,6 +143,10 @@ public sealed class ConnectOrderLine : Entity
     public Quantity ConfirmedQuantity { get; private set; }
     public Quantity DispatchedQuantity { get; private set; }
     public Money UnitPrice { get; private set; }
+    public string? BatchNumber { get; private set; }
+    public string? SerialNumbers { get; private set; }
+    public DateOnly? ExpiryDate { get; private set; }
+    public string? PackageReference { get; private set; }
     internal static ConnectOrderLine Create(Guid tenantId, Guid orderId, string sku, string description, Quantity quantity, Money unitPrice, Guid? purchaseOrderLineId)
     {
         if (string.IsNullOrWhiteSpace(sku) || string.IsNullOrWhiteSpace(description) || quantity.Value <= 0 || unitPrice.Amount < 0)
@@ -156,4 +165,16 @@ public sealed class ConnectOrderLine : Entity
             throw new ArgumentException("Dispatched quantity is invalid.");
         DispatchedQuantity = quantity;
     }
+
+    internal void SetAsnDetails(ConnectAsnLineDetails details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+        BatchNumber = string.IsNullOrWhiteSpace(details.BatchNumber) ? null : details.BatchNumber.Trim();
+        SerialNumbers = string.IsNullOrWhiteSpace(details.SerialNumbers) ? null : details.SerialNumbers.Trim();
+        ExpiryDate = details.ExpiryDate;
+        PackageReference = string.IsNullOrWhiteSpace(details.PackageReference) ? null : details.PackageReference.Trim();
+    }
 }
+
+public sealed record ConnectAsnLineDetails(string? BatchNumber, string? SerialNumbers, DateOnly? ExpiryDate,
+    string? PackageReference);

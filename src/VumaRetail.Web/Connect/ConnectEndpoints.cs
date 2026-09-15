@@ -38,7 +38,7 @@ public static class ConnectEndpoints
         api.MapGet("/orders", async (Guid? connectionId, IDispatcher d, CancellationToken ct) => TypedResults.Ok(await d.QueryAsync(new ListConnectOrdersQuery(connectionId), ct))).RequirePermission(ConnectPermissions.View);
         api.MapPost("/orders/{id:guid}/confirm", async (Guid id, ConfirmConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ConfirmConnectOrderCommand(id, r.Quantities, r.PromisedAt), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/orders/{id:guid}/reject", async (Guid id, RejectConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new RejectConnectOrderCommand(id, r.Reason), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
-        api.MapPost("/orders/{id:guid}/dispatch", async (Guid id, DispatchConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DispatchConnectOrderCommand(id, r.DispatchNoteNumber, r.Quantities, r.DispatchedAt), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
+        api.MapPost("/orders/{id:guid}/dispatch", async (Guid id, DispatchConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DispatchConnectOrderCommand(id, r.DispatchNoteNumber, r.Quantities, r.DispatchedAt, r.Details), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapGet("/orders/{id:guid}/asn", async (Guid id, IDispatcher d, CancellationToken ct) =>
         {
             ConnectOrderResult? asn = await d.QueryAsync(new GetConnectAsnQuery(id), ct);
@@ -65,7 +65,7 @@ public static class ConnectEndpoints
     public sealed record PlaceConnectOrderLineRequest(string SupplierSku, string Description, decimal Quantity, string UnitOfMeasure, decimal UnitPrice, string Currency, Guid? PurchaseOrderLineId = null);
     public sealed record ConfirmConnectOrderRequest(IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset PromisedAt);
     public sealed record RejectConnectOrderRequest(string Reason);
-    public sealed record DispatchConnectOrderRequest(string DispatchNoteNumber, IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset DispatchedAt);
+    public sealed record DispatchConnectOrderRequest(string DispatchNoteNumber, IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset DispatchedAt, IReadOnlyDictionary<Guid, ConnectAsnLineDetails>? Details = null);
     public sealed record CreateAsnReceiptRequest(string? DeliveryNoteNumber = null, Guid? GoodsReceiptId = null);
     public sealed record SettlePaymentRequest(Guid PaymentId, Guid ConnectionId, string InvoiceReference, decimal Amount, string Currency, ConnectPaymentMethod Method);
     public sealed record RaiseClaimRequest(Guid OrderLineId, string ClaimNumber, ConnectClaimReason Reason, decimal Quantity, string UnitOfMeasure, decimal Amount, string Currency, string Description);

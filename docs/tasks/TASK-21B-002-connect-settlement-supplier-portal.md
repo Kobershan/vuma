@@ -25,6 +25,7 @@ ASN/GRN and end-to-end settlement evidence remain open.
 5/5, and migration suite 20/20. Added explicit supplier portal grants with party-scoped revoke,
 tenant-admin-compatible endpoints, and migration `20260915071141_Stage21bSupplierPortalGrants`.
 Added purchase-order-line links to Connect order lines, an ASN-to-draft-GRN command and endpoint,
-and a PostgreSQL migration `20260915071459_Stage21bConnectAsnPurchaseOrderLink`; the retailer must
-still explicitly complete the resulting GRN. Remaining scan-level metadata and offline-convergence
-work is retained as IN_PROGRESS.
+and a PostgreSQL migration `20260915071947_Stage21bConnectAsnPurchaseOrderLink`; ASN shipment lines
+now also persist batch, serial, expiry and package references via
+`20260915072953_Stage21bConnectAsnShipmentDetails`. The retailer must still explicitly complete the
+resulting GRN. Offline-convergence work remains IN_PROGRESS.

@@ -33,7 +33,8 @@ public sealed record ConfirmConnectOrderCommand(Guid OrderId, IReadOnlyDictionar
 [CommandSideEffect(SideEffect.Write)]
 public sealed record RejectConnectOrderCommand(Guid OrderId, string Reason) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
-public sealed record DispatchConnectOrderCommand(Guid OrderId, string DispatchNoteNumber, IReadOnlyDictionary<Guid, decimal> Quantities, DateTimeOffset DispatchedAt) : ICommand;
+public sealed record DispatchConnectOrderCommand(Guid OrderId, string DispatchNoteNumber, IReadOnlyDictionary<Guid, decimal> Quantities,
+    DateTimeOffset DispatchedAt, IReadOnlyDictionary<Guid, ConnectAsnLineDetails>? Details = null) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record ReceiveConnectOrderCommand(Guid OrderId) : ICommand;
 
@@ -105,7 +106,7 @@ public sealed class DispatchConnectOrderCommandHandler(IConnectOrderRepository o
         ConnectOrder order = await orders.FindForTenantAsync(command.OrderId, tenant.TenantId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Connect order not found.");
         if (order.SupplierTenantId != tenant.TenantId) throw new UnauthorizedAccessException("Only the supplier can dispatch an order.");
-        order.Dispatch(command.DispatchNoteNumber, ConnectOrderQuantityMapper.ToQuantities(command.Quantities, order), command.DispatchedAt);
+        order.Dispatch(command.DispatchNoteNumber, ConnectOrderQuantityMapper.ToQuantities(command.Quantities, order), command.DispatchedAt, command.Details);
         return Unit.Value;
     }
 }
