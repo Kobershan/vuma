@@ -94,6 +94,29 @@ public sealed class ServiceSlaClockTests
     }
 
     [Fact]
+    public async Task Worker_returns_only_open_tenant_scoped_breaches()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        DateTimeOffset opened = new(2026, 9, 14, 9, 0, 0, TimeSpan.Zero);
+        ServiceTicket breached = ServiceTicket.Open(tenantId, null, companyId, Guid.NewGuid(), Guid.NewGuid(), "Repair", opened);
+        ServiceTicket otherTenant = ServiceTicket.Open(Guid.NewGuid(), null, companyId, Guid.NewGuid(), Guid.NewGuid(), "Other", opened);
+        ServiceSla sla = ServiceSla.Create(tenantId, companyId, "Standard", 1m, 2m);
+        var repository = Substitute.For<IServiceRepository>();
+        repository.FindSlaByNameAsync(companyId, "Standard", Arg.Any<CancellationToken>()).Returns(sla);
+        repository.ListTicketsAsync(companyId, null, Arg.Any<CancellationToken>()).Returns([breached, otherTenant]);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+
+        IReadOnlyList<ServiceSlaBreach> result = await new ServiceSlaWorker(repository, company, tenant, clock)
+            .EvaluateAsync(companyId, "Standard", opened.AddHours(3));
+
+        result.Should().ContainSingle().Which.TicketId.Should().Be(breached.Id);
+    }
+
+    [Fact]
     public async Task Deadline_query_pauses_while_waiting_for_customer()
     {
         var tenantId = Guid.NewGuid();

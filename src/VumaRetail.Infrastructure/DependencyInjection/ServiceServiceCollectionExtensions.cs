@@ -27,6 +27,7 @@ public static class ServiceServiceCollectionExtensions
         services.TryAddScoped<IChecklistEvidenceAuthorizer, ChecklistEvidenceAuthorizer>();
         services.TryAddSingleton<IServiceSlaClock>(_ =>
             new BusinessHoursServiceSlaClock(new TimeOnly(9, 0), new TimeOnly(17, 0)));
+        services.TryAddScoped<IServiceSlaWorker, ServiceSlaWorker>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, AssetPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, AssetModuleManifest>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ServicePermissions>());

@@ -1,6 +1,6 @@
 # TASK-23-003 — Deterministic service SLA clock
 
-**Status:** COMPLETE for the clock slice; worker and pause policy remain open · **Stage:** 23 · **Type:** Application, tests
+**Status:** COMPLETE for clock, pause-accounting, and bounded worker slice; persistence acceptance remains · **Stage:** 23 · **Type:** Application, tests
 
 ## Scope
 
@@ -14,5 +14,7 @@ evaluating a ticket deadline.
   `src/VumaRetail.Application/Service/ServicePorts.cs`.
 - `ServiceSlaClockTests`: **2/2 passed**.
 - The infrastructure module registers the default 09:00–17:00 UTC clock through dependency injection.
-- Remaining Stage 23 work: persisted business calendars, pause/resume custody events, SLA worker,
-  and full API/isolation acceptance.
+- `IServiceSlaWorker` evaluates tenant/company-scoped open-ticket breaches using the same clock and
+  persisted customer-wait pause accounting; `ServiceSlaClockTests` passes **7/7**.
+- Remaining Stage 23 work: persisted business calendars, durable breach/audit records, and full
+  API/isolation acceptance.

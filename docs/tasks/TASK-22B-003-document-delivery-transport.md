@@ -1,6 +1,6 @@
 # TASK-22B-003 — Document delivery and transport integration
 
-**Status:** IN_PROGRESS · **Stage:** 22b · **Type:** Application / infrastructure / integration
+**Status:** IN_PROGRESS — token and transport wiring slice complete; durable delivery retry audit remains · **Stage:** 22b · **Type:** Application / infrastructure / integration
 
 ## Objective
 
@@ -16,10 +16,12 @@ single-use links and channel policy.
 - `DocumentDeliveryToken` and `DocumentDeliveryService` enforce verification freshness and granted
   consent, expire after 24 hours, support revocation, and audit fetches.
 - WhatsApp webhook signature verification and normalized inbound handling exist.
+- The conversation module registers the Stage 22 sender boundary (`IWhatsAppSender`), sends the
+  generated one-time link in the outbound conversation reply, and normalizes email inbound messages
+  through the same state-machine path. Conversation tests pass **32/32**.
 
 ## Remaining work
 
-- Connect outbound delivery to Stage 22’s sender/template interfaces.
 - Add transport delivery/failure/retry audit records and email inbound normalization.
 - Prove every sensitive document path uses fresh verification and account/company scope.
 

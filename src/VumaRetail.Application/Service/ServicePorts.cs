@@ -1,5 +1,7 @@
 ﻿#pragma warning disable CS1591
 using VumaRetail.Domain.Service;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 
 namespace VumaRetail.Application.Service;
 
@@ -26,6 +28,57 @@ public interface IServiceSlaClock
 {
     decimal WorkingHoursBetween(DateTimeOffset startUtc, DateTimeOffset endUtc);
     DateTimeOffset AddWorkingHours(DateTimeOffset startUtc, decimal workingHours);
+}
+
+/// <summary>Runs a bounded, company-scoped SLA breach pass for operator or hosted scheduling.</summary>
+public interface IServiceSlaWorker
+{
+    Task<IReadOnlyList<ServiceSlaBreach>> EvaluateAsync(Guid companyId, string slaName,
+        DateTimeOffset asOfUtc, CancellationToken cancellationToken = default);
+}
+
+public sealed record ServiceSlaBreach(Guid TicketId, bool ResponseBreached, bool ResolutionBreached,
+    DateTimeOffset ResponseDueAtUtc, DateTimeOffset ResolutionDueAtUtc);
+
+public sealed class ServiceSlaWorker(IServiceRepository services, ICompanyContext company, ITenantContext tenant,
+    IServiceSlaClock clock) : IServiceSlaWorker
+{
+    public async Task<IReadOnlyList<ServiceSlaBreach>> EvaluateAsync(Guid companyId, string slaName,
+        DateTimeOffset asOfUtc, CancellationToken cancellationToken = default)
+    {
+        if (company.CompanyId is not { } active || active != companyId)
+        {
+            throw new InvalidOperationException("The service company is not the active company.");
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(slaName);
+        ServiceSla sla = await services.FindSlaByNameAsync(companyId, slaName, cancellationToken)
+            .ConfigureAwait(false) ?? throw new KeyNotFoundException("Service SLA was not found.");
+        DateTimeOffset asOf = asOfUtc.ToUniversalTime();
+        IReadOnlyList<ServiceTicket> tickets = await services.ListTicketsAsync(companyId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        List<ServiceSlaBreach> breaches = [];
+        foreach (ServiceTicket ticket in tickets)
+        {
+            if (ticket.TenantId != tenant.TenantId || ticket.CompanyId != companyId || ticket.Status == ServiceTicketStatus.Closed)
+            {
+                continue;
+            }
+            decimal paused = ticket.CustomerWaitWorkingHours;
+            if (ticket.CustomerWaitStartedAtUtc is { } waitStarted && asOf > waitStarted)
+            {
+                paused += clock.WorkingHoursBetween(waitStarted, asOf);
+            }
+            DateTimeOffset responseDue = clock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResponseHours + paused);
+            DateTimeOffset resolutionDue = clock.AddWorkingHours(ticket.OpenedAtUtc, sla.ResolutionHours + paused);
+            bool responseBreached = ticket.Status == ServiceTicketStatus.Open && asOf > responseDue;
+            bool resolutionBreached = asOf > resolutionDue;
+            if (responseBreached || resolutionBreached)
+            {
+                breaches.Add(new(ticket.Id, responseBreached, resolutionBreached, responseDue, resolutionDue));
+            }
+        }
+        return breaches;
+    }
 }
 
 /// <summary>UTC weekday business-hours calculator used by service SLA policies.</summary>
