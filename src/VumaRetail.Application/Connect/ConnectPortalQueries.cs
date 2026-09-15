@@ -10,6 +10,7 @@ public sealed record ConnectOrderResult(Guid Id, Guid ConnectionId, Guid Retaile
     string OrderNumber, ConnectOrderStatus Status, DateTimeOffset SubmittedAt, DateTimeOffset? PromisedAt,
     DateTimeOffset? DispatchedAt, string? DispatchNoteNumber, IReadOnlyList<ConnectOrderLineResult> Lines);
 public sealed record ListConnectOrdersQuery(Guid? ConnectionId = null) : IQuery<IReadOnlyList<ConnectOrderResult>>;
+public sealed record GetConnectAsnQuery(Guid OrderId) : IQuery<ConnectOrderResult?>;
 
 public sealed class ListConnectOrdersQueryHandler(IConnectOrderRepository orders, ITenantContext tenant)
     : IQueryHandler<ListConnectOrdersQuery, IReadOnlyList<ConnectOrderResult>>
@@ -24,6 +25,28 @@ public sealed class ListConnectOrdersQueryHandler(IConnectOrderRepository orders
             order.Lines.Select(x => new ConnectOrderLineResult(x.Id, x.SupplierSku, x.Description,
                 x.RequestedQuantity.Value, x.ConfirmedQuantity.Value, x.DispatchedQuantity.Value,
                 x.RequestedQuantity.UnitOfMeasure, x.UnitPrice.Amount, x.UnitPrice.Currency)).ToList());
+}
+
+public sealed class GetConnectAsnQueryHandler(IConnectOrderRepository orders, ITenantContext tenant)
+    : IQueryHandler<GetConnectAsnQuery, ConnectOrderResult?>
+{
+    public async Task<ConnectOrderResult?> HandleAsync(GetConnectAsnQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ConnectOrder? order = await orders.FindForTenantAsync(query.OrderId, tenant.TenantId, cancellationToken)
+            .ConfigureAwait(false);
+        if (order is null)
+        {
+            return null;
+        }
+
+        if (order.Status is not (ConnectOrderStatus.Dispatched or ConnectOrderStatus.Received))
+        {
+            return null;
+        }
+
+        return ListConnectOrdersQueryHandler.ToResult(order);
+    }
 }
 
 public sealed record ConnectSupplierDirectoryResult(Guid ConnectionId, Guid SupplierTenantId, string Currency,

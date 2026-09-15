@@ -37,6 +37,11 @@ public static class ConnectEndpoints
         api.MapPost("/orders/{id:guid}/confirm", async (Guid id, ConfirmConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ConfirmConnectOrderCommand(id, r.Quantities, r.PromisedAt), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/orders/{id:guid}/reject", async (Guid id, RejectConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new RejectConnectOrderCommand(id, r.Reason), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/orders/{id:guid}/dispatch", async (Guid id, DispatchConnectOrderRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DispatchConnectOrderCommand(id, r.DispatchNoteNumber, r.Quantities, r.DispatchedAt), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
+        api.MapGet("/orders/{id:guid}/asn", async (Guid id, IDispatcher d, CancellationToken ct) =>
+        {
+            ConnectOrderResult? asn = await d.QueryAsync(new GetConnectAsnQuery(id), ct);
+            return asn is null ? Results.NotFound() : Results.Ok(asn);
+        }).RequirePermission(ConnectPermissions.View);
         api.MapPost("/orders/{id:guid}/receive", async (Guid id, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ReceiveConnectOrderCommand(id), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/payments/settle", async (SettlePaymentRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Ok(await d.SendAsync(new SettleConnectPaymentCommand(r.PaymentId, r.ConnectionId, r.InvoiceReference, r.Amount, r.Currency, r.Method), ct))).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/orders/{id:guid}/claims", async (Guid id, RaiseClaimRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Created($"/api/v1/connect/claims/{await d.SendAsync(new RaiseConnectClaimCommand(id, r.OrderLineId, r.ClaimNumber, r.Reason, r.Quantity, r.UnitOfMeasure, r.Amount, r.Currency, r.Description), ct)}", new { })).RequirePermission(ConnectPermissions.Order);
