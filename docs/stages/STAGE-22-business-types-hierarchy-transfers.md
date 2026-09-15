@@ -1,6 +1,7 @@
 # STAGE 22 — Business identity, hierarchy, shared premises and stock transfers
 
-**Status:** IN_PROGRESS (2026-09-11) · **Depends on:** 06c, 06e, 08/08c, 09b, 12 · **Reference:** `docs/DECISIONS.md` ADR-099, ADR-116, `docs/MULTI_COMPANY.md`
+**Status:** COMPLETE (2026-09-15) — transfer lifecycle, related transfers, saga-backed company stock
+effects and delivery-note export are implemented and verified · **Depends on:** 06c, 06e, 08/08c, 09b, 12 · **Reference:** `docs/DECISIONS.md` ADR-099, ADR-116, `docs/MULTI_COMPANY.md`
 
 ## Objective
 

@@ -3,10 +3,14 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17, 18 and 21 are complete with
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17, 18, 21 and 22 are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Stage 21b Vuma Connect settlement and supplier portal.
+
+WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/reverse transfer
+creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration
+reversibility pass the focused registry suite (**9/9** integration tests).
 
 WORK LOG (2026-09-15): Stage 21 TASK-21-002 authoritative checkout settlement is now verified through
 the real PostgreSQL API: a confirmed, captured checkout creates a server-priced order, allocates from

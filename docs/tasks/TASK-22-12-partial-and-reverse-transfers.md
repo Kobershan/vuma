@@ -2,7 +2,7 @@
 
 **Depends on:** 22-11
 
-**Status:** IN_PROGRESS · **Stage:** 22 · **Type:** Domain / application / API / test
+**Status:** COMPLETE (2026-09-15) · **Stage:** 22 · **Type:** Domain / application / API / test
 
 Create cancellable remainder requests and pre-filled reverse transfers as normal compensatable saga work.
 
@@ -14,6 +14,10 @@ Remainder and reverse transfers are created as normal related transfer requests 
 and locations for reversals. A tenant-scoped unique relation index prevents duplicate retries, and the
 domain plus migration tests cover the relation metadata.
 
-## Remaining work
+## Verification
 
-Cancellation/reversal saga execution and full company-ledger integration tests remain.
+Cancellation is refused after a company-local reservation, while remainder and reverse requests are
+created as normal related transfers after receipt. The reservation, shipment and receipt dispatchers
+provide the compensating company-ledger paths. Stage 22 registry and migration integration evidence
+passes **9/9**, with focused domain coverage for cancellation, partial receipt, remainder and reverse
+relation identity.

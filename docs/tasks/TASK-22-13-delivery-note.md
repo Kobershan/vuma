@@ -2,7 +2,7 @@
 
 **Depends on:** 22-10, 22-11
 
-**Status:** IN_PROGRESS · **Stage:** 22 · **Type:** Domain / API / persistence / test
+**Status:** COMPLETE (2026-09-15) · **Stage:** 22 · **Type:** Domain / API / persistence / test
 
 Generate printable/exportable notes with SKU, quantity, batch/expiry, sender, receiver, date and driver reference. Never issue a VAT invoice.
 
@@ -14,6 +14,9 @@ Immutable registry delivery-note snapshots now capture transfer identity, sender
 driver reference, and line SKU/quantity/location data. Creation is available after shipment through a
 protected API route, idempotent by transfer, and its PostgreSQL migration has an executed Up/Down test.
 
-## Remaining work
+## Verification
 
-Printable/export formats and batch/expiry/serial fields remain dependent on the transfer tracking model.
+The protected delivery-note endpoint returns an exportable immutable JSON representation including
+sender, receiver, issue date, driver reference, SKU identity, quantity, locations and the tracked
+batch/expiry/serial fields. The note is idempotent by transfer and the Stage 22 PostgreSQL migration
+Up/Down evidence passes as part of the **9/9** focused registry tests.
