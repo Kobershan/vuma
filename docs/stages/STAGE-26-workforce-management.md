@@ -1,6 +1,6 @@
 # Stage 26 — Workforce Management
 
-**Status:** IN_PROGRESS — shift overlap protection, immutable attendance foundations, persistence, permissions, roster publication and API routes are implemented; labour-cost integration and full acceptance remain.
+**Status:** IN_PROGRESS — shift overlap protection, immutable attendance foundations, persistence, permissions, roster publication, labour-cost reporting and API routes are implemented; full acceptance remains.
 
 Owns workforce shifts and immutable attendance events in `hr_workforce`. Scheduling uses employee IDs,
 store IDs and application-level availability checks so HR and workforce remain independently extractable.
@@ -20,3 +20,9 @@ tenant-scoped persistence in migration `Stage26RosterPublication`; the HR lifecy
 
 2026-09-14: Employee/shift creation and availability now validate the loaded employee tenant
 before creating or returning workforce data. HR-focused tests pass **102/102**.
+
+2026-09-15: Added the company-scoped `GET /api/v1/workforce/labour-cost` report. It compares
+closed attendance hours priced from the applicable employment contract with the existing daily
+sales analytics read model, groups by currency, excludes non-company/tenant rows and reports the
+labour-cost percentage of sales. `WorkforceLabourCostQueryTests` passes **2/2**; the Ecommerce API
+OpenAPI contract assertion covers the route. Full workforce acceptance and specialist review remain.

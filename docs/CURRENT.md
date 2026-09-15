@@ -12,6 +12,10 @@ WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV ex
 (`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
 permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.
 
+WORK LOG (2026-09-15): Stage 26 now exposes the company-scoped `GET /api/v1/workforce/labour-cost`
+report, comparing closed attendance hours and contract cost with all-category sales analytics by
+currency. `WorkforceLabourCostQueryTests` passes **2/2**; full workforce acceptance remains open.
+
 WORK LOG (2026-09-15): Stage 21b Connect confirm/dispatch handlers now reject unknown order-line
 identifiers before aggregate mutation. Connect unit tests pass **15/15** and the PostgreSQL API
 class passes **5/5**; supplier-portal end-to-end, ASN/GRN and offline-convergence acceptance remain.

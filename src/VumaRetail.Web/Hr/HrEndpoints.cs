@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Hr;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
@@ -51,6 +52,11 @@ public static class HrEndpoints
         workforce.MapPost("/shift-swaps", async (RequestShiftSwapRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/shift-swaps", await d.SendAsync(new RequestShiftSwapCommand(r.ShiftId, r.FromEmployeeId, r.ToEmployeeId, r.RequestedAt), ct))).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/shift-swaps/{id:guid}/decision", async (Guid id, ShiftSwapDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideShiftSwapCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(WorkforcePermissions.Manage);
         workforce.MapPost("/rosters/publish", async (PublishRosterRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/rosters", await d.SendAsync(new PublishRosterCommand(r.CompanyId, r.From, r.To, r.StoreId), ct))).RequirePermission(WorkforcePermissions.Manage);
+        workforce.MapGet("/labour-cost", async (Guid companyId, DateOnly from, DateOnly to, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await d.QueryAsync(new GetWorkforceLabourCostQuery(companyId, from, to), ct));
+        }).RequirePermission(WorkforcePermissions.View);
         workforce.MapPost("/attendance", async (RecordAttendanceRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/workforce/attendance", await d.SendAsync(new RecordAttendanceCommand(r.EmployeeId, r.ShiftId, r.EventType, r.OccurredAt, r.Source), ct))).RequirePermission(WorkforcePermissions.AttendanceRecord);
         return endpoints;
     }
