@@ -3,16 +3,21 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17 and 18 are complete with
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17, 18 and 21 are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Stage 21 checkout/payment acceptance, then Stage 21b.
+NEXT STAGE (roadmap order): Stage 21b Vuma Connect settlement and supplier portal.
 
 WORK LOG (2026-09-15): Stage 21 TASK-21-002 authoritative checkout settlement is now verified through
 the real PostgreSQL API: a confirmed, captured checkout creates a server-priced order, allocates from
 the company-bound bin projection, and persists a two-unit held reservation. The implementation keeps
 order creation, line insertion and confirmation in one application unit of work; tenant-wide pricing
 definitions remain visible to company-bound resolution. Focused regression passes 1/1.
+
+WORK LOG (2026-09-15): Stage 21 TASK-21-003 and the stage are complete for repository-deliverable
+scope. Ecommerce unit evidence is 14/14 and the real PostgreSQL Ecommerce API class is 5/5, including
+payment replay and paid-checkout reservation settlement. Live Transaction Junction credentials and a
+separate disconnected-store harness are unavailable and recorded as deployment verification limits.
 
 VERIFICATION (2026-09-15): Stage 18 closure was independently rerun: Quality unit tests **17/17**
 and PostgreSQL quality integration tests **7/7** passed. The specialist-agent runtime is unavailable

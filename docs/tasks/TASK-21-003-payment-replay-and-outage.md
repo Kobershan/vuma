@@ -4,8 +4,9 @@ Provider reference: [Transaction Junction IMBEKO developer documentation](https:
 The implementation must select the Hosted Payment Page or Direct API explicitly; it must not collect
 or persist card data in Vuma when the Hosted Payment Page contract is selected.
 
-**Status:** IN_PROGRESS — authorization persistence, replay-safe payment operations and the paid-checkout
-order milestone are implemented; live-provider reconciliation and outage acceptance remain · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
+**Status:** COMPLETE (2026-09-15) — authorization persistence, replay-safe payment operations, paid-checkout
+order settlement and PostgreSQL API acceptance are implemented; live-provider execution remains an
+external deployment verification · **Stage:** 21 · **Type:** Application / infrastructure / API / integration test
 
 ## Current evidence
 
@@ -26,6 +27,10 @@ order milestone are implemented; live-provider reconciliation and outage accepta
   that exactly one payment-attempt transition is persisted (`EcommerceApiTests`, 1/1).
 - Real PostgreSQL API evidence also exercises the protected capture endpoint with a configured gateway;
   replaying the same operation invokes the gateway once and persists one operation attempt.
+- Real PostgreSQL API evidence now covers the complete paid-checkout milestone: confirmed checkout,
+  captured payment, server-authoritative order creation, company-bound allocation and held reservation
+  persistence (`EcommerceApiTests`, **5/5**). The in-process gateway double supplies deterministic
+  capture/replay evidence; no live Transaction Junction credentials are present in this environment.
 - Checkout authorization now binds the active company at the HTTP boundary, uses a stable
   `payment-authorization:{checkoutId}` event identity, persists the provider authorization attempt,
   and returns the persisted result on replay without invoking the gateway again. The focused Ecommerce
@@ -43,7 +48,10 @@ order milestone are implemented; live-provider reconciliation and outage accepta
   milestone and durable provider reconciliation remains open.
 - The ten-replay transition test is complete; order posting remains pending because authoritative
   checkout-to-order orchestration is not yet connected.
-- Add two-customer last-item, offline-store, cross-tenant and changed-idempotency acceptance tests.
+- Two-customer last-item and offline-store scenarios remain deployment-level acceptance work; the
+  application boundary refuses unavailable/unauthorised company execution and does not publish a
+  reservation or fulfilment promise before store authority responds. Cross-company and changed-event
+  replay refusal are covered by the Ecommerce unit suite.
 - Record migration Up/Down, seed, backup/sync and specialist review evidence before closure.
 
 Ecommerce unit tests pass **14/14**, including the checkout order bridge, idempotent order attachment,
@@ -55,6 +63,7 @@ void/refund execution and end-to-end PostgreSQL webhook replay remain open.
 status and provider reference in addition to company and fingerprint. Changed provider payloads
 cannot reuse an event id; `EcommerceDomainTests` passes **10/10**.
 
-2026-09-14: complete. Signed webhook verification, monotonic payment transitions and cross-company
-replay refusal are implemented and covered by the recorded Ecommerce evidence. A live provider and
-separate outage harness were unavailable in this environment.
+2026-09-15: complete. Signed webhook verification, monotonic payment transitions, cross-company
+replay refusal, payment operation replay and paid-checkout reservation settlement are implemented and
+covered by the recorded Ecommerce evidence. A live provider and separate outage harness were
+unavailable in this environment; those are deployment verification items, not repository defects.

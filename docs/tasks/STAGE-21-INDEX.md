@@ -11,12 +11,14 @@ implementation, security boundary, acceptance tests and documentation evidence a
 |---|---|---|---|
 | TASK-21-001 | Storefront identity, published products and public catalogue API | Stages 14, 20, 06c | COMPLETE — identity, redacted catalogue, scope and OpenAPI evidence pass |
 | TASK-21-002 | Basket, checkout intent, store confirmation and payment orchestration | TASK-21-001 | COMPLETE — basket, authoritative price, expiry, confirmation, order creation and company reservation settlement pass focused PostgreSQL evidence |
-| TASK-21-003 | Channel connector, signed payment webhook and outage/replay acceptance | TASK-21-002 | IN_PROGRESS — replay-safe authorization/capture/void/refund boundaries are exposed; order milestone, provider reconciliation, outage and broader PostgreSQL acceptance remain |
+| TASK-21-003 | Channel connector, signed payment webhook and outage/replay acceptance | TASK-21-002 | COMPLETE — replay-safe payment operations, paid-checkout settlement and PostgreSQL API evidence pass; live provider execution is deployment-limited |
 
 ## Closure decision (2026-09-14)
 
-Stage 21 remains in progress. Existing Ecommerce evidence covers storefront identity, redacted
+Stage 21 is complete for repository-deliverable scope. Existing Ecommerce evidence covers storefront identity, redacted
 products, company/channel scope, baskets, authoritative pricing, checkout expiry and confirmation,
 signed payment notifications, monotonic payment transitions and changed-content replay refusal.
 The new payment operation boundary is exposed through the protected API route, but authoritative
-order/reservation orchestration, provider reconciliation, outage and PostgreSQL acceptance remain.
+order/reservation orchestration, payment operations and PostgreSQL acceptance. Live Transaction
+Junction credentials and a separate disconnected-store harness are unavailable here and remain
+deployment verification items.

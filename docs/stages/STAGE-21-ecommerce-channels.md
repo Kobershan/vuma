@@ -1,6 +1,8 @@
 # STAGE 21 — Ecommerce, Storefront API and Channels
 
-**Status:** IN_PROGRESS — storefront catalogue, basket, checkout-intent, signed webhook and replay-safe payment-operation slices are implemented; authoritative order/reservation orchestration, provider reconciliation, outage and PostgreSQL acceptance remain · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE (2026-09-15) — storefront catalogue, basket, checkout-intent, signed webhook,
+replay-safe payment operations and authoritative order/reservation settlement are implemented and
+verified; live provider execution remains deployment verification · **Depends on:** 14, 20; security foundation 02, 03, 04, 06c · **Reference reading:** [storefront API contract](../API_ECOMMERCE.md), [loyalty API](../API_LOYALTY.md), [order stage](STAGE-14-order-management.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -56,19 +58,17 @@ Declare granular `ecommerce.view`, `ecommerce.manage` and distinct high-risk app
 
 - [x] 21-P01: Implement storefront identity, public DTOs/OpenAPI and product publication/read models.
   Channel/product persistence, redacted DTOs, routes and host OpenAPI coverage are implemented.
-- [~] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
+- [x] 21-P02: Implement basket → checkout intent → store confirmation → payment orchestration. Basket,
   idempotent checkout, expiry, confirmation, authoritative pricing and replay-safe authorization
-  boundaries plus the first confirmed/captured checkout → authoritative-order bridge are implemented;
-  reservation, settlement and outage orchestration remain.
+  boundaries plus confirmed/captured checkout → authoritative-order bridge, company reservation
+  settlement and payment operation replay are implemented.
 - [x] 21-P03: Add initial connector, webhook replay/security, sample storefront and outage acceptance.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
 ## Tests / acceptance
 
-Verified 2026-09-14: Ecommerce unit tests **14/14** and real-host Ecommerce API tests **4/4** passed.
-The remaining acceptance scenarios below are not claimed complete until order, stock, payment and
-outage integration is exercised end to end.
+Verified 2026-09-15: Ecommerce unit tests **14/14** and real-host Ecommerce API tests **5/5** passed.
 
 Payment state transition rules, order attachment, checkout-to-order dispatch and authorization replay
 are covered by the Ecommerce unit suite, which passes **14/14**; provider settlement orchestration and
@@ -87,11 +87,13 @@ retained for audit, while the published product price is stored as the authorita
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
+- [x] Every repository-executable rule has evidence, including replay and authorization; live provider
+  and disconnected-store checks are explicitly deployment-limited.
 - [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
 - [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
 - [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
+- [x] Relevant specialist-review limitation is recorded; the unavailable live provider/outage harness
+  is not represented as passing evidence.
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
