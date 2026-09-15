@@ -17,6 +17,11 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, settlement-replay, supplier-portal route, OpenAPI and permission-boundary foundations are implemented and verified. Full portal acceptance remains.
 
+2026-09-15: Connect confirm/dispatch command adapters now reject unknown order-line identifiers
+before invoking the aggregate, preserving deterministic validation for supplier portal payloads.
+The Connect unit suite passes **15/15** and the PostgreSQL API suite passes **5/5**; full portal,
+ASN/GRN and offline-convergence acceptance remain open.
+
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
 | TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | COMPLETE |
