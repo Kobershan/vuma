@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Connect;
+using VumaRetail.Domain.Connect;
+using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Api;
@@ -54,5 +57,36 @@ public sealed class ConnectApiTests(PostgresFixture fixture)
         code.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         catalogue.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         order.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Retailer_can_read_connection_portal_grants_over_the_real_api()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        Guid supplierTenant = Guid.NewGuid();
+        Guid contactId = Guid.NewGuid();
+        Guid connectionId = await harness.InScopeAsync(async services =>
+        {
+            VumaRetailDbContext context = services.GetRequiredService<VumaRetailDbContext>();
+            TradingConnection connection = TradingConnection.Request(
+                supplierTenant, harness.TenantId, "SUP-API", "RET-API", DateTimeOffset.UtcNow);
+            connection.Accept("ZAR", 25_000m, 5, 100m, DateTimeOffset.UtcNow);
+            context.Add(connection);
+            context.Add(SupplierPortalGrant.Create(
+                supplierTenant, harness.TenantId, connection.Id, contactId, "orders", DateTimeOffset.UtcNow));
+            await context.SaveChangesAsync();
+            return connection.Id;
+        });
+
+        await harness.CreateUserAsync("portal-reader", permissions: ConnectPermissions.View);
+        using HttpClient client = await harness.SignInAsync("portal-reader");
+
+        HttpResponseMessage response = await client.GetAsync(
+            $"/api/v1/connect/connections/{connectionId}/granted-users");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        JsonElement grants = await response.Content.ReadFromJsonAsync<JsonElement>();
+        grants.GetArrayLength().Should().Be(1);
+        grants[0].GetProperty("accessRole").GetString().Should().Be("orders");
     }
 }

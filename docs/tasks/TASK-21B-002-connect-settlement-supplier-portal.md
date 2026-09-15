@@ -47,3 +47,7 @@ the requested connection when the caller is one of its two parties. The Connect 
 retailer parties can read the connection's grant while an unrelated tenant receives an empty result;
 the focused Connect persistence suite passes **2/2**. Full portal trading and offline convergence
 remain open.
+
+2026-09-15: Added real HTTP API coverage for a retailer reading a connection's supplier portal
+grant. The API/OpenAPI/permission suite passes **3/3** and the integration project builds with 0
+errors. Full portal trading, ASN/GRN completion, settlement isolation and offline convergence remain open.
