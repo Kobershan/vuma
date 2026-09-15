@@ -33,12 +33,18 @@ public sealed class CreateGoodsReceiptFromConnectAsnCommandHandler(
             throw new UnauthorizedAccessException("Only the retailer can receive a dispatched Connect order.");
         PurchaseOrder purchaseOrder = await purchaseOrders.FindAsync(connectOrder.PurchaseOrderId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Purchase order not found.");
+        string deliveryNoteNumber = command.DeliveryNoteNumber ?? connectOrder.DispatchNoteNumber
+            ?? throw new InvalidOperationException("A dispatched Connect order must have a delivery note.");
+        GoodsReceipt? existingByDeliveryNote = (await receipts.ListForOrderAsync(purchaseOrder.Id, cancellationToken)
+            .ConfigureAwait(false)).FirstOrDefault(x => string.Equals(x.DeliveryNoteNumber, deliveryNoteNumber,
+                StringComparison.OrdinalIgnoreCase));
+        if (existingByDeliveryNote is not null) return existingByDeliveryNote.Id;
         Guid receivedBy = ProcurementActor.RequireUserId(principal);
         Guid receiptId = command.GoodsReceiptId ?? VumaRetail.Domain.Primitives.UuidV7.NewGuid();
         if (command.GoodsReceiptId is not null && await receipts.FindAsync(receiptId, cancellationToken).ConfigureAwait(false) is not null)
             return receiptId;
         GoodsReceipt receipt = GoodsReceipt.Open(purchaseOrder, await numbers.NextAsync("GRN", cancellationToken).ConfigureAwait(false),
-            command.DeliveryNoteNumber ?? connectOrder.DispatchNoteNumber, receivedBy, clock.UtcNow, receiptId);
+            deliveryNoteNumber, receivedBy, clock.UtcNow, receiptId);
         foreach (ConnectOrderLine line in connectOrder.Lines)
         {
             if (line.PurchaseOrderLineId is null || line.DispatchedQuantity.Value <= 0) continue;

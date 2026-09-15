@@ -35,6 +35,10 @@ The retailer and supplier can now retrieve the persisted settlement advice while
 no result. The Connect unit suite passes 21/21 and the Web Release build has 0 errors. End-to-end portal
 trading, full settlement integration, isolation sweep and offline convergence remain open.
 
+2026-09-15: ASN-to-GRN creation now treats the supplier delivery-note number as an idempotency key
+within the purchase order, so a dropped response cannot create a second draft receipt. Explicit receipt
+IDs remain supported for clients that persist operation identity. Web Release and Connect unit tests remain green.
+
 2026-09-15: Added `GET /api/v1/connect/connections/{id}/granted-users`, returning only grants for
 the requested connection when the caller is one of its two parties. The Connect unit suite passes
 22/22 and Web Release remains green with 0 errors. Full portal trading and offline convergence remain open.

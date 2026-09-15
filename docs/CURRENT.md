@@ -29,6 +29,10 @@ WORK LOG (2026-09-15): Supplier portal access grants are now auditable through t
 `GET /api/v1/connect/connections/{id}/granted-users` route. Connect unit tests pass **22/22** and Web
 Release has **0 errors**; full portal trading and offline convergence remain open.
 
+WORK LOG (2026-09-15): ASN-to-GRN creation now deduplicates retries by the supplier delivery-note number
+within the purchase order, while retaining explicit receipt-ID replay support. Web Release and the Connect
+unit suite remain green; end-to-end portal trading and offline convergence are still open.
+
 WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/reverse transfer
 creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration
 reversibility pass the focused registry suite (**9/9** integration tests).
