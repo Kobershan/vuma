@@ -1,6 +1,6 @@
 # STAGE 23 — Service Management
 
-**Status:** IN_PROGRESS — ticket/SLA slices and bounded breach worker implemented; durable breach/audit persistence, acceptance, and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
+**Status:** IN_PROGRESS — ticket/SLA slices, bounded breach worker, and durable breach audits implemented; full API/isolation acceptance and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
 use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
@@ -54,7 +54,8 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   invoicing/RMA and full PostgreSQL availability acceptance remain.
 - [~] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance. Deterministic
   weekday business-hours calculation, customer-wait pause accounting, and a bounded tenant/company-
-  scoped breach worker are implemented; durable breach/audit persistence and API acceptance remain.
+  scoped breach worker and append-only, unique breach-audit persistence are implemented; API and
+  full isolation acceptance remain.
 
 ## Progress evidence
 
@@ -81,6 +82,9 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   deadlines. Service unit tests pass **33/33**.
 - 2026-09-15: Registered `IServiceSlaWorker` evaluates open-ticket breaches with persisted pause
   accounting and tenant/company guards; `ServiceSlaClockTests` passes **7/7**.
+- 2026-09-15: SLA breach observations are now append-only and durable in
+  `service.service_sla_breach_events`, uniquely keyed per tenant/ticket/SLA/type; migration
+  Up/Down acceptance passes **1/1**.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
