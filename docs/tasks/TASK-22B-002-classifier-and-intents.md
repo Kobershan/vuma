@@ -20,6 +20,8 @@ model data access and no unscoped customer lookup.
 - Statement, credit-note, and pro-forma order handlers use the persisted binding scope and recheck
   tenant/company ownership before issuing or submitting a result. Conversation handler tests pass
   **32/32**.
+- Injection text is treated as message data: the deterministic fallback preserves the allow-listed
+  intent without extracting an unauthorized account identifier.
 
 ## Remaining work
 
