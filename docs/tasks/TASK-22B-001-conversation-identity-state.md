@@ -23,11 +23,11 @@ conversation work, and persist an explicit conversation state machine.
 - `ConversationAccountScope` now persists an explicit binding/company/customer-account boundary in
   the registry, with permission-gated add/list endpoints and a reversible registry migration.
 - Scope migration Up/Down passes on real PostgreSQL; the conversation unit slice is 17/17 green.
+- All account-backed document intents now reduce persisted grants to the active operating company
+  before resolving account or document references; conversation handler tests remain 32/32 green.
 
 ## Remaining work
 
-- Connect the new persisted scope to the contact-to-account/company resolver consumed by every intent
-  handler.
 - Add end-to-end inbound webhook tests proving tenant and account isolation.
 - Record transcript retention and CRM visibility evidence.
 

@@ -82,7 +82,8 @@ public abstract class ScopedDocumentIntentHandler(
     ICustomerAccountRepository accounts,
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
-    IClock clock) : IConversationIntentHandler
+    IClock clock,
+    ICompanyContext? company = null) : IConversationIntentHandler
 {
     /// <inheritdoc />
     public abstract ConversationIntent Intent { get; }
@@ -92,8 +93,15 @@ public abstract class ScopedDocumentIntentHandler(
     protected abstract string EntityName { get; }
 
     /// <summary>Reads the binding's durable account/company grants for specialized handlers.</summary>
-    protected Task<IReadOnlyList<ConversationAccountScope>> GetGrantedScopesAsync(
-        Guid bindingId, CancellationToken cancellationToken) => scopes.ListAsync(bindingId, cancellationToken);
+    protected async Task<IReadOnlyList<ConversationAccountScope>> GetGrantedScopesAsync(
+        Guid bindingId, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ConversationAccountScope> granted = await scopes.ListAsync(bindingId, cancellationToken)
+            .ConfigureAwait(false);
+        return company?.CompanyId is not { } companyId
+            ? granted
+            : granted.Where(scope => scope.OperatingCompanyId == companyId).ToArray();
+    }
 
     /// <inheritdoc />
     public virtual async Task<IntentResult> HandleAsync(
@@ -166,8 +174,9 @@ public sealed class StatementIntentHandler(
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
     IClock clock,
-    IArInvoiceRepository arInvoices)
-    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
+    IArInvoiceRepository arInvoices,
+    ICompanyContext? company = null)
+    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock, company)
 {
     /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestStatement;
@@ -214,8 +223,9 @@ public sealed class InvoiceCopyIntentHandler(
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
     IClock clock,
-    IInvoiceRepository invoices)
-    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
+    IInvoiceRepository invoices,
+    ICompanyContext? company = null)
+    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock, company)
 {
     /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestInvoiceCopy;
@@ -256,8 +266,9 @@ public sealed class PodIntentHandler(
     IContactBindingManagementService bindings,
     IDocumentDeliveryService delivery,
     IClock clock,
-    ILogisticsRepository? logistics = null)
-    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
+    ILogisticsRepository? logistics = null,
+    ICompanyContext? company = null)
+    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock, company)
 {
     /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestPod;
@@ -324,8 +335,9 @@ public sealed class CreditNoteRequestIntentHandler(
     IDocumentDeliveryService delivery,
     IClock clock,
     IProFormaCreditNoteRepository? credits = null,
-    IDispatcher? dispatcher = null)
-    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock)
+    IDispatcher? dispatcher = null,
+    ICompanyContext? company = null)
+    : ScopedDocumentIntentHandler(scopes, accounts, bindings, delivery, clock, company)
 {
     /// <inheritdoc />
     public override ConversationIntent Intent => ConversationIntent.RequestCreditNote;
