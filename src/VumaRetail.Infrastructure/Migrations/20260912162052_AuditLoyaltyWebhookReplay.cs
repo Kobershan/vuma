@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +6,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace VumaRetail.Infrastructure.Migrations;
 
 /// <summary>Adds durable replay markers for loyalty webhook ordering.</summary>
+[DbContext(typeof(VumaRetail.Infrastructure.Persistence.VumaRetailDbContext))]
+[Migration("20260912162052_AuditLoyaltyWebhookReplay")]
 public partial class AuditLoyaltyWebhookReplay : Migration
 {
     /// <inheritdoc />

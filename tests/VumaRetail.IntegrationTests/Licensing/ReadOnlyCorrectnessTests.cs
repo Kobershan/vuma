@@ -155,6 +155,8 @@ public sealed class ReadOnlyCorrectnessTests(PostgresFixture fixture)
             ["SendHeartbeatCommand"] = ReadOnlyExemption.Payment,
             ["RedeemEmergencyCodeCommand"] = ReadOnlyExemption.Payment,
             ["RevokeSupportAccessCommand"] = ReadOnlyExemption.Payment,
+            ["ExecutePaymentOperationCommand"] = ReadOnlyExemption.Payment,
+            ["BeginCheckoutPaymentCommand"] = ReadOnlyExemption.Payment,
 
             // ReceiptReprint (ADR-135, §4.10): cannot originate trade — one row appended to an
             // append-only log for a sale that already exists. The single member this kind is scoped to.
