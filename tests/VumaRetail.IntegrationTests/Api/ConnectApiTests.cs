@@ -24,6 +24,7 @@ public sealed class ConnectApiTests(PostgresFixture fixture)
         paths.TryGetProperty("/api/v1/connect/orders", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/connect/orders/{id}/asn", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/connect/payments/settle", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/connect/payments/{paymentId}/remittance", out _).Should().BeTrue();
     }
 
     [Fact]

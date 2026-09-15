@@ -59,6 +59,10 @@ public sealed class ConnectRemittanceRepository(VumaRetailDbContext context) : I
     public Task<ConnectRemittanceAdvice?> FindAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default)
         => context.ConnectRemittances.SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.TenantId == tenantId, cancellationToken);
 
+    public Task<ConnectRemittanceAdvice?> FindForPartyAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default)
+        => context.ConnectRemittances.AsNoTracking().SingleOrDefaultAsync(x => x.PaymentId == paymentId &&
+            (x.RetailerTenantId == tenantId || x.SupplierTenantId == tenantId), cancellationToken);
+
     public async Task<SettlementResult?> FindSettlementAsync(Guid paymentId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         ConnectRemittanceAdvice? row = await context.ConnectRemittances.AsNoTracking()

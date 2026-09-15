@@ -11,6 +11,31 @@ public sealed class ConnectSettlementTests
     private static readonly DateTimeOffset Now = new(2026, 9, 12, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task Remittance_query_allows_supplier_party_but_hides_outsider()
+    {
+        Guid retailer = Guid.NewGuid();
+        Guid supplier = Guid.NewGuid();
+        Guid payment = Guid.NewGuid();
+        ConnectRemittanceAdvice remittance = ConnectRemittanceAdvice.Issue(retailer, supplier, Guid.NewGuid(),
+            payment, "INV-1", new Money(100m, "ZAR"), ConnectPaymentMethod.Eft, "PROV-1", "REM-1", Now);
+        IConnectRemittanceRepository repository = Substitute.For<IConnectRemittanceRepository>();
+        repository.FindForPartyAsync(payment, supplier, Arg.Any<CancellationToken>()).Returns(remittance);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(supplier);
+
+        ConnectRemittanceResult? result = await new GetConnectRemittanceQueryHandler(repository, tenant)
+            .HandleAsync(new GetConnectRemittanceQuery(payment));
+
+        result.Should().NotBeNull();
+        result!.SupplierTenantId.Should().Be(supplier);
+        result.RemittanceReference.Should().Be("REM-1");
+
+        tenant.TenantId.Returns(Guid.NewGuid());
+        (await new GetConnectRemittanceQueryHandler(repository, tenant)
+            .HandleAsync(new GetConnectRemittanceQuery(payment))).Should().BeNull();
+    }
+
+    [Fact]
     public async Task Successful_payment_captures_posts_both_ledgers_and_issues_remittance()
     {
         Guid retailer = Guid.NewGuid();

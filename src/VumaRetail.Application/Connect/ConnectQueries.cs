@@ -48,3 +48,27 @@ public sealed class ListIncomingPriceProposalsQueryHandler(IPriceProposalReposit
         return (await proposals.ListForConnectionAsync(query.ConnectionId, cancellationToken).ConfigureAwait(false)).Select(p => new ConnectProposalResult(p.Id, p.ConnectionId, p.EffectiveFrom, p.ExpiresAt, p.Status, p.Lines.Select(x => new ConnectProposalLineResult(x.Id, x.SupplierSku, x.UnitPrice, x.Currency, x.MinimumOrderQuantity, x.LeadTimeDays)).ToList())).ToList();
     }
 }
+
+public sealed record GetConnectRemittanceQuery(Guid PaymentId) : IQuery<ConnectRemittanceResult?>;
+public sealed record ConnectRemittanceResult(Guid PaymentId, Guid ConnectionId, Guid RetailerTenantId,
+    Guid SupplierTenantId, string InvoiceReference, decimal Amount, string Currency,
+    ConnectPaymentMethod Method, string ProviderReference, string RemittanceReference,
+    ConnectRemittanceStatus Status, DateTimeOffset IssuedAt);
+
+public sealed class GetConnectRemittanceQueryHandler(
+    IConnectRemittanceRepository remittances, ITenantContext tenant)
+    : IQueryHandler<GetConnectRemittanceQuery, ConnectRemittanceResult?>
+{
+    public async Task<ConnectRemittanceResult?> HandleAsync(GetConnectRemittanceQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ConnectRemittanceAdvice? remittance = await remittances.FindForPartyAsync(
+            query.PaymentId, tenant.TenantId, cancellationToken).ConfigureAwait(false);
+        return remittance is null ? null : new ConnectRemittanceResult(remittance.PaymentId,
+            remittance.ConnectionId, remittance.RetailerTenantId, remittance.SupplierTenantId,
+            remittance.InvoiceReference, remittance.Amount.Amount, remittance.Amount.Currency,
+            remittance.Method, remittance.ProviderReference, remittance.RemittanceReference,
+            remittance.Status, remittance.IssuedAt);
+    }
+}

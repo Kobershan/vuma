@@ -47,6 +47,11 @@ public static class ConnectEndpoints
         api.MapPost("/orders/{id:guid}/receive", async (Guid id, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ReceiveConnectOrderCommand(id), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/orders/{id:guid}/asn/receipt", async (Guid id, CreateAsnReceiptRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Created($"/api/v1/connect/orders/{id}/asn/receipt/{await d.SendAsync(new CreateGoodsReceiptFromConnectAsnCommand(id, r.DeliveryNoteNumber, r.GoodsReceiptId), ct)}", new { })).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/payments/settle", async (SettlePaymentRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Ok(await d.SendAsync(new SettleConnectPaymentCommand(r.PaymentId, r.ConnectionId, r.InvoiceReference, r.Amount, r.Currency, r.Method), ct))).RequirePermission(ConnectPermissions.Order);
+        api.MapGet("/payments/{paymentId:guid}/remittance", async (Guid paymentId, IDispatcher d, CancellationToken ct) =>
+        {
+            ConnectRemittanceResult? remittance = await d.QueryAsync(new GetConnectRemittanceQuery(paymentId), ct);
+            return remittance is null ? Results.NotFound() : Results.Ok(remittance);
+        }).RequirePermission(ConnectPermissions.View);
         api.MapPost("/orders/{id:guid}/claims", async (Guid id, RaiseClaimRequest r, IDispatcher d, CancellationToken ct) => TypedResults.Created($"/api/v1/connect/claims/{await d.SendAsync(new RaiseConnectClaimCommand(id, r.OrderLineId, r.ClaimNumber, r.Reason, r.Quantity, r.UnitOfMeasure, r.Amount, r.Currency, r.Description), ct)}", new { })).RequirePermission(ConnectPermissions.Order);
         api.MapPost("/claims/{id:guid}/resolve", async (Guid id, ResolveClaimRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ResolveConnectClaimCommand(id, r.Credit, r.CreditNoteReference), ct); return TypedResults.NoContent(); }).RequirePermission(ConnectPermissions.Order);
         return endpoints;

@@ -20,6 +20,11 @@ WORK LOG (2026-09-15): Stage 21b Connect confirm/dispatch handlers now reject un
 identifiers before aggregate mutation. Connect unit tests pass **15/15** and the PostgreSQL API
 class passes **5/5**; supplier-portal end-to-end, ASN/GRN and offline-convergence acceptance remain.
 
+WORK LOG (2026-09-15): Connect settlement now exposes a party-scoped remittance read for both retailer and supplier
+through `GET /api/v1/connect/payments/{paymentId}/remittance`; unrelated tenants receive no result. Connect unit tests
+pass **21/21** and the Web Release build has **0 errors**. End-to-end portal trading, settlement integration,
+isolation sweep and offline convergence remain open.
+
 WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/reverse transfer
 creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration
 reversibility pass the focused registry suite (**9/9** integration tests).

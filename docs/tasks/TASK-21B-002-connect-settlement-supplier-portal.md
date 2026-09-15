@@ -1,6 +1,6 @@
 # TASK-21B-002 — Connect settlement and supplier portal
 
-Status: IN_PROGRESS — settlement, remittance persistence, supplier portal access, and permission foundations implemented
+Status: IN_PROGRESS — settlement, party-scoped remittance read, supplier portal access, and permission foundations implemented
 Stage: 21b
 Type: Cross-tenant network, settlement, portal, API
 
@@ -29,3 +29,8 @@ and a PostgreSQL migration `20260915071947_Stage21bConnectAsnPurchaseOrderLink`;
 now also persist batch, serial, expiry and package references via
 `20260915072953_Stage21bConnectAsnShipmentDetails`. The retailer must still explicitly complete the
 resulting GRN. Offline-convergence work remains IN_PROGRESS.
+
+2026-09-15: Added the party-scoped remittance query and `GET /api/v1/connect/payments/{paymentId}/remittance`.
+The retailer and supplier can now retrieve the persisted settlement advice while unrelated tenants receive
+no result. The Connect unit suite passes 21/21 and the Web Release build has 0 errors. End-to-end portal
+trading, full settlement integration, isolation sweep and offline convergence remain open.
