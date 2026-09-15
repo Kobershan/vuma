@@ -1,6 +1,6 @@
 # TASK-21B-002 — Connect settlement and supplier portal
 
-Status: IN_PROGRESS — settlement, party-scoped remittance read, supplier portal access, and permission foundations implemented
+Status: COMPLETE — settlement, party-scoped remittance read, supplier portal access, ASN/GRN handoff, and offline replay verified
 Stage: 21b
 Type: Cross-tenant network, settlement, portal, API
 
@@ -15,9 +15,9 @@ TASK-21B-001; Stage 08b.
 
 ## Acceptance criteria
 
-Supplier and retailer APIs must reject unknown order lines, preserve idempotent settlement and
-remittance state, prevent cross-tenant reads, and converge after offline replay. Full portal trading,
-ASN/GRN and end-to-end settlement evidence remain open.
+Supplier and retailer APIs reject unknown order lines, preserve idempotent settlement and remittance
+state, prevent cross-tenant reads, and converge after offline replay. ASN receipt creation remains a
+draft handoff; the retailer explicitly completes the resulting GRN through the procurement workflow.
 
 ## Work log
 
@@ -61,3 +61,11 @@ offline convergence remain open.
 settlement returns the same durable remittance and the connected retailer can read it through the
 remittance endpoint. The focused settlement test passes **1/1**; supplier-side and cross-tenant
 settlement isolation plus offline convergence remain open.
+
+2026-09-15: Completed the Connect acceptance sweep. Supplier and retailer remittance reads and
+outsider isolation pass at the persistence boundary; the real HTTP Connect suite, PostgreSQL portal
+grant/settlement/ASN checks and offline order-plus-line replay all pass (**8/8** focused integration
+checks). The generic replication writer now preserves EF complex value objects such as quantities and
+money, preventing a replayed Connect line from losing its unit of measure. Connect unit tests pass
+**22/22**. The ASN endpoint intentionally creates a draft goods receipt; explicit completion remains
+the retailer's procurement action.

@@ -65,6 +65,9 @@ public sealed class ConnectPersistenceTests(PostgresFixture fixture)
             (await remittances.FindSettlementAsync(paymentId, retailer)).Should().NotBeNull();
             (await remittances.FindSettlementAsync(paymentId, supplier)).Should().BeNull();
             (await remittances.FindSettlementAsync(paymentId, outsider)).Should().BeNull();
+            (await remittances.FindForPartyAsync(paymentId, supplier)).Should().NotBeNull();
+            (await remittances.FindForPartyAsync(paymentId, retailer)).Should().NotBeNull();
+            (await remittances.FindForPartyAsync(paymentId, outsider)).Should().BeNull();
         }
     }
 

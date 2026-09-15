@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Connect;
 using VumaRetail.Infrastructure.Sync;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Primitives;
@@ -33,6 +34,36 @@ namespace VumaRetail.IntegrationTests.Sync;
 [Collection(PostgresCollection.Name)]
 public sealed class ReplicationTests(PostgresFixture fixture)
 {
+    [Fact]
+    public async Task Offline_connect_order_converges_once_after_reconnect()
+    {
+        await using SyncHarness cloud = await SyncHarness.CreateAsync(fixture, "cloud-connect", NodeKind.Cloud);
+        await using SyncHarness store = await SyncHarness.CreateAsync(fixture, "store-connect", NodeKind.Store, cloud.TenantId, cloud.StoreId);
+
+        ConnectOrder order = ConnectOrder.Place(store.TenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-OFFLINE-001", store.Clock.UtcNow);
+        order.AddLine("SKU-OFFLINE", "Offline item", new Quantity(2, "EA"), new Money(11, "ZAR"));
+        store.Context.ConnectOrders.Add(order);
+        await store.Context.CommitAsync();
+
+        ReplicaWriter writer = new(store.Context, new ReplicationScope());
+        ConnectOrderLine line = order.Lines.Single();
+        SyncOperation orderOperation = new(Guid.NewGuid(), nameof(ConnectOrder), order.Id, SyncOperationKind.Upsert,
+            store.HybridClock.Next(), writer.Serialise(order), store.Clock.UtcNow);
+        SyncOperation lineOperation = new(Guid.NewGuid(), nameof(ConnectOrderLine), line.Id, SyncOperationKind.Upsert,
+            store.HybridClock.Next(), writer.Serialise(line), store.Clock.UtcNow);
+        SyncBatch batch = new(store.Node.NodeId, store.Node.Kind, store.TenantId, store.StoreId,
+            [orderOperation, lineOperation]);
+
+        SyncAcknowledgement first = await cloud.SendAsync(new ReceiveSyncBatchCommand(batch));
+        SyncAcknowledgement replay = await cloud.SendAsync(new ReceiveSyncBatchCommand(batch));
+
+        first.Results.Should().HaveCount(2).And.OnlyContain(result => result.Outcome == InboxOutcome.Applied);
+        replay.Results.Should().HaveCount(2).And.OnlyContain(result => result.Outcome == InboxOutcome.Duplicate);
+        ConnectOrder landed = await cloud.Context.ConnectOrders.Include(x => x.Lines).SingleAsync(x => x.Id == order.Id);
+        landed.OrderNumber.Should().Be("PO-OFFLINE-001");
+        landed.Lines.Should().ContainSingle().Which.RequestedQuantity.Value.Should().Be(2);
+    }
+
     [Fact]
     public async Task Offline_production_issues_replay_once_after_reconnect()
     {

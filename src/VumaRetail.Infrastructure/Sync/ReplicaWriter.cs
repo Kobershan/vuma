@@ -133,6 +133,11 @@ public sealed class ReplicaWriter(VumaRetailDbContext context, IReplicationScope
             payload[property.Metadata.Name] = ToJson(property.CurrentValue);
         }
 
+        foreach (ComplexPropertyEntry property in entry.ComplexProperties)
+        {
+            payload[property.Metadata.Name] = ToJson(property.CurrentValue);
+        }
+
         return payload.ToJsonString();
     }
 
@@ -232,6 +237,19 @@ public sealed class ReplicaWriter(VumaRetailDbContext context, IReplicationScope
             }
 
             entry.Property(name).CurrentValue = FromJson(value, property.ClrType);
+        }
+
+        foreach (IComplexProperty property in entry.Metadata.GetComplexProperties())
+        {
+            if (NotCopied.Contains(property.Name))
+            {
+                continue;
+            }
+
+            if (payload.TryGetPropertyValue(property.Name, out JsonNode? value))
+            {
+                entry.ComplexProperty(property.Name).CurrentValue = FromJson(value, property.ClrType);
+            }
         }
     }
 

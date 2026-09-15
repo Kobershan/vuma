@@ -7,7 +7,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 21b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | IN PROGRESS |
+| 21b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
 
 This row is a planning gate, not an implementation task. Stage 06c is the first fully canonicalized reference graph; future stage rows must be replaced by independently executable task files before that stage is selected.
 
@@ -15,7 +15,9 @@ This row is a planning gate, not an implementation task. Stage 06c is the first 
 
 ## Task index
 
-Current implementation status: the relationship, catalogue, order, migration, isolation, remittance-persistence, settlement-replay, supplier-portal route, OpenAPI and permission-boundary foundations are implemented and verified. Full portal acceptance remains. See [TASK-21B-002](../tasks/TASK-21B-002-connect-settlement-supplier-portal.md) for the executable work item.
+Current implementation status: the relationship, catalogue, order, migration, isolation, remittance,
+settlement replay, supplier portal, ASN-to-draft-GRN handoff and offline replay acceptance are
+implemented and verified. See [TASK-21B-002](../tasks/TASK-21B-002-connect-settlement-supplier-portal.md).
 
 2026-09-15: Connect confirm/dispatch command adapters now reject unknown order-line identifiers
 before invoking the aggregate, preserving deterministic validation for supplier portal payloads.
@@ -29,7 +31,7 @@ offline-convergence acceptance remains open.
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
 | TASK-21B-001 | Implement Vuma Connect relationships and catalogues | Stages 07, 12, 14, 21 | COMPLETE |
-| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | IN PROGRESS |
+| TASK-21B-002 | Implement Connect settlement and supplier portal | TASK-21B-001; Stage 08b | COMPLETE |
 
 ## Objective
 

@@ -6,7 +6,7 @@
 CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17, 18, 21 and 22 are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Stage 21b Vuma Connect settlement and supplier portal.
+NEXT STAGE (roadmap order): Stage 22b conversational commerce completion pass.
 
 WORK LOG (2026-09-15): TASK-003 procurement field labels is complete. The misleading
 `MatchedNet` domain/application/API surface is now `MatchedGross`; the existing `matched_net`
@@ -62,6 +62,11 @@ Release has **0 errors**; full portal trading and offline convergence remain ope
 WORK LOG (2026-09-15): ASN-to-GRN creation now deduplicates retries by the supplier delivery-note number
 within the purchase order, while retaining explicit receipt-ID replay support. Web Release and the Connect
 unit suite remain green; end-to-end portal trading and offline convergence are still open.
+
+WORK LOG (2026-09-15): TASK-21B-002 Connect is complete. The focused PostgreSQL/API/offline sweep
+passes **8/8**, Connect unit tests pass **22/22**, supplier/retailer remittance reads are isolated,
+and the generic replication writer now preserves complex Quantity/Money values for replayed lines.
+ASN creates a draft receipt by design; procurement completion remains an explicit retailer action.
 
 WORK LOG (2026-09-15): Stage 22 transfer closure is verified: related remainder/reverse transfer
 creation, reservation/shipment/receipt saga paths, tracked delivery-note export and migration

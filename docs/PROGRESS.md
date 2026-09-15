@@ -450,7 +450,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 19 | CRM | **COMPLETE and verified** — current handoff supersedes older scaffolding note | 2026-09-10 |
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
 | 21 | Ecommerce, storefront API & channels | **COMPLETE and verified** — catalogue, baskets, durable checkout intents, signed payment notifications, price/expiry/replay boundaries and API evidence pass; live gateway/outage runtime unavailable | 2026-09-14 |
-| 21b | Vuma Connect: supplier network & B2B | **IN PROGRESS** — relationship/catalogue/order/settlement foundations plus independent supplier-portal OpenAPI and permission evidence implemented; full portal acceptance remains | 2026-09-13 |
+| 21b | Vuma Connect: supplier network & B2B | **COMPLETE** — supplier portal, settlement/remittance isolation, ASN draft-GRN handoff and offline replay verified | 2026-09-15 |
 | 22 | Marketing automation | NOT_STARTED | — |
 | 22b | Conversational commerce | **IN_PROGRESS** — transport integration and six intent handlers remain | — |
 | 23–31 | see `ROADMAP.md` | NOT_STARTED except explicitly listed above | — |
