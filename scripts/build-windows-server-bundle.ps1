@@ -43,4 +43,5 @@ dotnet publish (Join-Path $root "src/VumaRetail.StoreServer/VumaRetail.StoreServ
 
 Copy-Item (Join-Path $root "scripts/install-vuma-storeserver.ps1") $output
 Copy-Item (Join-Path $root "scripts/install-vuma-local-server.ps1") $output
+Copy-Item (Join-Path $root "scripts/install-vuma.cmd") $output
 Write-Host "Windows server bundle created at $output"

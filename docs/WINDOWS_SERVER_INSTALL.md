@@ -27,6 +27,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\install-vuma-local-server.ps1 -InstallLocalPostgres -DatabasePassword 'choose-a-local-password'
 ```
 
+The same installation can be started with the simpler `install-vuma.cmd` launcher:
+
+```powershell
+.\install-vuma.cmd -InstallLocalPostgres -DatabasePassword 'choose-a-local-password'
+```
+
 This creates the database, applies migrations, seeds the development administrator, installs the
 `VumaRetailStoreServer` Windows Service, and opens the API on port 7243 for the private network.
 The bootstrap login is `admin` / `Admin@Vuma2026!`; deactivate it after creating the real admin.
