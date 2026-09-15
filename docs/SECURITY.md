@@ -170,6 +170,14 @@ implemented position is pseudonymisation: identifying fields on the customer rec
 the transaction history keeps its totals and its legal integrity, and the link back to a person is
 gone. This is recorded here rather than decided per module.
 
+**Conversational transcript classification and retention.** Conversation turns contain channel
+addresses and customer-provided message text, so they are tenant-owned personal information and are
+classified as confidential operational records. They remain append-only and tenant/company scoped;
+the tenant's configured conversation-retention policy governs deletion or pseudonymisation, with the
+default retention period following the per-entity policy described above. Transcript access is
+permission-gated and every document fetch or escalation remains auditable; message content is never
+included in metering counters.
+
 **Cross-border.** A tenant whose cloud tier is hosted outside South Africa needs §72 grounds. The
 cloud tier's region is tenant configuration for that reason, not a vendor-wide constant.
 

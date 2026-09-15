@@ -27,6 +27,8 @@ conversation work, and persist an explicit conversation state machine.
   before resolving account or document references; conversation handler tests remain 32/32 green.
 - Real HTTP webhook coverage rejects an invalid signature and gives an unbound sender onboarding only;
   the focused API checks pass 2/2.
+- Transcript data classification, tenant ownership, retention policy and permission-gated audit
+  handling are recorded in `docs/SECURITY.md` §5.
 
 ## Remaining work
 
