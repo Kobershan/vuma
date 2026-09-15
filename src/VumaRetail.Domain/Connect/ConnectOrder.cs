@@ -100,6 +100,10 @@ public sealed class ConnectOrder : Entity
         if (Status is not (ConnectOrderStatus.Confirmed or ConnectOrderStatus.PartiallyConfirmed))
             throw new InvalidOperationException("Only a confirmed order can be dispatched.");
         if (string.IsNullOrWhiteSpace(dispatchNoteNumber)) throw new ArgumentException("A dispatch note number is required.");
+        if (details is not null && details.Keys.Any(id => _lines.All(line => line.Id != id)))
+            throw new ArgumentException("ASN contains an unknown order line.", nameof(details));
+        if (details?.Values.Any(detail => detail.ExpiryDate is { } expiry && expiry < DateOnly.FromDateTime(dispatchedAt.UtcDateTime)) == true)
+            throw new ArgumentException("ASN expiry cannot precede dispatch.", nameof(details));
         foreach (ConnectOrderLine line in _lines)
         {
             if (!quantities.TryGetValue(line.Id, out Quantity quantity)) continue;
@@ -107,8 +111,6 @@ public sealed class ConnectOrder : Entity
             if (details is not null && details.TryGetValue(line.Id, out ConnectAsnLineDetails? detail))
                 line.SetAsnDetails(detail);
         }
-        if (details is not null && details.Keys.Any(id => _lines.All(line => line.Id != id)))
-            throw new ArgumentException("ASN contains an unknown order line.", nameof(details));
         if (_lines.Any(line => line.DispatchedQuantity > line.ConfirmedQuantity))
             throw new InvalidOperationException("A dispatch cannot exceed the confirmed quantity.");
         DispatchNoteNumber = dispatchNoteNumber.Trim();

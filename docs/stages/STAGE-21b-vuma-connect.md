@@ -23,7 +23,7 @@ Supplier portal grants now have an explicit party-scoped domain model, commands,
 PostgreSQL migration. Connect order lines can now link to purchase-order lines and a dispatched ASN
 can pre-populate a draft GRN through a retailer-only command; the retailer still explicitly completes
 the receipt. ASN lines now persist batch, serial, expiry and package references. The Connect unit suite
-passes **19/19**, the PostgreSQL API suite **5/5** and the migration suite **20/20**;
+passes **20/20**, the PostgreSQL API suite **5/5** and the migration suite **20/20**;
 offline-convergence acceptance remains open.
 
 | Task ID | Title | Dependencies | Status |

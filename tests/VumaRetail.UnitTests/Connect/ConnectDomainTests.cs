@@ -104,6 +104,19 @@ public sealed class ConnectDomainTests
     }
 
     [Fact]
+    public void Invalid_asn_details_do_not_partially_dispatch_the_order()
+    {
+        ConnectOrder order = ConnectOrder.Place(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-3", Now);
+        ConnectOrderLine line = order.AddLine("SKU-3", "Tea", new Quantity(2, "EA"), new Money(5, "ZAR"));
+        order.Confirm(new Dictionary<Guid, Quantity> { [line.Id] = new(2, "EA") }, Now.AddHours(1));
+
+        FluentActions.Invoking(() => order.Dispatch("ASN-3", new Dictionary<Guid, Quantity> { [line.Id] = new(1, "EA") }, Now,
+            new Dictionary<Guid, ConnectAsnLineDetails> { [Guid.NewGuid()] = new("B", null, null, null) }))
+            .Should().Throw<ArgumentException>();
+        line.DispatchedQuantity.Value.Should().Be(0);
+    }
+
+    [Fact]
     public void Delivery_claim_can_be_credited_once()
     {
         Guid retailer = Guid.NewGuid();
