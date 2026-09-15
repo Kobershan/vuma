@@ -1,6 +1,7 @@
 # TASK-22M-001 — Campaign and outbound-message state
 
-Status: IN_PROGRESS  
+Status: COMPLETE for campaign, journey, attribution, consent, and provider-result state slices; shared
+outbox/provider callback deployment remains
 Stage: 22  
 Type: Domain
 
@@ -35,6 +36,9 @@ withdrawn recipients, and applies provider delivery results. Focused marketing t
 It sends durable message identity and idempotency metadata, requires a provider event identity,
 supports deployment-provided bearer credentials, and remains fail-closed when no endpoint is configured.
 Focused transport tests pass **2/2**; provider-specific callback deployment remains environment configuration.
+
+2026-09-15: Company-scoped attribution recording/listing and journey operator routes are implemented;
+marketing-focused tests remain green at **19/19**.
 
 ## Follow-up findings
 

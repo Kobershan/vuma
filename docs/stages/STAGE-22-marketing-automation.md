@@ -61,7 +61,9 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
     provider results idempotently. A configured HTTPS transport adapter is registered with
     deployment-provided bearer credentials and a fail-closed no-endpoint default; focused transport
     coverage passes 2/2. Provider-specific callback deployment remains.
-- [ ] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
+- [~] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
+  Company-scoped attribution recording/listing and operator routes are implemented; PostgreSQL and
+  provider callback deployment acceptance remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -69,6 +71,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 Implemented evidence: the marketing-focused unit run passes **19/19**, covering channel-specific consent,
 transactional bypass, WhatsApp fail-closed behavior, and recipient-timezone quiet-hours scheduling.
+
+2026-09-15: Attribution recording and company-scoped listing are exposed through the marketing API;
+the focused marketing suite and runtime route verification cover the operator boundary.
 
 2026-09-13: Added validated `MarketingCampaign` scheduling and append-only `OutboundMessage`
 metadata with per-recipient idempotency keys and suppression state. Marketing-focused tests now pass
