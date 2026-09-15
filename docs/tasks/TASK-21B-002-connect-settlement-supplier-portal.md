@@ -42,3 +42,8 @@ IDs remain supported for clients that persist operation identity. Web Release an
 2026-09-15: Added `GET /api/v1/connect/connections/{id}/granted-users`, returning only grants for
 the requested connection when the caller is one of its two parties. The Connect unit suite passes
 22/22 and Web Release remains green with 0 errors. Full portal trading and offline convergence remain open.
+
+2026-09-15: Added real PostgreSQL persistence coverage for supplier portal grants. Supplier and
+retailer parties can read the connection's grant while an unrelated tenant receives an empty result;
+the focused Connect persistence suite passes **2/2**. Full portal trading and offline convergence
+remain open.

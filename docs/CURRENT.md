@@ -20,6 +20,10 @@ Combined `dotnet-coverage` over the full unit run and Imports integration run me
 81.18%** on Stage 11 Domain/Application import code; the component runs passed **1620/1620** and
 **15/15**.
 
+WORK LOG (2026-09-15): Connect supplier portal grant persistence now has real PostgreSQL isolation
+coverage: both connection parties can read grants and an unrelated tenant cannot. Focused Connect
+persistence tests pass **2/2**; full portal trading and offline convergence remain open.
+
 WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV export boundary
 (`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
 permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.

@@ -67,4 +67,36 @@ public sealed class ConnectPersistenceTests(PostgresFixture fixture)
             (await remittances.FindSettlementAsync(paymentId, outsider)).Should().BeNull();
         }
     }
+
+    [Fact]
+    public async Task Supplier_portal_grants_round_trip_only_for_the_connection_parties()
+    {
+        string connectionString = await fixture.CreateDatabaseAsync();
+        Guid supplier = UuidV7.NewGuid();
+        Guid retailer = UuidV7.NewGuid();
+        Guid outsider = UuidV7.NewGuid();
+        Guid connectionId;
+
+        await using (VumaRetailDbContext context = TestDbContextFactory.For(connectionString))
+        {
+            await context.Database.MigrateAsync();
+            TradingConnection connection = TradingConnection.Request(
+                supplier, retailer, "SUP-PORTAL", "RET-PORTAL", DateTimeOffset.UtcNow);
+            connection.Accept("ZAR", 100_000m, 3, 500m, DateTimeOffset.UtcNow);
+            SupplierPortalGrant grant = SupplierPortalGrant.Create(
+                supplier, retailer, connection.Id, UuidV7.NewGuid(), "orders", DateTimeOffset.UtcNow);
+            context.AddRange(connection, grant);
+            await context.SaveChangesAsync();
+            connectionId = connection.Id;
+        }
+
+        await using (VumaRetailDbContext context = TestDbContextFactory.For(connectionString))
+        {
+            SupplierPortalGrantRepository grants = new(context);
+
+            (await grants.ListForConnectionAsync(connectionId, supplier)).Should().ContainSingle();
+            (await grants.ListForConnectionAsync(connectionId, retailer)).Should().ContainSingle();
+            (await grants.ListForConnectionAsync(connectionId, outsider)).Should().BeEmpty();
+        }
+    }
 }
