@@ -21,7 +21,7 @@ public sealed record SupplierInvoiceLineInput(
 /// <param name="Status">The verdict.</param>
 /// <param name="Variances">Which comparisons failed, when any did.</param>
 /// <param name="ClaimedNet">What the supplier is claiming, excluding tax.</param>
-/// <param name="MatchedNet">What the order's own costs support.</param>
+/// <param name="MatchedGross">What the order's own gross costs support.</param>
 /// <param name="PriceVariance">The difference. Positive means the supplier is charging more.</param>
 /// <param name="IsPayable">True when the verdict permits a release (business rule 13).</param>
 public sealed record ThreeWayMatchResult(
@@ -29,7 +29,7 @@ public sealed record ThreeWayMatchResult(
     ThreeWayMatchStatus Status,
     ThreeWayMatchVarianceKind Variances,
     Money ClaimedNet,
-    Money MatchedNet,
+    Money MatchedGross,
     Money PriceVariance,
     bool IsPayable);
 
@@ -128,7 +128,7 @@ public sealed class MatchSupplierInvoiceCommandHandler(
             match.Status,
             match.Variances,
             match.ClaimedNet,
-            match.MatchedNet,
+            match.MatchedGross,
             match.PriceVariance,
             match.IsPayable);
     }

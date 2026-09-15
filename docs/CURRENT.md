@@ -8,6 +8,12 @@ API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documen
 limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Stage 21b Vuma Connect settlement and supplier portal.
 
+WORK LOG (2026-09-15): TASK-003 procurement field labels is complete. The misleading
+`MatchedNet` domain/application/API surface is now `MatchedGross`; the existing `matched_net`
+database column remains mapped for compatibility and matching arithmetic is unchanged. Procurement
+unit tests pass **62/62**, procurement integration tests pass **16/16**, and the Web Release build has
+**0 errors**.
+
 WORK LOG (2026-09-15): Stage 23 custody now has a separately permissioned CSV export boundary
 (`service.custody.export`) over the existing company-scoped query. Web Release build has 0 errors;
 permission catalogue coverage is **9/9**. PostgreSQL export-isolation acceptance remains open.

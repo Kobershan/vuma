@@ -67,7 +67,7 @@ public sealed class SupplierInvoiceMatch : Entity
         MatchedAt = matchedAt;
         Status = ThreeWayMatchStatus.Matched;
         Variances = ThreeWayMatchVarianceKind.None;
-        MatchedNet = Money.Zero(currency);
+        MatchedGross = Money.Zero(currency);
         PriceVariance = Money.Zero(currency);
     }
 
@@ -100,8 +100,8 @@ public sealed class SupplierInvoiceMatch : Entity
     /// <summary>What the supplier wants paid — <see cref="ClaimedNet"/> plus <see cref="ClaimedTax"/>.</summary>
     public Money ClaimedGross { get; private set; }
 
-    /// <summary>What the order's own costs say the invoiced quantities are worth, excluding tax.</summary>
-    public Money MatchedNet { get; private set; }
+    /// <summary>What the order's own gross costs say the invoiced quantities are worth.</summary>
+    public Money MatchedGross { get; private set; }
 
     /// <summary>The claim less what the order supports. Positive means the supplier is charging more.</summary>
     public Money PriceVariance { get; private set; }
@@ -342,7 +342,7 @@ public sealed class SupplierInvoiceMatch : Entity
             }
         }
 
-        MatchedNet = matchedNet;
+        MatchedGross = matchedNet;
         Variances = variances;
         Status = status;
 

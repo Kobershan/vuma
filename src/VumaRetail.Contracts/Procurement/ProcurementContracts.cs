@@ -503,7 +503,7 @@ public sealed record SupplierInvoiceMatchLineResponse(
 /// <param name="ClaimedNet">What they are claiming, excluding tax.</param>
 /// <param name="ClaimedTax">The tax claimed.</param>
 /// <param name="ClaimedGross">What they want paid.</param>
-/// <param name="MatchedNet">What the order supports.</param>
+/// <param name="MatchedGross">What the order's gross costs support.</param>
 /// <param name="PriceVariance">The difference.</param>
 /// <param name="Status">The verdict.</param>
 /// <param name="Variances">Which comparisons failed.</param>
@@ -521,7 +521,7 @@ public sealed record SupplierInvoiceMatchResponse(
     decimal ClaimedNet,
     decimal ClaimedTax,
     decimal ClaimedGross,
-    decimal MatchedNet,
+    decimal MatchedGross,
     decimal PriceVariance,
     string Status,
     string Variances,
@@ -535,7 +535,7 @@ public sealed record SupplierInvoiceMatchResponse(
 /// <param name="Status">The verdict.</param>
 /// <param name="Variances">Which comparisons failed.</param>
 /// <param name="ClaimedNet">What the supplier is claiming.</param>
-/// <param name="MatchedNet">What the order supports.</param>
+/// <param name="MatchedGross">What the order's gross costs support.</param>
 /// <param name="PriceVariance">The difference.</param>
 /// <param name="Currency">The currency.</param>
 /// <param name="IsPayable">True when the verdict permits a release.</param>
@@ -544,7 +544,7 @@ public sealed record ThreeWayMatchResponse(
     string Status,
     string Variances,
     decimal ClaimedNet,
-    decimal MatchedNet,
+    decimal MatchedGross,
     decimal PriceVariance,
     string Currency,
     bool IsPayable);

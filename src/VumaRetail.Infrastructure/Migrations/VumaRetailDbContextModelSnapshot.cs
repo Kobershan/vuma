@@ -22321,7 +22321,7 @@ namespace VumaRetail.Infrastructure.Migrations
                                 .IsFixedLength();
                         });
 
-                    b.ComplexProperty<Dictionary<string, object>>("MatchedNet", "VumaRetail.Domain.Procurement.SupplierInvoiceMatch.MatchedNet#Money", b1 =>
+                    b.ComplexProperty<Dictionary<string, object>>("MatchedGross", "VumaRetail.Domain.Procurement.SupplierInvoiceMatch.MatchedGross#Money", b1 =>
                         {
                             b1.Property<decimal>("Amount")
                                 .HasColumnType("numeric(18,4)")

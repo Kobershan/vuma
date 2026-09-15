@@ -933,7 +933,7 @@ public static class ProcurementEndpoints
                 result.Status.ToString(),
                 result.Variances.ToString(),
                 result.ClaimedNet.Amount,
-                result.MatchedNet.Amount,
+                result.MatchedGross.Amount,
                 result.PriceVariance.Amount,
                 result.ClaimedNet.Currency,
                 result.IsPayable));
@@ -1185,7 +1185,7 @@ public static class ProcurementEndpoints
             match.ClaimedNet.Amount,
             match.ClaimedTax.Amount,
             match.ClaimedGross.Amount,
-            match.MatchedNet.Amount,
+            match.MatchedGross.Amount,
             match.PriceVariance.Amount,
             match.Status.ToString(),
             match.Variances.ToString(),

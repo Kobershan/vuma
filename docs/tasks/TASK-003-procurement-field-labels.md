@@ -64,4 +64,10 @@ Names, consumers, tests, migrations, documentation, and task state are all recon
 
 ## Status
 
-NOT_STARTED
+COMPLETE (2026-09-15)
+
+`MatchedNet` was a misleading name: the persisted value is derived from the purchase order's gross
+unit cost and extended quantity. The domain, application result, API contracts, endpoint mapping and
+current EF model snapshot now expose `MatchedGross`; the existing `matched_net` database column is
+retained for backward-compatible historical rows and no arithmetic was changed. Procurement unit
+tests and the Release build passed.

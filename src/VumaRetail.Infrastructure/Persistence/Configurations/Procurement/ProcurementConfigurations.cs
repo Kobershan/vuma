@@ -627,7 +627,7 @@ internal sealed class SupplierInvoiceMatchConfiguration : EntityConfiguration<Su
         builder.HasMoney(match => match.ClaimedNet, "claimed_net");
         builder.HasMoney(match => match.ClaimedTax, "claimed_tax");
         builder.HasMoney(match => match.ClaimedGross, "claimed_gross");
-        builder.HasMoney(match => match.MatchedNet, "matched_net");
+        builder.HasMoney(match => match.MatchedGross, "matched_net");
         builder.HasMoney(match => match.PriceVariance, "price_variance");
         builder.HasMoney(match => match.PriceToleranceFloor, "price_tolerance_floor");
 
