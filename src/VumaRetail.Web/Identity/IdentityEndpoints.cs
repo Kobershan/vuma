@@ -87,7 +87,60 @@ public static class IdentityEndpoints
             .WithTags("Authentication")
             .WithSummary("Every permission this installation understands (ADR-013).");
 
+        api.MapGet("/staff", ListStaffAsync)
+            .RequirePermission(IdentityPermissions.UserView)
+            .Produces<IReadOnlyList<StaffUserResponse>>()
+            .WithSummary("Lists staff accounts for an administrator.");
+        api.MapGet("/staff-roles", ListStaffRolesAsync)
+            .RequirePermission(IdentityPermissions.RoleView)
+            .Produces<IReadOnlyList<StaffRoleResponse>>()
+            .WithSummary("Lists roles available for staff assignment.");
+        api.MapPost("/staff", CreateStaffAsync)
+            .RequirePermission(IdentityPermissions.UserCreate)
+            .Produces<Guid>(StatusCodes.Status201Created)
+            .WithSummary("Creates a staff login.");
+        api.MapPost("/staff/{userId:guid}/roles", AssignStaffRoleAsync)
+            .RequirePermission(IdentityPermissions.RoleAssign)
+            .Produces<Guid>(StatusCodes.Status201Created)
+            .WithSummary("Assigns a role to staff.");
+        api.MapPost("/staff/{userId:guid}/deactivate", DeactivateStaffAsync)
+            .RequirePermission(IdentityPermissions.UserManage)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Disables a staff login while retaining its history.");
+
         return endpoints;
+    }
+
+    private static async Task<IResult> ListStaffAsync(IUserRepository users, CancellationToken cancellationToken)
+        => Results.Ok((await users.ListAsync(cancellationToken).ConfigureAwait(false)).Select(user =>
+            new StaffUserResponse(user.Id, user.UserName, user.DisplayName, user.Email, user.IsActive)).ToList());
+
+    private static async Task<IResult> ListStaffRolesAsync(IRoleRepository roles, CancellationToken cancellationToken)
+        => Results.Ok((await roles.ListAsync(cancellationToken).ConfigureAwait(false)).Select(role =>
+            new StaffRoleResponse(role.Id, role.Name, role.Description, role.IsSystemRole)).ToList());
+
+    private static async Task<Created<Guid>> CreateStaffAsync(
+        CreateStaffRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(
+            new CreateUserCommand(request.UserName, request.DisplayName, request.Password, request.Email), cancellationToken)
+            .ConfigureAwait(false);
+        return TypedResults.Created($"/api/v1/staff/{id}", id);
+    }
+
+    private static async Task<Created<Guid>> AssignStaffRoleAsync(
+        Guid userId, AssignStaffRoleRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        Guid id = await dispatcher.SendAsync(
+            new AssignRoleCommand(userId, request.RoleId, request.StoreId), cancellationToken).ConfigureAwait(false);
+        return TypedResults.Created($"/api/v1/staff/{userId}/roles/{id}", id);
+    }
+
+    private static async Task<NoContent> DeactivateStaffAsync(
+        Guid userId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new DeactivateUserCommand(userId), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<TokenResponse>, ProblemHttpResult>> SignInAsync(

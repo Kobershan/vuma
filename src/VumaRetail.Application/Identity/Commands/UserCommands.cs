@@ -207,3 +207,21 @@ public sealed class ChangePasswordCommandHandler(
         return Unit.Value;
     }
 }
+
+/// <summary>Deactivates a staff login without deleting its history.</summary>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record DeactivateUserCommand(Guid UserId) : ICommand;
+
+/// <summary>Deactivates a user and invalidates their access.</summary>
+public sealed class DeactivateUserCommandHandler(IUserRepository users) : ICommandHandler<DeactivateUserCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(DeactivateUserCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        User user = await users.FindAsync(command.UserId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityNotFoundException("user", command.UserId);
+        user.Deactivate();
+        return Unit.Value;
+    }
+}

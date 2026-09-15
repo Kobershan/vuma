@@ -23,6 +23,10 @@ namespace VumaRetail.Infrastructure.Persistence.Repositories;
 public sealed class UserRepository(VumaRetailDbContext context) : IUserRepository
 {
     /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+        => await context.Users.OrderBy(user => user.DisplayName).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
     public Task<User?> FindAsync(Guid userId, CancellationToken cancellationToken = default)
         => context.Users.FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
 
@@ -65,6 +69,10 @@ public sealed class UserRepository(VumaRetailDbContext context) : IUserRepositor
 /// <param name="context">The database context.</param>
 public sealed class RoleRepository(VumaRetailDbContext context) : IRoleRepository
 {
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken = default)
+        => await context.Roles.OrderBy(role => role.Name).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     /// <inheritdoc />
     public Task<Role?> FindAsync(Guid roleId, CancellationToken cancellationToken = default)
         => context.Roles.FirstOrDefaultAsync(role => role.Id == roleId, cancellationToken);

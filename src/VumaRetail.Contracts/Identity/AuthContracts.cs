@@ -65,3 +65,15 @@ public sealed record PermissionDescriptorResponse(
     string Module,
     string Description,
     bool IsHighRisk);
+
+/// <summary>Creates a staff login.</summary>
+public sealed record CreateStaffRequest(string UserName, string DisplayName, string Password, string? Email = null);
+
+/// <summary>Assigns an existing role to staff.</summary>
+public sealed record AssignStaffRoleRequest(Guid RoleId, Guid? StoreId = null);
+
+/// <summary>Safe user data returned to administrators.</summary>
+public sealed record StaffUserResponse(Guid Id, string UserName, string DisplayName, string? Email, bool IsActive);
+
+/// <summary>Role data returned to administrators.</summary>
+public sealed record StaffRoleResponse(Guid Id, string Name, string? Description, bool IsSystemRole);

@@ -87,6 +87,7 @@ public partial class MainWindow : Window
             ActivityPanel.Visibility = Visibility.Visible;
             ModulePanel.Visibility = Visibility.Collapsed;
             SettingsPanel.Visibility = Visibility.Collapsed;
+            AdministrationPanel.Visibility = Visibility.Collapsed;
             _ = RefreshOverviewAsync();
             return;
         }
@@ -100,8 +101,23 @@ public partial class MainWindow : Window
             ActivityPanel.Visibility = Visibility.Collapsed;
             ModulePanel.Visibility = Visibility.Collapsed;
             SettingsPanel.Visibility = Visibility.Visible;
+            AdministrationPanel.Visibility = Visibility.Collapsed;
             SettingsApiUrl.Text = _api.BaseUrl;
             StatusText.Text = "Connection settings are available only after sign-in.";
+            return;
+        }
+
+        if (key == "Administration")
+        {
+            PageEyebrow.Text = "CONTROL";
+            PageTitle.Text = "Staff administration";
+            PageSubtitle.Text = "Give every person the least access they need, with a named login.";
+            OverviewPanel.Visibility = Visibility.Collapsed;
+            ActivityPanel.Visibility = Visibility.Collapsed;
+            ModulePanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            AdministrationPanel.Visibility = Visibility.Visible;
+            _ = LoadStaffAsync();
             return;
         }
 
@@ -113,6 +129,7 @@ public partial class MainWindow : Window
         ActivityPanel.Visibility = Visibility.Collapsed;
         ModulePanel.Visibility = Visibility.Visible;
         SettingsPanel.Visibility = Visibility.Collapsed;
+        AdministrationPanel.Visibility = Visibility.Collapsed;
         ModuleTitle.Text = module.Title;
         ModuleDescription.Text = module.Description;
         ModuleCapabilities.Text = module.Capabilities;
@@ -138,6 +155,42 @@ public partial class MainWindow : Window
         StatusText.Text = "API endpoint saved for this session. Sign in again if the endpoint changed.";
     }
 
+    private async void CreateStaff_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (StaffRole.SelectedItem is not StaffRoleOption role)
+                throw new InvalidOperationException("Select a role for this staff member.");
+            Guid userId = await _api.CreateStaffAsync(StaffUsername.Text.Trim(), StaffDisplayName.Text.Trim(), StaffPassword.Password, role.Id);
+            StaffStatus.Text = $"Staff login created. Username: {StaffUsername.Text.Trim()} (the password is shown only to you now).";
+            StaffUsername.Clear(); StaffDisplayName.Clear(); StaffPassword.Clear();
+            await LoadStaffAsync();
+            _ = userId;
+        }
+        catch (Exception ex) { StaffStatus.Text = ex.Message; }
+    }
+
+    private async void DeactivateStaff_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: Guid userId }) return;
+        try { await _api.DeactivateStaffAsync(userId); StaffStatus.Text = "Staff access deactivated."; await LoadStaffAsync(); }
+        catch (Exception ex) { StaffStatus.Text = ex.Message; }
+    }
+
+    private async void RefreshStaff_Click(object sender, RoutedEventArgs e) => await LoadStaffAsync();
+
+    private async Task LoadStaffAsync()
+    {
+        try
+        {
+            StaffRole.ItemsSource = await _api.GetAsync<IReadOnlyList<StaffRoleOption>>("/staff-roles");
+            StaffList.ItemsSource = (await _api.GetAsync<IReadOnlyList<StaffUser>>("/staff"))
+                .Select(user => new StaffRow(user.Id, user.UserName, user.DisplayName, user.IsActive ? "Active" : "Inactive"));
+            StaffStatus.Text = "Manage staff access for this tenant.";
+        }
+        catch (Exception ex) { StaffStatus.Text = $"Could not load staff administration: {ex.Message}"; }
+    }
+
     private sealed class DesktopApi
     {
         private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
@@ -159,6 +212,22 @@ public partial class MainWindow : Window
             return await response.Content.ReadFromJsonAsync<T>() ?? throw new InvalidOperationException("The API returned no data.");
         }
 
+        public async Task<Guid> CreateStaffAsync(string userName, string displayName, string password, Guid roleId)
+        {
+            using var response = await _http.PostAsJsonAsync($"{BaseUrl}/staff", new { userName, displayName, password });
+            await EnsureSuccess(response);
+            Guid id = await response.Content.ReadFromJsonAsync<Guid>();
+            using var assignment = await _http.PostAsJsonAsync($"{BaseUrl}/staff/{id}/roles", new { roleId });
+            await EnsureSuccess(assignment);
+            return id;
+        }
+
+        public async Task DeactivateStaffAsync(Guid userId)
+        {
+            using var response = await _http.PostAsync($"{BaseUrl}/staff/{userId}/deactivate", null);
+            await EnsureSuccess(response);
+        }
+
         private static async Task EnsureSuccess(HttpResponseMessage response)
         {
             if (response.IsSuccessStatusCode) return;
@@ -171,4 +240,7 @@ public partial class MainWindow : Window
     private sealed record DashboardOverview(decimal SalesToday, IReadOnlyList<DashboardMoney> SalesByCurrency, int OrdersToday, int OpenOrders, IReadOnlyList<DashboardOrder> RecentOrders, DateTimeOffset AsAt);
     private sealed record DashboardMoney(string Currency, decimal Amount);
     private sealed record DashboardOrder(string OrderNumber, string Currency, decimal Gross, string Status, DateTimeOffset OrderDate);
+    private sealed record StaffRoleOption(Guid Id, string Name, string? Description, bool IsSystemRole);
+    private sealed record StaffUser(Guid Id, string UserName, string DisplayName, string? Email, bool IsActive);
+    private sealed record StaffRow(Guid Id, string UserName, string DisplayName, string Status);
 }

@@ -158,7 +158,7 @@ public static class DemoSeed
             [PlatformPermissions.StoreView],
             cancellationToken).ConfigureAwait(false);
 
-        await EnsureUserAsync(provider, "owner", "Thandi Mokoena", "ChangeMe-Owner-2026", ownerRole, null, null, cancellationToken)
+        await EnsureUserAsync(provider, "admin", "Vuma Administrator", "Admin@Vuma2026!", ownerRole, null, null, cancellationToken)
             .ConfigureAwait(false);
 
         await EnsureUserAsync(provider, "manager", "Riaan de Villiers", "ChangeMe-Manager-2026", managerRole, johannesburg.Id, "4821", cancellationToken)

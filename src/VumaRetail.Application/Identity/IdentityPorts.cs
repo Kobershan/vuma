@@ -125,6 +125,8 @@ public interface ITokenCompanyEnricher
 /// </remarks>
 public interface IUserRepository
 {
+    /// <summary>Lists active and inactive users in the current tenant.</summary>
+    Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default);
     /// <summary>Finds a user by id.</summary>
     /// <param name="userId">The user.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
@@ -164,6 +166,9 @@ public interface IUserRepository
 /// <summary>Reads and writes roles, their grants and their assignments.</summary>
 public interface IRoleRepository
 {
+    /// <summary>Lists roles in the current tenant.</summary>
+    Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Finds a role by id.</summary>
     /// <param name="roleId">The role.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>

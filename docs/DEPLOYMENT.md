@@ -34,6 +34,8 @@ HTTPS URL. Use the self-contained single-file artifact from `artifacts/desktop-w
 copy only a framework-dependent launcher without its companion files. PCs do not receive database
 credentials and do not connect directly to PostgreSQL.
 
+For the first login and administrator workflow, see [DEFAULT-ADMIN.md](DEFAULT-ADMIN.md).
+
 The StoreServer is the local offline-first boundary. Its outbox synchronises approved data to the
 cloud API; conflicts remain in the existing review queue. Use the Windows package job to produce the
 WPF `.exe`; the Linux development environment cannot produce a valid WPF Windows binary.
