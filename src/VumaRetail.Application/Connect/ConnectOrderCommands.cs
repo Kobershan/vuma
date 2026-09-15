@@ -6,7 +6,7 @@ using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Connect;
 
-public sealed record ConnectOrderLineInput(string SupplierSku, string Description, decimal Quantity, string UnitOfMeasure, decimal UnitPrice, string Currency);
+public sealed record ConnectOrderLineInput(string SupplierSku, string Description, decimal Quantity, string UnitOfMeasure, decimal UnitPrice, string Currency, Guid? PurchaseOrderLineId = null);
 
 internal static class ConnectOrderQuantityMapper
 {
@@ -62,7 +62,7 @@ public sealed class PlaceConnectOrderCommandHandler(
         ConnectOrder order = ConnectOrder.Place(tenant.TenantId, connection.SupplierTenantId, connection.Id,
             command.PurchaseOrderId, command.OrderNumber, clock.UtcNow);
         foreach (ConnectOrderLineInput input in command.Lines)
-            order.AddLine(input.SupplierSku, input.Description, new Quantity(input.Quantity, input.UnitOfMeasure), new Money(input.UnitPrice, input.Currency));
+            order.AddLine(input.SupplierSku, input.Description, new Quantity(input.Quantity, input.UnitOfMeasure), new Money(input.UnitPrice, input.Currency), input.PurchaseOrderLineId);
         orders.Add(order);
         return order.Id;
     }

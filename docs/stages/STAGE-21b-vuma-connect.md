@@ -20,8 +20,10 @@ Current implementation status: the relationship, catalogue, order, migration, is
 2026-09-15: Connect confirm/dispatch command adapters now reject unknown order-line identifiers
 before invoking the aggregate, preserving deterministic validation for supplier portal payloads.
 Supplier portal grants now have an explicit party-scoped domain model, commands, endpoints and
-PostgreSQL migration. The Connect unit suite passes **19/19**, the PostgreSQL API suite **5/5** and
-the migration suite **20/20**; full portal, ASN/GRN and offline-convergence acceptance remain open.
+PostgreSQL migration. Connect order lines can now link to purchase-order lines and a dispatched ASN
+can pre-populate a draft GRN through a retailer-only command; the retailer still explicitly completes
+the receipt. The Connect unit suite passes **19/19**, the PostgreSQL API suite **5/5** and the
+migration suite **20/20**; scan-level ASN metadata and offline-convergence acceptance remain open.
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|

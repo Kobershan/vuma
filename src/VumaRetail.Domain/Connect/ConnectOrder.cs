@@ -57,12 +57,13 @@ public sealed class ConnectOrder : Entity
         return new(retailerTenantId, supplierTenantId, connectionId, purchaseOrderId, orderNumber, submittedAt);
     }
 
-    public ConnectOrderLine AddLine(string supplierSku, string description, Quantity quantity, Money unitPrice)
+    public ConnectOrderLine AddLine(string supplierSku, string description, Quantity quantity, Money unitPrice,
+        Guid? purchaseOrderLineId = null)
     {
         if (Status != ConnectOrderStatus.Submitted) throw new InvalidOperationException("Only a submitted order can be edited.");
         if (_lines.Any(line => line.SupplierSku.Equals(supplierSku.Trim(), StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("The supplier SKU is already on this order.");
-        ConnectOrderLine line = ConnectOrderLine.Create(TenantId, Id, supplierSku, description, quantity, unitPrice);
+        ConnectOrderLine line = ConnectOrderLine.Create(TenantId, Id, supplierSku, description, quantity, unitPrice, purchaseOrderLineId);
         _lines.Add(line);
         return line;
     }
@@ -130,17 +131,18 @@ public sealed class ConnectOrderLine : Entity
     }
     private ConnectOrderLine() { }
     public Guid OrderId { get; private set; }
+    public Guid? PurchaseOrderLineId { get; private set; }
     public string SupplierSku { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public Quantity RequestedQuantity { get; private set; }
     public Quantity ConfirmedQuantity { get; private set; }
     public Quantity DispatchedQuantity { get; private set; }
     public Money UnitPrice { get; private set; }
-    internal static ConnectOrderLine Create(Guid tenantId, Guid orderId, string sku, string description, Quantity quantity, Money unitPrice)
+    internal static ConnectOrderLine Create(Guid tenantId, Guid orderId, string sku, string description, Quantity quantity, Money unitPrice, Guid? purchaseOrderLineId)
     {
         if (string.IsNullOrWhiteSpace(sku) || string.IsNullOrWhiteSpace(description) || quantity.Value <= 0 || unitPrice.Amount < 0)
             throw new ArgumentException("Order line is invalid.");
-        return new(tenantId, orderId, sku, description, quantity, unitPrice);
+        return new(tenantId, orderId, sku, description, quantity, unitPrice) { PurchaseOrderLineId = purchaseOrderLineId };
     }
     internal void Confirm(Quantity quantity)
     {

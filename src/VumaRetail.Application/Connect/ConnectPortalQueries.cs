@@ -5,7 +5,8 @@ using VumaRetail.Domain.Connect;
 namespace VumaRetail.Application.Connect;
 
 public sealed record ConnectOrderLineResult(Guid Id, string SupplierSku, string Description, decimal RequestedQuantity,
-    decimal ConfirmedQuantity, decimal DispatchedQuantity, string UnitOfMeasure, decimal UnitPrice, string Currency);
+    decimal ConfirmedQuantity, decimal DispatchedQuantity, string UnitOfMeasure, decimal UnitPrice, string Currency,
+    Guid? PurchaseOrderLineId);
 public sealed record ConnectOrderResult(Guid Id, Guid ConnectionId, Guid RetailerTenantId, Guid SupplierTenantId,
     string OrderNumber, ConnectOrderStatus Status, DateTimeOffset SubmittedAt, DateTimeOffset? PromisedAt,
     DateTimeOffset? DispatchedAt, string? DispatchNoteNumber, IReadOnlyList<ConnectOrderLineResult> Lines);
@@ -24,7 +25,7 @@ public sealed class ListConnectOrdersQueryHandler(IConnectOrderRepository orders
             order.Status, order.SubmittedAt, order.PromisedAt, order.DispatchedAt, order.DispatchNoteNumber,
             order.Lines.Select(x => new ConnectOrderLineResult(x.Id, x.SupplierSku, x.Description,
                 x.RequestedQuantity.Value, x.ConfirmedQuantity.Value, x.DispatchedQuantity.Value,
-                x.RequestedQuantity.UnitOfMeasure, x.UnitPrice.Amount, x.UnitPrice.Currency)).ToList());
+                x.RequestedQuantity.UnitOfMeasure, x.UnitPrice.Amount, x.UnitPrice.Currency, x.PurchaseOrderLineId)).ToList());
 }
 
 public sealed class GetConnectAsnQueryHandler(IConnectOrderRepository orders, ITenantContext tenant)

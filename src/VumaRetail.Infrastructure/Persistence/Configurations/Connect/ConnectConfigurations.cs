@@ -111,6 +111,7 @@ internal sealed class ConnectOrderLineConfiguration : EntityConfiguration<Connec
     protected override string TableName => "order_lines";
     protected override void ConfigureEntity(EntityTypeBuilder<ConnectOrderLine> builder)
     {
+        builder.Property(x => x.PurchaseOrderLineId);
         builder.Property(x => x.SupplierSku).HasMaxLength(64).IsRequired();
         builder.Property(x => x.Description).HasMaxLength(256).IsRequired();
         builder.HasQuantity(x => x.RequestedQuantity, "requested_quantity");
