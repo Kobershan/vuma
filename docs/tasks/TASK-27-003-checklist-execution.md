@@ -1,6 +1,6 @@
 # TASK-27-003 — Store checklist execution metadata
 
-Status: IN_PROGRESS — persistence, command handlers, API routes and replay tests implemented; evidence authorization and period-close acceptance remain  
+Status: COMPLETE for checklist execution/evidence-authorization slice — period-close acceptance remains a Stage 27 follow-up  
 Stage: 27  
 Type: Domain
 
