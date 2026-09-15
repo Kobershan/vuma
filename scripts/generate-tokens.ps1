@@ -181,8 +181,6 @@ function Generate-WpfTheme {
     [void]$sb.AppendLine()
 
     [void]$sb.AppendLine('</ResourceDictionary>')
-    [void]$sb.AppendLine()
-
     $content = $sb.ToString()
 
     if ($VerifyOnly) {
@@ -398,7 +396,6 @@ function Generate-CssTokens {
         [void]$sb.AppendLine("  --elevation-${e}: $($tokens.elevation.$e.darkShadow);")
     }
     [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine()
 
     $content = $sb.ToString()
 
@@ -406,7 +403,7 @@ function Generate-CssTokens {
         return $content
     }
 
-    Set-Content -Path $OutputFile -Value $content -Encoding UTF8
+    Set-Content -Path $OutputFile -Value $content -Encoding UTF8 -NoNewline
     Write-Host "Generated: $OutputFile"
 }
 

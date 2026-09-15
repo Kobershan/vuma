@@ -46,7 +46,7 @@ android {
                     keyPassword = releaseKeyPassword.get()
                 }
                 signingConfig = signingConfigs.getByName("vumaRelease")
-            } else {
+            } else if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }) {
                 throw GradleException("Release signing is not configured. Refusing to use the debug key.")
             }
         }

@@ -45,6 +45,11 @@ with `VUMA_API_BASE_URL` set to the company cloud/API URL. Mobile devices use HT
 never receive PostgreSQL credentials. Android APK and Windows Flutter builds are reproducible from
 the `mobile/` project; iOS requires a macOS/Xcode signing runner.
 
+The desktop and mobile clients follow the visual references in `docs/vuma-erp-dashboard.html` and
+`docs/vuma-mobile-screens.html`: the desktop uses the group-control navigation and KPI/panel layout,
+while the mobile client uses the Home, Transfers, Orders and More tab surfaces. Regenerate the shared
+palette from `design/tokens.json` with `pwsh scripts/generate-tokens.ps1` before packaging clients.
+
 ## Cloud
 
 Run CloudApi behind HTTPS with a registry database and one isolated PostgreSQL database per company.
