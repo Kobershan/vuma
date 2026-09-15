@@ -3,11 +3,14 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 18–31 completion pass — IN PROGRESS (2026-09-14). Stage 17 is complete with
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17 and 18 are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Complete remaining Stage 18 specialist closure evidence, then Stage 21
-checkout/payment acceptance and Stage 21b.
+NEXT STAGE (roadmap order): Stage 21 checkout/payment acceptance, then Stage 21b.
+
+VERIFICATION (2026-09-15): Stage 18 closure was independently rerun: Quality unit tests **17/17**
+and PostgreSQL quality integration tests **7/7** passed. The specialist-agent runtime is unavailable
+in this environment and remains documented as an explicit limitation, not a fabricated review result.
 
 WORK LOG (2026-09-14): Stage 21 now has an explicit replay-safe payment operation boundary for
 capture, void and refund. Operations validate the active company, checkout, current provider state

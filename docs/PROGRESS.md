@@ -7,6 +7,16 @@
 
 ## Verification update — 2026-09-14
 
+## Stage 18 closure verification — 2026-09-15
+
+Stage 18 is now marked complete. An independent rerun passed the focused quality unit suite **17/17**
+and PostgreSQL quality integration suite **7/7**, including tracked reservation identity, expired-stock
+dispatch refusal, certificate/NCR lifecycle behavior, and input-lot → production-output → shipment
+recall genealogy. The specialist-agent runtime remains unavailable in this environment and is recorded
+as a limitation rather than represented as executed evidence. The unrelated in-progress ecommerce API
+test also required the missing `VumaRetail.Infrastructure.Registry` using directive before the
+integration project could compile; that scoped compile fix is included with the Stage 21 test change.
+
 The current Release baseline remains green: **1,566 unit tests** and **85 architecture tests**
 passed. A focused PostgreSQL manufacturing migration run passed **2/2**. The full integration
 suite was bounded at five minutes during this session and did not emit a failure before timeout;

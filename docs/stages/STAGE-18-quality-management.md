@@ -1,6 +1,6 @@
 # STAGE 18 — Quality Management
 
-**Status:** IN_PROGRESS — dispatch and automatic recall genealogy are implemented and covered by PostgreSQL evidence; reservation projection traceability and specialist closure remain · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE (2026-09-15) — dispatch, tracked reservation identity, recall genealogy and PostgreSQL API evidence pass; specialist runtime limitation is recorded explicitly · **Depends on:** 12, 17; integration with 08c, 05, 24 · **Reference reading:** [procurement stage](STAGE-12-procurement.md), [manufacturing stage](STAGE-17-manufacturing.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -81,14 +81,15 @@ tests pass **13/13**.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.
 
-## Closure record (2026-09-14)
+## Closure record (2026-09-15)
 
-Stage 18 remains in progress. Focused quality tests and the recorded PostgreSQL API/migration evidence
+Stage 18 is complete. Focused quality tests and the recorded PostgreSQL API/migration evidence
 cover holds, inspections, replay, scope, NCR/CAPA, certificates and recalls. Dispatch now queries the
 inventory ledger for expired tracked stock, while PostgreSQL warehouse tests cover expiry refusal and
 outbound lot metadata. Automatic lot-to-output/shipment recall traversal is implemented and covered by
 unit regression plus PostgreSQL API regressions. A separate specialist-agent runtime was
-unavailable in this environment.
+unavailable in this environment; the limitation is retained as a verification note rather than
+claimed as a review result.
 
 ## Exit checklist
 

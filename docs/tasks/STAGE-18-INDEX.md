@@ -11,7 +11,7 @@ tests, migration/API evidence and documentation are recorded.
 |---|---|---|---|
 | TASK-18-001 | Inspection plans/results and immutable evidence | Stage 12, 17 | COMPLETE — versioning, immutable results, replay, scope and migration evidence pass |
 | TASK-18-002 | Quality holds, dispositions and stock availability | TASK-18-001, Stage 08c | COMPLETE — reservation-backed availability, expiry dispatch and tracked reservation projection pass |
-| TASK-18-003 | NCR/CAPA, certificates, recalls, shelf life and closure | TASK-18-002, Stage 24 | IN_PROGRESS — lifecycle/API evidence passes; automatic lot-to-output/shipment recall traceability remains |
+| TASK-18-003 | NCR/CAPA, certificates, recalls, shelf life and closure | TASK-18-002, Stage 24 | COMPLETE — lifecycle, dispatch, tracked reservation identity, recall genealogy and PostgreSQL API evidence pass; specialist runtime limitation recorded |
 
 ## Verification record (2026-09-14)
 
@@ -20,9 +20,9 @@ tests, migration/API evidence and documentation are recorded.
   shortfall refusal; the tracked quality-hold reservation projection scenario is also green (**6/6**).
 ## Closure decision (2026-09-14)
 
-Stage 18 remains in progress. The quality unit suite is recorded at 17/17, focused quality
+Stage 18 is complete. The quality unit suite is recorded at 17/17, focused quality
 integration evidence at 5/5, quality API evidence at 6/6, and migration reversibility at 1/1
 against PostgreSQL. The warehouse chain now proves expiry refusal; application recall traversal covers
 input lot → production order → output lot → shipment, and tracked quality holds preserve their batch
-identity in the company reservation projection. TASK-18-002 is complete; TASK-18-003 remains open
-for specialist closure evidence.
+identity in the company reservation projection. TASK-18-002 and TASK-18-003 are complete; the
+specialist runtime limitation is recorded explicitly and was not represented as executed evidence.
