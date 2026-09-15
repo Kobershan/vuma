@@ -4,7 +4,8 @@
 
 2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
 use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
-as-of timestamp. `ServiceSlaClockTests` passes 5/5; SLA worker scheduling and full acceptance remain.
+as-of timestamp. `ServiceSlaClockTests` passes 7/7; the bounded breach worker is registered and
+durable breach/audit persistence and full acceptance remain.
 
 ## Objective
 
@@ -69,7 +70,7 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   inventory facts, consumes the hold, and rejects changed-content operation replays; focused command
   tests pass **3/3**.
 - 2026-09-13: Added `IServiceSlaClock` and `BusinessHoursServiceSlaClock`; weekday 09:00–17:00 UTC
-  elapsed-time boundaries pass **2/2**. Waiting-for-customer pause accounting and SLA worker remain.
+  elapsed-time boundaries pass **2/2**. Waiting-for-customer pause accounting is persisted.
 - 2026-09-14: Service migration Up/Down acceptance passes **1/1** against PostgreSQL. Worker,
   financial integration, and specialist closure evidence remain open.
 - 2026-09-14: Warranty claim approval now validates the loaded claim tenant as well as the active
@@ -92,7 +93,7 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 - 2026-09-13: `BusinessHoursServiceSlaClock` now also computes deterministic SLA deadlines across
   closing times and weekends; focused service tests cover forward deadline calculation and negative
-  duration refusal. Worker execution and waiting-for-customer pause accounting remain open.
+  duration refusal.
 - `Other_tenant_and_unauthorized_company_are_denied`: authenticated tenant A/company A cannot read, mutate, export or enqueue for tenant B/company B by changing an ID.
 - `Replay_with_different_content_is_rejected`: reuse a completed operation ID with changed input; return a stable conflict and preserve the original result.
 - Execute migration Up/Down on a disposable database, permission-denial tests on every high-risk route and module read-only behavior. Client-only changes mark database checks not applicable with a reason.
