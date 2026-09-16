@@ -146,7 +146,11 @@ public sealed class PersistenceRulesTests
             // Stage 22 transfer reservation saga leg owns one company-local reservation commit.
             "src/VumaRetail.Infrastructure/Registry/TransferReservationSagaLegDispatcher.cs",
             "src/VumaRetail.Infrastructure/Registry/TransferShipmentSagaLegDispatcher.cs",
-            "src/VumaRetail.Infrastructure/Registry/TransferReceiptSagaLegDispatcher.cs");
+            "src/VumaRetail.Infrastructure/Registry/TransferReceiptSagaLegDispatcher.cs",
+            // Stage 30b is a separately deployable control-plane service with its own SQLite
+            // boundary. It has no Vuma command pipeline or IUnitOfWork to delegate to; its store
+            // owns the device API transaction by design (docs/stages/STAGE-30b-control-plane.md).
+            "src/VumaRetail.ControlPlane/ControlPlaneModels.cs");
 
         Assert.True(violations.Count == 0, $"""
             SaveChanges belongs to the persistence layer (CLAUDE.md §7 rule 2). Mutate tracked

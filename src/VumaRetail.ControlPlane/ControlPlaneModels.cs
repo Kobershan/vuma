@@ -48,8 +48,9 @@ public sealed class ExternalLicenseSigner(HttpClient client, IConfiguration conf
     private sealed record SignResponse(string Signature);
 }
 
-public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null)
+public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, TimeProvider? timeProvider = null)
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly object _gate = new();
     private readonly Dictionary<Guid, (string Fingerprint, DeviceResponse Response)> _requests = [];
     private readonly Dictionary<Guid, string> _meteringRequests = [];
@@ -93,10 +94,10 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null)
         if (database is not null)
         {
             database.Devices.Add(new ControlPlaneDevice { NodeId = nodeId, InstallId = request.InstallId,
-                Fingerprint = request.Fingerprint, LeaseId = leaseId, ActivatedAtUtc = DateTimeOffset.UtcNow });
+                Fingerprint = request.Fingerprint, LeaseId = leaseId, ActivatedAtUtc = _timeProvider.GetUtcNow() });
             database.Requests.Add(new ControlPlaneRequest { RequestId = request.RequestId, Fingerprint = fingerprint,
                 ResponseJson = JsonSerializer.Serialize(response) });
-            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = _timeProvider.GetUtcNow(),
                 Action = "device.activation", NodeId = nodeId, RequestId = request.RequestId.ToString("D") });
             await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -205,8 +206,8 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null)
         {
             database.MeteringReceipts.Add(new ControlPlaneMeteringReceipt { RequestId = request.RequestId,
                 NodeId = request.NodeId, Period = request.Period, Fingerprint = fingerprint,
-                ReceivedAtUtc = DateTimeOffset.UtcNow });
-            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+                ReceivedAtUtc = _timeProvider.GetUtcNow() });
+            database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = _timeProvider.GetUtcNow(),
                 Action = "device.metering", NodeId = request.NodeId, RequestId = request.RequestId.ToString("D") });
             await database.SaveChangesAsync().ConfigureAwait(false);
         }
@@ -228,7 +229,7 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null)
         if (database is null || await database.Requests.FindAsync([requestId]).ConfigureAwait(false) is not null) return;
         database.Requests.Add(new ControlPlaneRequest { RequestId = requestId, Fingerprint = fingerprint,
             ResponseJson = JsonSerializer.Serialize(response) });
-        database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
+        database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = _timeProvider.GetUtcNow(),
             Action = action, NodeId = nodeId, RequestId = requestId.ToString("D") });
         await database.SaveChangesAsync().ConfigureAwait(false);
     }
