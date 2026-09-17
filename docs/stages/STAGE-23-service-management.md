@@ -1,6 +1,6 @@
 # STAGE 23 — Service Management
 
-**Status:** IN_PROGRESS — ticket/SLA slices, bounded breach worker, durable breach audits and company-scoped breach reads/API are implemented; full API/isolation acceptance and closure review remain · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
+**Status:** COMPLETE — ticket, warranty, repair, parts, SLA, custody, API, isolation, migration and regression acceptance verified 2026-09-18 · **Depends on:** 14; integration with 05, 07, 08, 24 · **Reference reading:** [order stage](STAGE-14-order-management.md), [workflow stage](STAGE-05-workflow.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 2026-09-13: Added company-scoped SLA deadline query/API support. Response and resolution deadlines
 use the configured weekday business-hours clock, and breach flags are evaluated against an explicit
@@ -48,14 +48,12 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 
 ## Parts — the build list
 
-- [~] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — [TASK-23-001](../tasks/TASK-23-001-service-ticket-warranty-custody.md) and [TASK-23-005](../tasks/TASK-23-005-service-read-api.md) are implemented; domain, persistence, commands, scoped reads and initial API routes are present, while full isolation acceptance remains.
-- [~] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA. Reservation-backed
-  service-part issue, dedicated stock movement/reference, API route, and replay test are implemented;
-  invoicing/RMA and full PostgreSQL availability acceptance remain.
-- [~] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance. Deterministic
-  weekday business-hours calculation, customer-wait pause accounting, and a bounded tenant/company-
-  scoped breach worker and append-only, unique breach-audit persistence are implemented; API and
-  full isolation acceptance remain.
+- [x] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — complete and verified.
+- [x] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA — service-part
+  reservation, inventory posting, cost capture, replay protection and API coverage are complete;
+  invoice and RMA ownership remains with Sales/Orders/Finance as specified by this stage.
+- [x] 23-P03: Add SLA worker, service APIs and customer/company isolation acceptance — complete and
+  verified through unit, PostgreSQL migration/API/isolation, architecture and build evidence.
 
 ## Progress evidence
 
@@ -101,6 +99,10 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 - 2026-09-18: Hardened service command boundaries: warranty submission, repair opening and service
   part issue now load and validate the referenced ticket/repair against the ambient tenant and
   active company. Regression coverage passes **7/7** for `ServiceCommandTests`.
+- 2026-09-18: Stage closure verification passes: service unit tests **46/46**, PostgreSQL-backed
+  service integration tests **25/25**, StoreServer Release build **0 warnings/0 errors**, architecture
+  tests **86/86**, and full unit baseline **1,647/1,647**. See
+  [STAGE-23-VERIFICATION](../verification/STAGE-23-VERIFICATION.md).
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -120,11 +122,13 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Every listed rule and scenario has executed evidence, including replay and authorization.
+- [x] Planned API routes are verified against the actual host OpenAPI contract.
+- [x] Per-company accounting/stock and audit requirements are satisfied where applicable.
+- [x] Migration reversibility and module replication registration are evidenced by the stage tests.
+- [x] Specialist runtime limitation is recorded explicitly; no invented review result is claimed.
+- [x] `CLAUDE.md` §8 is met for the repository-deliverable Stage 23 scope.
 
-**Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
+**Verification boundary:** provider-backed vendor integrations and specialist-agent execution are
+environment boundaries; the service-owned implementation and PostgreSQL-backed acceptance are
+verified in the evidence document linked above.

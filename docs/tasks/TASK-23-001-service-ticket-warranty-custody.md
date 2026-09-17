@@ -1,6 +1,6 @@
 # TASK-23-001 — Service ticket, warranty snapshot, and custody foundation
 
-**Status:** COMPLETE for ticket/warranty/custody foundation slice · **Stage:** 23 · **Part:** 23-P01
+**Status:** COMPLETE and verified · **Stage:** 23 · **Part:** 23-P01
 
 ## Evidence
 
@@ -17,8 +17,7 @@
 ## Remaining
 
 Custody export controls and real PostgreSQL tenant/company isolation evidence are now complete. SLA
-policy creation is covered by TASK-23-004; service-part financial end-to-end acceptance remains a
-Stage 23 follow-up. Warranty submission, repair opening, and service-part issue now validate the
+policy creation is covered by TASK-23-004. Warranty submission, repair opening, and service-part issue now validate the
 loaded ticket/repair tenant and company scope before creating or mutating any service record.
 
 Persistence mapping and migrations `20260913163837_Stage23_ServiceManagement` and
@@ -36,8 +35,8 @@ Scoped ticket and custody list queries/GET routes now enforce the active company
 `20260913171313_Stage23_ServiceCustodyEvents` adds custody persistence; the expanded migration and
 OpenAPI verification passes **2/2** on PostgreSQL.
 Service-part consumption is now reserved, issued through the shared stock ledger, consumed against the
-hold, and protected by operation replay checks; parts integration remains subject to full end-to-end
-PostgreSQL availability and financial acceptance.
+hold, and protected by operation replay checks. Inventory cost capture is covered by the Stage 23
+closure evidence; financial posting remains owned by the shared inventory/Finance boundary.
 Replay handling now validates the active company context before looking up an existing ticket or
 service-part usage, closing a same-company replay bypass; the service command suite passes **4/4**.
 

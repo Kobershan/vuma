@@ -455,7 +455,7 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 21b | Vuma Connect: supplier network & B2B | **COMPLETE** — supplier portal, settlement/remittance isolation, ASN draft-GRN handoff and offline replay verified | 2026-09-15 |
 | 22 | Marketing automation | NOT_STARTED | — |
 | 22b | Conversational commerce | **IN_PROGRESS** — transport integration and six intent handlers remain | — |
-| 23 | Service management | **IN_PROGRESS** — ticket, warranty, repair, parts, SLA and scoped read/API slices implemented; invoicing/RMA integration and final acceptance remain | 2026-09-18 |
+| 23 | Service management | **COMPLETE and verified** — ticket, warranty, repair, parts, SLA, custody, scoped API/isolation, migration and regression evidence recorded; invoice/RMA ownership remains with Sales/Orders/Finance | 2026-09-18 |
 | 24 | Logistics management | **COMPLETE and verified** — shipment, delivery-run, POD, isolation, permission, replay and concurrency acceptance recorded | 2026-09-14 |
 | 25 | HR management | **COMPLETE and verified** — employee, contracts, leave, documents and lifecycle evidence recorded | 2026-09-17 |
 | 26 | Workforce management | **COMPLETE and verified** — shifts, attendance, availability, swaps, roster and labour-cost evidence recorded | 2026-09-17 |

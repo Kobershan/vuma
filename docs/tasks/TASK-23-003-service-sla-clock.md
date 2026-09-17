@@ -1,6 +1,6 @@
 # TASK-23-003 — Deterministic service SLA clock
 
-**Status:** COMPLETE for clock, pause-accounting, and bounded worker slice; persistence acceptance remains · **Stage:** 23 · **Type:** Application, tests
+**Status:** COMPLETE and verified · **Stage:** 23 · **Type:** Application, tests
 
 ## Scope
 
@@ -18,5 +18,6 @@ evaluating a ticket deadline.
   persisted customer-wait pause accounting; `ServiceSlaClockTests` passes **7/7**.
 - 2026-09-17: The service-filtered unit suite passes **40/40** after the custody isolation gate was
   added; no SLA clock regression was introduced.
-- Remaining Stage 23 work: persisted business calendars and full API/isolation acceptance; breach
-  observations are now durable append-only records with tenant/ticket/SLA/type uniqueness.
+- Persisted breach observations, service API coverage, and tenant/company isolation are verified by
+  the Stage 23 PostgreSQL integration suite. Calendar configuration remains the documented v1
+  weekday business-hours policy.
