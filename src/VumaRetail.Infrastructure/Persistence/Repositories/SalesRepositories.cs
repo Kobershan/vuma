@@ -243,6 +243,34 @@ public sealed class SalesReturnRepository(VumaRetailDbContext context, ITenantCo
     public async Task<decimal> SumReturnedQuantityAsync(
         Guid saleLineId, Guid? excludingReturnId, CancellationToken cancellationToken = default)
     {
+        // §4.21 double-refund guard. Two concurrent AddSalesReturnLine calls against the same sale
+        // line both read the same committed sum under Read Committed and both pass. Locking the
+        // sibling lines alone cannot serialize this: two first-lines share no committed row to
+        // contend on, because each caller's own insert is invisible to the other until it commits.
+        // So the parent sale row is locked FOR UPDATE first — every add against this sale funnels
+        // through it, the second caller blocks until the first commits, and the sum below then sees
+        // the first caller's committed line. The lock is held until the command's own commit; the
+        // pipeline owns the transaction, never this method.
+        Guid saleId = await context.SaleLines
+            .AsNoTracking()
+            .Where(line => line.Id == saleLineId)
+            .Select(line => line.SaleId)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (saleId != Guid.Empty)
+        {
+            await context.Database
+                .SqlQuery<Guid>(
+                    $"""
+                     SELECT id AS "Value" FROM pos.sales
+                     WHERE id = {saleId} AND tenant_id = {tenant.TenantId} AND deleted_at IS NULL
+                     FOR UPDATE
+                     """)
+                .SingleOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         // Drafts count. A return sitting on another terminal's screen is goods the shop has already
         // taken back over the counter, and waiting for it to complete is how the same item is refunded
         // twice. Cancelled documents do not: nothing came back on them.
