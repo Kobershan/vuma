@@ -20,6 +20,7 @@ public static class ReportingServiceCollectionExtensions
         services.TryAddSingleton<IReportArtifactStore, FileSystemReportArtifactStore>();
         services.TryAddSingleton<ReportArtifactStoreOptions>();
         services.TryAddScoped<ReportExportExecutor>();
+        services.TryAddScoped<IReportScheduleRunner, ReportScheduleRunner>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
         return services;

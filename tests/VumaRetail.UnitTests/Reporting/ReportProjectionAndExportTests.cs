@@ -160,6 +160,30 @@ public sealed class ReportProjectionAndExportTests
         reports.Received(1).Add(Arg.Is<ScheduledReport>(x => x.CompanyId == companyId && x.ReportCode == "SALES"));
     }
 
+    [Fact]
+    public async Task Schedule_runner_enqueues_due_work_once_and_advances_the_schedule()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        DateTimeOffset due = new(2026, 9, 17, 10, 0, 0, TimeSpan.Zero);
+        ScheduledReport schedule = ScheduledReport.Create(tenantId, null, companyId, "sales", 60, due);
+        ReportDefinition definition = ReportDefinition.Create(tenantId, null, "sales", "Sales");
+        definition.Publish();
+        var reports = Substitute.For<IReportingRepository>();
+        reports.ListDueSchedulesAsync(due.AddMinutes(1), 20, Arg.Any<CancellationToken>()).Returns([schedule]);
+        reports.FindPublishedDefinitionByCodeAsync("SALES", Arg.Any<CancellationToken>()).Returns(definition);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+
+        ReportScheduleRunResult result = await new ReportScheduleRunner(reports, tenant).EnqueueDueAsync(due.AddMinutes(1), 20);
+
+        result.Examined.Should().Be(1);
+        result.Enqueued.Should().Be(1);
+        result.ExportIds.Should().ContainSingle();
+        schedule.NextRunAtUtc.Should().Be(due.AddHours(1));
+        reports.Received(1).Add(Arg.Is<ReportExport>(x => x.OperationId != Guid.Empty && x.ReportCode == "SALES"));
+    }
+
     private static ReportingProjectionEvent Event(Guid companyId, string cursor, string currency, params (string Name, decimal Value)[] measures) =>
         new(Guid.NewGuid(), companyId, "sales", 1, cursor, currency, measures.ToDictionary(x => x.Name, x => x.Value));
 }

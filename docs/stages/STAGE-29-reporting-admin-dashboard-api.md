@@ -97,6 +97,9 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   published-report validation, protected schedule creation API and reversible PostgreSQL migration.
   Reporting unit suite passes **18/18**; the schedule migration chain passes **1/1**. Provider-specific
   polling worker execution and full acceptance remain.
+- 2026-09-17: Added the idempotent due-schedule enqueue boundary with stable operation identities,
+  retired-definition suppression and missed-interval advancement. Reporting unit suite passes **19/19**;
+  hosted timer registration, provider data adapters and full acceptance remain.
 
 ## Tests / acceptance
 

@@ -24,3 +24,10 @@ public interface IReportExportDownloadAuthorizer
     string Create(ReportExport export, DateTimeOffset expiresAtUtc);
     bool Validate(string token, Guid exportId, DateTimeOffset asOfUtc);
 }
+
+public interface IReportScheduleRunner
+{
+    Task<ReportScheduleRunResult> EnqueueDueAsync(DateTimeOffset asOfUtc, int limit, CancellationToken cancellationToken = default);
+}
+
+public sealed record ReportScheduleRunResult(int Examined, int Enqueued, IReadOnlyList<Guid> ExportIds);

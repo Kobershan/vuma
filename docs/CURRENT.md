@@ -436,6 +436,10 @@ cadence, published-report validation and a protected schedule-creation API. The 
 passes **18/18** and the PostgreSQL schedule migration Up/Down chain passes **1/1**. Provider-specific
 polling worker execution and production scheduling remain open.
 
+WORK LOG (2026-09-17): Stage 29 now has an idempotent due-schedule enqueue boundary with stable
+operation identities and missed-interval advancement. The focused reporting suite passes **19/19**;
+hosted timer registration, provider data adapters and production scheduling remain open.
+
 WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their request company;
 campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
 build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.
