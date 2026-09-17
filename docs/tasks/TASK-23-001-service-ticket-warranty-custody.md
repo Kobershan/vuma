@@ -18,7 +18,8 @@
 
 Custody export controls and real PostgreSQL tenant/company isolation evidence are now complete. SLA
 policy creation is covered by TASK-23-004; service-part financial end-to-end acceptance remains a
-Stage 23 follow-up.
+Stage 23 follow-up. Warranty submission, repair opening, and service-part issue now validate the
+loaded ticket/repair tenant and company scope before creating or mutating any service record.
 
 Persistence mapping and migrations `20260913163837_Stage23_ServiceManagement` and
 `20260913164736_Stage23_ServiceTicketOperationId` are now present; the PostgreSQL Up/Down test

@@ -75,15 +75,19 @@ public sealed record SubmitWarrantyClaimCommand(Guid CompanyId, Guid TicketId, G
 public sealed class SubmitWarrantyClaimCommandHandler(IServiceRepository services, ITenantContext tenant,
     ICompanyContext company, IClock clock) : ICommandHandler<SubmitWarrantyClaimCommand, Guid>
 {
-    public Task<Guid> HandleAsync(SubmitWarrantyClaimCommand command, CancellationToken cancellationToken = default)
+    public async Task<Guid> HandleAsync(SubmitWarrantyClaimCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
         if (company.CompanyId is not { } active || active != command.CompanyId)
             throw new InvalidOperationException("The warranty company is not the active company.");
+        ServiceTicket ticket = await services.FindTicketAsync(command.TicketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Service ticket not found.");
+        if (ticket.TenantId != tenant.TenantId || ticket.CompanyId != active || ticket.CustomerId != command.CustomerId)
+            throw new InvalidOperationException("The warranty ticket is outside the active tenant, company or customer scope.");
         WarrantyClaim claim = WarrantyClaim.Submit(tenant.TenantId, null, command.CompanyId, command.TicketId,
             command.CustomerId, command.SaleReference, command.SaleDate, command.SerialNumber, clock.UtcNow);
         services.Add(claim);
-        return Task.FromResult(claim.Id);
+        return claim.Id;
     }
 }
 
@@ -93,14 +97,18 @@ public sealed record OpenRepairJobCommand(Guid CompanyId, Guid TicketId, string 
 public sealed class OpenRepairJobCommandHandler(IServiceRepository services, ITenantContext tenant,
     ICompanyContext company, IClock clock) : ICommandHandler<OpenRepairJobCommand, Guid>
 {
-    public Task<Guid> HandleAsync(OpenRepairJobCommand command, CancellationToken cancellationToken = default)
+    public async Task<Guid> HandleAsync(OpenRepairJobCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
         if (company.CompanyId is not { } active || active != command.CompanyId)
             throw new InvalidOperationException("The repair company is not the active company.");
+        ServiceTicket ticket = await services.FindTicketAsync(command.TicketId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Service ticket not found.");
+        if (ticket.TenantId != tenant.TenantId || ticket.CompanyId != active)
+            throw new InvalidOperationException("The repair ticket is outside the active tenant or company scope.");
         RepairJob job = RepairJob.Open(tenant.TenantId, null, command.CompanyId, command.TicketId, command.ItemReference, clock.UtcNow);
         services.Add(job);
-        return Task.FromResult(job.Id);
+        return job.Id;
     }
 }
 
@@ -188,13 +196,14 @@ public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServic
     private readonly IReservationService reservations;
     private readonly IStockLedgerPoster poster;
     private readonly ICompanyContext company;
+    private readonly ITenantContext tenant;
     private readonly IClock clock;
 
     public IssueServicePartCommandHandler(IServiceRepository services, IStockLocationRepository locations,
-        IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company, IClock clock)
+        IReservationService reservations, IStockLedgerPoster poster, ICompanyContext company, ITenantContext tenant, IClock clock)
     {
         this.services = services; this.locations = locations; this.reservations = reservations;
-        this.poster = poster; this.company = company; this.clock = clock;
+        this.poster = poster; this.company = company; this.tenant = tenant; this.clock = clock;
     }
 
     public async Task<Guid> HandleAsync(IssueServicePartCommand command, CancellationToken cancellationToken = default)
@@ -211,6 +220,11 @@ public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServic
                 throw new InvalidOperationException("The service-part operation was replayed with different content.");
             return existing.Id;
         }
+
+        RepairJob repair = await services.FindRepairAsync(command.RepairJobId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Repair job not found.");
+        if (repair.TenantId != tenant.TenantId || repair.CompanyId != command.CompanyId)
+            throw new InvalidOperationException("The repair job is outside the active tenant or company scope.");
 
         if ((command.ItemId is null) == (command.ItemVariantId is null))
             throw new ArgumentException("A service part must identify exactly one item or variant.");
@@ -242,4 +256,5 @@ public sealed class IssueServicePartCommandHandler : ICommandHandler<IssueServic
             throw;
         }
     }
+
 }

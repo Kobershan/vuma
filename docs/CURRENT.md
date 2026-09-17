@@ -64,6 +64,10 @@ StoreServer Release builds with 0 warnings and 0 errors, and PostgreSQL-backed s
 API contract and custody-isolation checks pass 3/3. Stage 23 remains in progress for invoicing/RMA
 integration and final closure acceptance.
 
+WORK LOG (2026-09-18): Hardened Stage 23 service command scope. Warranty submission, repair opening
+and service-part issue now validate referenced ticket/repair tenant and company ownership before
+mutation; `ServiceCommandTests` passes 7/7.
+
 VERIFICATION (2026-09-17): The complete Release test run passed: control-plane 13/13, unit 1,623/1,623,
 architecture 86/86, and PostgreSQL integration 628/628. The solution Release build passed with 0 errors.
 Stage 17 is therefore reconciled to COMPLETE in `docs/PROGRESS.md`; the specialist-agent runtime remains

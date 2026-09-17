@@ -98,6 +98,9 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
   StoreServer Release build passes with **0 warnings, 0 errors**; PostgreSQL-backed service
   migration, API contract, and custody-isolation tests pass **3/3**. Remaining Stage 23 work is
   invoicing/RMA integration and final closure acceptance.
+- 2026-09-18: Hardened service command boundaries: warranty submission, repair opening and service
+  part issue now load and validate the referenced ticket/repair against the ambient tenant and
+  active company. Regression coverage passes **7/7** for `ServiceCommandTests`.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

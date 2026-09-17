@@ -68,7 +68,7 @@ public sealed class ServiceCommandTests
         company.CompanyId.Returns(companyId);
         var handler = new IssueServicePartCommandHandler(services, Substitute.For<IStockLocationRepository>(),
             Substitute.For<IReservationService>(), Substitute.For<IStockLedgerPoster>(), company,
-            Substitute.For<IClock>());
+            Substitute.For<ITenantContext>(), Substitute.For<IClock>());
         Guid result = await handler.HandleAsync(new IssueServicePartCommand(operationId, companyId, repairId,
             Guid.NewGuid(), usage.ItemId, null, 2m, "EA"));
         result.Should().Be(usage.Id);
@@ -92,5 +92,69 @@ public sealed class ServiceCommandTests
             Substitute.For<IClock>()).HandleAsync(new OpenServiceTicketCommand(operationId, companyId, customerId, "Laptop repair"));
 
         await action.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Warranty_submission_rejects_a_ticket_from_another_tenant_or_customer()
+    {
+        Guid companyId = Guid.NewGuid();
+        Guid customerId = Guid.NewGuid();
+        ServiceTicket ticket = ServiceTicket.Open(Guid.NewGuid(), null, companyId, Guid.NewGuid(), Guid.NewGuid(),
+            "Laptop repair", DateTimeOffset.UtcNow);
+        IServiceRepository repository = Substitute.For<IServiceRepository>();
+        repository.FindTicketAsync(ticket.Id, Arg.Any<CancellationToken>()).Returns(ticket);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+
+        Func<Task> action = () => new SubmitWarrantyClaimCommandHandler(repository, tenant, company,
+            Substitute.For<IClock>()).HandleAsync(new SubmitWarrantyClaimCommand(companyId, ticket.Id, customerId,
+                "SALE-1", new DateOnly(2026, 1, 2), "SERIAL-A"));
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        repository.DidNotReceive().Add(Arg.Any<WarrantyClaim>());
+    }
+
+    [Fact]
+    public async Task Repair_opening_rejects_a_ticket_from_another_company()
+    {
+        Guid companyId = Guid.NewGuid();
+        ServiceTicket ticket = ServiceTicket.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "Laptop repair", DateTimeOffset.UtcNow);
+        IServiceRepository repository = Substitute.For<IServiceRepository>();
+        repository.FindTicketAsync(ticket.Id, Arg.Any<CancellationToken>()).Returns(ticket);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(ticket.TenantId);
+
+        Func<Task> action = () => new OpenRepairJobCommandHandler(repository, tenant, company,
+            Substitute.For<IClock>()).HandleAsync(new OpenRepairJobCommand(companyId, ticket.Id, "SERIAL-A"));
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        repository.DidNotReceive().Add(Arg.Any<RepairJob>());
+    }
+
+    [Fact]
+    public async Task Service_part_issue_rejects_a_repair_from_another_tenant_or_company()
+    {
+        Guid companyId = Guid.NewGuid();
+        RepairJob repair = RepairJob.Open(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), "SERIAL-A", DateTimeOffset.UtcNow);
+        IServiceRepository repository = Substitute.For<IServiceRepository>();
+        repository.FindPartUsageByOperationIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((ServicePartUsage?)null);
+        repository.FindRepairAsync(repair.Id, Arg.Any<CancellationToken>()).Returns(repair);
+        ICompanyContext company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        ITenantContext tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(Guid.NewGuid());
+
+        Func<Task> action = () => new IssueServicePartCommandHandler(repository,
+            Substitute.For<IStockLocationRepository>(), Substitute.For<IReservationService>(),
+            Substitute.For<IStockLedgerPoster>(), company, tenant, Substitute.For<IClock>()).HandleAsync(
+                new IssueServicePartCommand(Guid.NewGuid(), companyId, repair.Id, Guid.NewGuid(), Guid.NewGuid(), null, 1m, "EA"));
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        repository.DidNotReceive().Add(Arg.Any<ServicePartUsage>());
     }
 }
