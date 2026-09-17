@@ -34,6 +34,9 @@ signer endpoint; missing signing configuration fails closed. Dedicated tests rem
 implemented in the control-plane boundary; control-plane tests pass **17/17**. Durable fleet
 persistence, authenticated vendor API/console, provisioning/offboarding and production acceptance
 remain.
+2026-09-17: Vendor provisioning/offboarding retention policy and signer-backed single-use emergency
+write codes are implemented; control-plane tests pass **19/19**. Durable audit and authenticated
+vendor deployment acceptance remain.
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
 Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"

@@ -16,3 +16,8 @@ immutable persistence and full outage/offline acceptance remain.
 instant rollout halts, offline/backup health reporting and audited remote-command queueing. Unknown
 nodes and invalid rollout/health inputs fail closed. Control-plane tests pass **17/17**; durable
 fleet persistence, authenticated vendor routes and production provisioning remain.
+
+2026-09-17: Added vendor provisioning with generated licence keys, verified-export-gated
+offboarding and a 90-day retention window. Emergency write codes are signer-backed, limited to
+1–168 hours, tenant-specific and single-use. Control-plane tests pass **19/19**; durable audit,
+authenticated vendor routes and production provisioning remain.

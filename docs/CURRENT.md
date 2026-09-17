@@ -20,6 +20,10 @@ unit tests pass 35/35.
 WORK LOG (2026-09-17): Added Stage 30b fleet-operation policy foundations for deterministic staged
 rollouts, immediate rollout halts, offline/backup health and audited remote-command queueing.
 Control-plane tests pass 17/17; durable persistence and authenticated vendor surfaces remain.
+
+WORK LOG (2026-09-17): Added Stage 30b provisioning/offboarding policy with generated licence keys,
+verified-export gating, 90-day retention, and signer-backed single-use emergency unlock codes.
+Control-plane tests pass 19/19.
 NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
 provider-backed acceptance is externally dependent and remains explicitly open.
 
