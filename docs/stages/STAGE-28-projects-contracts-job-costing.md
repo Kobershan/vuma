@@ -78,6 +78,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-15: Added the currency-explicit `RebateAgreement` lifecycle with thresholded, rounded
   percentage calculation and reconciliation transition. `RebateAgreementTests` passes **2/2**;
   persistence, reconciliation records, APIs and job-cost reports remain.
+- 2026-09-17: Project API handlers now bind the request company into `ICompanyContext` before every
+  create, cost, labour, approval, milestone and cost-summary operation. This closes the mismatch
+  where valid company-scoped project requests were rejected by the application boundary. StoreServer
+  Release build passes with **0 errors**; PostgreSQL/API acceptance remains open.
 
 ## Tests / acceptance
 

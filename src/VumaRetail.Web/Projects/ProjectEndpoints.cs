@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Projects;
 using VumaRetail.Domain.Projects;
 using VumaRetail.Web.Api;
@@ -18,8 +19,11 @@ public static class ProjectEndpoints
         group.MapPost("/", CreateAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{projectId:guid}/costs", AllocateCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{projectId:guid}/labour-costs", AllocateLabourCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
-        group.MapGet("/{projectId:guid}/costs/summary", async (Guid projectId, Guid companyId, IDispatcher dispatcher, CancellationToken cancellationToken) =>
-            Results.Ok(await dispatcher.QueryAsync(new GetProjectCostSummaryQuery(companyId, projectId), cancellationToken)))
+        group.MapGet("/{projectId:guid}/costs/summary", async (Guid projectId, Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await dispatcher.QueryAsync(new GetProjectCostSummaryQuery(companyId, projectId), cancellationToken));
+        })
             .RequirePermission(ProjectPermissions.View);
         group.MapPost("/budgets/{id:guid}/approve", ApproveBudgetAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/contract-variations/{id:guid}/approve", ApproveVariationAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
@@ -27,42 +31,48 @@ public static class ProjectEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> CreateAsync(CreateProjectRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateAsync(CreateProjectRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateProjectCommand(request.CompanyId, request.Code, request.Name, request.Currency), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/projects/{id:D}", id);
     }
 
-    private static async Task<IResult> ApproveBudgetAsync(Guid id, ProjectCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> ApproveBudgetAsync(Guid id, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         await dispatcher.SendAsync(new ApproveProjectBudgetCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false);
         return Results.NoContent();
     }
 
     private static async Task<IResult> AllocateCostAsync(Guid projectId, AllocateProjectCostRequest request,
-        IDispatcher dispatcher, CancellationToken cancellationToken)
+        ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new AllocateProjectCostCommand(request.CompanyId, projectId,
             request.SourceReference, request.Kind, request.Amount, request.Currency), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/projects/{projectId:D}/costs/{id:D}", id);
     }
 
     private static async Task<IResult> AllocateLabourCostAsync(Guid projectId, AllocateProjectLabourCostRequest request,
-        IDispatcher dispatcher, CancellationToken cancellationToken)
+        ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new AllocateProjectLabourCostCommand(request.CompanyId, projectId,
             request.EmployeeId, request.From, request.To), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/projects/{projectId:D}/costs/{id:D}", id);
     }
 
-    private static async Task<IResult> ApproveVariationAsync(Guid id, ProjectCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> ApproveVariationAsync(Guid id, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         await dispatcher.SendAsync(new ApproveContractVariationCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false);
         return Results.NoContent();
     }
 
-    private static async Task<IResult> BillMilestoneAsync(Guid id, ProjectCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> BillMilestoneAsync(Guid id, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid billedId = await dispatcher.SendAsync(new BillMilestoneCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false);
         return Results.Accepted($"/api/v1/projects/milestones/{billedId:D}", billedId);
     }
