@@ -16,5 +16,7 @@ evaluating a ticket deadline.
 - The infrastructure module registers the default 09:00–17:00 UTC clock through dependency injection.
 - `IServiceSlaWorker` evaluates tenant/company-scoped open-ticket breaches using the same clock and
   persisted customer-wait pause accounting; `ServiceSlaClockTests` passes **7/7**.
+- 2026-09-17: The service-filtered unit suite passes **40/40** after the custody isolation gate was
+  added; no SLA clock regression was introduced.
 - Remaining Stage 23 work: persisted business calendars and full API/isolation acceptance; breach
   observations are now durable append-only records with tenant/ticket/SLA/type uniqueness.
