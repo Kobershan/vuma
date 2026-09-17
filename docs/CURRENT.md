@@ -3,11 +3,10 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Pulled upstream
-through `8bbb3c6` (Stage 29 export execution, Stage 30b fleet/provisioning policies). This
-session's slice is staged for commit; the older procurement/CloudApi/security-guard WIP and the
-stale model-snapshot base remain uncommitted in the working tree and must be finished or dropped
-separately — see the handoff in `docs/PROGRESS.md`.
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Main is synchronized through
+`077e4cb`, including upstream code-gap closure, replay-safe reporting exports, durable schedules and
+persisted dashboard measures. The only uncommitted files are pre-existing desktop artifacts under
+`docs/`; they are intentionally preserved and excluded from commits.
 
 WORK LOG (2026-09-18): Closed five code-level gaps with tests: (1) clearing balances now aggregate
 outstanding registry intents per company instead of returning zeros (`CompanyFanOut.
@@ -18,6 +17,16 @@ reads over a new `ListByStatusAsync` port (`MarketingReadsTests` 3/3); (4) repor
 device rebind/revoke/diagnostics/telemetry-error/update-check routes backed by idempotent store
 methods and `FleetOperations.SelectUpdate` (control-plane suite 23/23). Full unit/architecture/
 integration suites and CI are NOT yet rerun for this slice.
+
+VERIFICATION (2026-09-18): After integrating upstream `d6ddf03`, the combined Release unit suite
+passes **1,643/1,643**, ControlPlane tests pass **23/23**, and architecture tests pass **86/86**.
+The upstream slice required a missing-brace build fix in project queries and a control-plane clock
+fix to satisfy the repository wall-clock rule; both are pushed in `077e4cb`.
+
+WORK LOG (2026-09-18): Stage 29 reporting now includes persisted company/date/name/currency dashboard
+measures, monotonic replacement, reversible `Stage29DashboardMeasures` migration, and an idempotent
+due-schedule enqueue boundary. Focused reporting tests pass **20/20**; PostgreSQL reporting migration
+checks pass **1/1**. Hosted timer registration, source-module adapters and production acceptance remain.
 
 WORK LOG (2026-09-17): Hardened Stage 23/26/27 API company-context boundaries. Service SLA
 deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now establish the
