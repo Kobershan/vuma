@@ -606,3 +606,6 @@ passes 10/10; gateway orchestration and PostgreSQL webhook replay remain open.
 WORK LOG (2026-09-17): Stage 31 encrypted PostgreSQL disaster-recovery drill passed locally from
 fresh source/target databases: snapshot verification, restore, and `users=5 roles=4 stores=2`
 reconciliation all succeeded.
+
+WORK LOG (2026-09-17): Corrected stale Android and integration evidence. Android workflow-equivalent
+Gradle 8.9/JDK 17 `assembleDebug` is verified locally; the PostgreSQL integration suite is 632/632.

@@ -85,7 +85,7 @@ snapshot `01a0adf9-a541-7000-b012-452d28cf939e` and the same matching counts.
 
 GitHub CI run `34802104182` subsequently completed green for commit `8f6b19f`, including the
 Windows package job and all release gates. The local full PostgreSQL integration suite passes
-**608/608** against the same current code.
+**632/632** against the same current code.
 
 - `Store_survives_cloud_outage`: block cloud and vendor network for 24 hours; local cash trading completes and reconnect replay changes no totals.
 - `Fresh_hardware_restore_trades`: restore the pilot registry, all company databases and documents onto a fresh machine within 4 hours; reconcile stock/GL and complete a sale.

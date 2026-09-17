@@ -1,6 +1,6 @@
 # STAGE 30 — Android Admin App
 
-**Status:** IN_PROGRESS — Android Compose baseline and strict HTTPS/session/action models implemented; durable Room storage, secure token persistence, API flows and acceptance remain · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — Android Compose baseline, durable Room storage, secure token persistence and authenticated API flows are implemented; signed release, physical-device and outage/accessibility acceptance remain · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -81,9 +81,7 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-14: Added `MobileActionStore` as the durable adapter for enqueue, authenticated-session
   claiming, state transitions and retry metadata, and exposed it from `VumaApplication`.
 - 2026-09-15: Repository-side Android review confirms the Room cache, encrypted refresh-token store,
-  dashboard API client and endpoint-switch guard are present. The workflow-equivalent assemble check
-  remains **UNVERIFIED** locally because this environment has JDK 17 but neither Gradle nor a checked-in
-  Gradle wrapper; GitHub's Gradle 8.9 job remains the authoritative compilation gate.
+  dashboard API client and endpoint-switch guard are present.
 - 2026-09-17: Installed workflow-equivalent Gradle 8.9 temporarily and ran `assembleDebug` locally
   with JDK 17 and the configured Android SDK: **BUILD SUCCESSFUL**. Room schema export is now configured
   at `android/app/schemas`, eliminating the prior processor warning. Physical-device, signed-release,
