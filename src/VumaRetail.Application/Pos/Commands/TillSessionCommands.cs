@@ -137,7 +137,7 @@ public sealed record CashUpResult(Money ExpectedCash, Money CountedCash, Money V
 /// §4.10: in the in-flight member set — a cash-up not yet closed when read-only fell due must still be
 /// able to close, or the drawer stays uncounted with no path out.
 /// </remarks>
-[CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.CompleteInFlight)]
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CloseTillSessionCommand(
     Guid TillSessionId,
     Money CountedCash,

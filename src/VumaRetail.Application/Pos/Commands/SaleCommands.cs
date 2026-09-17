@@ -391,7 +391,7 @@ public sealed record SaleCompletionResult(
 
 /// <summary>Closes the sale: freezes it, relieves stock and raises the financial event.</summary>
 /// <param name="SaleId">The sale.</param>
-[CommandSideEffect(SideEffect.Write, Exemption = ReadOnlyExemption.CompleteInFlight)]
+[CommandSideEffect(SideEffect.Write)]
 public sealed record CompleteSaleCommand(Guid SaleId) : ICommand<SaleCompletionResult>, ISessionScopedCommand
 {
     /// <inheritdoc />
