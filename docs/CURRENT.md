@@ -16,6 +16,10 @@ WORK LOG (2026-09-17): Closed two Stage 22b architecture defects in conversation
 the repository no longer commits outside the unit-of-work pipeline, and delivery attempts now
 declare append-only StoreToCloud replication. Architecture tests pass 86/86; conversation-focused
 unit tests pass 35/35.
+
+WORK LOG (2026-09-17): Added Stage 30b fleet-operation policy foundations for deterministic staged
+rollouts, immediate rollout halts, offline/backup health and audited remote-command queueing.
+Control-plane tests pass 17/17; durable persistence and authenticated vendor surfaces remain.
 NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
 provider-backed acceptance is externally dependent and remains explicitly open.
 

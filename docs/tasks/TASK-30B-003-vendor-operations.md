@@ -11,3 +11,8 @@ rollback, impossible travel and colliding document series. Added partner tenant 
 tenant-approved, expiring support grants. No detector performs automatic disablement. Focused tests
 pass **4/4**. Fleet rollout, provisioning/offboarding, console/Android mode, MFA/IP policy, alerts,
 immutable persistence and full outage/offline acceptance remain.
+
+2026-09-17: Added a deterministic `FleetOperations` policy boundary for staged version rollouts,
+instant rollout halts, offline/backup health reporting and audited remote-command queueing. Unknown
+nodes and invalid rollout/health inputs fail closed. Control-plane tests pass **17/17**; durable
+fleet persistence, authenticated vendor routes and production provisioning remain.

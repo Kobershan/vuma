@@ -30,6 +30,10 @@ KMS/HSM, mTLS deployment and vendor surfaces remain.
 
 The host's non-development boundary now requires HTTPS, a client certificate and an HTTPS external
 signer endpoint; missing signing configuration fails closed. Dedicated tests remain **6/6**.
+2026-09-17: Fleet rollout selection, halt, offline/backup health and remote-command policy are now
+implemented in the control-plane boundary; control-plane tests pass **17/17**. Durable fleet
+persistence, authenticated vendor API/console, provisioning/offboarding and production acceptance
+remain.
 The vendor's half: the service that issues licences, receives every heartbeat, aggregates usage across
 the whole customer base, bills the monthly subscription, detects duplicated installs, and gives the
 Vuma team one screen answering "who is using this, how much, and is anyone abusing it?"
