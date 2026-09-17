@@ -3,10 +3,15 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-15). Stages 17, 18, 21 and 22 are complete with
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-17). Stages 17, 18, 21 and 21b are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
 NEXT STAGE (roadmap order): Stage 22b conversational commerce completion pass.
+
+VERIFICATION (2026-09-17): The complete Release test run passed: control-plane 13/13, unit 1,623/1,623,
+architecture 86/86, and PostgreSQL integration 628/628. The solution Release build passed with 0 errors.
+Stage 17 is therefore reconciled to COMPLETE in `docs/PROGRESS.md`; the specialist-agent runtime remains
+an explicit environment limitation.
 
 WORK LOG (2026-09-15): TASK-003 procurement field labels is complete. The misleading
 `MatchedNet` domain/application/API surface is now `MatchedGross`; the existing `matched_net`
