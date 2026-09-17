@@ -1,6 +1,6 @@
 # TASK-22B-002 — Classifier, composer, and six intents
 
-**Status:** IN_PROGRESS · **Stage:** 22b · **Type:** Application / integration / test
+**Status:** COMPLETE · **Stage:** 22b · **Type:** Application / integration / test
 
 ## Objective
 
@@ -25,7 +25,14 @@ model data access and no unscoped customer lookup.
 
 ## Remaining work
 
-- Add result-number/date post-checking and tests for prompt-injection text.
+- None. Result-number/date post-checking and prompt-injection regression coverage are complete.
+
+## Verification
+
+2026-09-17: Conversation safety tests pass **25/25**. The deterministic classifier preserves the
+allow-listed intent while ignoring injected account identifiers, and reply safety rejects fabricated
+numbers or ISO dates that are not present in API facts. The six handlers remain scoped to persisted
+binding/company grants and confirmation is required before submissions.
 
 ## Definition of done
 

@@ -33,6 +33,16 @@ public sealed class ConversationSafetyTests
         reply.Should().Be("Invoice 100 is ready.");
     }
 
+    [Fact]
+    public void Reply_safety_rejects_injected_number_and_date_not_returned_by_api()
+    {
+        string fabricated = "Invoice 100 is ready on 2027-12-31. Your balance is R9999.";
+        ReplySafety.ContainsOnlyApiFacts(fabricated,
+            new ReplyFacts(["Invoice 100 is ready on 2026-01-01."], "Please contact a human.")).Should().BeFalse();
+        ReplySafety.ContainsOnlyApiFacts("Invoice 100 is ready on 2026-01-01.",
+            new ReplyFacts(["Invoice 100 is ready on 2026-01-01."], "Please contact a human.")).Should().BeTrue();
+    }
+
     private static readonly DateTimeOffset At = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
 
     [Theory]
