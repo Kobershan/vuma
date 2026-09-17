@@ -27,7 +27,7 @@ import com.vuma.retail.mobile.ui.theme.VumaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { VumaTheme { VumaAdminApp(getApplication<VumaApplication>()) } }
+        setContent { VumaTheme { VumaAdminApp(application as VumaApplication) } }
     }
 }
 
