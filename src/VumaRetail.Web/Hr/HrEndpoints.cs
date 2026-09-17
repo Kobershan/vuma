@@ -32,10 +32,18 @@ public static class HrEndpoints
         hr.MapPost("/employees/{employeeId:guid}/suspend", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new SuspendEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/activate", async (Guid employeeId, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new ActivateEmployeeCommand(employeeId), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
         hr.MapPost("/employees/{employeeId:guid}/terminate", async (Guid employeeId, TerminateEmployeeRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new TerminateEmployeeCommand(employeeId, r.TerminatedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.Manage);
-        hr.MapPost("/employees/{employeeId:guid}/disciplinary-cases", async (Guid employeeId, DisciplinaryCaseRequest r, IDispatcher d, CancellationToken ct) => Results.Created($"/api/v1/hr/employees/{employeeId}/disciplinary-cases", await d.SendAsync(new OpenDisciplinaryCaseCommand(r.CompanyId, employeeId, r.IncidentOn, r.Allegation), ct))).RequirePermission(HrPermissions.DisciplinaryManage);
+        hr.MapPost("/employees/{employeeId:guid}/disciplinary-cases", async (Guid employeeId, DisciplinaryCaseRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(r.CompanyId);
+            return Results.Created($"/api/v1/hr/employees/{employeeId}/disciplinary-cases", await d.SendAsync(new OpenDisciplinaryCaseCommand(r.CompanyId, employeeId, r.IncidentOn, r.Allegation), ct));
+        }).RequirePermission(HrPermissions.DisciplinaryManage);
         hr.MapPost("/disciplinary-cases/{id:guid}/investigate", async (Guid id, DisciplinaryInvestigationRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new StartDisciplinaryInvestigationCommand(id, r.StartedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.DisciplinaryManage);
         hr.MapPost("/disciplinary-cases/{id:guid}/decision", async (Guid id, DisciplinaryDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideDisciplinaryCaseCommand(id, r.Decision, r.DecidedAt), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.DisciplinaryManage);
-        hr.MapGet("/disciplinary-cases", async (Guid companyId, Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListDisciplinaryCasesQuery(companyId, employeeId), ct))).RequirePermission(HrPermissions.View);
+        hr.MapGet("/disciplinary-cases", async (Guid companyId, Guid? employeeId, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await d.QueryAsync(new ListDisciplinaryCasesQuery(companyId, employeeId), ct));
+        }).RequirePermission(HrPermissions.View);
         hr.MapGet("/payroll/export", async (DateOnly from, DateOnly to, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new GeneratePayrollExportQuery(from, to), ct))).RequirePermission(HrPermissions.PayrollExport);
         hr.MapGet("/payroll/export.csv", async (DateOnly from, DateOnly to, IDispatcher d, CancellationToken ct) =>
         {

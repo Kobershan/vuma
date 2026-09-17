@@ -100,3 +100,7 @@ The focused asset suite is now **17/17**.
 - [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
+
+2026-09-17: Asset, maintenance and checklist write API routes now bind the request company before
+dispatching company-guarded handlers. StoreServer Release build passes with **0 errors** and the
+focused service/HR/assets unit slice passes **162/162**.

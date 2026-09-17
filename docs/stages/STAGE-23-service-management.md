@@ -88,6 +88,9 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 - 2026-09-17: `ServiceCustodyIsolationTests` passes **1/1** on PostgreSQL, proving the custody
   export/query boundary excludes another company and another tenant while returning the active
   tenant/company row.
+- 2026-09-17: Service SLA-deadline API now binds the requested company before dispatching the
+  company-guarded query. StoreServer Release build passes with **0 errors** and the focused
+  service/HR/assets unit slice passes **162/162**.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

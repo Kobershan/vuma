@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Assets;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
@@ -35,59 +36,65 @@ public static class AssetEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> CreateAssetAsync(CreateAssetRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateAssetAsync(CreateAssetRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateFixedAssetCommand(request.CompanyId, request.AssetNumber,
             request.Description, request.AcquiredOn, request.Cost, request.Currency), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/assets/{id:D}", id);
     }
 
-    private static async Task<IResult> PlaceInServiceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> PlaceInServiceAsync(Guid id, AssetCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         await dispatcher.SendAsync(new PlaceAssetInServiceCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false);
         return Results.NoContent();
     }
 
-    private static async Task<IResult> DisposeAsync(Guid id, DisposeAssetRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> DisposeAsync(Guid id, DisposeAssetRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         await dispatcher.SendAsync(new DisposeFixedAssetCommand(request.CompanyId, id, request.DisposedOn), cancellationToken).ConfigureAwait(false);
         return Results.NoContent();
     }
 
-    private static async Task<IResult> CreateBookAsync(Guid id, CreateBookRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateBookAsync(Guid id, CreateBookRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid bookId = await dispatcher.SendAsync(new CreateAssetBookCommand(request.CompanyId, id, request.BookName,
             request.InServiceOn, request.ResidualValue, request.Currency, request.UsefulLifeMonths), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/assets/{id:D}/books/{bookId:D}", bookId);
     }
 
-    private static async Task<IResult> RunDepreciationAsync(Guid id, RunDepreciationRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> RunDepreciationAsync(Guid id, RunDepreciationRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid runId = await dispatcher.SendAsync(new RunDepreciationCommand(request.CompanyId, id, request.Period), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/assets/books/{id:D}/depreciation/{runId:D}", runId);
     }
 
-    private static async Task<IResult> CreateMaintenanceAsync(CreateMaintenanceRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateMaintenanceAsync(CreateMaintenanceRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
+        company.SetCompany(request.CompanyId);
         Guid id = await dispatcher.SendAsync(new CreateMaintenanceOrderCommand(request.CompanyId, request.AssetId,
             request.Description, request.ScheduledOn), cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/maintenance/orders/{id:D}", id);
     }
 
-    private static async Task<IResult> StartMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
-    { await dispatcher.SendAsync(new StartMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+    private static async Task<IResult> StartMaintenanceAsync(Guid id, AssetCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new StartMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
 
-    private static async Task<IResult> CompleteMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
-    { await dispatcher.SendAsync(new CompleteMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+    private static async Task<IResult> CompleteMaintenanceAsync(Guid id, AssetCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new CompleteMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
 
-    private static async Task<IResult> CancelMaintenanceAsync(Guid id, AssetCompanyRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
-    { await dispatcher.SendAsync(new CancelMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
+    private static async Task<IResult> CancelMaintenanceAsync(Guid id, AssetCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new CancelMaintenanceOrderCommand(request.CompanyId, id), cancellationToken).ConfigureAwait(false); return Results.NoContent(); }
 
-    private static async Task<IResult> CreateChecklistAsync(CreateChecklistRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
-    { Guid id = await dispatcher.SendAsync(new CreateStoreChecklistCommand(request.CompanyId, request.StoreId, request.Code, request.Name, request.ItemCodes), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}", id); }
+    private static async Task<IResult> CreateChecklistAsync(CreateChecklistRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { company.SetCompany(request.CompanyId); Guid id = await dispatcher.SendAsync(new CreateStoreChecklistCommand(request.CompanyId, request.StoreId, request.Code, request.Name, request.ItemCodes), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}", id); }
 
-    private static async Task<IResult> SubmitChecklistAsync(Guid id, SubmitChecklistRequest request, IDispatcher dispatcher, CancellationToken cancellationToken)
-    { Guid executionId = await dispatcher.SendAsync(new SubmitChecklistExecutionCommand(request.CompanyId, request.StoreId, id, request.OperationId, request.DeviceId, request.CapturedAt, request.SubmittedAt, request.EvidenceReference), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}/executions/{executionId:D}", executionId); }
+    private static async Task<IResult> SubmitChecklistAsync(Guid id, SubmitChecklistRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    { company.SetCompany(request.CompanyId); Guid executionId = await dispatcher.SendAsync(new SubmitChecklistExecutionCommand(request.CompanyId, request.StoreId, id, request.OperationId, request.DeviceId, request.CapturedAt, request.SubmittedAt, request.EvidenceReference), cancellationToken).ConfigureAwait(false); return Results.Created($"/api/v1/assets/checklists/{id:D}/executions/{executionId:D}", executionId); }
 
     private static async Task<IResult> AuthorizeEvidenceDownloadAsync(Guid executionId, IDispatcher dispatcher, CancellationToken cancellationToken)
     {

@@ -6,6 +6,11 @@
 CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-17). Stages 17, 18, 21 and 21b are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
+
+WORK LOG (2026-09-17): Hardened Stage 23/26/27 API company-context boundaries. Service SLA
+deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now establish the
+requested company before dispatch. StoreServer Release build passes with 0 errors; focused
+service/HR/assets unit tests pass 162/162.
 NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
 provider-backed acceptance is externally dependent and remains explicitly open.
 

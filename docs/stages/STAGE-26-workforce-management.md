@@ -26,3 +26,6 @@ closed attendance hours priced from the applicable employment contract with the 
 sales analytics read model, groups by currency, excludes non-company/tenant rows and reports the
 labour-cost percentage of sales. `WorkforceLabourCostQueryTests` passes **2/2**; the Ecommerce API
 OpenAPI contract assertion covers the route. Full workforce acceptance and specialist review remain.
+
+2026-09-17: HR disciplinary-case create/list API routes now bind the requested company before
+dispatching company-guarded handlers. StoreServer Release build passes with **0 errors**.
