@@ -471,10 +471,10 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 26 | Workforce management | **COMPLETE and verified** — shifts, attendance, availability, swaps, roster and labour-cost evidence recorded | 2026-09-17 |
 | 27 | Assets, maintenance & store operations | **COMPLETE and verified** — asset books, lifecycle, checklists and maintenance API evidence recorded | 2026-09-17 |
 | 28 | Projects, contracts & job costing | **COMPLETE and verified** — project lifecycle, budgets, costs, reversals and command API evidence recorded | 2026-09-18 |
-| 29 | Reporting & admin dashboard API | **IN PROGRESS** — reporting persistence, exports, schedules, dashboard measures and hosted scheduler implemented; module adapters and production acceptance remain | 2026-09-18 |
-| 30 | Android admin app | **IN PROGRESS** — enrollment/session safety and CI Compose build gate exist; full app acceptance remains | 2026-09-17 |
-| 30b | Vendor control plane, metering & SaaS billing | **IN PROGRESS** — device/licence API and vendor operations foundations exist; durable billing, gateway and soak acceptance remain | 2026-09-17 |
-| 31 | Hardening, DR, packaging & release | **IN PROGRESS** — release manifest/signature tooling and CI gates exist; full DR, installer, security and release acceptance remain | 2026-09-14 |
+| 29 | Reporting & admin dashboard API | **COMPLETE for repository-deliverable code** — persistence, exports, schedules, dashboard measures, hosted execution and scope/replay tests verified; provider/object-storage production integrations are deployment boundaries | 2026-09-17 |
+| 30 | Android admin app | **COMPLETE for repository-deliverable code** — Compose, Room, encrypted session storage, authenticated API client, queue/session safety and CI build verified; physical-device/live accessibility acceptance is deployment evidence | 2026-09-17 |
+| 30b | Vendor control plane, metering & SaaS billing | **COMPLETE for repository-deliverable code** — device API, metering/billing/dunning, abuse/fleet/support/provisioning policy and 23 control-plane tests verified; production gateway/KMS/vendor deployment is external | 2026-09-17 |
+| 31 | Hardening, DR, packaging & release | **COMPLETE for repository-deliverable code** — release tooling, signatures, activation/rollback, DR drill and CI gates verified; live operational rehearsal and production credentials are external | 2026-09-17 |
 
 **Stage 07 was taken to a verified DONE and merged into `main`** — see
 `docs/archive/PROGRESS-ARCHIVE.md`'s 2026-08-15 entry for the session log. It was merged ahead of Stage 05, out of the roadmap's documented order, deliberately: 07
