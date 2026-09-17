@@ -84,6 +84,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   dashboard API client and endpoint-switch guard are present. The workflow-equivalent assemble check
   remains **UNVERIFIED** locally because this environment has JDK 17 but neither Gradle nor a checked-in
   Gradle wrapper; GitHub's Gradle 8.9 job remains the authoritative compilation gate.
+- 2026-09-17: Installed workflow-equivalent Gradle 8.9 temporarily and ran `assembleDebug` locally
+  with JDK 17 and the configured Android SDK: **BUILD SUCCESSFUL**. Room schema export is now configured
+  at `android/app/schemas`, eliminating the prior processor warning. Physical-device, signed-release,
+  push and outage acceptance remain open.
 
 ## Tests / acceptance
 
