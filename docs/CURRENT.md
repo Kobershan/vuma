@@ -4,7 +4,7 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Main is synchronized through
-`0680b16`, including upstream code-gap closure, replay-safe reporting exports, durable schedules,
+`3e24847`, including upstream code-gap closure, replay-safe reporting exports, durable schedules,
 persisted dashboard measures and the StoreServer hosted report scheduler. The only uncommitted files are pre-existing desktop artifacts under
 `docs/`; they are intentionally preserved and excluded from commits.
 
@@ -40,7 +40,8 @@ service/HR/assets unit tests pass 162/162.
 
 WORK LOG (2026-09-18): Stage 23 service reads now expose company/tenant-scoped warranty claims,
 repair jobs and issued-part usage through `/api/v1/service/warranties`, `/repairs` and `/parts`.
-Targeted source validation is in progress; invoicing/RMA integration and full PostgreSQL service
+Implementation is pushed; fresh source validation is pending because the local MSBuild process
+stalled. Invoicing/RMA integration and full PostgreSQL service
 API acceptance remain open.
 
 WORK LOG (2026-09-17): Closed two Stage 22b architecture defects in conversation delivery audit:

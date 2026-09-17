@@ -1,7 +1,7 @@
 # TASK-23-005 — Service warranty, repair and part reads
 
 **Stage:** 23 — Service Management
-**Status:** COMPLETE (2026-09-18)
+**Status:** IMPLEMENTED — verification pending (2026-09-18)
 
 ## Scope
 
@@ -19,6 +19,6 @@ loaded rows by the active tenant as a defence in depth against cross-scope data 
 
 ## Verification
 
-The targeted Service unit suite and StoreServer Release build are required for closure. Full
-PostgreSQL service API/isolation acceptance, invoicing/RMA integration and specialist review remain
-open Stage 23 work.
+The targeted Service unit suite and StoreServer Release build are required for closure; the fresh
+MSBuild process stalled in the local environment before producing a result. Full PostgreSQL service
+API/isolation acceptance, invoicing/RMA integration and specialist review remain open Stage 23 work.
