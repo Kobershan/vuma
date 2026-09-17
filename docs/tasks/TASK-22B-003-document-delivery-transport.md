@@ -19,10 +19,12 @@ single-use links and channel policy.
 - The conversation module registers the Stage 22 sender boundary (`IWhatsAppSender`), sends the
   generated one-time link in the outbound conversation reply, and normalizes email inbound messages
   through the same state-machine path. Conversation tests pass **32/32**.
+- 2026-09-17: PostgreSQL HTTP coverage proves `/conversations/inbound/email` normalizes a bound,
+  consented email into the same tenant-scoped conversation/transcript store (**1/1**).
 
 ## Remaining work
 
-- Add transport delivery/failure/retry audit records and email inbound normalization.
+- Add transport delivery/failure/retry audit records for outbound conversation sends.
 - Prove every sensitive document path uses fresh verification and account/company scope.
 
 ## Definition of done

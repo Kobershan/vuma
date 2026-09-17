@@ -16,6 +16,40 @@ namespace VumaRetail.IntegrationTests.Api;
 public sealed class ConversationApiTests(PostgresFixture fixture)
 {
     [Fact]
+    public async Task Email_inbound_is_normalized_into_the_same_conversation_store()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        Guid bindingId = Guid.Empty;
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            ContactBinding binding = new(harness.TenantId, "customer@example.test", Guid.NewGuid(), ConversationChannel.Email);
+            bindingId = binding.Id;
+            binding.Verify(harness.Clock.UtcNow);
+            binding.GrantConsent();
+            VumaRegistryDbContext registry = services.GetRequiredService<VumaRegistryDbContext>();
+            registry.ContactBindings.Add(binding);
+            await registry.CommitAsync();
+            return null;
+        });
+
+        await harness.CreateUserAsync("conversation-email", permissions: ConversationPermissions.Receive);
+        using HttpClient client = await harness.SignInAsync("conversation-email");
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/conversations/inbound/email",
+            new { channel = 1, address = "customer@example.test", text = "hello from email", messageId = "email-1" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            VumaRetailDbContext db = services.GetRequiredService<VumaRetailDbContext>();
+            Conversation conversation = await db.Conversations.SingleAsync(x => x.ContactBindingId == bindingId);
+            (await services.GetRequiredService<IConversationStore>().ListTurnsAsync(harness.TenantId, conversation.Id))
+                .Should().ContainSingle().Which.Text.Should().Be("hello from email");
+            return null;
+        });
+    }
+
+    [Fact]
     public async Task WhatsApp_webhook_rejects_invalid_signature_without_processing()
     {
         await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
