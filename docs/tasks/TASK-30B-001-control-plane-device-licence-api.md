@@ -113,3 +113,7 @@ SQLite persistence stores devices, request responses, metering receipts and appe
 and reloads idempotency state across store instances without any tenant persistence dependency.
 `VumaRetail.ControlPlane.Tests` passes **6/6**. Production KMS/HSM, certificate provisioning and
 real-install acceptance remain deployment boundaries.
+
+2026-09-17: Pinned the control-plane SQLite native bundle to patched `SQLitePCLRaw` 2.1.12
+components. Control-plane Release build passes with **0 errors**, control-plane tests pass **13/13**,
+and the repository vulnerability report no longer lists vulnerable packages.
