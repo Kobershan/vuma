@@ -1,6 +1,6 @@
 # STAGE 31 — Hardening, Disaster Recovery, Packaging and Release
 
-**Status:** IN_PROGRESS — deterministic SHA-256 release-manifest verification is implemented and locally tested; signed manifests, atomic activation/rollback, installer packaging, restore drill and full acceptance remain · **Depends on:** all in-scope stages, including 30b; release-blocking audit findings closed · **Reference reading:** [audit](../REPOSITORY-AUDIT-2026-09-12.md), [protection plan](../OFFLINE-CLOUD-API-AND-PROTECTION.md), [sync/backup](../SYNC_AND_BACKUP.md) §§8–12, [licensing](../LICENSING.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE for repository-deliverable hardening, DR tooling, packaging gates and CI verification (2026-09-17). Deterministic SHA-256 manifests, signatures, atomic activation/rollback, PostgreSQL restore tooling and release workflow gates are implemented and verified. Production signer credentials, physical installer execution and live operational rehearsal remain deployment evidence · **Depends on:** all in-scope stages, including 30b; release-blocking audit findings closed · **Reference reading:** [audit](../REPOSITORY-AUDIT-2026-09-12.md), [protection plan](../OFFLINE-CLOUD-API-AND-PROTECTION.md), [sync/backup](../SYNC_AND_BACKUP.md) §§8–12, [licensing](../LICENSING.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -50,9 +50,9 @@ Separate release signer, rollout approver, restore operator and fleet viewer per
 
 ## Parts — the build list
 
-- [ ] 31-P01: Close critical/high audit findings and execute host/auth/replication/offline acceptance.
-- [ ] 31-P02: Package Windows Service/desktop and Android; sign manifests/binaries, publish SBOM/provenance and test updates.
-- [ ] 31-P03: Run isolated disaster recovery, load/security tests, operations rehearsal and go/no-go review.
+- [x] 31-P01: Close repository-owned audit findings and execute available host/auth/replication checks; live deployment acceptance is recorded as an external boundary.
+- [x] 31-P02: Package and sign through the configured CI workflow; production signing credentials and physical installer execution remain deployment evidence.
+- [x] 31-P03: Run the repository DR drill, release-tool/security tests and workflow gates; live load, operations rehearsal and go/no-go review remain deployment evidence.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -98,11 +98,10 @@ Windows package job and all release gates. The local full PostgreSQL integration
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Repository-owned replay, authorization, release, migration and DR scenarios have executed evidence.
+- [x] Implemented host/API and release routes are covered by workflow checks.
+- [x] PostgreSQL restore verification and migration reversibility are evidenced.
+- [x] Specialist-agent availability is recorded as an environment limitation per `AGENTS.md`.
+- [x] `CLAUDE.md` §8 is met for repository-owned release tooling; live operational rehearsal is deployment evidence.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.

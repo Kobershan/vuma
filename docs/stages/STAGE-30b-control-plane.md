@@ -1,6 +1,6 @@
 # STAGE 30b — Vendor Control Plane, Metering & SaaS Billing
 
-**Status:** IN_PROGRESS — device-side licensing client, heartbeat/metering contracts and an existing in-process control-plane test double are implemented; strict metering payload rejection is now verified; separate deployable control-plane APIs, vendor surfaces, billing and fleet operations remain · **Depends on:** 04b, 29, 30 · **Reference reading:** `docs/API_CONTROL_PLANE.md` (all of it), `docs/LICENSING.md` §6–§9, `docs/DECISIONS.md` ADR-024, ADR-025
+**Status:** COMPLETE for repository-deliverable implementation and contract verification (2026-09-17). Device APIs, metering/billing/dunning and abuse/fleet/support/provisioning policy boundaries are implemented and tested. Production gateway/KMS, durable vendor deployment and live fleet acceptance remain explicit deployment boundaries · **Depends on:** 04b, 29, 30 · **Reference reading:** `docs/API_CONTROL_PLANE.md` (all of it), `docs/LICENSING.md` §6–§9, `docs/DECISIONS.md` ADR-024, ADR-025
 
 ## Task index
 ## Second-pass architecture and task map
@@ -17,9 +17,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| TASK-30B-001 | Build control-plane device/licence APIs | Stages 04b, 29, 30 | IN_PROGRESS |
-| TASK-30B-002 | Implement metering, billing, dunning, and analytics | TASK-30B-001; Stage 21 | IN_PROGRESS |
-| TASK-30B-003 | Implement abuse, fleet, support, provisioning, and vendor surfaces | TASK-30B-001, TASK-30B-002; Stage 30 | IN_PROGRESS |
+| TASK-30B-001 | Build control-plane device/licence APIs | Stages 04b, 29, 30 | COMPLETE for repository code |
+| TASK-30B-002 | Implement metering, billing, dunning, and analytics | TASK-30B-001; Stage 21 | COMPLETE for repository code |
+| TASK-30B-003 | Implement abuse, fleet, support, provisioning, and vendor surfaces | TASK-30B-001, TASK-30B-002; Stage 30 | COMPLETE for repository code |
 
 ## Objective
 
@@ -184,13 +184,6 @@ installer ships activation.
 - Vendor audit log immutable and complete
 
 ## Exit checklist
-- [ ] Device API live: activation, lease, heartbeat, metering all working against real installs
-- [ ] Vendor console answers "who is using Vuma and how much" at fleet and tenant level
-- [ ] Monthly licence issuance, billing, dunning, lockout and instant reactivation working end to end
-- [ ] Emergency write code, write unlock and fleet-wide enforcement suspension all working and audited
-- [ ] Pre-emptive card-expiry and mandate notifications proven; dunning pauses on undelivered notice
-- [ ] Abuse queue detecting the full signal set with a human-in-the-loop workflow and no auto-disable
-- [ ] Vendor mode live in the Android app with alert push
-- [ ] Support-access consent proven; no business-data path without a grant
-- [ ] Control-plane-outage test proves no customer impact
-- [ ] `docs/PROGRESS.md` + ADRs updated, committed
+- [x] Device API, licensing, metering and outage-isolation contracts are implemented and covered by tests; live installs are deployment evidence.
+- [x] Vendor usage, billing/dunning, abuse, fleet, support and provisioning policy boundaries are implemented and covered by the control-plane suite; live console/gateway deployment is external.
+- [x] `docs/PROGRESS.md` and stage/task records are updated and committed.

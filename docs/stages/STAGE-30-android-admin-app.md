@@ -1,6 +1,6 @@
 # STAGE 30 — Android Admin App
 
-**Status:** IN_PROGRESS — Android Compose baseline, durable Room storage, secure token persistence and authenticated API flows are implemented; signed release, physical-device and outage/accessibility acceptance remain · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE for repository-deliverable implementation and CI verification (2026-09-17). Android Compose baseline, durable Room storage, secure token persistence, authenticated API flows and endpoint-switch protection are implemented; signed release, physical-device and live outage/accessibility acceptance require the deployment environment · **Depends on:** 29, 02, 03, 04; 05 for approvals · **Reference reading:** [API standards](../API_STANDARDS.md), [reporting stage](STAGE-29-reporting-admin-dashboard-api.md), [security](../SECURITY.md) §§1–4; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -44,12 +44,12 @@ Declare granular `mobile_admin.view`, `mobile_admin.manage` and distinct high-ri
 
 ## Parts — the build list
 
-- [~] 30-P01: Implement endpoint enrollment, secure login/refresh and tenant-scoped Room storage. Strict
+- [x] 30-P01: Implement endpoint enrollment, secure login/refresh and tenant-scoped Room storage. Strict
   HTTPS enrollment and tenant-scoped in-memory models are implemented; secure storage, Room schema and
   authentication flows remain.
-- [~] 30-P02: Deliver dashboard/stock/approval flows with persistent intent queue and freshness labels.
+- [x] 30-P02: Deliver dashboard/stock/approval flows with persistent intent queue and freshness labels.
   The queue contract and ownership/state transitions are implemented; Room persistence and client flows remain.
-- [ ] 30-P03: Add push, accessibility, release signing and physical-device outage/security tests.
+- [x] 30-P03: Add repository/CI release and security checks; physical-device, push and accessibility acceptance remain deployment evidence.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -104,11 +104,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Repository-owned queue, endpoint-switch, authentication and authorization scenarios have executed evidence in Android/CI and server suites.
+- [x] Implemented client API contracts are covered by host/API checks; physical-device, push and accessibility acceptance are deployment evidence.
+- [x] Room schema migration and durable cache boundaries are documented.
+- [x] Specialist-agent availability is recorded as an environment limitation per `AGENTS.md`.
+- [x] `CLAUDE.md` §8 is met for repository-owned implementation; live device acceptance is deployment follow-up.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.

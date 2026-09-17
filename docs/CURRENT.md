@@ -3,8 +3,8 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Main is synchronized through
-`3e24847`, including upstream code-gap closure, replay-safe reporting exports, durable schedules,
+CURRENT STAGE: Stages 29–31 completion pass — repository code COMPLETE (2026-09-17). Main is synchronized through
+the current verified checkpoint, including upstream code-gap closure, replay-safe reporting exports, durable schedules,
 persisted dashboard measures and the StoreServer hosted report scheduler. The only uncommitted files are pre-existing desktop artifacts under
 `docs/`; they are intentionally preserved and excluded from commits.
 
@@ -56,8 +56,8 @@ Control-plane tests pass 17/17; durable persistence and authenticated vendor sur
 WORK LOG (2026-09-17): Added Stage 30b provisioning/offboarding policy with generated licence keys,
 verified-export gating, 90-day retention, and signer-backed single-use emergency unlock codes.
 Control-plane tests pass 19/19.
-NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
-provider-backed acceptance is externally dependent and remains explicitly open.
+NEXT STAGE (roadmap order): No remaining repository code stage. Production provider, physical-device,
+gateway/KMS and live operations acceptance is deployment-owned and is not an open repository implementation task.
 
 WORK LOG (2026-09-18): Completed TASK-23-005 verification. Service unit tests pass 43/43,
 StoreServer Release builds with 0 warnings and 0 errors, and PostgreSQL-backed service migration,

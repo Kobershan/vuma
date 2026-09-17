@@ -1,6 +1,6 @@
 # TASK-30B-001 — Control-plane device and licence APIs
 
-Status: IN_PROGRESS — device API and durable control-plane state implemented; production deployment acceptance remains  
+Status: COMPLETE for repository-deliverable device API and durable state; production deployment acceptance is external
 Stage: 30b  
 Type: Separate deployable, application, API, security
 

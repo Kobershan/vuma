@@ -1,6 +1,6 @@
 # TASK-30B-003 — Abuse, fleet, support, provisioning, and vendor surfaces
 
-Status: IN_PROGRESS — abuse review, partner scope, and time-boxed support grant boundaries implemented
+Status: COMPLETE for repository-deliverable abuse, partner scope, support, fleet and provisioning boundaries; live vendor deployment acceptance is external
 Stage: 30b
 Type: Control-plane application, security, vendor operations
 

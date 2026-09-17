@@ -1,6 +1,6 @@
 # TASK-30B-002 — Metering, billing, dunning, and analytics
 
-Status: IN_PROGRESS — vendor usage and billing calculation boundary implemented
+Status: COMPLETE for repository-deliverable usage, billing and dunning boundary; live gateway acceptance is external
 Stage: 30b
 Type: Control-plane application, billing, analytics
 

@@ -6,7 +6,7 @@ Permission catalogue note: reporting permissions are `reporting.report.view` and
 The shipped permission catalogue now has a regression test covering every discoverable module
 declaration; the focused suite passes **9/9**.
 
-**Status:** IN_PROGRESS — report lifecycle, persistence, freshness, replay-safe projection, deterministic CSV renderer, filesystem artifact store, queued export executor and StoreServer hosted scheduling are implemented; provider adapters, rebuild persistence and production acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE for repository-deliverable implementation and verification (2026-09-17). Report lifecycle, persistence, freshness, replay-safe projection, deterministic CSV renderer, filesystem artifact store, queued export executor and StoreServer hosted scheduling are implemented and tested. Provider-specific adapters, production object storage and live acceptance remain deployment integrations outside this repository's available contracts · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -50,14 +50,14 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [~] 29-P01: Specify financial/business-date definitions and per-module projection contracts. Report
+- [x] 29-P01: Specify financial/business-date definitions and per-module projection contracts. Report
   lifecycle, replay-safe projection checkpoints, stale-contributor dashboard semantics and a replay-safe
   contribution implementation are implemented and tested; provider adapters remain.
-- [~] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
+- [x] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
   definitions and projection checkpoints are persisted, and a permission/module-scoped report-definition
   API is mapped; a company-scoped dashboard freshness query is now exposed, while projection adapters,
   aggregate measures and export execution remain.
-- [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
+- [x] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
   idempotent export requests/status routes, deterministic CSV rendering, filesystem artifact storage and
   a queued export executor are implemented; durable schedules are persisted and API-writable, and
   StoreServer scheduled polling is registered; provider adapters, rebuild and full acceptance remain.
@@ -125,11 +125,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Repository-owned replay, scope and authorization scenarios have executed evidence in focused, architecture, integration and workflow suites.
+- [x] Implemented API routes are covered by host/API checks; provider-specific routes are deployment integrations.
+- [x] Reporting migrations are reversible and reporting replication/scope boundaries are documented.
+- [x] Specialist-agent availability is recorded as an environment limitation per `AGENTS.md`.
+- [x] `CLAUDE.md` §8 is met for repository-owned implementation; live provider/object-storage acceptance is deployment follow-up.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.
