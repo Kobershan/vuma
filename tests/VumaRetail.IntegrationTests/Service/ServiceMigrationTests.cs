@@ -46,13 +46,23 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             """).ToListAsync().ConfigureAwait(false);
         logisticsTables.Should().BeEquivalentTo(["carriers", "delivery_runs", "delivery_stops", "proofs_of_delivery", "shipments"], options => options.WithStrictOrdering());
 
+        await context.Database.MigrateAsync("20260917063042_Stage29ScheduledReports").ConfigureAwait(false);
+
         IReadOnlyList<string> reportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'reporting'
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
-        reportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions", "report_exports"], options => options.WithStrictOrdering());
+        reportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions", "report_exports", "scheduled_reports"], options => options.WithStrictOrdering());
+
+        await context.Database.MigrateAsync("20260913192159_Stage29ReportExports").ConfigureAwait(false);
+        IReadOnlyList<string> revertedScheduledReportTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'reporting' AND table_name = 'scheduled_reports'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedScheduledReportTables.Should().BeEmpty();
 
         await context.Database.MigrateAsync("20260913183155_Stage29Reporting").ConfigureAwait(false);
         IReadOnlyList<string> revertedReportingTables = await context.Database.SqlQuery<string>($"""

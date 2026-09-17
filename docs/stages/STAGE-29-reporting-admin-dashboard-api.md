@@ -59,7 +59,8 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
   aggregate measures and export execution remain.
 - [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
   idempotent export requests/status routes, deterministic CSV rendering, filesystem artifact storage and
-  a queued export executor are implemented; scheduled polling, durable schedules and full acceptance remain.
+  a queued export executor are implemented; durable schedules are now persisted and API-writable, while
+  scheduled polling and full acceptance remain.
 
 2026-09-13: Export completion/failure worker handoff commands now enforce company scope and persist
 artifact references through `Stage29ReportExportArtifactsFix`; requests use `reporting.report.manage`.
@@ -91,7 +92,11 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-17: Added replay-safe company/source projection state with event-id deduplication and
   currency-separated measures, deterministic CSV rendering, path-safe filesystem artifact storage and
   a queued export executor. Reporting unit suite passes **16/16**; provider adapters, durable schedules,
-  polling worker registration and production object storage remain. Focused reporting tests: **16/16**.
+  polling worker registration and production object storage remain.
+- 2026-09-17: Added cloud-owned durable `ScheduledReport` records, bounded interval advancement,
+  published-report validation, protected schedule creation API and reversible PostgreSQL migration.
+  Reporting unit suite passes **18/18**; the schedule migration chain passes **1/1**. Provider-specific
+  polling worker execution and full acceptance remain.
 
 ## Tests / acceptance
 

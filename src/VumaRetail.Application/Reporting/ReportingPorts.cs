@@ -11,9 +11,12 @@ public interface IReportingRepository
     Task<IReadOnlyList<ProjectionCheckpoint>> ListCheckpointsAsync(Guid companyId, CancellationToken cancellationToken = default);
     Task<ReportExport?> FindExportByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     Task<ReportExport?> FindExportAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ScheduledReport?> FindScheduleAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ScheduledReport>> ListDueSchedulesAsync(DateTimeOffset asOfUtc, int limit, CancellationToken cancellationToken = default);
     void Add(ReportDefinition definition);
     void Add(ProjectionCheckpoint checkpoint);
     void Add(ReportExport export);
+    void Add(ScheduledReport schedule);
 }
 
 public interface IReportExportDownloadAuthorizer

@@ -431,6 +431,11 @@ rebuilds. CSV rendering, path-safe filesystem artifact storage and queued export
 implemented and covered by **16/16** reporting tests. Provider adapters, durable schedules, polling
 worker registration and production object storage remain open.
 
+WORK LOG (2026-09-17): Stage 29 now persists cloud-owned scheduled reports with bounded interval
+cadence, published-report validation and a protected schedule-creation API. The reporting unit suite
+passes **18/18** and the PostgreSQL schedule migration Up/Down chain passes **1/1**. Provider-specific
+polling worker execution and production scheduling remain open.
+
 WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their request company;
 campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
 build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.

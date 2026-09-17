@@ -29,6 +29,12 @@ public static class ReportingEndpoints
         group.MapPost("/exports", RequestExportAsync)
             .RequirePermission(ReportingPermissions.Manage)
             .Produces<Guid>(StatusCodes.Status202Accepted);
+        group.MapPost("/schedules", async (ScheduleReportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(request.CompanyId);
+            Guid id = await dispatcher.SendAsync(new ScheduleReportCommand(request.CompanyId, request.ReportCode, request.IntervalMinutes, request.FirstRunAtUtc), cancellationToken).ConfigureAwait(false);
+            return Results.Created($"/api/v1/reports/schedules/{id:D}", id);
+        }).RequirePermission(ReportingPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapGet("/exports/{id:guid}", GetExportAsync)
             .RequirePermission(ReportingPermissions.View)
             .Produces<ReportExportResult>()
@@ -57,6 +63,7 @@ public static class ReportingEndpoints
     }
 
     public sealed record RequestExportRequest(Guid CompanyId, Guid OperationId, string ReportCode);
+    public sealed record ScheduleReportRequest(Guid CompanyId, string ReportCode, int IntervalMinutes, DateTimeOffset FirstRunAtUtc);
     public sealed record CompleteExportRequest(Guid CompanyId, string ArtifactReference);
     public sealed record FailExportRequest(Guid CompanyId, string Reason);
 

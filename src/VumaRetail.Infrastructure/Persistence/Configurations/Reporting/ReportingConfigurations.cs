@@ -33,3 +33,10 @@ internal sealed class ReportExportConfiguration : EntityConfiguration<ReportExpo
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ReportCode, x.RequestedAtUtc }).HasFilter("deleted_at IS NULL");
     }
 }
+
+internal sealed class ScheduledReportConfiguration : EntityConfiguration<ScheduledReport>
+{
+    protected override string Schema => Schemas.Reporting; protected override string TableName => "scheduled_reports";
+    protected override void ConfigureEntity(EntityTypeBuilder<ScheduledReport> b)
+    { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.ReportCode).IsRequired().HasMaxLength(64); b.Property(x => x.IntervalMinutes).IsRequired(); b.Property(x => x.NextRunAtUtc).IsRequired(); b.Property(x => x.IsEnabled).IsRequired(); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.NextRunAtUtc }).HasFilter("deleted_at IS NULL"); }
+}

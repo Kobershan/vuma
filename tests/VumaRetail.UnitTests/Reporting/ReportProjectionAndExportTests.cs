@@ -126,6 +126,40 @@ public sealed class ReportProjectionAndExportTests
         }
     }
 
+    [Fact]
+    public void Scheduled_report_advances_past_all_missed_intervals_and_can_be_disabled()
+    {
+        DateTimeOffset first = new(2026, 9, 17, 10, 0, 0, TimeSpan.Zero);
+        ScheduledReport schedule = ScheduledReport.Create(Guid.NewGuid(), null, Guid.NewGuid(), "sales", 60, first);
+
+        schedule.IsDue(first.AddHours(3)).Should().BeTrue();
+        schedule.Advance(first.AddHours(3));
+        schedule.NextRunAtUtc.Should().Be(first.AddHours(4));
+        schedule.Disable();
+        schedule.IsDue(first.AddHours(5)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Schedule_command_requires_published_report_and_active_company()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        var reports = Substitute.For<IReportingRepository>();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        tenant.StoreId.Returns((Guid?)null);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        ReportDefinition definition = ReportDefinition.Create(tenantId, null, "sales", "Sales");
+        definition.Publish();
+        reports.FindPublishedDefinitionByCodeAsync("sales", Arg.Any<CancellationToken>()).Returns(definition);
+
+        await new ScheduleReportCommandHandler(reports, tenant, company)
+            .HandleAsync(new ScheduleReportCommand(companyId, "sales", 60, DateTimeOffset.UtcNow.AddHours(1)));
+
+        reports.Received(1).Add(Arg.Is<ScheduledReport>(x => x.CompanyId == companyId && x.ReportCode == "SALES"));
+    }
+
     private static ReportingProjectionEvent Event(Guid companyId, string cursor, string currency, params (string Name, decimal Value)[] measures) =>
         new(Guid.NewGuid(), companyId, "sales", 1, cursor, currency, measures.ToDictionary(x => x.Name, x => x.Value));
 }

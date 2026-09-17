@@ -11,6 +11,8 @@ public sealed record RequestReportExportCommand(Guid CompanyId, Guid OperationId
 public sealed record CompleteReportExportCommand(Guid CompanyId, Guid ExportId, string ArtifactReference) : ICommand;
 [CommandSideEffect(SideEffect.Write)]
 public sealed record FailReportExportCommand(Guid CompanyId, Guid ExportId, string Reason) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ScheduleReportCommand(Guid CompanyId, string ReportCode, int IntervalMinutes, DateTimeOffset FirstRunAtUtc) : ICommand<Guid>;
 
 public sealed class RequestReportExportCommandHandler(IReportingRepository reports, ITenantContext tenant, ICompanyContext company, IClock clock) : ICommandHandler<RequestReportExportCommand, Guid>
 {
@@ -79,5 +81,26 @@ public sealed class FailReportExportCommandHandler(IReportingRepository reports,
         CompleteReportExportCommandHandler.EnsureScope(tenant, company, export.TenantId, export.CompanyId!.Value);
         export.Fail(command.Reason);
         return Unit.Value;
+    }
+}
+
+public sealed class ScheduleReportCommandHandler(IReportingRepository reports, ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<ScheduleReportCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(ScheduleReportCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (company.CompanyId is not { } active || active != command.CompanyId)
+        {
+            throw new InvalidOperationException("The report company is not the active company.");
+        }
+        if (await reports.FindPublishedDefinitionByCodeAsync(command.ReportCode, cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new InvalidOperationException("The requested report is not published.");
+        }
+        ScheduledReport schedule = ScheduledReport.Create(tenant.TenantId, tenant.StoreId, command.CompanyId,
+            command.ReportCode, command.IntervalMinutes, command.FirstRunAtUtc);
+        reports.Add(schedule);
+        return schedule.Id;
     }
 }
