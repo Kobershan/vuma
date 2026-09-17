@@ -58,6 +58,7 @@ using VumaRetail.Web.Manufacturing;
 using VumaRetail.Web.Logistics;
 using VumaRetail.Infrastructure.Conversations;
 using VumaRetail.Infrastructure.Marketing;
+using VumaRetail.Infrastructure.Reporting;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
