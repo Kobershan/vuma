@@ -34,6 +34,7 @@ internal sealed class OutboundMessageConfiguration : EntityConfiguration<Outboun
         b.Property(x => x.ProviderPayloadFingerprint).HasMaxLength(128);
         b.Property(x => x.DeliveryAttemptCount).IsRequired();
         b.Property(x => x.LastDeliveryAttemptAtUtc);
+        b.Property(x => x.NextAttemptAtUtc);
         b.Property(x => x.LastDeliveryFailure).HasMaxLength(1024);
         b.Property(x => x.Channel).HasConversion<string>().HasMaxLength(16).IsRequired();
         b.Property(x => x.Classification).HasConversion<string>().HasMaxLength(16).IsRequired();
@@ -41,6 +42,10 @@ internal sealed class OutboundMessageConfiguration : EntityConfiguration<Outboun
             .HasDatabaseName("ux_outbound_messages_tenant_company_idempotency")
             .HasFilter("deleted_at IS NULL");
         b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status, x.ScheduledAt });
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ProviderEventId })
+            .IsUnique()
+            .HasDatabaseName("ux_outbound_messages_tenant_company_provider_event")
+            .HasFilter("provider_event_id IS NOT NULL AND deleted_at IS NULL");
     }
 }
 

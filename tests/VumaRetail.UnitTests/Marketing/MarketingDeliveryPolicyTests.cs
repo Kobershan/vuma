@@ -189,6 +189,21 @@ public sealed class MarketingDeliveryPolicyTests
     }
 
     [Fact]
+    public void Failed_delivery_is_backed_off_and_success_clears_retry_time()
+    {
+        DateTimeOffset failedAt = new(2026, 9, 17, 12, 0, 0, TimeSpan.Zero);
+        var message = OutboundMessage.Queue(Guid.NewGuid(), null, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "retry-backoff", failedAt);
+
+        message.RecordDeliveryAttempt(failedAt);
+        message.RecordDeliveryFailure("provider unavailable", failedAt);
+
+        message.NextAttemptAtUtc.Should().Be(failedAt.AddMinutes(1));
+        message.ApplyProviderResult("evt-retry", "sha256:retry", delivered: true);
+        message.NextAttemptAtUtc.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Provider_result_handler_enforces_tenant_and_company_before_mutation()
     {
         var tenantId = Guid.NewGuid();

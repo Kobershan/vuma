@@ -13,6 +13,7 @@ public interface IOutboundMessageRepository
 {
     Task<OutboundMessage?> FindAsync(Guid id, CancellationToken cancellationToken = default);
     Task<OutboundMessage?> FindByIdempotencyKeyAsync(string key, CancellationToken cancellationToken = default);
+    Task<OutboundMessage?> FindByProviderEventIdAsync(Guid companyId, string providerEventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OutboundMessage>> ListQueuedAsync(Guid companyId, DateTimeOffset asAt, bool dueOnly,
         int limit, CancellationToken cancellationToken = default);
     void Add(OutboundMessage message);

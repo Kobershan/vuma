@@ -14,13 +14,15 @@ public sealed class OutboundMessageRepository(VumaRetailDbContext db) : IOutboun
 {
     public Task<OutboundMessage?> FindAsync(Guid id, CancellationToken cancellationToken = default) => db.OutboundMessages.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<OutboundMessage?> FindByIdempotencyKeyAsync(string key, CancellationToken cancellationToken = default) => db.OutboundMessages.FirstOrDefaultAsync(x => x.IdempotencyKey == key, cancellationToken);
+    public Task<OutboundMessage?> FindByProviderEventIdAsync(Guid companyId, string providerEventId, CancellationToken cancellationToken = default)
+        => db.OutboundMessages.FirstOrDefaultAsync(x => x.CompanyId == companyId && x.ProviderEventId == providerEventId, cancellationToken);
     public async Task<IReadOnlyList<OutboundMessage>> ListQueuedAsync(Guid companyId, DateTimeOffset asAt, bool dueOnly,
         int limit, CancellationToken cancellationToken = default)
     {
         limit = Math.Clamp(limit, 1, 500);
         IQueryable<OutboundMessage> query = db.OutboundMessages
             .Where(x => x.CompanyId == companyId && x.Status == OutboundMessageStatus.Queued);
-        if (dueOnly) query = query.Where(x => x.ScheduledAt <= asAt);
+        if (dueOnly) query = query.Where(x => x.ScheduledAt <= asAt && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= asAt));
         return await query.OrderBy(x => x.ScheduledAt).ThenBy(x => x.Id).Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }

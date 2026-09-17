@@ -57,7 +57,7 @@ public sealed class MarketingDeliveryService(
         }
         catch (Exception failure)
         {
-            message.RecordDeliveryFailure(failure.Message);
+            message.RecordDeliveryFailure(failure.Message, now);
             return MarketingDispatchOutcome.Failed;
         }
         message.ApplyProviderResult(result.ProviderEventId, result.PayloadFingerprint, result.Delivered);

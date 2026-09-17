@@ -69,6 +69,7 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
     public string? ProviderPayloadFingerprint { get; private set; }
     public int DeliveryAttemptCount { get; private set; }
     public DateTimeOffset? LastDeliveryAttemptAtUtc { get; private set; }
+    public DateTimeOffset? NextAttemptAtUtc { get; private set; }
     public string? LastDeliveryFailure { get; private set; }
     public static OutboundMessage Queue(Guid tenantId, Guid? storeId, Guid companyId, Guid campaignId, Guid customerId, string idempotencyKey, DateTimeOffset scheduledAt,
         MarketingMessageChannel channel = MarketingMessageChannel.Email, MarketingMessageClassification classification = MarketingMessageClassification.Marketing)
@@ -119,6 +120,7 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
         }
         ProviderEventId = providerEventId.Trim();
         ProviderPayloadFingerprint = payloadFingerprint.Trim();
+        NextAttemptAtUtc = null;
         LastDeliveryFailure = delivered ? null : LastDeliveryFailure;
         Status = delivered ? OutboundMessageStatus.Sent : OutboundMessageStatus.Failed;
     }
@@ -135,7 +137,7 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
     }
 
     /// <summary>Records a retryable transport failure while leaving the message queued.</summary>
-    public void RecordDeliveryFailure(string reason)
+    public void RecordDeliveryFailure(string reason, DateTimeOffset failedAtUtc)
     {
         if (Status != OutboundMessageStatus.Queued)
         {
@@ -143,5 +145,8 @@ public sealed class OutboundMessage : Entity, IImmutableRecord
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         LastDeliveryFailure = reason.Trim()[..Math.Min(reason.Trim().Length, 1024)];
+        DateTimeOffset failedAt = failedAtUtc.ToUniversalTime();
+        int exponent = Math.Clamp(DeliveryAttemptCount - 1, 0, 10);
+        NextAttemptAtUtc = failedAt.AddMinutes(Math.Min(24 * 60, Math.Pow(2, exponent)));
     }
 }

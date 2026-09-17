@@ -43,6 +43,12 @@ marketing-focused tests remain green at **19/19**.
 2026-09-15: The durable delivery worker now has bounded due-queue execution coverage; successful
 delivery and retryable transport failure state are verified in the marketing unit suite (**26/26**).
 
+2026-09-17: Retry scheduling is now durable on `marketing.outbound_messages`: failed deliveries use
+bounded exponential backoff, due-queue reads exclude messages before `next_attempt_at_utc`, successful
+provider results clear the retry timestamp, and provider event IDs are unique per tenant/company.
+Migration `20260917041436_Stage22MarketingRetryScheduling` passes PostgreSQL up/down/up execution;
+the focused marketing unit suite passes **27/27**.
+
 ## Follow-up findings
 
 The durable shared delivery outbox and provider callback deployment remain open. Outbound rows now

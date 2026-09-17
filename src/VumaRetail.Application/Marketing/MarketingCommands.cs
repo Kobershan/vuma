@@ -104,6 +104,11 @@ public sealed class ApplyOutboundProviderResultCommandHandler(IOutboundMessageRe
             throw new InvalidOperationException("The outbound message belongs to another tenant.");
         }
         CreateMarketingCampaignCommandHandler.EnsureCompany(company, message.CompanyId!.Value);
+        OutboundMessage? duplicate = await messages.FindByProviderEventIdAsync(message.CompanyId.Value, c.ProviderEventId.Trim(), token).ConfigureAwait(false);
+        if (duplicate is not null && duplicate.Id != message.Id)
+        {
+            throw new InvalidOperationException("A provider event is already attached to another outbound message.");
+        }
         message.ApplyProviderResult(c.ProviderEventId, c.PayloadFingerprint, c.Delivered);
         return Unit.Value;
     }
