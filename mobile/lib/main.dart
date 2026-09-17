@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const apiBaseUrl = String.fromEnvironment(
   'VUMA_API_BASE_URL',
@@ -32,6 +33,21 @@ class VumaApp extends StatelessWidget {
 
 class VumaApi {
   String? accessToken;
+  String? refreshToken;
+  final FlutterSecureStorage secureStorage;
+
+  VumaApi({FlutterSecureStorage? secureStorage})
+      : secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  Future<void> restoreSession() async {
+    refreshToken = await secureStorage.read(key: 'vuma.refresh_token');
+  }
+
+  Future<void> signOut() async {
+    accessToken = null;
+    refreshToken = null;
+    await secureStorage.delete(key: 'vuma.refresh_token');
+  }
 
   Future<void> signIn(String userName, String password, String? storeId) async {
     final result = await _request(
@@ -45,9 +61,14 @@ class VumaApi {
       },
     );
     accessToken = result['accessToken'] as String?;
+    refreshToken = result['refreshToken'] as String?;
     if (accessToken == null || accessToken!.isEmpty) {
       throw const FormatException('The API did not return an access token.');
     }
+    if (refreshToken == null || refreshToken!.isEmpty) {
+      throw const FormatException('The API did not return a refresh token.');
+    }
+    await secureStorage.write(key: 'vuma.refresh_token', value: refreshToken);
   }
 
   Future<Map<String, dynamic>> get(String path) async {
@@ -78,6 +99,12 @@ class VumaApi {
       }
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
+      if (response.statusCode == HttpStatus.unauthorized &&
+          refreshToken != null &&
+          !path.endsWith('/auth/refresh')) {
+        await _refresh();
+        return _request(path, method: method, body: body);
+      }
       if (response.statusCode >= 400) {
         throw HttpException('API ${response.statusCode}: $responseBody');
       }
@@ -85,6 +112,25 @@ class VumaApi {
     } finally {
       client.close(force: true);
     }
+  }
+
+  Future<void> _refresh() async {
+    final token = refreshToken;
+    if (token == null || token.isEmpty) {
+      throw const HttpException('Session expired. Sign in again.');
+    }
+    final result = await _request(
+      '/auth/refresh',
+      method: 'POST',
+      body: <String, dynamic>{'refreshToken': token},
+    );
+    accessToken = result['accessToken'] as String?;
+    refreshToken = result['refreshToken'] as String? ?? token;
+    if (accessToken == null || accessToken!.isEmpty) {
+      await signOut();
+      throw const HttpException('Session refresh failed. Sign in again.');
+    }
+    await secureStorage.write(key: 'vuma.refresh_token', value: refreshToken);
   }
 }
 
@@ -97,6 +143,14 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool signedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.api.restoreSession().then((_) {
+      if (mounted && widget.api.refreshToken != null) setState(() => signedIn = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) => signedIn

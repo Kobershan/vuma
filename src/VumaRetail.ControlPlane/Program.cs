@@ -9,6 +9,10 @@ builder.Services.AddHttpClient<ExternalLicenseSigner>();
 builder.Services.AddSingleton<ILicenseSigner>(sp => sp.GetRequiredService<ExternalLicenseSigner>());
 builder.Services.AddSingleton<IClock, SystemControlPlaneClock>();
 builder.Services.AddSingleton<FleetOperations>();
+builder.Services.AddSingleton<AbuseDetector>();
+builder.Services.AddSingleton<VendorProvisioning>();
+builder.Services.AddSingleton<UsageRollupAggregator>();
+builder.Services.AddSingleton<DunningTracker>();
 builder.Services.AddOpenApi();
 WebApplication app = builder.Build();
 using (IServiceScope scope = app.Services.CreateScope())
@@ -89,6 +93,62 @@ device.MapGet("/updates/check", (string nodeId, string version, string channel, 
     RolloutPlan? plan = fleet.SelectUpdate(nodeId, version ?? string.Empty, channel);
     return Results.Ok(new UpdateCheckResponse(nodeId, version ?? string.Empty, channel,
         plan?.Version, plan is not null));
+});
+
+RouteGroupBuilder vendor = app.MapGroup("/vendor/v1");
+vendor.MapGet("/fleet/health", (HttpContext http, FleetOperations fleet) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support)) return Results.Forbid();
+    return Results.Ok(fleet.Health(TimeSpan.FromHours(24)));
+});
+vendor.MapPost("/rollouts", (StartRolloutRequest request, HttpContext http, FleetOperations fleet) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering)) return Results.Forbid();
+    return Results.Ok(fleet.StartRollout(request.Version, request.Channel, request.Percentage));
+});
+vendor.MapPost("/rollouts/{id:guid}/halt", (Guid id, HttpContext http, FleetOperations fleet) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering)) return Results.Forbid();
+    return Results.Ok(fleet.HaltRollout(id));
+});
+vendor.MapGet("/abuse", (HttpContext http, AbuseDetector abuse) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support)) return Results.Forbid();
+    return Results.Ok(abuse.Cases);
+});
+vendor.MapPost("/abuse/observations", (ObserveAbuseRequest request, HttpContext http, AbuseDetector abuse) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support)) return Results.Forbid();
+    return Results.Ok(abuse.Observe(new DeviceObservation(request.LicenseKey, request.InstallFingerprint,
+        request.NodeId, request.MonotonicCounter, request.At, request.Latitude, request.Longitude, request.DocumentSeries)));
+});
+vendor.MapPost("/tenants", (ProvisionTenantRequest request, HttpContext http, VendorProvisioning provisioning) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Admin)) return Results.Forbid();
+    if (request.TrialDays is <= 0 or > 365) return Results.BadRequest("trialDays must be between 1 and 365.");
+    return Results.Created($"/vendor/v1/tenants/{request.TenantId}", provisioning.Provision(request.TenantId, TimeSpan.FromDays(request.TrialDays)));
+});
+vendor.MapPost("/support-grants", (SupportGrantRequest request, HttpContext http, IClock clock) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support)) return Results.Forbid();
+    return Results.Ok(SupportGrantPolicy.Create(Guid.NewGuid(), request.TenantId, request.RequestedBy,
+        request.ExpiresAt, request.TenantApproved, clock.UtcNow));
+});
+vendor.MapPost("/metering", (UsageRollup rollup, HttpContext http, UsageRollupAggregator aggregator) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing)) return Results.Forbid();
+    return Results.Ok(new { accepted = aggregator.Add(rollup) });
+});
+vendor.MapGet("/tenants/{tenantId}/usage", (string tenantId, DateOnly from, DateOnly through,
+    HttpContext http, UsageRollupAggregator aggregator) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing)) return Results.Forbid();
+    return Results.Ok(aggregator.ForTenant(tenantId, from, through));
+});
+vendor.MapPost("/billing/calculate", (BillingCalculationRequest request, HttpContext http) =>
+{
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing)) return Results.Forbid();
+    return Results.Ok(BillingCalculator.Calculate(request.Plan, request.Usage));
 });
 app.Run();
 

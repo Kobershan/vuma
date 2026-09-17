@@ -4,6 +4,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -14,17 +15,26 @@ public sealed class BarcodeResolver : IBarcodeResolver
     private readonly ICompanyContext _companyContext;
     private readonly ICompanyDbContextFactory _companyDatabases;
     private readonly IClock _clock;
+    private readonly ICompanyConnectionResolver? _connections;
+    private readonly ICompanyConnectionSecretStore? _secrets;
+    private readonly ITenantContext? _tenant;
 
     public BarcodeResolver(
         VumaRegistryDbContext registry,
         ICompanyContext companyContext,
         ICompanyDbContextFactory companyDatabases,
-        IClock clock)
+        IClock clock,
+        ICompanyConnectionResolver? connections = null,
+        ICompanyConnectionSecretStore? secrets = null,
+        ITenantContext? tenant = null)
     {
         _registry = registry;
         _companyContext = companyContext;
         _companyDatabases = companyDatabases;
         _clock = clock;
+        _connections = connections;
+        _secrets = secrets;
+        _tenant = tenant;
     }
 
     public async Task<BarcodeResolution> ResolveAsync(string barcode, CancellationToken cancellationToken = default)
@@ -61,10 +71,50 @@ public sealed class BarcodeResolver : IBarcodeResolver
 
     public async Task RebuildAsync(CancellationToken cancellationToken = default)
     {
-        // A rebuild must ask every company to republish. Erasing a live projection before that
-        // fan-out has completed makes a registry outage look like an empty catalogue, so this
-        // method deliberately refuses the old destructive placeholder until a publisher is wired.
-        throw new NotSupportedException("Routing rebuild requires a company catalogue republisher.");
+        if (_connections is null || _secrets is null || _tenant is null || _tenant.TenantId == Guid.Empty)
+            throw new InvalidOperationException("Barcode routing rebuild requires an authenticated tenant and company connection services.");
+
+        var companies = await _registry.Companies.AsNoTracking()
+            .Where(x => x.TenantId == _tenant.TenantId && x.LifecycleState == CompanyLifecycleState.Active)
+            .Select(x => new { x.Id, x.Code })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var company in companies)
+        {
+            CompanyConnection connection = await _connections.ResolveAsync(
+                _tenant.TenantId, company.Id, CompanyAccessMode.Read, cancellationToken).ConfigureAwait(false);
+            string connectionString = await _secrets.ResolveAsync(connection.SecretReference, cancellationToken).ConfigureAwait(false);
+            var options = new DbContextOptionsBuilder<VumaRetailDbContext>()
+                .UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform"))
+                .UseSnakeCaseNamingConvention().Options;
+            await using var companyDb = new VumaRetailDbContext(options, _tenant);
+
+            var entries = await companyDb.Barcodes.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+            var items = await companyDb.Items.AsNoTracking().ToDictionaryAsync(x => x.Id, cancellationToken).ConfigureAwait(false);
+            var variants = await companyDb.ItemVariants.AsNoTracking().ToDictionaryAsync(x => x.Id, cancellationToken).ConfigureAwait(false);
+            var current = await _registry.CatalogRoutingIndex
+                .Where(x => x.TenantId == _tenant.TenantId && x.CompanyId == company.Id)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            foreach (CatalogRoutingIndexEntry row in current) row.IsRetired = true;
+
+            foreach (var barcode in entries.Where(x => !string.IsNullOrWhiteSpace(x.Code)))
+            {
+                Guid itemId = barcode.ItemId ?? (barcode.ItemVariantId is { } variantId && variants.TryGetValue(variantId, out var variant)
+                    ? variant.ItemId : Guid.Empty);
+                if (itemId == Guid.Empty || !items.TryGetValue(itemId, out var item) || !item.IsActive) continue;
+                Guid? variantIdValue = barcode.ItemVariantId;
+                CatalogRoutingIndexEntry? row = current.FirstOrDefault(x => x.Barcode == barcode.Code.Trim());
+                if (row is null)
+                {
+                    row = new CatalogRoutingIndexEntry { Id = UuidV7.NewGuid(), TenantId = _tenant.TenantId,
+                        CompanyId = company.Id, CompanyCode = company.Code, Barcode = barcode.Code.Trim() };
+                    _registry.CatalogRoutingIndex.Add(row);
+                    current.Add(row);
+                }
+                row.Update(itemId, variantIdValue, item.Code, item.Description ?? item.Name, _clock.UtcNow);
+            }
+        }
+        await _registry.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task PublishAsync(Guid tenantId, Guid companyId, BarcodeEntry entry, CancellationToken cancellationToken = default)
