@@ -5,6 +5,7 @@ using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Reporting;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
+using VumaRetail.Infrastructure.Reporting;
 using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
@@ -21,6 +22,7 @@ public static class ReportingServiceCollectionExtensions
         services.TryAddSingleton<ReportArtifactStoreOptions>();
         services.TryAddScoped<ReportExportExecutor>();
         services.TryAddScoped<IReportScheduleRunner, ReportScheduleRunner>();
+        services.TryAddScoped<IReportDataSource, DashboardReportDataSource>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
         return services;

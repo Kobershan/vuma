@@ -28,6 +28,10 @@ measures, monotonic replacement, reversible `Stage29DashboardMeasures` migration
 due-schedule enqueue boundary. Focused reporting tests pass **20/20**; PostgreSQL reporting migration
 checks pass **1/1**. Hosted timer registration, source-module adapters and production acceptance remain.
 
+VERIFICATION (2026-09-18): Registered the dashboard-backed export data source after the combined
+integration run exposed an unresolved DI dependency. Reporting tests pass **21/21**, workflow host/API
+checks pass **11/11**, and the full PostgreSQL integration suite passes **632/632** in 13m47s.
+
 WORK LOG (2026-09-17): Hardened Stage 23/26/27 API company-context boundaries. Service SLA
 deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now establish the
 requested company before dispatch. StoreServer Release build passes with 0 errors; focused

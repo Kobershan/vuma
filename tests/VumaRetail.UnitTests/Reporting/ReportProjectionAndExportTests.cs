@@ -7,6 +7,7 @@ using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Reporting;
 using VumaRetail.Domain.Reporting;
 using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Reporting;
 
 namespace VumaRetail.UnitTests.Reporting;
 
@@ -193,6 +194,23 @@ public sealed class ReportProjectionAndExportTests
         FluentActions.Invoking(() => measure.Replace(90m, current.AddMinutes(-1)))
             .Should().Throw<InvalidOperationException>();
         measure.Currency.Should().Be("ZAR");
+    }
+
+    [Fact]
+    public async Task Dashboard_report_data_source_exports_the_requested_business_date_measures()
+    {
+        Guid companyId = Guid.NewGuid();
+        DateTimeOffset requested = new(2026, 9, 17, 12, 0, 0, TimeSpan.Zero);
+        ReportExport export = ReportExport.Queue(Guid.NewGuid(), null, companyId, Guid.NewGuid(), "sales", requested);
+        var reports = Substitute.For<IReportingRepository>();
+        reports.ListMeasuresAsync(companyId, new DateOnly(2026, 9, 17), Arg.Any<CancellationToken>()).Returns([
+            DashboardMeasure.Record(export.TenantId, null, companyId, new DateOnly(2026, 9, 17), "revenue", "ZAR", 100m, requested)
+        ]);
+
+        ReportDataSet result = await new DashboardReportDataSource(reports).ReadAsync(export);
+
+        result.Columns.Should().BeEquivalentTo(["measure", "currency", "value"], options => options.WithStrictOrdering());
+        result.Rows.Should().ContainSingle().Which.Should().BeEquivalentTo(["REVENUE", "ZAR", "100"]);
     }
 
     private static ReportingProjectionEvent Event(Guid companyId, string cursor, string currency, params (string Name, decimal Value)[] measures) =>

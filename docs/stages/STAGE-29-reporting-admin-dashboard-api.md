@@ -104,6 +104,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   dashboard measure reads and reversible PostgreSQL migration `Stage29DashboardMeasures`. Reporting
   unit suite passes **20/20** and the migration chain passes **1/1**; source-module adapters and full
   KPI acceptance remain.
+- 2026-09-18: Registered a scoped dashboard-backed export data source, preserving business-date and
+  currency columns for CSV execution. Reporting tests pass **21/21**, workflow host/API checks pass
+  **11/11**, and the full PostgreSQL integration suite passes **632/632**; provider-specific adapters,
+  hosted scheduling and production object storage remain.
 
 ## Tests / acceptance
 
