@@ -304,7 +304,7 @@ public static class ConversationEndpoints
                 await deliveryAudit.RecordAsync(new ConversationDeliveryAttempt(
                     binding.TenantId, conversation.Id, message.Channel, ConversationDeliveryStatus.Sent, clock.UtcNow), cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 loggerFactory?.CreateLogger("VumaRetail.Web.Conversations").LogError(exception, "Conversation reply delivery failed for {ConversationId}.", conversation.Id);
                 await deliveryAudit.RecordAsync(new ConversationDeliveryAttempt(
