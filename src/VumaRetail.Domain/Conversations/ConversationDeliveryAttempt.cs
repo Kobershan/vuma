@@ -1,5 +1,6 @@
 #pragma warning disable CS1591
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Domain.Conversations;
 
@@ -11,6 +12,7 @@ public enum ConversationDeliveryStatus
 }
 
 /// <summary>Tenant-scoped, durable delivery audit for conversational replies.</summary>
+[Replicated(ReplicationScope.StoreToCloud, ConflictPolicy.AppendOnly)]
 public sealed class ConversationDeliveryAttempt : Entity
 {
     private ConversationDeliveryAttempt() { }

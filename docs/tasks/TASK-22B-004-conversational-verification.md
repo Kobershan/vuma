@@ -16,6 +16,9 @@
   up/down/up passes on PostgreSQL.
 - Full repository verification after the latest BOM fix: unit 1,353/1,353, architecture 77/77,
   integration 556/556, Release build 0 errors.
+- 2026-09-17: Conversation delivery audit now follows the unit-of-work pipeline and declares
+  append-only StoreToCloud replication. Architecture tests pass **86/86** after this correction;
+  conversation-focused unit tests pass **35/35**.
 
 ## Remaining work
 

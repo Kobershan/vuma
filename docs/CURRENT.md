@@ -11,6 +11,11 @@ WORK LOG (2026-09-17): Hardened Stage 23/26/27 API company-context boundaries. S
 deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now establish the
 requested company before dispatch. StoreServer Release build passes with 0 errors; focused
 service/HR/assets unit tests pass 162/162.
+
+WORK LOG (2026-09-17): Closed two Stage 22b architecture defects in conversation delivery audit:
+the repository no longer commits outside the unit-of-work pipeline, and delivery attempts now
+declare append-only StoreToCloud replication. Architecture tests pass 86/86; conversation-focused
+unit tests pass 35/35.
 NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
 provider-backed acceptance is externally dependent and remains explicitly open.
 
