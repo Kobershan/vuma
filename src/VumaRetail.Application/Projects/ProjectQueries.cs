@@ -42,7 +42,10 @@ public sealed class GetProjectQueryHandler(IProjectRepository projects, ICompany
         ArgumentNullException.ThrowIfNull(query);
         CreateProjectCommandHandler.EnsureCompany(company, query.CompanyId);
         Project? project = await projects.FindProjectAsync(query.ProjectId, cancellationToken).ConfigureAwait(false);
-        if (project is null || project.CompanyId != query.CompanyId) return null;
+        if (project is null || project.CompanyId != query.CompanyId)
+        {
+            return null;
+        }
         return new ProjectResult(project.Id, query.CompanyId, project.Code, project.Name, project.Currency, project.Status.ToString());
     }
 }

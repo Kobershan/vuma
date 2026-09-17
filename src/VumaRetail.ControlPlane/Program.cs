@@ -96,5 +96,5 @@ public partial class Program;
 
 file sealed class SystemControlPlaneClock : IClock
 {
-    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+    public DateTimeOffset UtcNow => TimeProvider.System.GetUtcNow();
 }
