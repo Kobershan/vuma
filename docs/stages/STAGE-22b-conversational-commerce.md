@@ -19,9 +19,9 @@ This is a planning gate, not an implementation task. Before this stage is select
 
 | Task ID | Title | Dependencies | Status |
 |---|---|---|---|
-| [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | IN_PROGRESS — identity, consent, verification, state machine, durable conversation persistence, restart-safe idempotency, and active-company scope implemented; webhook isolation evidence remains |
-| [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | IN_PROGRESS — deterministic classifier/composer and all registered intent handler seams use scoped module APIs; end-to-end intent and injection evidence remains |
-| [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | IN_PROGRESS — signed one-time delivery, tenant/company isolation, module-owned document lookup, Stage 22 sender wiring, and normalized email path implemented; durable delivery retry audit remains |
+| [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | COMPLETE — identity, consent, verification, durable state/idempotency, active-company scope, signed webhook persistence, and transcript tenant isolation verified |
+| [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | COMPLETE — deterministic classifier/composer, all six scoped handlers, injection fixtures, and result number/date safety verified |
+| [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | COMPLETE — signed one-time delivery, tenant/company isolation, module-owned document lookup, Stage 22 sender wiring, normalized email path, and durable sent/failed delivery audit verified |
 | [TASK-22B-004](../tasks/TASK-22B-004-conversational-verification.md) | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
 
 ## Objective

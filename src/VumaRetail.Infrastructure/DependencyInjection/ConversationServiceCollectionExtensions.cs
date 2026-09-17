@@ -26,6 +26,7 @@ public static class ConversationServiceCollectionExtensions
         services.AddSingleton<IVerificationService, VerificationService>();
         services.AddScoped<IDocumentDeliveryTokenStore, EfDocumentDeliveryTokenStore>();
         services.AddScoped<IConversationStore, EfConversationStore>();
+        services.AddScoped<IConversationDeliveryAudit, ConversationDeliveryAuditRepository>();
         services.AddScoped<IDocumentDeliveryService, DocumentDeliveryService>();
         services.AddSingleton<ConversationRateLimiter>();
         services.AddOptions<TwilioWhatsAppOptions>();

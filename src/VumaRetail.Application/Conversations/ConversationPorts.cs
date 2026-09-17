@@ -83,6 +83,12 @@ public interface IConversationStore
     Task<bool> TryAddTurnAsync(ConversationTurn turn, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Durable audit boundary for outbound conversational transport attempts.</summary>
+public interface IConversationDeliveryAudit
+{
+    Task RecordAsync(ConversationDeliveryAttempt attempt, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Result returned by an intent handler; it contains API facts only.</summary>
 public sealed record IntentResult(Guid ResultId, IReadOnlyList<string> Facts, bool RequiresConfirmation = false, string? IdempotencyKey = null);
 

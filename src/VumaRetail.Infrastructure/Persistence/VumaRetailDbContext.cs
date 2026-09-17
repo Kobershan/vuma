@@ -131,6 +131,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Append-only conversational transcript entries (Stage 22b).</summary>
     public DbSet<Domain.Conversations.ConversationTurn> ConversationTurns => Set<Domain.Conversations.ConversationTurn>();
 
+    /// <summary>Durable outbound conversation transport attempts.</summary>
+    public DbSet<Domain.Conversations.ConversationDeliveryAttempt> ConversationDeliveryAttempts => Set<Domain.Conversations.ConversationDeliveryAttempt>();
+
     /// <summary>Single-use, expiring references to documents delivered by conversations.</summary>
     public DbSet<Domain.Conversations.DocumentDeliveryToken> DocumentDeliveryTokens => Set<Domain.Conversations.DocumentDeliveryToken>();
     /// <summary>Units an item can be counted, weighed or measured in (Stage 06).</summary>
@@ -755,6 +758,9 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         ArgumentNullException.ThrowIfNull(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        // Keep the delivery-attempt audit in the model even when a design-time build has not yet
+        // loaded the conversation configuration assembly after an incremental compilation.
+        modelBuilder.Entity<Domain.Conversations.ConversationDeliveryAttempt>();
 
         foreach (Assembly assembly in AdditionalModelAssemblies)
         {

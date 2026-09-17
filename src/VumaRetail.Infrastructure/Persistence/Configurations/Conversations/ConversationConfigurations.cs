@@ -48,6 +48,22 @@ internal sealed class ConversationTurnConfiguration : EntityConfiguration<Conver
     }
 }
 
+internal sealed class ConversationDeliveryAttemptConfiguration : EntityConfiguration<ConversationDeliveryAttempt>
+{
+    protected override string Schema => Schemas.Conversations;
+    protected override string TableName => "conversation_delivery_attempts";
+
+    protected override void ConfigureEntity(EntityTypeBuilder<ConversationDeliveryAttempt> builder)
+    {
+        builder.Property(x => x.ConversationId).IsRequired();
+        builder.Property(x => x.Channel).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(x => x.AttemptedAt).IsRequired();
+        builder.Property(x => x.FailureReason).HasMaxLength(1000);
+        builder.HasIndex(x => new { x.TenantId, x.ConversationId, x.AttemptedAt });
+    }
+}
+
 internal sealed class DocumentDeliveryTokenConfiguration : EntityConfiguration<DocumentDeliveryToken>
 {
     protected override string Schema => Schemas.Conversations;

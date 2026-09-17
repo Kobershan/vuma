@@ -122,6 +122,7 @@ public static class ConversationEndpoints
         IContactResolver contacts,
         IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
+        IConversationDeliveryAudit deliveryAudit,
         IIntentClassifier classifier,
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
@@ -158,7 +159,7 @@ public static class ConversationEndpoints
 
         return message is null
             ? Results.BadRequest(new { error = "invalid webhook payload" })
-            : await InboundAsync(message, contacts, bindingManagement, conversationStore, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken, sender, loggers).ConfigureAwait(false);
+            : await InboundAsync(message, contacts, bindingManagement, conversationStore, deliveryAudit, classifier, stateMachine, router, composer, rateLimiter, clock, tenant, cancellationToken, sender, loggers).ConfigureAwait(false);
     }
 
     private static async Task<IResult> TwilioWhatsAppWebhookAsync(HttpContext context, IConfiguration configuration, CancellationToken cancellationToken)
@@ -170,7 +171,7 @@ public static class ConversationEndpoints
         if (!TwilioWebhookSecurity.Verify(url, parameters, context.Request.Headers["X-Twilio-Signature"].ToString(), options.AuthToken)) return Results.Unauthorized();
         if (!parameters.TryGetValue("From", out string? from) || !parameters.TryGetValue("Body", out string? body)) return Results.BadRequest(new { error = "Twilio From and Body are required." });
         var services = context.RequestServices;
-        return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken, services.GetRequiredService<IWhatsAppSender>(), services.GetRequiredService<ILoggerFactory>()).ConfigureAwait(false);
+        return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IConversationDeliveryAudit>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken, services.GetRequiredService<IWhatsAppSender>(), services.GetRequiredService<ILoggerFactory>()).ConfigureAwait(false);
     }
 
     private static async Task<IResult> InboundEmailAsync(
@@ -178,6 +179,7 @@ public static class ConversationEndpoints
         IContactResolver contacts,
         IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
+        IConversationDeliveryAudit deliveryAudit,
         IIntentClassifier classifier,
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
@@ -193,6 +195,7 @@ public static class ConversationEndpoints
             contacts,
             bindingManagement,
             conversationStore,
+            deliveryAudit,
             classifier,
             stateMachine,
             router,
@@ -209,6 +212,7 @@ public static class ConversationEndpoints
         IContactResolver contacts,
         IContactBindingManagementService bindingManagement,
         IConversationStore conversationStore,
+        IConversationDeliveryAudit deliveryAudit,
         IIntentClassifier classifier,
         IConversationStateMachine stateMachine,
         IConversationIntentRouter router,
@@ -297,10 +301,14 @@ public static class ConversationEndpoints
             try
             {
                 await sender.SendAsync(binding.Address, reply, cancellationToken).ConfigureAwait(false);
+                await deliveryAudit.RecordAsync(new ConversationDeliveryAttempt(
+                    binding.TenantId, conversation.Id, message.Channel, ConversationDeliveryStatus.Sent, clock.UtcNow), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
             {
                 loggerFactory?.CreateLogger("VumaRetail.Web.Conversations").LogError(exception, "Conversation reply delivery failed for {ConversationId}.", conversation.Id);
+                await deliveryAudit.RecordAsync(new ConversationDeliveryAttempt(
+                    binding.TenantId, conversation.Id, message.Channel, ConversationDeliveryStatus.Failed, clock.UtcNow, exception.Message), cancellationToken).ConfigureAwait(false);
             }
         }
         return Results.Accepted(value: new

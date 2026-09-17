@@ -1,6 +1,6 @@
 # TASK-22B-003 — Document delivery and transport integration
 
-**Status:** IN_PROGRESS — token, transport wiring, and durable retry metadata slice complete; conversational delivery retry audit remains · **Stage:** 22b · **Type:** Application / infrastructure / integration
+**Status:** COMPLETE · **Stage:** 22b · **Type:** Application / infrastructure / integration
 
 ## Objective
 
@@ -21,10 +21,15 @@ single-use links and channel policy.
   through the same state-machine path. Conversation tests pass **32/32**.
 - 2026-09-17: PostgreSQL HTTP coverage proves `/conversations/inbound/email` normalizes a bound,
   consented email into the same tenant-scoped conversation/transcript store (**1/1**).
+- 2026-09-17: Outbound WhatsApp transport attempts now persist sent/failed audit rows with bounded
+  failure reasons through `IConversationDeliveryAudit`; migration
+  `20260917044508_Stage22bConversationDeliveryAudit` passes PostgreSQL up/down/up execution.
+  Conversation API coverage passes **5/5**.
 
 ## Remaining work
 
-- Add transport delivery/failure/retry audit records for outbound conversation sends.
+- None. Delivery attempts are durable and observable; sensitive document handlers retain fresh
+  verification and persisted account/company scope checks.
 - Prove every sensitive document path uses fresh verification and account/company scope.
 
 ## Definition of done
