@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
+using NSubstitute;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Crm;
 using VumaRetail.Application.Marketing;
+using VumaRetail.Domain.Crm;
 using VumaRetail.Domain.Marketing;
 using VumaRetail.Infrastructure.Marketing;
 
@@ -9,6 +13,42 @@ namespace VumaRetail.UnitTests.Marketing;
 
 public sealed class HttpMarketingTransportTests
 {
+    [Fact]
+    public async Task Delivery_service_completes_a_due_queue_row_through_the_configured_https_transport()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        Guid companyId = Guid.NewGuid();
+        Guid customerId = Guid.NewGuid();
+        MarketingCampaign campaign = MarketingCampaign.Create(Guid.NewGuid(), null, companyId,
+            "Sale", "sale-v1", now);
+        campaign.Schedule(now);
+        OutboundMessage message = OutboundMessage.Queue(campaign.TenantId, null, companyId,
+            campaign.Id, customerId, "sale-v1-customer-v1", now, MarketingMessageChannel.Email);
+
+        IMarketingCampaignRepository campaigns = Substitute.For<IMarketingCampaignRepository>();
+        campaigns.FindAsync(campaign.Id, Arg.Any<CancellationToken>()).Returns(campaign);
+        IOutboundMessageRepository messages = Substitute.For<IOutboundMessageRepository>();
+        messages.FindAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
+        IConsentService consent = Substitute.For<IConsentService>();
+        consent.IsValidAsync(customerId, ConsentType.MarketingEmail, now, Arg.Any<CancellationToken>()).Returns(true);
+        using HttpClient client = new(new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new { providerEventId = "provider-e2e-1", delivered = true })
+        }));
+        IMarketingTransport transport = new HttpMarketingTransport(client, Options.Create(
+            new MarketingTransportOptions { Endpoint = "https://provider.example/messages" }));
+        IClock clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(now);
+
+        MarketingDispatchOutcome outcome = await new MarketingDeliveryService(
+            campaigns, messages, new MarketingDeliveryPolicy(consent), transport, clock)
+            .DispatchAsync(message.Id);
+
+        outcome.Should().Be(MarketingDispatchOutcome.Delivered);
+        message.Status.Should().Be(OutboundMessageStatus.Sent);
+        message.ProviderEventId.Should().Be("provider-e2e-1");
+    }
+
     [Fact]
     public async Task Sends_durable_identity_and_returns_provider_result()
     {

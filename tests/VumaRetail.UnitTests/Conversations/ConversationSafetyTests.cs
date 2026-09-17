@@ -87,6 +87,24 @@ public sealed class ConversationSafetyTests
     }
 
     [Fact]
+    public async Task Concurrent_duplicate_intent_submissions_execute_the_handler_once()
+    {
+        var handler = new CountingIntentHandler();
+        var router = new ConversationIntentRouter([handler]);
+        var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.Email, At);
+        var classification = new IntentClassification(
+            ConversationIntent.OrderStatus,
+            new Dictionary<string, string> { ["orderNumber"] = "ORD-1" },
+            1m);
+
+        IntentResult[] results = await Task.WhenAll(
+            Enumerable.Range(0, 8).Select(_ => router.RouteAsync(conversation, classification, "duplicate-key")));
+
+        results.Should().OnlyContain(result => result.ResultId == handler.ResultId);
+        handler.Calls.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Incomplete_conversation_times_out_to_human_escalation()
     {
         var conversation = new Conversation(Guid.NewGuid(), Guid.NewGuid(), ConversationChannel.WhatsApp, At);
@@ -298,6 +316,23 @@ public sealed class ConversationSafetyTests
         {
             Calls++;
             return Task.FromResult(new IntentResult(Guid.NewGuid(), ["API result"], IdempotencyKey: idempotencyKey));
+        }
+    }
+
+    private sealed class CountingIntentHandler : IConversationIntentHandler
+    {
+        public ConversationIntent Intent => ConversationIntent.OrderStatus;
+        public Guid ResultId { get; } = Guid.NewGuid();
+        private int calls;
+        public int Calls => calls;
+
+        public async Task<IntentResult> HandleAsync(Conversation conversation,
+            IReadOnlyDictionary<string, string> entities, string idempotencyKey,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref calls);
+            await Task.Yield();
+            return new IntentResult(ResultId, ["Order ORD-1 status: Submitted."], IdempotencyKey: idempotencyKey);
         }
     }
 }

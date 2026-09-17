@@ -133,7 +133,7 @@ public sealed class ConversationIntentRouter(IEnumerable<IConversationIntentHand
 {
     private readonly IReadOnlyDictionary<ConversationIntent, IConversationIntentHandler> handlers =
         handlers.ToDictionary(x => x.Intent);
-    private readonly ConcurrentDictionary<string, IntentResult> submitted = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<IntentResult>>> submitted = new(StringComparer.Ordinal);
 
     public async Task<IntentResult> RouteAsync(Conversation conversation, IntentClassification classification, string idempotencyKey, CancellationToken cancellationToken = default)
     {
@@ -144,8 +144,21 @@ public sealed class ConversationIntentRouter(IEnumerable<IConversationIntentHand
             throw new InvalidOperationException("The conversation intent is not sufficiently certain.");
         if (!handlers.TryGetValue(classification.Intent, out IConversationIntentHandler? handler))
             throw new InvalidOperationException($"No handler is registered for {classification.Intent}.");
-        if (submitted.TryGetValue(idempotencyKey, out IntentResult? existing)) return existing;
-        IntentResult result = await handler.HandleAsync(conversation, classification.Entities, idempotencyKey, cancellationToken).ConfigureAwait(false);
-        return submitted.GetOrAdd(idempotencyKey, result);
+        Lazy<Task<IntentResult>> execution = submitted.GetOrAdd(
+            idempotencyKey,
+            _ => new Lazy<Task<IntentResult>>(
+                () => handler.HandleAsync(conversation, classification.Entities, idempotencyKey, cancellationToken),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        try
+        {
+            return await execution.Value.ConfigureAwait(false);
+        }
+        catch
+        {
+            // A failed attempt must not permanently poison the idempotency key. Durable
+            // handlers retain their own committed result; transient failures can retry.
+            submitted.TryRemove(new KeyValuePair<string, Lazy<Task<IntentResult>>>(idempotencyKey, execution));
+            throw;
+        }
     }
 }

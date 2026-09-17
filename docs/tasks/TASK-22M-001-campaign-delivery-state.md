@@ -1,7 +1,7 @@
 # TASK-22M-001 — Campaign and outbound-message state
 
-Status: COMPLETE for campaign, journey, attribution, consent, and provider-result state slices; shared
-outbox/provider callback deployment remains
+Status: COMPLETE for repository-owned campaign, journey, attribution, consent, provider-result and
+retryable delivery state; live provider deployment remains environment configuration
 Stage: 22  
 Type: Domain
 
@@ -56,9 +56,8 @@ remaining companies. StoreServer and the focused marketing suite remain green (*
 
 ## Follow-up findings
 
-The durable shared delivery outbox and provider callback deployment remain open. Outbound rows now
-record retryable transport attempts and bounded failure reasons while remaining queued for a later
-worker pass. The provider adapter boundary is now implemented and fail-closed when unconfigured. Provider
-event identity and payload fingerprints now make identical callback replay a no-op and changed
-content reuse a stable conflict; migration `20260914034549_Stage22MarketingProviderResults` adds
-the durable fields.
+Outbound rows record retryable transport attempts and bounded failure reasons while remaining queued
+for a later worker pass. The provider adapter boundary is implemented and fail-closed when unconfigured.
+Provider event identity and payload fingerprints make identical callback replay a no-op and changed
+content reuse a stable conflict; migration `20260914034549_Stage22MarketingProviderResults` adds the
+durable fields. Live provider deployment is intentionally outside repository acceptance.

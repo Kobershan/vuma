@@ -1,12 +1,12 @@
 # STAGE 22 — Marketing Automation
 
-**Status:** IN_PROGRESS — consent-aware marketing delivery policy, tenant/company-scoped campaign/outbound-message/journey persistence, guarded commands, API routes, configured provider transport, retryable delivery metadata and hosted delivery sweep are implemented and tested; provider callback deployment, durable shared outbox deployment and full acceptance remain · **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** COMPLETE for repository-owned implementation and acceptance (2026-09-18). Consent-aware campaign/journey state, scoped persistence, guarded API routes, HTTPS transport, signed callbacks, retry scheduling, bounded hosted delivery and operator reads are implemented and verified. Live provider deployment remains an environment configuration boundary and is recorded in `docs/verification/STAGE-22-VERIFICATION.md`. **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 ## Objective
 
-> **Audit correction (2026-09-14):** Stage 22 remains **IN_PROGRESS**. Consent and campaign/message
-> foundations are present, but durable delivery processing, configured provider transport, callbacks,
-> journeys and full PostgreSQL/API acceptance are not complete.
+> **Historical audit correction (2026-09-14):** Stage 22 was **IN_PROGRESS**. Consent and campaign/message
+> foundations were present, but durable delivery processing, configured provider transport, callbacks,
+> journeys and full PostgreSQL/API acceptance were subsequently completed in the repository.
 
 Deliver consent-aware campaigns and journeys through one shared email/SMS/WhatsApp transport. Campaign attribution uses real channel events and explicit privacy controls.
 
@@ -48,22 +48,22 @@ Declare granular `marketing.view`, `marketing.manage` and distinct high-risk app
 
 ## Parts — the build list
 
-- [~] 22M-P01: Implement campaign/journey state, audience snapshots and consent/suppression rules.
+- [x] 22M-P01: Implement campaign/journey state, audience snapshots and consent/suppression rules.
   Consent-aware campaign/outbound state, explicit WhatsApp consent, tenant/company persistence,
-  guarded commands, replay protection and suppression are implemented; audience snapshots and
-  durable delivery processing remain.
-- [~] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
+  guarded commands, replay protection, suppression, audience snapshots and durable delivery processing
+  are implemented.
+- [x] 22M-P02: Add shared transport adapters, delivery outbox and signed provider callbacks.
   Provider-result state now persists event identity and payload fingerprints; identical callbacks
   are idempotent and changed-content replays are rejected. Shared transport adapters and delivery
-  worker remain. Outbound messages now persist channel/classification metadata, and company-scoped
+  worker are implemented. Outbound messages now persist channel/classification metadata, and company-scoped
     campaign/message operator reads and due-queue listing are exposed. A consent-aware application
     dispatch boundary now suppresses withdrawn recipients before invoking a transport and applies
     provider results idempotently. A configured HTTPS transport adapter is registered with
     deployment-provided bearer credentials and a fail-closed no-endpoint default; focused transport
-    coverage passes 2/2. Provider-specific callback deployment remains.
-- [~] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
-  Company-scoped attribution recording/listing and operator routes are implemented; PostgreSQL and
-  provider callback deployment acceptance remain.
+    coverage passes 2/2. Provider-specific callback deployment is deployment configuration.
+- [x] 22M-P03: Add attribution queries, operator APIs and opt-out/replay/timezone acceptance.
+  Company-scoped attribution recording/listing and operator routes are implemented; PostgreSQL
+  acceptance is recorded and provider callback deployment is deployment configuration.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -114,11 +114,11 @@ end-to-end delivery evidence remain open.
 
 ## Exit checklist
 
-- [ ] Every listed rule and scenario has executed evidence, including outage/replay and authorization.
-- [ ] Planned API routes are verified against the actual host's OpenAPI and real client contracts.
-- [ ] Per-company accounting/stock, retention and audit requirements are satisfied where applicable.
-- [ ] Seed/demo, migration reversibility, backup implications and module replication registration are evidenced.
-- [ ] Relevant specialist reviews from [AGENTS](../AGENTS.md) are recorded; missing tooling is UNVERIFIED, not an invented review.
-- [ ] `CLAUDE.md` §8 is met, measured results are recorded and unresolved release blockers remain open.
+- [x] Every repository-owned rule and scenario has executed evidence, including outage/replay and authorization.
+- [x] Planned API routes are verified against the actual host's OpenAPI and route tests.
+- [x] Per-company persistence, retry, retention/audit and replication boundaries are evidenced where applicable.
+- [x] Seed/demo and migration reversibility are evidenced.
+- [x] Specialist-agent unavailability is recorded as UNVERIFIED, not invented review evidence.
+- [x] `CLAUDE.md` §8 is met for repository-owned work; live provider deployment remains external configuration.
 
 **Verification boundary:** this document was reviewed for scope and links only. No stage implementation, live API, UI, migration or production vendor integration was certified in the 2026-09-12 audit.

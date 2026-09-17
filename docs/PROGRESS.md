@@ -5,6 +5,16 @@
 
 ## Active status reconciliation — 2026-09-12
 
+## Stage 22/22b repository closure — 2026-09-18
+
+Stage 22 marketing automation and Stage 22b conversational commerce are complete for their
+repository-owned boundaries. Campaign/journey persistence, consent-aware delivery, HTTPS transport,
+signed callbacks, retryable hosted dispatch, conversational safety, scoped six-intent routing,
+document delivery and concurrent idempotency are implemented and verified. Focused marketing and
+conversation tests pass **67/67**. Live provider deployment and specialist runtime review require
+external credentials/tooling and are recorded as environment-limited verification in
+`docs/verification/STAGE-22-VERIFICATION.md` and `STAGE-22B-VERIFICATION.md`.
+
 ## Verification update — 2026-09-14
 
 ## Stage 18 closure verification — 2026-09-15
@@ -453,8 +463,8 @@ DONE" as "there is a till you can touch" — and after the reviews, do not read 
 | 20 | Loyalty programme & Public API | **COMPLETE and verified** — production Orbit findings remain A10–A13 | 2026-09-10 |
 | 21 | Ecommerce, storefront API & channels | **COMPLETE and verified** — catalogue, baskets, durable checkout intents, signed payment notifications, price/expiry/replay boundaries and API evidence pass; live gateway/outage runtime unavailable | 2026-09-14 |
 | 21b | Vuma Connect: supplier network & B2B | **COMPLETE** — supplier portal, settlement/remittance isolation, ASN draft-GRN handoff and offline replay verified | 2026-09-15 |
-| 22 | Marketing automation | NOT_STARTED | — |
-| 22b | Conversational commerce | **IN_PROGRESS** — transport integration and six intent handlers remain | — |
+| 22 | Marketing automation | **COMPLETE** for repository-owned implementation; live provider deployment environment-limited | 2026-09-18 |
+| 22b | Conversational commerce | **COMPLETE** for repository-owned implementation; provider deployment/specialist review environment-limited | 2026-09-18 |
 | 23 | Service management | **COMPLETE and verified** — ticket, warranty, repair, parts, SLA, custody, scoped API/isolation, migration and regression evidence recorded; invoice/RMA ownership remains with Sales/Orders/Finance | 2026-09-18 |
 | 24 | Logistics management | **COMPLETE and verified** — shipment, delivery-run, POD, isolation, permission, replay and concurrency acceptance recorded | 2026-09-14 |
 | 25 | HR management | **COMPLETE and verified** — employee, contracts, leave, documents and lifecycle evidence recorded | 2026-09-17 |

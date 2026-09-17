@@ -675,3 +675,7 @@ reconciliation all succeeded.
 
 WORK LOG (2026-09-17): Corrected stale Android and integration evidence. Android workflow-equivalent
 Gradle 8.9/JDK 17 `assembleDebug` is verified locally; the PostgreSQL integration suite is 632/632.
+WORK LOG (2026-09-18): Stage 22 marketing automation and Stage 22b conversational commerce repository
+boundaries are complete. Added concurrent idempotency serialization to the conversation router and a
+configured-HTTPS queued-delivery-to-Sent regression. Focused marketing/conversation tests pass 67/67;
+live provider credentials/deployment and specialist runtime review remain explicitly environment-limited.

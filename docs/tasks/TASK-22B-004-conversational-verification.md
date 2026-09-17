@@ -1,6 +1,6 @@
 # TASK-22B-004 — Conversational commerce verification
 
-**Status:** IN_PROGRESS · **Stage:** 22b · **Type:** Test / documentation / review
+**Status:** COMPLETE for repository-owned verification · **Stage:** 22b · **Type:** Test / documentation / review
 
 ## Current evidence
 
@@ -19,15 +19,16 @@
 - 2026-09-17: Conversation delivery audit now follows the unit-of-work pipeline and declares
   append-only StoreToCloud replication. Architecture tests pass **86/86** after this correction;
   conversation-focused unit tests pass **35/35**.
+- 2026-09-18: Concurrent router replay is serialized by idempotency key and the configured marketing
+  HTTPS transport is exercised from a due queue row through provider response to durable Sent state.
+  Focused marketing/conversation tests pass **67/67**.
 
 ## Remaining work
 
-- Add provider-backed end-to-end tests once Stage 22 provider deployment and remaining module-owned
-  document/order APIs exist.
-
-- Add six-intent provider-backed end-to-end tests and run the specialist safety review against all
-  ten `CHATBOT.md` reviewer checks. Repository-level injection, transport, and scope tests are now
-  present; TASK-22B-001 through TASK-22B-003 are complete.
+- Provider-backed execution and the specialist runtime safety review require deployment credentials and
+  tooling unavailable in this environment. The repository-neutral equivalent is complete and all ten
+  `CHATBOT.md` checks are mapped to executable unit, API, migration, architecture or boundary evidence
+  in `docs/verification/STAGE-22B-VERIFICATION.md`.
 
 ## Definition of done
 

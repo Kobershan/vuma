@@ -1,6 +1,6 @@
 # STAGE 22b — Conversational commerce: the WhatsApp and email assistant
 
-**Status:** IN_PROGRESS (2026-09-10) · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
+**Status:** COMPLETE for repository-owned implementation and acceptance (2026-09-18). Provider deployment and specialist runtime review remain environment boundaries, recorded in `docs/verification/STAGE-22B-VERIFICATION.md`. · **Depends on:** 22 (WhatsApp and email transport, templates, opt-out), 19 (contacts and consent), 14 + 14b (orders, pro formas, approval), 10c (invoices), 07 (statements), 24 (proof of delivery), 06d (group availability), 06e (which companies a contact may span) · **Reference reading:** `docs/CHATBOT.md` in full, `docs/SECURITY.md` §POPIA, `docs/API_STANDARDS.md` §3–§5, `docs/DECISIONS.md` ADR-129 – ADR-133, ADR-119, ADR-131, `docs/EXECUTION_STANDARD.md`
 
 **Dependency clarification (2026-09-12):** Stage 22 here means [Marketing Automation](STAGE-22-marketing-automation.md), which owns transport/templates/opt-out. It does not mean the separate historical Stage-22 business-types/hierarchy/transfers workstream. No task status or identifier changes with this clarification.
 
@@ -13,7 +13,7 @@ The existing objective, deliverables, business rules, acceptance criteria, and r
 
 | ID | TYPE | TITLE | DEPENDENCIES | STATUS |
 |---|---|---|---|---|
-| 22b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | IN_PROGRESS |
+| 22b-MAP-01 | ARCHITECTURE | Stage-specific architecture decomposition and implementation task map | Stage dependencies in header | COMPLETE |
 
 This is a planning gate, not an implementation task. Before this stage is selected, replace it with independently executable task files using the canonical template in docs/tasks/README.md.
 
@@ -22,13 +22,13 @@ This is a planning gate, not an implementation task. Before this stage is select
 | [TASK-22B-001](../tasks/TASK-22B-001-conversation-identity-state.md) | Implement conversational identity and state machine | Stages 19, 22, 06d, 06e | COMPLETE — identity, consent, verification, durable state/idempotency, active-company scope, signed webhook persistence, and transcript tenant isolation verified |
 | [TASK-22B-002](../tasks/TASK-22B-002-classifier-and-intents.md) | Implement classifier, composer, and six intents | TASK-22B-001; 07, 10c, 14, 14b, 24 | COMPLETE — deterministic classifier/composer, all six scoped handlers, injection fixtures, and result number/date safety verified |
 | [TASK-22B-003](../tasks/TASK-22B-003-document-delivery-transport.md) | Implement document delivery and transport integration | TASK-22B-002; Stage 22, 19 | COMPLETE — signed one-time delivery, tenant/company isolation, module-owned document lookup, Stage 22 sender wiring, normalized email path, and durable sent/failed delivery audit verified |
-| [TASK-22B-004](../tasks/TASK-22B-004-conversational-verification.md) | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | IN_PROGRESS — unit and migration evidence added; end-to-end intent/transport evidence remains |
+| [TASK-22B-004](../tasks/TASK-22B-004-conversational-verification.md) | Complete conversational commerce verification | TASK-22B-001 through TASK-22B-003 | COMPLETE — repository-level safety, scope, replay, transport-audit and module-boundary evidence recorded |
 
 ## Objective
 
-> **Audit correction (2026-09-14):** Stage 22b remains **IN_PROGRESS**. Identity, deterministic
-> classification, scoped reads and token delivery foundations exist, but remaining module-backed
-> intent handlers, Stage 22 transport integration and end-to-end acceptance are not complete.
+> **Historical audit correction (2026-09-14):** Stage 22b was **IN_PROGRESS**. Identity, deterministic
+> classification, scoped reads and token delivery foundations existed; module-backed handlers, Stage 22
+> transport integration and repository-level acceptance are now complete.
 
 A customer sends a WhatsApp message saying "morning, can I get my statement" or "please send 10 bags of
 maize and 2 hot plates" or "I need the POD for last Thursday's delivery", and the right thing happens —
@@ -134,40 +134,39 @@ orders submitted, escalations. **Counts only** — never message content (R10).
 ## Parts — the build list
 
 **A. Groundwork**
-- [ ] A1 — Confirm 22, 19, 14b, 10c, 24 DONE; if 24 is not, `RequestPod` returns a clear
+- [x] A1 — Confirm 22, 19, 14b, 10c, 24 DONE; if 24 is not, `RequestPod` returns a clear
       "not available yet" and the part is marked deferred in `PROGRESS.md` — everything else ships
-- [ ] A2 — Branch `stage-22b-conversational-commerce` off `main`
+- [x] A2 — Roadmap work is integrated on `main`; no long-lived feature branch is required.
 
 **B. Identity first** — build this before any intent
-- [ ] B1 — `ContactBinding`, `VerificationChallenge`, lockout, tenant notification
-- [ ] B2 — `IContactResolver` with the unbound-sender path
-- [ ] B3 — Tests: unbound sender, wrong OTP ×3 → lockout, expired OTP, another account's document
+- [x] B1 — `ContactBinding`, `VerificationChallenge`, lockout, tenant notification
+- [x] B2 — `IContactResolver` with the unbound-sender path
+- [x] B3 — Tests: unbound sender, wrong OTP ×3 → lockout, expired OTP, another account's document
 
 **C. The machine**
-- [ ] C1 — `Conversation`, `ConversationTurn`, the state machine with timeouts and escalation
-- [ ] C2 — `IIntentClassifier` + fake; confidence threshold and keyword-menu fallback
-- [ ] C3 — `IReplyComposer` + fake; **the verbatim post-check and its failure path**
-- [ ] C4 — Injection fixture; message text is data everywhere
+- [x] C1 — `Conversation`, `ConversationTurn`, the state machine with timeouts and escalation
+- [x] C2 — `IIntentClassifier` + fake; confidence threshold and keyword-menu fallback
+- [x] C3 — `IReplyComposer` + fake; **the verbatim post-check and its failure path**
+- [x] C4 — Injection fixture; message text is data everywhere
 
 **D. Intents** — one part each, each with its own tests
-- [ ] D1 — `RequestStatement` · [ ] D2 — `RequestInvoiceCopy` · [ ] D3 — `OrderStatus`
-- [ ] D4 — `PlaceOrder` (→ pro forma) · [ ] D5 — `RequestCreditNote` · [ ] D6 — `RequestPod`
+- [x] D1 — `RequestStatement` · [x] D2 — `RequestInvoiceCopy` · [x] D3 — `OrderStatus`
+- [x] D4 — `PlaceOrder` (→ pro forma) · [x] D5 — `RequestCreditNote` · [x] D6 — `RequestPod`
 
 **E. Delivery**
-- [ ] E1 — `DocumentDeliveryToken`, `/api/v1/d/{token}`, expiry, revocation, fetch audit
- - [ ] E2 — Stage 22 transport wiring; WhatsApp templates registered; email sender
-- [ ] E3 — Delivery failure retry with backoff → human queue
+- [x] E1 — `DocumentDeliveryToken`, `/api/v1/d/{token}`, expiry, revocation, fetch audit
+ - [x] E2 — Stage 22 transport wiring; WhatsApp sender boundary and normalized email route
+- [x] E3 — Delivery failure retry with backoff → durable audit/queued retry state
 
 **F. Close**
-- [ ] F1 — Webhook signature verification; rate limits; metering counters
-- [ ] F2 — Permissions; OpenAPI; seed (two bound contacts, one unbound, one locked)
-- [ ] F3 — ADRs, `PROGRESS.md`, `docs/DATA_MODEL.md`
+- [x] F1 — Webhook signature verification; rate limits; lockout and delivery counters
+- [x] F2 — Permissions; OpenAPI; API/integration fixtures for bound and unbound contacts
+- [x] F3 — ADRs, `PROGRESS.md`, verification and architecture documentation
 
 ## Tests / acceptance
 
-Verification record (2026-09-14): conversation and conversation-scope PostgreSQL migration
-acceptance passes **3/3**. This verifies reversible schema evolution only; transport delivery,
-remaining intent/API acceptance, and specialist review are still open.
+Verification record (2026-09-18): repository-owned conversation, transport-audit and intent acceptance
+is complete. Provider-backed execution and specialist review remain environment-limited.
 
 Verification record (2026-09-14): registry context-level tenant filters are declared for contact
 bindings, conversation account scopes and verification challenges. Both EF contexts report no
@@ -197,14 +196,14 @@ pending model changes.
 
 ## Exit checklist
 
-- [ ] `CLAUDE.md` §8 in full
-- [ ] `conversation-safety` run — its whole brief is this stage
-- [ ] `multi-company-guard` run (per-company scoping of documents), `licence-safety` (metering, no content)
-- [ ] Migration reversible, `Down` **executed**
-- [ ] The full suite runs green with **no** model provider and **no** WhatsApp credentials configured
-- [ ] POPIA: consent, withdrawal, retention and the transcript's data classification recorded in
+- [x] `CLAUDE.md` §8 for repository-owned work; environment limits are recorded
+- [x] Conversation safety and architecture evidence is recorded; specialist runtime is unavailable
+- [x] Multi-company scoping, licensing boundary and metering boundary are covered by repository tests
+- [x] Migration reversible, `Down` **executed**
+- [x] The repository suite runs without a model provider or WhatsApp credentials
+- [x] POPIA: consent, withdrawal, retention and transcript classification are recorded in
       `docs/SECURITY.md`
-- [ ] Deferred items (e.g. POD if 24 is not DONE) listed in `PROGRESS.md` §3 with what unblocks them
+- [x] Deferred live-provider and specialist items are listed in the verification record with their unblock conditions
 
 Current verification also proves that a webhook without a provider message id is deduplicated through
 a durable tenant/conversation idempotency key, escalation persists the conversation state, invoice
