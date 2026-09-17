@@ -602,3 +602,7 @@ pass 13/13; real held-stock evidence and specialist review remain open.
 WORK LOG (2026-09-14): Stage 21 payment event replay now compares checkout, provider payment,
 status and provider-reference fields as well as company and fingerprint. `EcommerceDomainTests`
 passes 10/10; gateway orchestration and PostgreSQL webhook replay remain open.
+
+WORK LOG (2026-09-17): Stage 31 encrypted PostgreSQL disaster-recovery drill passed locally from
+fresh source/target databases: snapshot verification, restore, and `users=5 roles=4 stores=2`
+reconciliation all succeeded.

@@ -70,6 +70,9 @@ paths and symlink payloads before hashing; packaging and restore acceptance rema
 manifest generation, manifest verification and RSA signature verification — with all four passing.
 Android/Windows packaging, restore rehearsal and the dependent Stage 30b control plane remain open.
 
+2026-09-17: Local disposable PostgreSQL DR drill passed end to end. An encrypted snapshot was
+verified and restored into a fresh database with matching `users=5 roles=4 stores=2` counts.
+
 The CI workflow now executes manifest generation, verification and activation tests on each current
 revision, while superseded branch runs are cancelled to keep the latest gate authoritative.
 
@@ -77,8 +80,8 @@ GitHub CI run `34800395226` completed green for the complete configured release 
 backend build/test/migration checks, Android Compose compilation, vulnerability scanning and Windows
 packaging. The clean PostgreSQL DR drill now also passes: encrypted snapshot
 `01a09dea-b7bc-7000-9314-ac813ac94de5` verified and restored into `vuma_drill_restored` with
-matching `users=5 roles=4 stores=2` counts. The subsequent demo-scope correction remains pending
-its own workflow result.
+matching `users=5 roles=4 stores=2` counts. The current local drill independently passed with
+snapshot `01a0adf9-a541-7000-b012-452d28cf939e` and the same matching counts.
 
 GitHub CI run `34802104182` subsequently completed green for commit `8f6b19f`, including the
 Windows package job and all release gates. The local full PostgreSQL integration suite passes
