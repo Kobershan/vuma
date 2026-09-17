@@ -38,6 +38,11 @@ deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now es
 requested company before dispatch. StoreServer Release build passes with 0 errors; focused
 service/HR/assets unit tests pass 162/162.
 
+WORK LOG (2026-09-18): Stage 23 service reads now expose company/tenant-scoped warranty claims,
+repair jobs and issued-part usage through `/api/v1/service/warranties`, `/repairs` and `/parts`.
+Targeted source validation is in progress; invoicing/RMA integration and full PostgreSQL service
+API acceptance remain open.
+
 WORK LOG (2026-09-17): Closed two Stage 22b architecture defects in conversation delivery audit:
 the repository no longer commits outside the unit-of-work pipeline, and delivery attempts now
 declare append-only StoreToCloud replication. Architecture tests pass 86/86; conversation-focused

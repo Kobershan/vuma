@@ -48,7 +48,7 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 
 ## Parts — the build list
 
-- [~] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — [TASK-23-001](../tasks/TASK-23-001-service-ticket-warranty-custody.md) is in progress; domain, persistence, commands, and initial API routes are implemented, while reads, parts integration, and isolation acceptance remain.
+- [~] 23-P01: Implement tickets, warranty snapshots and custody lifecycle — [TASK-23-001](../tasks/TASK-23-001-service-ticket-warranty-custody.md) and [TASK-23-005](../tasks/TASK-23-005-service-read-api.md) are implemented; domain, persistence, commands, scoped reads and initial API routes are present, while full isolation acceptance remains.
 - [~] 23-P02: Integrate repair approvals, reserved/consumed parts, invoicing and RMA. Reservation-backed
   service-part issue, dedicated stock movement/reference, API route, and replay test are implemented;
   invoicing/RMA and full PostgreSQL availability acceptance remain.
@@ -91,6 +91,9 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 - 2026-09-17: Service SLA-deadline API now binds the requested company before dispatching the
   company-guarded query. StoreServer Release build passes with **0 errors** and the focused
   service/HR/assets unit slice passes **162/162**.
+- 2026-09-18: Added company/tenant-scoped warranty, repair and service-part usage reads at
+  `GET /api/v1/service/warranties`, `/repairs` and `/parts`. Unit coverage includes tenant
+  isolation, active-company refusal and cost/currency preservation.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 

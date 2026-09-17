@@ -13,6 +13,67 @@ public sealed record ListServiceTicketsQuery(Guid CompanyId, Guid? CustomerId = 
 public sealed record ServiceTicketResult(Guid Id, Guid CompanyId, Guid CustomerId, string Subject,
     string Status, DateTimeOffset OpenedAtUtc, DateTimeOffset? ClosedAtUtc);
 
+public sealed record ListServiceWarrantiesQuery(Guid CompanyId, Guid? CustomerId = null)
+    : IQuery<IReadOnlyList<ServiceWarrantyResult>>;
+
+public sealed record ServiceWarrantyResult(Guid Id, Guid CompanyId, Guid TicketId, Guid CustomerId,
+    string SaleReference, DateOnly SaleDate, string SerialNumber, string Status, DateTimeOffset SubmittedAtUtc,
+    DateTimeOffset? DecidedAtUtc);
+
+public sealed class ListServiceWarrantiesQueryHandler(IServiceRepository services, ICompanyContext company, ITenantContext tenant)
+    : IQueryHandler<ListServiceWarrantiesQuery, IReadOnlyList<ServiceWarrantyResult>>
+{
+    public async Task<IReadOnlyList<ServiceWarrantyResult>> HandleAsync(ListServiceWarrantiesQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
+        return (await services.ListWarrantiesAsync(query.CompanyId, query.CustomerId, cancellationToken).ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.CompanyId == query.CompanyId)
+            .Select(x => new ServiceWarrantyResult(x.Id, x.CompanyId!.Value, x.TicketId, x.CustomerId,
+                x.SaleReference, x.SaleDate, x.SerialNumber, x.Status.ToString(), x.SubmittedAtUtc, x.DecidedAtUtc)).ToArray();
+    }
+}
+
+public sealed record ListServiceRepairsQuery(Guid CompanyId, Guid? TicketId = null)
+    : IQuery<IReadOnlyList<ServiceRepairResult>>;
+
+public sealed record ServiceRepairResult(Guid Id, Guid CompanyId, Guid TicketId, string ItemReference,
+    string Status, DateTimeOffset OpenedAtUtc, DateTimeOffset? CompletedAtUtc);
+
+public sealed class ListServiceRepairsQueryHandler(IServiceRepository services, ICompanyContext company, ITenantContext tenant)
+    : IQueryHandler<ListServiceRepairsQuery, IReadOnlyList<ServiceRepairResult>>
+{
+    public async Task<IReadOnlyList<ServiceRepairResult>> HandleAsync(ListServiceRepairsQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
+        return (await services.ListRepairsAsync(query.CompanyId, query.TicketId, cancellationToken).ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.CompanyId == query.CompanyId)
+            .Select(x => new ServiceRepairResult(x.Id, x.CompanyId!.Value, x.TicketId, x.ItemReference,
+                x.Status.ToString(), x.OpenedAtUtc, x.CompletedAtUtc)).ToArray();
+    }
+}
+
+public sealed record ListServicePartUsagesQuery(Guid CompanyId, Guid? RepairJobId = null)
+    : IQuery<IReadOnlyList<ServicePartUsageResult>>;
+
+public sealed record ServicePartUsageResult(Guid Id, Guid CompanyId, Guid RepairJobId, Guid OperationId,
+    Guid? ItemId, Guid? ItemVariantId, decimal Quantity, decimal UnitCost, string Currency, DateTimeOffset IssuedAtUtc);
+
+public sealed class ListServicePartUsagesQueryHandler(IServiceRepository services, ICompanyContext company, ITenantContext tenant)
+    : IQueryHandler<ListServicePartUsagesQuery, IReadOnlyList<ServicePartUsageResult>>
+{
+    public async Task<IReadOnlyList<ServicePartUsageResult>> HandleAsync(ListServicePartUsagesQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ListServiceTicketsQueryHandler.EnsureCompany(company, query.CompanyId);
+        return (await services.ListPartUsagesAsync(query.CompanyId, query.RepairJobId, cancellationToken).ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.CompanyId == query.CompanyId)
+            .Select(x => new ServicePartUsageResult(x.Id, x.CompanyId!.Value, x.RepairJobId, x.OperationId,
+                x.ItemId, x.ItemVariantId, x.Quantity, x.UnitCost, x.Currency, x.IssuedAtUtc)).ToArray();
+    }
+}
+
 public sealed record GetServiceSlaDeadlinesQuery(Guid CompanyId, Guid TicketId, string SlaName, DateTimeOffset AsOfUtc)
     : IQuery<ServiceSlaDeadlineResult>;
 

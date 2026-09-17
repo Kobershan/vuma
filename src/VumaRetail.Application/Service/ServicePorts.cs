@@ -12,6 +12,9 @@ public interface IServiceRepository
     Task<IReadOnlyList<ServiceCustodyEvent>> ListCustodyAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default);
     Task<ServiceTicket?> FindTicketAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServiceTicket?> FindTicketByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WarrantyClaim>> ListWarrantiesAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RepairJob>> ListRepairsAsync(Guid companyId, Guid? ticketId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ServicePartUsage>> ListPartUsagesAsync(Guid companyId, Guid? repairJobId = null, CancellationToken cancellationToken = default);
     Task<WarrantyClaim?> FindWarrantyAsync(Guid id, CancellationToken cancellationToken = default);
     Task<RepairJob?> FindRepairAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ServicePartUsage?> FindPartUsageByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);

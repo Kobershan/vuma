@@ -19,6 +19,9 @@ public static class ServiceEndpoints
             .WithTags("Service").RequireModule("service");
         service.MapPost("/tickets", OpenTicketAsync).RequirePermission(ServicePermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         service.MapGet("/tickets", ListTicketsAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceTicketResult>>();
+        service.MapGet("/warranties", ListWarrantiesAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceWarrantyResult>>();
+        service.MapGet("/repairs", ListRepairsAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServiceRepairResult>>();
+        service.MapGet("/parts", ListPartUsagesAsync).RequirePermission(ServicePermissions.View).Produces<IReadOnlyList<ServicePartUsageResult>>();
         service.MapGet("/tickets/{id:guid}/sla", async (Guid id, Guid companyId, string slaName, DateTimeOffset asOfUtc, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
         {
             company.SetCompany(companyId);
@@ -79,6 +82,33 @@ public static class ServiceEndpoints
         company.SetCompany(companyId);
         IReadOnlyList<ServiceTicketResult> result = await dispatcher.QueryAsync(
             new ListServiceTicketsQuery(companyId, customerId), cancellationToken).ConfigureAwait(false);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> ListWarrantiesAsync(Guid companyId, Guid? customerId, ICompanyContext company,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        IReadOnlyList<ServiceWarrantyResult> result = await dispatcher.QueryAsync(
+            new ListServiceWarrantiesQuery(companyId, customerId), cancellationToken).ConfigureAwait(false);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> ListRepairsAsync(Guid companyId, Guid? ticketId, ICompanyContext company,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        IReadOnlyList<ServiceRepairResult> result = await dispatcher.QueryAsync(
+            new ListServiceRepairsQuery(companyId, ticketId), cancellationToken).ConfigureAwait(false);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> ListPartUsagesAsync(Guid companyId, Guid? repairJobId, ICompanyContext company,
+        IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(companyId);
+        IReadOnlyList<ServicePartUsageResult> result = await dispatcher.QueryAsync(
+            new ListServicePartUsagesQuery(companyId, repairJobId), cancellationToken).ConfigureAwait(false);
         return Results.Ok(result);
     }
 

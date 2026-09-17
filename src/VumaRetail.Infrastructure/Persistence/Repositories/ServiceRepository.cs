@@ -25,6 +25,21 @@ public sealed class ServiceRepository(VumaRetailDbContext context) : IServiceRep
     public Task<ServiceTicket?> FindTicketByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default)
         => context.ServiceTickets.FirstOrDefaultAsync(x => x.OperationId == operationId, cancellationToken);
 
+    public async Task<IReadOnlyList<WarrantyClaim>> ListWarrantiesAsync(Guid companyId, Guid? customerId = null, CancellationToken cancellationToken = default)
+        => await context.WarrantyClaims.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && (customerId == null || x.CustomerId == customerId))
+            .OrderByDescending(x => x.SubmittedAtUtc).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<RepairJob>> ListRepairsAsync(Guid companyId, Guid? ticketId = null, CancellationToken cancellationToken = default)
+        => await context.RepairJobs.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && (ticketId == null || x.TicketId == ticketId))
+            .OrderByDescending(x => x.OpenedAtUtc).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<ServicePartUsage>> ListPartUsagesAsync(Guid companyId, Guid? repairJobId = null, CancellationToken cancellationToken = default)
+        => await context.ServicePartUsages.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && (repairJobId == null || x.RepairJobId == repairJobId))
+            .OrderByDescending(x => x.IssuedAtUtc).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public Task<WarrantyClaim?> FindWarrantyAsync(Guid id, CancellationToken cancellationToken = default)
         => context.WarrantyClaims.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
