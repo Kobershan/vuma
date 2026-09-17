@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Reporting;
+using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Security;
 
@@ -15,6 +16,10 @@ public static class ReportingServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddScoped<IReportingRepository, ReportingRepository>();
         services.TryAddScoped<IReportExportDownloadAuthorizer, ReportExportDownloadAuthorizer>();
+        services.TryAddSingleton<IReportExporter, CsvReportExporter>();
+        services.TryAddSingleton<IReportArtifactStore, FileSystemReportArtifactStore>();
+        services.TryAddSingleton<ReportArtifactStoreOptions>();
+        services.TryAddScoped<ReportExportExecutor>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
         return services;

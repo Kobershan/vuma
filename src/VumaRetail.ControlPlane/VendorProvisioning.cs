@@ -20,9 +20,9 @@ public interface IUnlockCodeSigner
 }
 
 /// <summary>Vendor-only provisioning and offline unlock policy; no tenant business data access.</summary>
-public sealed class VendorProvisioning(IClock? clock = null)
+public sealed class VendorProvisioning(IClock clock)
 {
-    private readonly IClock clock = clock ?? new SystemClockAdapter();
+    private readonly IClock clock = clock ?? throw new ArgumentNullException(nameof(clock));
     private readonly Dictionary<string, ProvisionedTenant> tenants = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, EmergencyWriteCode> unlocks = [];
     private readonly Dictionary<string, OffboardingPackage> offboarding = new(StringComparer.Ordinal);

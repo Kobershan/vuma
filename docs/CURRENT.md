@@ -425,6 +425,12 @@ WORK LOG (2026-09-14): Stage 29 export completion, failure, status and download 
 enforce tenant as well as company scope, and export handoff routes bind the request company before
 dispatch. `ReportingDomainTests` passes **9/9**; renderer/storage and scheduling remain open.
 
+WORK LOG (2026-09-17): Stage 29 now includes a replay-safe company/source reporting projection with
+event-id deduplication, monotonic cursor handling, currency-separated measures and deterministic
+rebuilds. CSV rendering, path-safe filesystem artifact storage and queued export execution are also
+implemented and covered by **16/16** reporting tests. Provider adapters, durable schedules, polling
+worker registration and production object storage remain open.
+
 WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their request company;
 campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
 build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.

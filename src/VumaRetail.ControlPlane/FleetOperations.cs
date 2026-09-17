@@ -13,9 +13,9 @@ public sealed record RemoteCommand(Guid Id, string NodeId, string Command,
     DateTimeOffset CreatedAt, bool Halted);
 
 /// <summary>Deterministic vendor fleet policy; it never accesses tenant business data.</summary>
-public sealed class FleetOperations(IClock? clock = null)
+public sealed class FleetOperations(IClock clock)
 {
-    private readonly IClock clock = clock ?? new SystemClockAdapter();
+    private readonly IClock clock = clock ?? throw new ArgumentNullException(nameof(clock));
     private readonly Dictionary<string, FleetNode> nodes = new(StringComparer.Ordinal);
     private readonly List<RolloutPlan> rollouts = [];
     private readonly List<RemoteCommand> commands = [];
@@ -88,11 +88,6 @@ public sealed class FleetOperations(IClock? clock = null)
         return halted;
     }
 
-}
-
-public sealed class SystemClockAdapter : IClock
-{
-    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
 
 public interface IClock

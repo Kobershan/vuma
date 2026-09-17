@@ -6,7 +6,7 @@ Permission catalogue note: reporting permissions are `reporting.report.view` and
 The shipped permission catalogue now has a regression test covering every discoverable module
 declaration; the focused suite passes **9/9**.
 
-**Status:** IN_PROGRESS — report definition, projection checkpoint and dashboard freshness foundation implemented; persistence, projections, APIs, exports and acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — report lifecycle, persistence, freshness, replay-safe projection, deterministic CSV renderer, filesystem artifact store and queued export executor slices implemented; provider adapters, scheduling, rebuild persistence and acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -51,15 +51,15 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
 ## Parts — the build list
 
 - [~] 29-P01: Specify financial/business-date definitions and per-module projection contracts. Report
-  lifecycle, replay-safe projection checkpoints and stale-contributor dashboard semantics are implemented
-  and tested; persistence and module adapters remain.
+  lifecycle, replay-safe projection checkpoints, stale-contributor dashboard semantics and a replay-safe
+  contribution implementation are implemented and tested; provider adapters remain.
 - [~] 29-P02: Build local/cloud projections, checkpoints and scope-aware dashboard/report APIs. Reporting
   definitions and projection checkpoints are persisted, and a permission/module-scoped report-definition
   API is mapped; a company-scoped dashboard freshness query is now exposed, while projection adapters,
   aggregate measures and export execution remain.
 - [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
-  idempotent export requests and status routes are implemented; worker execution, scheduling, rebuild
-  and full acceptance remain.
+  idempotent export requests/status routes, deterministic CSV rendering, filesystem artifact storage and
+  a queued export executor are implemented; scheduled polling, durable schedules and full acceptance remain.
 
 2026-09-13: Export completion/failure worker handoff commands now enforce company scope and persist
 artifact references through `Stage29ReportExportArtifactsFix`; requests use `reporting.report.manage`.
@@ -88,6 +88,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-15: Added company-scoped `GET /api/v1/dashboard/overview`, backed by persisted projection
   checkpoints and a 24-hour stale-contributor rule. `DashboardQueryTests` passes **2/2**; aggregate
   dashboard measures and projection adapters remain.
+- 2026-09-17: Added replay-safe company/source projection state with event-id deduplication and
+  currency-separated measures, deterministic CSV rendering, path-safe filesystem artifact storage and
+  a queued export executor. Reporting unit suite passes **16/16**; provider adapters, durable schedules,
+  polling worker registration and production object storage remain. Focused reporting tests: **16/16**.
 
 ## Tests / acceptance
 
