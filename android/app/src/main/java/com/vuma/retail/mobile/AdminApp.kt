@@ -26,6 +26,9 @@ fun VumaAdminApp(application: VumaApplication) {
     val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     var session by remember { mutableStateOf<TenantSession?>(null) }
     var dashboard by remember { mutableStateOf<DashboardSnapshot?>(null) }
+    var stock by remember { mutableStateOf<List<StockBalance>>(emptyList()) }
+    var approvals by remember { mutableStateOf<List<ApprovalSummary>>(emptyList()) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -39,18 +42,33 @@ fun VumaAdminApp(application: VumaApplication) {
                         val api = VumaApiClient(profile.baseUrl, "")
                         val token = api.signIn(username, password)
                         application.sessionStore.saveRefreshToken(token.refreshToken)
-                        TenantSession(profile, token.userId, emptySet(), token.accessToken) to api.dashboardOverview()
+                        TenantSession(profile, token.userId, api.permissions(), token.accessToken) to Triple(
+                            api.dashboardOverview(),
+                            api.stockLocations().firstOrNull()?.let { api.stockBalances(it.id) } ?: emptyList(),
+                            api.pendingApprovals()
+                        )
                     }
-                    session = result.first; dashboard = result.second
+                    session = result.first
+                    dashboard = result.second.first
+                    stock = result.second.second
+                    approvals = result.second.third
                 } catch (cause: Exception) { error = cause.message ?: "Sign in failed." }
                 finally { busy = false }
             }
         }
     } else {
-        DashboardScreen(dashboard, busy, error) {
+        DashboardScreen(dashboard, stock, approvals, selectedTab, busy, error, { selectedTab = it }) {
             busy = true; error = null
             owner.lifecycleScope.launch {
-                try { dashboard = withContext(Dispatchers.IO) { VumaApiClient(session!!.profile.baseUrl, session!!.accessToken).dashboardOverview() } }
+                try {
+                    val refreshed = withContext(Dispatchers.IO) {
+                        val api = VumaApiClient(session!!.profile.baseUrl, session!!.accessToken)
+                        Triple(api.dashboardOverview(), api.stockLocations().firstOrNull()?.let { api.stockBalances(it.id) } ?: emptyList(), api.pendingApprovals())
+                    }
+                    dashboard = refreshed.first
+                    stock = refreshed.second
+                    approvals = refreshed.third
+                }
                 catch (cause: Exception) { error = cause.message ?: "Refresh failed." }
                 finally { busy = false }
             }
@@ -79,19 +97,56 @@ private fun LoginScreen(busy: Boolean, error: String?, onLogin: (String, String,
 }
 
 @Composable
-private fun DashboardScreen(snapshot: DashboardSnapshot?, busy: Boolean, error: String?, onRefresh: () -> Unit) {
+private fun DashboardScreen(snapshot: DashboardSnapshot?, stock: List<StockBalance>, approvals: List<ApprovalSummary>, selectedTab: Int, busy: Boolean, error: String?, onTabSelected: (Int) -> Unit, onRefresh: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column { Text("Operations overview", style = MaterialTheme.typography.headlineMedium); Text(snapshot?.asAt ?: "No live snapshot") }
             Button(onClick = onRefresh, enabled = !busy) { if (busy) CircularProgressIndicator() else Text("Refresh") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        snapshot?.let {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onTabSelected(0) }) { Text("Overview") }
+            Button(onClick = { onTabSelected(1) }) { Text("Stock") }
+            Button(onClick = { onTabSelected(2) }) { Text("Approvals") }
+        }
+        when (selectedTab) {
+            1 -> StockScreen(stock)
+            2 -> ApprovalsScreen(approvals)
+            else -> snapshot?.let {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard("Sales today", it.salesByCurrency.entries.joinToString { (currency, amount) -> "$currency ${"%.2f".format(amount)}" }, Modifier.weight(1f))
                 MetricCard("Orders", it.ordersToday.toString(), Modifier.weight(1f))
             }
             MetricCard("Open orders", it.openOrders.toString(), Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun StockScreen(stock: List<StockBalance>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Stock balances", style = MaterialTheme.typography.titleLarge)
+        if (stock.isEmpty()) Text("No stock balances returned.")
+        stock.forEach { balance ->
+            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
+                Text(balance.itemId ?: balance.itemVariantId ?: "Unidentified item")
+                Text("${balance.quantityOnHand} ${balance.unitOfMeasure} · ${balance.currency} ${"%.2f".format(balance.totalValue)}")
+            } }
+        }
+    }
+}
+
+@Composable
+private fun ApprovalsScreen(approvals: List<ApprovalSummary>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Pending approvals", style = MaterialTheme.typography.titleLarge)
+        if (approvals.isEmpty()) Text("No pending approvals.")
+        approvals.forEach { approval ->
+            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
+                Text("${approval.module} · ${approval.action}")
+                Text("${approval.entityType} ${approval.subjectEntityId} · ${approval.status}")
+            } }
         }
     }
 }
