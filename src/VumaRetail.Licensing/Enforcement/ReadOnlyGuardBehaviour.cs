@@ -53,7 +53,7 @@ public sealed class ReadOnlyGuardBehaviour(
             return await next(cancellationToken).ConfigureAwait(false);
         }
 
-        // The three ADR-028 carve-outs, declared on the command itself and capped at a closed list by
+        // The ADR-028 carve-outs, declared on the command itself and capped at a closed list by
         // an architecture test. Checked before the level is even looked up: a backup and an offline
         // flush must run in every state, so asking would be asking a question whose answer cannot
         // change what happens next.

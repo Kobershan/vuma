@@ -119,4 +119,11 @@ public enum ReadOnlyExemption
     /// mechanism.
     /// </remarks>
     ReceiptReprint = 4,
+
+    /// <summary>
+    /// Finishing a sale or cash-up that was already open when read-only enforcement began. The
+    /// session registry supplies the independent age and deadline bounds for this exemption.
+    /// </summary>
+    // TODO: Requires ADR
+    CompleteInFlight = 5,
 }
