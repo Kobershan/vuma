@@ -57,6 +57,7 @@ using VumaRetail.Web.Workflow;
 using VumaRetail.Web.Manufacturing;
 using VumaRetail.Web.Logistics;
 using VumaRetail.Infrastructure.Conversations;
+using VumaRetail.Infrastructure.Marketing;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -240,6 +241,7 @@ builder.Services.AddVumaReporting();
 // never a cross-schema foreign key). No scheduled passes.
 builder.Services.AddVumaCrm();
 builder.Services.AddVumaMarketing();
+builder.Services.AddVumaMarketingScheduling(new MarketingHostTenant(host.TenantId, host.StoreId));
 builder.Services.AddVumaConversationalCommerce();
 builder.Services.Configure<TwilioWhatsAppOptions>(builder.Configuration.GetSection(TwilioWhatsAppOptions.SectionName));
 

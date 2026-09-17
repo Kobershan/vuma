@@ -49,6 +49,11 @@ provider results clear the retry timestamp, and provider event IDs are unique pe
 Migration `20260917041436_Stage22MarketingRetryScheduling` passes PostgreSQL up/down/up execution;
 the focused marketing unit suite passes **27/27**.
 
+2026-09-17: `MarketingDeliveryHostedService` is registered by StoreServer. It enumerates active
+tenant companies, creates a fresh tenant/company scope per company, and dispatches bounded batches
+through the existing durable worker; a failure for one company is logged without stopping the
+remaining companies. StoreServer and the focused marketing suite remain green (**27/27**).
+
 ## Follow-up findings
 
 The durable shared delivery outbox and provider callback deployment remain open. Outbound rows now

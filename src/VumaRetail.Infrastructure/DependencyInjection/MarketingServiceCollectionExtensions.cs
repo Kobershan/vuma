@@ -29,4 +29,16 @@ public static class MarketingServiceCollectionExtensions
         services.AddHttpClient<IMarketingTransport, HttpMarketingTransport>();
         return services;
     }
+
+    public static IServiceCollection AddVumaMarketingScheduling(
+        this IServiceCollection services, MarketingHostTenant host)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(host);
+        services.AddSingleton(host);
+        services.AddOptions<MarketingDeliveryOptions>()
+            .BindConfiguration(MarketingDeliveryOptions.SectionName);
+        services.AddHostedService<MarketingDeliveryHostedService>();
+        return services;
+    }
 }
