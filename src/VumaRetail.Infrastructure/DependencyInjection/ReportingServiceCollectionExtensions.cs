@@ -7,6 +7,7 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Reporting;
 using VumaRetail.Infrastructure.Security;
+using VumaRetail.Infrastructure.Reporting;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -25,6 +26,18 @@ public static class ReportingServiceCollectionExtensions
         services.TryAddScoped<IReportDataSource, DashboardReportDataSource>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModulePermissions, ReportingPermissions>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IModuleManifest, ReportingModuleManifest>());
+        return services;
+    }
+
+    public static IServiceCollection AddVumaReportingScheduling(
+        this IServiceCollection services, ReportingHostTenant host)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(host);
+        services.AddSingleton(host);
+        services.AddOptions<ReportSchedulingOptions>()
+            .BindConfiguration(ReportSchedulingOptions.SectionName);
+        services.AddHostedService<ReportSchedulingHostedService>();
         return services;
     }
 }

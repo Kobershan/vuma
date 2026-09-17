@@ -12,6 +12,7 @@ public interface IReportingRepository
     Task<IReadOnlyList<DashboardMeasure>> ListMeasuresAsync(Guid companyId, DateOnly businessDate, CancellationToken cancellationToken = default);
     Task<ReportExport?> FindExportByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default);
     Task<ReportExport?> FindExportAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ReportExport>> ListQueuedExportsAsync(Guid companyId, int limit, CancellationToken cancellationToken = default);
     Task<ScheduledReport?> FindScheduleAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ScheduledReport>> ListDueSchedulesAsync(DateTimeOffset asOfUtc, int limit, CancellationToken cancellationToken = default);
     void Add(ReportDefinition definition);

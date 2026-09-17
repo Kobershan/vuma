@@ -13,6 +13,9 @@ public sealed class ReportingRepository(VumaRetailDbContext context) : IReportin
     public async Task<IReadOnlyList<DashboardMeasure>> ListMeasuresAsync(Guid companyId, DateOnly businessDate, CancellationToken cancellationToken = default) => await context.DashboardMeasures.AsNoTracking().Where(x => x.CompanyId == companyId && x.BusinessDate == businessDate).OrderBy(x => x.Name).ThenBy(x => x.Currency).ToListAsync(cancellationToken).ConfigureAwait(false);
     public Task<ReportExport?> FindExportByOperationIdAsync(Guid operationId, CancellationToken cancellationToken = default) => context.ReportExports.FirstOrDefaultAsync(x => x.OperationId == operationId, cancellationToken);
     public Task<ReportExport?> FindExportAsync(Guid id, CancellationToken cancellationToken = default) => context.ReportExports.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public async Task<IReadOnlyList<ReportExport>> ListQueuedExportsAsync(Guid companyId, int limit, CancellationToken cancellationToken = default) =>
+        await context.ReportExports.AsNoTracking().Where(x => x.CompanyId == companyId && x.Status == ReportExportStatus.Queued)
+            .OrderBy(x => x.RequestedAtUtc).ThenBy(x => x.Id).Take(Math.Clamp(limit, 1, 200)).ToListAsync(cancellationToken).ConfigureAwait(false);
     public Task<ScheduledReport?> FindScheduleAsync(Guid id, CancellationToken cancellationToken = default) => context.ScheduledReports.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public async Task<IReadOnlyList<ScheduledReport>> ListDueSchedulesAsync(DateTimeOffset asOfUtc, int limit, CancellationToken cancellationToken = default) =>
         await context.ScheduledReports.Where(x => x.IsEnabled && x.NextRunAtUtc <= asOfUtc.ToUniversalTime()).OrderBy(x => x.NextRunAtUtc).Take(Math.Clamp(limit, 1, 200)).ToListAsync(cancellationToken).ConfigureAwait(false);

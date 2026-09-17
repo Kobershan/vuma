@@ -4,8 +4,8 @@
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
 CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Main is synchronized through
-`077e4cb`, including upstream code-gap closure, replay-safe reporting exports, durable schedules and
-persisted dashboard measures. The only uncommitted files are pre-existing desktop artifacts under
+`0680b16`, including upstream code-gap closure, replay-safe reporting exports, durable schedules,
+persisted dashboard measures and the StoreServer hosted report scheduler. The only uncommitted files are pre-existing desktop artifacts under
 `docs/`; they are intentionally preserved and excluded from commits.
 
 WORK LOG (2026-09-18): Closed five code-level gaps with tests: (1) clearing balances now aggregate
@@ -15,8 +15,8 @@ queries and routes (`ProjectLifecycleTests` 4/4); (3) marketing gains `/deliveri
 reads over a new `ListByStatusAsync` port (`MarketingReadsTests` 3/3); (4) reporting keeps canonical
 `/reports/exports` and adds the stage-documented `/report-exports` alias; (5) control plane gains
 device rebind/revoke/diagnostics/telemetry-error/update-check routes backed by idempotent store
-methods and `FleetOperations.SelectUpdate` (control-plane suite 23/23). Full unit/architecture/
-integration suites and CI are NOT yet rerun for this slice.
+methods and `FleetOperations.SelectUpdate` (control-plane suite 23/23). Full unit, architecture and
+PostgreSQL integration suites were subsequently rerun successfully.
 
 VERIFICATION (2026-09-18): After integrating upstream `d6ddf03`, the combined Release unit suite
 passes **1,643/1,643**, ControlPlane tests pass **23/23**, and architecture tests pass **86/86**.
@@ -25,8 +25,9 @@ fix to satisfy the repository wall-clock rule; both are pushed in `077e4cb`.
 
 WORK LOG (2026-09-18): Stage 29 reporting now includes persisted company/date/name/currency dashboard
 measures, monotonic replacement, reversible `Stage29DashboardMeasures` migration, and an idempotent
-due-schedule enqueue boundary. Focused reporting tests pass **20/20**; PostgreSQL reporting migration
-checks pass **1/1**. Hosted timer registration, source-module adapters and production acceptance remain.
+due-schedule enqueue boundary. Focused reporting tests pass **21/21**; PostgreSQL reporting migration
+checks pass **1/1**. The StoreServer hosted timer/export worker is registered and verified; source-module
+adapters and production acceptance remain.
 
 VERIFICATION (2026-09-18): Registered the dashboard-backed export data source after the combined
 integration run exposed an unresolved DI dependency. Reporting tests pass **21/21**, workflow host/API

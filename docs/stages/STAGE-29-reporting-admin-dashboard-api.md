@@ -6,7 +6,7 @@ Permission catalogue note: reporting permissions are `reporting.report.view` and
 The shipped permission catalogue now has a regression test covering every discoverable module
 declaration; the focused suite passes **9/9**.
 
-**Status:** IN_PROGRESS — report lifecycle, persistence, freshness, replay-safe projection, deterministic CSV renderer, filesystem artifact store and queued export executor slices implemented; provider adapters, scheduling, rebuild persistence and acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — report lifecycle, persistence, freshness, replay-safe projection, deterministic CSV renderer, filesystem artifact store, queued export executor and StoreServer hosted scheduling are implemented; provider adapters, rebuild persistence and production acceptance remain · **Depends on:** each contributing module's verified API/event contract; 03, 04, 06c, 07 · **Reference reading:** [API standards](../API_STANDARDS.md) §§1–10, [sync contract](../SYNC_AND_BACKUP.md) §§3–7, [cloud/offline recommendations](../OFFLINE-CLOUD-API-AND-PROTECTION.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -59,8 +59,8 @@ Declare granular `reporting.view`, `reporting.manage` and distinct high-risk app
   aggregate measures and export execution remain.
 - [~] 29-P03: Add export scheduling, mobile contract tests, rebuild and stale-data acceptance. Durable,
   idempotent export requests/status routes, deterministic CSV rendering, filesystem artifact storage and
-  a queued export executor are implemented; durable schedules are now persisted and API-writable, while
-  scheduled polling and full acceptance remain.
+  a queued export executor are implemented; durable schedules are persisted and API-writable, and
+  StoreServer scheduled polling is registered; provider adapters, rebuild and full acceptance remain.
 
 2026-09-13: Export completion/failure worker handoff commands now enforce company scope and persist
 artifact references through `Stage29ReportExportArtifactsFix`; requests use `reporting.report.manage`.
@@ -107,7 +107,11 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-18: Registered a scoped dashboard-backed export data source, preserving business-date and
   currency columns for CSV execution. Reporting tests pass **21/21**, workflow host/API checks pass
   **11/11**, and the full PostgreSQL integration suite passes **632/632**; provider-specific adapters,
-  hosted scheduling and production object storage remain.
+  source-module adapters and production object storage remain.
+- 2026-09-18: Registered the StoreServer hosted schedule/export worker with active-company scoping,
+  bounded FIFO queue reads and per-export completion/failure commits. Reporting tests pass **21/21**,
+  architecture rules **86/86**, StoreServer Release build has 0 errors and workflow host/API checks
+  pass **11/11**.
 
 ## Tests / acceptance
 
