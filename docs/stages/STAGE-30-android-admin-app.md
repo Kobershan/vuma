@@ -88,6 +88,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   with JDK 17 and the configured Android SDK: **BUILD SUCCESSFUL**. Room schema export is now configured
   at `android/app/schemas`, eliminating the prior processor warning. Physical-device, signed-release,
   push and outage acceptance remain open.
+- 2026-09-17: Extended the authenticated Kotlin client against the existing API contracts for username
+  sign-in, rotating refresh, permissions, stock locations/balances, pending approvals and approval
+  decisions. Sign-in and refresh replace the in-memory access token; all calls remain bearer-scoped to
+  the enrolled endpoint. Gradle 8.9 `assembleDebug` passed again after this change.
 
 ## Tests / acceptance
 

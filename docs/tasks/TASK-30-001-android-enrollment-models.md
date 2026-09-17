@@ -6,7 +6,7 @@ Added strict HTTPS `EndpointProfile` enrollment and tenant/user/company-scoped `
 `PendingAction` models. The profile excludes URL userinfo and bearer credentials; pending actions
 represent server intents and cannot be mistaken for completed approvals.
 
-Evidence: source added under `android/app/src/main/java/com/vuma/retail/mobile/`. Android SDK/Gradle
-is unavailable in this environment, so assemble and device tests remain UNVERIFIED. Room persistence,
-protected token storage, refresh, retry, and endpoint-switch invalidation are now implemented in the
-Android baseline; authenticated API/device acceptance remains open.
+Evidence: source added under `android/app/src/main/java/com/vuma/retail/mobile/`. Room persistence,
+protected token storage, rotating refresh, retry, endpoint-switch invalidation and authenticated API
+session replacement are implemented in the Android baseline. Android `assembleDebug` passed locally
+with Gradle 8.9/JDK 17 on 2026-09-17; device acceptance remains open.
