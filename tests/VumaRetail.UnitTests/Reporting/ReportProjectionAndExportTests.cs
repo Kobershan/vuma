@@ -184,6 +184,17 @@ public sealed class ReportProjectionAndExportTests
         reports.Received(1).Add(Arg.Is<ReportExport>(x => x.OperationId != Guid.Empty && x.ReportCode == "SALES"));
     }
 
+    [Fact]
+    public void Dashboard_measure_replacement_rejects_older_snapshots()
+    {
+        DateTimeOffset current = new(2026, 9, 17, 12, 0, 0, TimeSpan.Zero);
+        DashboardMeasure measure = DashboardMeasure.Record(Guid.NewGuid(), null, Guid.NewGuid(), new DateOnly(2026, 9, 17), "revenue", "zar", 100m, current);
+
+        FluentActions.Invoking(() => measure.Replace(90m, current.AddMinutes(-1)))
+            .Should().Throw<InvalidOperationException>();
+        measure.Currency.Should().Be("ZAR");
+    }
+
     private static ReportingProjectionEvent Event(Guid companyId, string cursor, string currency, params (string Name, decimal Value)[] measures) =>
         new(Guid.NewGuid(), companyId, "sales", 1, cursor, currency, measures.ToDictionary(x => x.Name, x => x.Value));
 }

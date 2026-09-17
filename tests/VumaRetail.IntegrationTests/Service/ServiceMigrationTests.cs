@@ -47,6 +47,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
         logisticsTables.Should().BeEquivalentTo(["carriers", "delivery_runs", "delivery_stops", "proofs_of_delivery", "shipments"], options => options.WithStrictOrdering());
 
         await context.Database.MigrateAsync("20260917063042_Stage29ScheduledReports").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260917064625_Stage29DashboardMeasures").ConfigureAwait(false);
 
         IReadOnlyList<string> reportingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
@@ -54,7 +55,15 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             WHERE table_schema = 'reporting'
             ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
-        reportingTables.Should().BeEquivalentTo(["projection_checkpoints", "report_definitions", "report_exports", "scheduled_reports"], options => options.WithStrictOrdering());
+        reportingTables.Should().BeEquivalentTo(["dashboard_measures", "projection_checkpoints", "report_definitions", "report_exports", "scheduled_reports"], options => options.WithStrictOrdering());
+
+        await context.Database.MigrateAsync("20260917063042_Stage29ScheduledReports").ConfigureAwait(false);
+        IReadOnlyList<string> revertedDashboardMeasureTables = await context.Database.SqlQuery<string>($"""
+            SELECT table_name AS "Value"
+            FROM information_schema.tables
+            WHERE table_schema = 'reporting' AND table_name = 'dashboard_measures'
+            """).ToListAsync().ConfigureAwait(false);
+        revertedDashboardMeasureTables.Should().BeEmpty();
 
         await context.Database.MigrateAsync("20260913192159_Stage29ReportExports").ConfigureAwait(false);
         IReadOnlyList<string> revertedScheduledReportTables = await context.Database.SqlQuery<string>($"""

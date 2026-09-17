@@ -19,9 +19,10 @@ public sealed class GetDashboardOverviewQueryHandler(IReportingRepository report
         }
         DateTimeOffset now = clock.UtcNow;
         IReadOnlyList<ProjectionCheckpoint> checkpoints = await reports.ListCheckpointsAsync(query.CompanyId, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<DashboardMeasure> measures = await reports.ListMeasuresAsync(query.CompanyId, query.BusinessDate, cancellationToken).ConfigureAwait(false);
         ReportFreshness[] contributors = checkpoints.Select(x => new ReportFreshness(x.Source, now,
             now - x.UpdatedAt > TimeSpan.FromHours(24))).ToArray();
         return new DashboardSnapshot(query.CompanyId, query.BusinessDate, now, contributors,
-            new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase));
+            measures.ToDictionary(x => $"{x.Name}|{x.Currency}", x => x.Value, StringComparer.OrdinalIgnoreCase));
     }
 }

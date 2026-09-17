@@ -20,6 +20,11 @@ public sealed class DashboardQueryTests
         {
             ProjectionCheckpoint.Create(tenantId, null, companyId, "sales")
         });
+        reports.ListMeasuresAsync(companyId, new DateOnly(2026, 9, 15), Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            DashboardMeasure.Record(tenantId, null, companyId, new DateOnly(2026, 9, 15), "revenue", "ZAR", 100m, new DateTimeOffset(2026, 9, 15, 11, 0, 0, TimeSpan.Zero)),
+            DashboardMeasure.Record(tenantId, null, companyId, new DateOnly(2026, 9, 15), "revenue", "USD", 10m, new DateTimeOffset(2026, 9, 15, 11, 0, 0, TimeSpan.Zero))
+        });
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(companyId);
         var clock = Substitute.For<IClock>();
@@ -31,6 +36,7 @@ public sealed class DashboardQueryTests
         result.CompanyId.Should().Be(companyId);
         result.Contributors.Should().ContainSingle(x => x.Contributor == "sales" && x.IsStale);
         result.IsLive.Should().BeFalse();
+        result.Measures.Should().BeEquivalentTo(new Dictionary<string, decimal> { ["REVENUE|ZAR"] = 100m, ["REVENUE|USD"] = 10m });
     }
 
     [Fact]

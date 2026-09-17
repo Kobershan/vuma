@@ -18,6 +18,13 @@ internal sealed class ProjectionCheckpointConfiguration : EntityConfiguration<Pr
     { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.Source).IsRequired().HasMaxLength(128); b.Property(x => x.Generation).IsRequired(); b.Property(x => x.Cursor).IsRequired().HasMaxLength(256); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Source }).IsUnique().HasFilter("deleted_at IS NULL"); }
 }
 
+internal sealed class DashboardMeasureConfiguration : EntityConfiguration<DashboardMeasure>
+{
+    protected override string Schema => Schemas.Reporting; protected override string TableName => "dashboard_measures";
+    protected override void ConfigureEntity(EntityTypeBuilder<DashboardMeasure> b)
+    { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.BusinessDate).IsRequired(); b.Property(x => x.Name).IsRequired().HasMaxLength(128); b.Property(x => x.Currency).IsRequired().HasMaxLength(3); b.Property(x => x.Value).HasPrecision(20, 4).IsRequired(); b.Property(x => x.AsAtUtc).IsRequired(); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.BusinessDate, x.Name, x.Currency }).IsUnique().HasFilter("deleted_at IS NULL"); }
+}
+
 internal sealed class ReportExportConfiguration : EntityConfiguration<ReportExport>
 {
     protected override string Schema => Schemas.Reporting; protected override string TableName => "report_exports";

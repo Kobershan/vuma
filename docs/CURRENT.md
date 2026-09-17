@@ -452,6 +452,11 @@ WORK LOG (2026-09-17): Stage 29 now has an idempotent due-schedule enqueue bound
 operation identities and missed-interval advancement. The focused reporting suite passes **19/19**;
 hosted timer registration, provider data adapters and production scheduling remain open.
 
+WORK LOG (2026-09-17): Stage 29 dashboard overview now reads persisted company/date/name/currency
+aggregate measures through `dashboard_measures`, preserving separate currency totals and rejecting
+older replacements. Reporting tests pass **20/20** and the migration Up/Down check passes **1/1**;
+source-module projection adapters and complete KPI acceptance remain open.
+
 WORK LOG (2026-09-14): Stage 22 marketing create and queue routes now bind their request company;
 campaign/message state transitions accept an explicit company selector before dispatch. StoreServer
 build passes with **0 errors**; durable transport, callbacks, attribution and acceptance remain open.

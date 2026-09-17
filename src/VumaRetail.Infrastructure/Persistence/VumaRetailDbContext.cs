@@ -603,6 +603,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <summary>Reporting definitions and replay-safe projection checkpoints (Stage 29).</summary>
     public DbSet<Domain.Reporting.ReportDefinition> ReportDefinitions => Set<Domain.Reporting.ReportDefinition>();
     public DbSet<Domain.Reporting.ProjectionCheckpoint> ProjectionCheckpoints => Set<Domain.Reporting.ProjectionCheckpoint>();
+    public DbSet<Domain.Reporting.DashboardMeasure> DashboardMeasures => Set<Domain.Reporting.DashboardMeasure>();
     public DbSet<Domain.Reporting.ReportExport> ReportExports => Set<Domain.Reporting.ReportExport>();
     public DbSet<Domain.Reporting.ScheduledReport> ScheduledReports => Set<Domain.Reporting.ScheduledReport>();
 

@@ -100,6 +100,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
 - 2026-09-17: Added the idempotent due-schedule enqueue boundary with stable operation identities,
   retired-definition suppression and missed-interval advancement. Reporting unit suite passes **19/19**;
   hosted timer registration, provider data adapters and full acceptance remain.
+- 2026-09-17: Added persisted company/date/name/currency dashboard measures, monotonic replacement,
+  dashboard measure reads and reversible PostgreSQL migration `Stage29DashboardMeasures`. Reporting
+  unit suite passes **20/20** and the migration chain passes **1/1**; source-module adapters and full
+  KPI acceptance remain.
 
 ## Tests / acceptance
 
