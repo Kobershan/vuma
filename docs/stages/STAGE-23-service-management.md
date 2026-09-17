@@ -85,6 +85,9 @@ Declare granular `service.ticket.view`, `service.ticket.manage` and distinct hig
 - 2026-09-15: SLA breach observations are now append-only and durable in
   `service.service_sla_breach_events`, uniquely keyed per tenant/ticket/SLA/type; migration
   Up/Down acceptance passes **1/1**.
+- 2026-09-17: `ServiceCustodyIsolationTests` passes **1/1** on PostgreSQL, proving the custody
+  export/query boundary excludes another company and another tenant while returning the active
+  tenant/company row.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
