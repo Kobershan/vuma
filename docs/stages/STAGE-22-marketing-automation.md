@@ -1,6 +1,6 @@
 # STAGE 22 — Marketing Automation
 
-**Status:** IN_PROGRESS — consent-aware marketing delivery policy, tenant/company-scoped campaign/outbound-message persistence, guarded commands, API routes, configured provider transport and retryable delivery metadata are implemented and tested; journeys, provider callbacks, durable shared outbox deployment and full acceptance remain · **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — consent-aware marketing delivery policy, tenant/company-scoped campaign/outbound-message/journey persistence, guarded commands, API routes, configured provider transport, retryable delivery metadata and hosted delivery sweep are implemented and tested; provider callback deployment, durable shared outbox deployment and full acceptance remain · **Depends on:** 19; transport integration with 05, 20, 21; prerequisite for 22b · **Reference reading:** [CRM stage](STAGE-19-crm.md), [conversational commerce](STAGE-22b-conversational-commerce.md), [security/privacy](../SECURITY.md) §5; [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
 
 ## Objective
 
@@ -98,6 +98,11 @@ signed provider callback route, and unsigned-callback rejection.
 2026-09-14: Added the application dispatch boundary. It rechecks consent at execution time,
 suppresses withdrawn recipients without calling transport, and applies delivered provider identity
 and payload fingerprints to the outbound state. Focused marketing tests pass **19/19**.
+
+2026-09-17: Journey definitions, enrollments and attribution persistence are covered by a PostgreSQL
+migration up/down regression, and OpenAPI verification asserts journey create, publish and enrollment
+routes. The focused API/migration run passed **3/3**; provider/deployment acceptance and full
+end-to-end delivery evidence remain open.
 
 - `Opt_out_after_queue_prevents_send`: queue 100 recipients, 3 opt out before dispatch; only 97 are sent.
 - `Same_step_delivers_once`: replay one campaign step five times; one provider idempotency key and one logical delivery.

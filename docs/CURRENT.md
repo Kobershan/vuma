@@ -20,6 +20,11 @@ email, tenant transcript isolation, and durable sent/failed transport-attempt au
 the delivery-audit migration passes PostgreSQL up/down/up. Remaining 22b closure requires provider-
 backed six-intent acceptance, WhatsApp template-window evidence, and specialist review.
 
+WORK LOG (2026-09-17): Stage 22 journey definitions, enrollments and attribution persistence now have
+PostgreSQL migration up/down evidence, and the marketing OpenAPI check covers journey create, publish
+and enrollment routes. The focused API/migration run passed 3/3; provider/deployment acceptance and
+full end-to-end marketing delivery remain open.
+
 WORK LOG (2026-09-15): TASK-003 procurement field labels is complete. The misleading
 `MatchedNet` domain/application/API surface is now `MatchedGross`; the existing `matched_net`
 database column remains mapped for compatibility and matching arithmetic is unchanged. Procurement
