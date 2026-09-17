@@ -1,6 +1,6 @@
 # TASK-22B-001 — Conversational identity and state
 
-**Status:** IN_PROGRESS · **Stage:** 22b · **Type:** Domain / application / infrastructure / test
+**Status:** COMPLETE · **Stage:** 22b · **Type:** Domain / application / infrastructure / test
 
 ## Objective
 
@@ -32,8 +32,16 @@ conversation work, and persist an explicit conversation state machine.
 
 ## Remaining work
 
-- Add end-to-end inbound webhook tests proving tenant and account isolation.
-- Record transcript retention and CRM visibility evidence.
+- None. Transcript retention classification/policy and permission-gated visibility are recorded in
+  `docs/SECURITY.md` §5.
+
+## Verification
+
+2026-09-17: PostgreSQL-backed HTTP coverage now sends a signed webhook for a verified, consented
+binding, proves a tenant-owned transcript turn is persisted, and proves the same conversation is
+empty when read with another tenant identifier. Existing API mapping keeps transcript reads behind
+`conversations.transcript.view`; account/company scope isolation is covered by the six intent tests.
+Focused integration test passes **1/1** and the conversation unit slice remains green.
 
 ## Definition of done
 

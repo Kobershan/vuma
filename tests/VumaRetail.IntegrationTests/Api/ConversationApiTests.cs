@@ -3,7 +3,9 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.IntegrationTests.Harness;
@@ -75,5 +77,43 @@ public sealed class ConversationApiTests(PostgresFixture fixture)
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("state").GetString()
             .Should().Be("onboarding");
+    }
+
+    [Fact]
+    public async Task Bound_webhook_writes_a_tenant_transcript_and_hides_it_from_other_tenants()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        Guid bindingId = Guid.Empty;
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            ContactBinding binding = new(harness.TenantId, "+27820000003", Guid.NewGuid(), ConversationChannel.WhatsApp);
+            bindingId = binding.Id;
+            binding.Verify(harness.Clock.UtcNow);
+            binding.GrantConsent();
+            VumaRegistryDbContext registry = services.GetRequiredService<VumaRegistryDbContext>();
+            registry.ContactBindings.Add(binding);
+            await registry.CommitAsync();
+            return null;
+        });
+
+        const string body = "{\"channel\":0,\"address\":\"+27820000003\",\"text\":\"hello\",\"messageId\":\"msg-bound\"}";
+        using HttpRequestMessage request = new(HttpMethod.Post, "/api/v1/conversations/webhook/whatsapp")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        using HMACSHA256 hmac = new(Encoding.UTF8.GetBytes("test-conversation-webhook-secret"));
+        request.Headers.Add("X-Vuma-Signature", $"sha256={Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(body))).ToLowerInvariant()}");
+
+        (await harness.Client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        await harness.InScopeAsync<object?>(async services =>
+        {
+            VumaRetailDbContext db = services.GetRequiredService<VumaRetailDbContext>();
+            Conversation conversation = await db.Conversations.SingleAsync(x => x.ContactBindingId == bindingId);
+            IConversationStore store = services.GetRequiredService<IConversationStore>();
+            (await store.ListTurnsAsync(harness.TenantId, conversation.Id)).Should().ContainSingle();
+            (await store.ListTurnsAsync(Guid.NewGuid(), conversation.Id)).Should().BeEmpty();
+            return null;
+        });
     }
 }
