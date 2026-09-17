@@ -6,12 +6,19 @@
 CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-17). Stages 17, 18, 21 and 21b are complete with
 API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
 limitation evidence. Remaining work is tracked in the open stage/task queues.
-NEXT STAGE (roadmap order): Stage 22b conversational commerce completion pass.
+NEXT STAGE (roadmap order): Stage 23 service-management acceptance pass; Stage 22b's remaining
+provider-backed acceptance is externally dependent and remains explicitly open.
 
 VERIFICATION (2026-09-17): The complete Release test run passed: control-plane 13/13, unit 1,623/1,623,
 architecture 86/86, and PostgreSQL integration 628/628. The solution Release build passed with 0 errors.
 Stage 17 is therefore reconciled to COMPLETE in `docs/PROGRESS.md`; the specialist-agent runtime remains
 an explicit environment limitation.
+
+WORK LOG (2026-09-17): Stage 22/22b durable delivery work advanced. Marketing retry scheduling and
+the hosted active-company sweep are pushed. Conversational identity, classifier safety, normalized
+email, tenant transcript isolation, and durable sent/failed transport-attempt audit are verified;
+the delivery-audit migration passes PostgreSQL up/down/up. Remaining 22b closure requires provider-
+backed six-intent acceptance, WhatsApp template-window evidence, and specialist review.
 
 WORK LOG (2026-09-15): TASK-003 procurement field labels is complete. The misleading
 `MatchedNet` domain/application/API surface is now `MatchedGross`; the existing `matched_net`

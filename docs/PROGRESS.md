@@ -53,7 +53,9 @@ contain historical review context and are superseded where this snapshot disagre
 - Stage 09 — POS Terminal & Hardware: **closure review task COMPLETE with runtime-limited evidence**;
   the specialist runtime/architecture brief is unavailable in this environment, while inline
   licence/sync review and POS unit verification (145/145) are recorded in TASK-001.
-- Stage 22b — Conversational Commerce: **IN PROGRESS**; transport integration and six intent handlers remain.
+- Stage 22b — Conversational Commerce: **IN PROGRESS**; identity, six scoped handlers, normalized
+  email, durable delivery audit and safety/isolation tests are complete. Provider-backed six-intent
+  acceptance, WhatsApp template-window evidence and specialist review remain.
 - Stage 21b — Supplier Network: implementation exists, but supplier portal/API permission-surface work remains open.
 - **Next roadmap stage:** Stage 18 acceptance; Stage 17 manufacturing implementation is present but final verification remains open.
 
