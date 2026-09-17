@@ -47,6 +47,18 @@ public sealed class FleetOperationsTests
             .Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Fact]
+    public void Update_check_offers_new_channel_builds_and_honours_halt()
+    {
+        var fleet = new FleetOperations(new FixedClock(DateTimeOffset.UtcNow));
+        RolloutPlan plan = fleet.StartRollout("2.0", "stable", 100);
+        fleet.SelectUpdate("node-a", "1.0", "stable")?.Id.Should().Be(plan.Id);
+        fleet.SelectUpdate("node-a", "2.0", "stable").Should().BeNull();
+        fleet.SelectUpdate("node-a", "1.0", "beta").Should().BeNull();
+        fleet.HaltRollout(plan.Id);
+        fleet.SelectUpdate("node-a", "1.0", "stable").Should().BeNull();
+    }
+
     private sealed class FixedClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow => now;

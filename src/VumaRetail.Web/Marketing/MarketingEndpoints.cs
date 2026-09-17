@@ -26,6 +26,16 @@ public static class MarketingEndpoints
         group.MapPost("/messages", async (QueueMessageRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) => { company.SetCompany(r.CompanyId); return Results.Created("/api/v1/marketing/messages", await d.SendAsync(new QueueOutboundMessageCommand(r.CompanyId, r.StoreId, r.CampaignId, r.CustomerId, r.IdempotencyKey, r.ScheduledAt, r.Channel, r.Classification), ct)); }).RequirePermission(MarketingPermissions.Manage);
         group.MapGet("/messages/{id:guid}", GetMessageAsync).RequirePermission(MarketingPermissions.Manage);
         group.MapGet("/messages", ListQueuedMessagesAsync).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/deliveries", async (Guid companyId, int? limit, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await d.QueryAsync(new ListDeliveriesQuery(companyId, limit ?? 100), ct));
+        }).RequirePermission(MarketingPermissions.Manage);
+        group.MapGet("/suppressions", async (Guid companyId, int? limit, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await d.QueryAsync(new ListSuppressionsQuery(companyId, limit ?? 100), ct));
+        }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/suppress", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new SuppressOutboundMessageCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/sent", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) => { BindCompany(company, companyId); await d.SendAsync(new MarkOutboundMessageSentCommand(id), ct); return Results.NoContent(); }).RequirePermission(MarketingPermissions.Manage);
         group.MapPost("/messages/{id:guid}/dispatch", async (Guid id, Guid? companyId, ICompanyContext company, IDispatcher d, CancellationToken ct) =>

@@ -16,6 +16,8 @@ public sealed class ProjectRepository(VumaRetailDbContext context) : IProjectRep
         => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.SourceReference == sourceReference.Trim(), cancellationToken);
     public async Task<IReadOnlyList<ProjectCostEntry>> ListCostsAsync(Guid projectId, CancellationToken cancellationToken = default)
         => await context.ProjectCostEntries.AsNoTracking().Where(x => x.ProjectId == projectId).OrderBy(x => x.CreatedAt).ToListAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<IReadOnlyList<Project>> ListProjectsAsync(Guid companyId, CancellationToken cancellationToken = default)
+        => await context.Projects.AsNoTracking().Where(x => x.CompanyId == companyId).OrderBy(x => x.Code).ToListAsync(cancellationToken).ConfigureAwait(false);
     public void Add(Project project) => context.Projects.Add(project);
     public void Add(ProjectBudget budget) => context.ProjectBudgets.Add(budget);
     public void Add(ProjectContract contract) => context.ProjectContracts.Add(contract);

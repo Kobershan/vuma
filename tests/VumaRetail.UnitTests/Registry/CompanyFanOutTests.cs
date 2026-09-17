@@ -128,6 +128,41 @@ public sealed class CompanyFanOutTests
         results.Should().ContainSingle().Which.Value.Should().Be(7);
     }
 
+    [Fact]
+    public void Clearing_balances_debit_source_and_credit_target_per_outstanding_intent()
+    {
+        Guid from = Guid.NewGuid();
+        Guid to = Guid.NewGuid();
+        Guid idle = Guid.NewGuid();
+
+        IReadOnlyList<CompanyClearingBalance> balances = CompanyFanOut.AggregateClearingBalances(
+            [from, to, idle],
+            [(from, to, 100m), (to, from, 40m)]);
+
+        balances.Single(b => b.CompanyId == from).DebitAmount.Should().Be(100m);
+        balances.Single(b => b.CompanyId == from).CreditAmount.Should().Be(40m);
+        balances.Single(b => b.CompanyId == to).DebitAmount.Should().Be(40m);
+        balances.Single(b => b.CompanyId == to).CreditAmount.Should().Be(100m);
+        balances.Single(b => b.CompanyId == idle).DebitAmount.Should().Be(0m);
+        balances.Single(b => b.CompanyId == idle).CreditAmount.Should().Be(0m);
+        balances.Sum(b => b.DebitAmount).Should().Be(balances.Sum(b => b.CreditAmount));
+    }
+
+    [Fact]
+    public void Clearing_balances_ignore_non_positive_amounts_and_unknown_companies()
+    {
+        Guid from = Guid.NewGuid();
+        Guid to = Guid.NewGuid();
+
+        IReadOnlyList<CompanyClearingBalance> balances = CompanyFanOut.AggregateClearingBalances(
+            [from, to],
+            [(from, to, 0m), (from, to, -5m), (Guid.NewGuid(), Guid.NewGuid(), 25m)]);
+
+        balances.Should().HaveCount(2);
+        balances.Sum(b => b.DebitAmount).Should().Be(0m);
+        balances.Sum(b => b.CreditAmount).Should().Be(0m);
+    }
+
     private static void InterlockedMax(ref int location, int value)
     {
         int current;

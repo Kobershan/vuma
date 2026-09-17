@@ -1688,3 +1688,50 @@ records `Expired` and cannot decide the checkout. Focused ecommerce unit tests: 
 The full Release unit suite then passed 1,455/1,455 after updating the quality shortfall regression
 to expect the deliberate typed `QualityRuleException` mapping. This test-only correction is pushed
 as `3fa9049`.
+
+## Completion pass — code-gap slice, 2026-09-18 (staged, not yet pushed)
+
+Pulled upstream through `8bbb3c6` clean (stash round-trip, no conflicts). Upstream closed the
+reporting projection/CSV/export-executor slice (TASK-29-004), fleet-operations policy,
+provisioning/offboarding/unlock policies, and refreshed Android/DR evidence — that work was
+deliberately NOT duplicated here.
+
+This slice closes five code-level gaps found by the ground-truth audit, each with unit evidence:
+
+1. Clearing balances are real (`CompanyFanOut.AggregateClearingBalances`): outstanding registry
+   intents debit source / credit target per company; settled groups net to zero by construction.
+   `CompanyFanOutTests` +2.
+2. Projects: `ActivateProjectCommand`, `CloseProjectCommand`, `GetProjectQuery`,
+   `ListProjectsQuery`, `IProjectRepository.ListProjectsAsync`, and routes `GET /projects`,
+   `GET /projects/{id}`, `POST /{id}/activate`, `POST /{id}/close`. New
+   `ProjectLifecycleTests` 4/4. Rebate persistence, contract/rebate HTTP groups and the
+   `IJobCostReadModel` port remain open.
+3. Marketing: `IOutboundMessageRepository.ListByStatusAsync` plus `ListDeliveriesQuery`
+   (Sent+Failed) and `ListSuppressionsQuery` (Suppressed) with `GET /marketing/deliveries` and
+   `GET /marketing/suppressions`. New `MarketingReadsTests` 3/3.
+4. Reporting: kept canonical `POST /reports/exports`; added the stage-documented
+   `POST /report-exports` alias to the same handler. Scheduled-report records, export
+   polling/host registration and object-store configuration remain open (per TASK-29-004).
+5. Control plane devices: `RebindAsync`/`RevokeAsync`/`RecordDiagnosticsAsync`/
+   `RecordTelemetryErrorAsync` with idempotent audit, `FleetOperations.SelectUpdate`, and routes
+   `POST /device/v1/activations/{id}/rebind`, `DELETE /device/v1/activations/{id}`,
+   `POST /device/v1/diagnostics`, `POST /device/v1/telemetry/errors`,
+   `GET /device/v1/updates/check`. Control-plane suite passes 23/23. The vendor HTTP surface
+   (tenants/fleet/licences/subscriptions/invoices + MFA) remains open.
+
+Verified: `dotnet build tests/VumaRetail.ControlPlane.Tests -c Release` 0 errors;
+`dotnet test tests/VumaRetail.ControlPlane.Tests -c Release --no-build` 23/23.
+NOT yet run for this slice: full unit suite, architecture suite, integration suite,
+`has-pending-model-changes`, or CI.
+
+Deferred — needs real credentials (unchanged): live Connect/Ecom settlement providers, marketing
+and WhatsApp transports, LLM classifier, HSM/KMS signer, S3 evidence storage.
+Triaged intentional, no code: CloudApi omits store-ops module maps (roll-up scope) and
+StoreServer omits tenant onboarding (cloud-only); `samples/storefront/` stays absent with the
+integration suite as the contract proof.
+
+Working-tree warning: the older procurement/CloudApi/security-guard WIP plus untracked
+`dashboard/tenants.*`, `deploy/oracle/`, `install-vuma-server.cmd`, the Connect ASN migration
+without a Designer, `Web/Platform/`, and a stale-base `ModelSnapshot` (23k-line diff) are NOT
+part of this slice and remain uncommitted. The snapshot must be regenerated from the current
+model before `migrate-check` can be trusted.

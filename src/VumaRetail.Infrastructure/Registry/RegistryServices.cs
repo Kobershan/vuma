@@ -210,19 +210,44 @@ public sealed class CompanyFanOut(IDbContextFactory<VumaRegistryDbContext> dbFac
         Guid tenantId, CancellationToken cancellationToken = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var companies = await db.Companies
+        var companyIds = await db.Companies
             .Where(c => c.TenantId == tenantId && c.LifecycleState == CompanyLifecycleState.Active)
             .Select(c => c.Id)
             .ToListAsync(cancellationToken);
 
-        List<CompanyClearingBalance> balances = [];
-        foreach (Guid companyId in companies)
+        var intents = await db.InterCompanyClearingIntents
+            .Where(i => i.TenantId == tenantId
+                && i.State != InterCompanyClearingIntentState.Settled
+                && i.State != InterCompanyClearingIntentState.Compensated
+                && i.State != InterCompanyClearingIntentState.Reversed)
+            .Select(i => new { i.FromCompanyId, i.ToCompanyId, Amount = i.Amount.Amount })
+            .ToListAsync(cancellationToken);
+
+        return AggregateClearingBalances(companyIds, intents.Select(i => (i.FromCompanyId, i.ToCompanyId, i.Amount)));
+    }
+
+    /// <summary>
+    /// Pure aggregation for the net-zero check: every outstanding intent debits its source
+    /// company and credits its target, so settled groups net to zero by construction and
+    /// outstanding intents show up as real balances instead of vacuous zeros.
+    /// </summary>
+    public static IReadOnlyList<CompanyClearingBalance> AggregateClearingBalances(
+        IReadOnlyCollection<Guid> companyIds,
+        IEnumerable<(Guid FromCompanyId, Guid ToCompanyId, decimal Amount)> intents)
+    {
+        Dictionary<Guid, (decimal Debit, decimal Credit)> totals = companyIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToDictionary(id => id, _ => (0m, 0m));
+        foreach (var (from, to, amount) in intents)
         {
-            await using var companyDb = await _dbFactory.CreateDbContextAsync(cancellationToken);
-            // TODO: Query clearing accounts from company database once schema is finalized
-            balances.Add(new CompanyClearingBalance { CompanyId = companyId, DebitAmount = 0, CreditAmount = 0 });
+            if (amount <= 0) continue;
+            if (totals.TryGetValue(from, out var f)) totals[from] = (f.Debit + amount, f.Credit);
+            if (totals.TryGetValue(to, out var t)) totals[to] = (t.Debit, t.Credit + amount);
         }
-        return balances;
+        return totals
+            .Select(kv => new CompanyClearingBalance { CompanyId = kv.Key, DebitAmount = kv.Value.Debit, CreditAmount = kv.Value.Credit })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<FanOutResult<T>>> ReadAsync<T>(IReadOnlyCollection<Guid> companyIds, Func<Guid, CancellationToken, Task<T>> read, CancellationToken cancellationToken = default)

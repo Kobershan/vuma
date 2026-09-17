@@ -88,6 +88,24 @@ public sealed class FleetOperations(IClock clock)
         return halted;
     }
 
+    /// <summary>
+    /// Selects the newest applicable rollout for a node: same channel, not halted, selected
+    /// by the deterministic bucket, and a different version from what the node reports.
+    /// Returns null when the node is up to date or no rollout applies.
+    /// </summary>
+    public RolloutPlan? SelectUpdate(string nodeId, string currentVersion, string channel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        string current = (currentVersion ?? string.Empty).Trim();
+        return rollouts
+            .Where(p => !p.Halted && string.Equals(p.Channel, channel.Trim(), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(p.Version, current, StringComparison.OrdinalIgnoreCase)
+                && IsSelected(p, nodeId))
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefault();
+    }
+
 }
 
 public interface IClock

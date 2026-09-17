@@ -129,7 +129,6 @@ public sealed class ApproveContractVariationCommandHandler(IProjectRepository pr
 
 [CommandSideEffect(SideEffect.Write)]
 public sealed record BillMilestoneCommand(Guid CompanyId, Guid MilestoneId) : ICommand<Guid>;
-
 public sealed class BillMilestoneCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
     : ICommandHandler<BillMilestoneCommand, Guid>
 {
@@ -140,5 +139,37 @@ public sealed class BillMilestoneCommandHandler(IProjectRepository projects, ICo
             ?? throw new InvalidOperationException("Billing milestone not found.");
         if (milestone.TenantId != tenant.TenantId || milestone.CompanyId != command.CompanyId) throw new InvalidOperationException("The milestone is outside the active tenant/company scope.");
         milestone.MarkBilled(); return milestone.Id;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ActivateProjectCommand(Guid CompanyId, Guid ProjectId) : ICommand;
+
+public sealed class ActivateProjectCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : ICommandHandler<ActivateProjectCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ActivateProjectCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        Project project = await projects.FindProjectAsync(command.ProjectId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Project not found.");
+        if (project.TenantId != tenant.TenantId || project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project is outside the active tenant/company scope.");
+        project.Activate(); return Unit.Value;
+    }
+}
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CloseProjectCommand(Guid CompanyId, Guid ProjectId) : ICommand;
+
+public sealed class CloseProjectCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : ICommandHandler<CloseProjectCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(CloseProjectCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        Project project = await projects.FindProjectAsync(command.ProjectId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Project not found.");
+        if (project.TenantId != tenant.TenantId || project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project is outside the active tenant/company scope.");
+        project.Close(); return Unit.Value;
     }
 }

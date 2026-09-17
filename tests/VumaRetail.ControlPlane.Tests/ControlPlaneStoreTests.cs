@@ -130,6 +130,63 @@ public sealed class ControlPlaneStoreTests
         { Calls++; return Task.FromResult($"sig:{payload}"); }
     }
 
+    [Fact]
+    public async Task Rebind_rotates_fingerprint_and_lease_and_rejects_unknown_nodes()
+    {
+        var store = new ControlPlaneStore();
+        var signer = new TestSigner();
+        DeviceResponse node = await store.ActivateAsync(
+            new ActivationRequest(Guid.NewGuid(), "licence-1", "rebind-install", "fp-1", "1.0"),
+            signer, CancellationToken.None);
+        RebindRequest rebind = new(Guid.NewGuid(), node.NodeId, "fp-2", "1.1");
+
+        DeviceResponse first = await store.RebindAsync(rebind, signer, CancellationToken.None);
+        first.LeaseId.Should().NotBeNullOrWhiteSpace();
+        first.LeaseId.Should().NotBe(node.LeaseId);
+        (await store.RebindAsync(rebind, signer, CancellationToken.None)).Should().BeEquivalentTo(first);
+        signer.Calls.Should().Be(2);
+
+        var unknown = () => store.RebindAsync(
+            new RebindRequest(Guid.NewGuid(), "no-such-node", "fp-x", "1.1"), signer, CancellationToken.None);
+        await unknown.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public async Task Revoke_removes_the_node_but_stays_idempotent()
+    {
+        var store = new ControlPlaneStore();
+        var signer = new TestSigner();
+        DeviceResponse node = await store.ActivateAsync(
+            new ActivationRequest(Guid.NewGuid(), "licence-1", "revoke-install", "fp-1", "1.0"),
+            signer, CancellationToken.None);
+        Guid revokeId = Guid.NewGuid();
+
+        await store.RevokeAsync(revokeId, node.NodeId);
+        await store.RevokeAsync(revokeId, node.NodeId);
+        var heartbeat = new HeartbeatRequest(Guid.NewGuid(), node.NodeId, DateTimeOffset.UtcNow, 10, "1.0",
+            1, 1, 0, 0, null, null, 1, "boot-1", false, "ok", 0);
+        await FluentActions.Invoking(() => store.HeartbeatAsync(heartbeat)).Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public async Task Diagnostics_and_telemetry_errors_are_idempotent_and_require_known_nodes()
+    {
+        var store = new ControlPlaneStore();
+        DeviceResponse node = await store.ActivateAsync(
+            new ActivationRequest(Guid.NewGuid(), "licence-1", "diag-install", "fp-1", "1.0"),
+            new TestSigner(), CancellationToken.None);
+        DiagnosticsRequest diagnostics = new(Guid.NewGuid(), node.NodeId, DateTimeOffset.UtcNow, "printer", "paper low");
+        await store.RecordDiagnosticsAsync(diagnostics);
+        await store.RecordDiagnosticsAsync(diagnostics);
+        TelemetryErrorRequest error = new(Guid.NewGuid(), node.NodeId, DateTimeOffset.UtcNow, "sync", "timeout");
+        await store.RecordTelemetryErrorAsync(error);
+        await store.RecordTelemetryErrorAsync(error);
+
+        var unknown = () => store.RecordDiagnosticsAsync(
+            new DiagnosticsRequest(Guid.NewGuid(), "no-such-node", DateTimeOffset.UtcNow, "printer", "x"));
+        await unknown.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
     private sealed class FailingSigner : ILicenseSigner
     {
         public Task<string> SignAsync(string payload, CancellationToken cancellationToken = default)

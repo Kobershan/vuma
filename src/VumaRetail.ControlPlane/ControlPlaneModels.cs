@@ -21,6 +21,10 @@ public sealed record MeteringCounts(long Transactions, long ActiveUsers, long Re
 public sealed record MeteringHealth(long Crashes, long SyncFailures, long PrinterErrors, long OfflineMinutes);
 public sealed record DeviceResponse(string RequestId, string NodeId, string? LeaseId, string? Signature,
     IReadOnlyList<string> Commands);
+public sealed record RebindRequest(Guid RequestId, string NodeId, string NewFingerprint, string Version);
+public sealed record DiagnosticsRequest(Guid RequestId, string NodeId, DateTimeOffset At, string Category, string Message);
+public sealed record TelemetryErrorRequest(Guid RequestId, string NodeId, DateTimeOffset At, string Source, string Message);
+public sealed record UpdateCheckResponse(string NodeId, string CurrentVersion, string Channel, string? AvailableVersion, bool UpdateAvailable);
 
 public interface ILicenseSigner
 {
@@ -211,6 +215,126 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
                 Action = "device.metering", NodeId = request.NodeId, RequestId = request.RequestId.ToString("D") });
             await database.SaveChangesAsync().ConfigureAwait(false);
         }
+    }
+
+    public async Task<DeviceResponse> RebindAsync(RebindRequest request, ILicenseSigner signer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(signer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.NodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.NewFingerprint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Version);
+        string fingerprint = JsonSerializer.Serialize(request);
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return persistedResponse;
+        lock (_gate)
+        {
+            if (_requests.TryGetValue(request.RequestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return replay.Response;
+            }
+        }
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        if (!known) throw new KeyNotFoundException("Unknown device node.");
+        string leaseId = Guid.NewGuid().ToString("N");
+        string signature = await signer.SignAsync($"{request.NodeId}|{leaseId}|{request.Version}|rebind", cancellationToken)
+            .ConfigureAwait(false);
+        DeviceResponse response = new(request.RequestId.ToString("D"), request.NodeId, leaseId, signature, []);
+        lock (_gate)
+        {
+            _requests[request.RequestId] = (fingerprint, response);
+        }
+        await PersistResponseAsync(request.RequestId, fingerprint, response, "device.rebind", request.NodeId).ConfigureAwait(false);
+        if (database is not null)
+        {
+            ControlPlaneDevice? device = await database.Devices.FindAsync([request.NodeId], cancellationToken).ConfigureAwait(false);
+            if (device is not null)
+            {
+                device.Fingerprint = request.NewFingerprint;
+                device.LeaseId = leaseId;
+            }
+            await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        return response;
+    }
+
+    public async Task RevokeAsync(Guid requestId, string nodeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
+        string fingerprint = JsonSerializer.Serialize(new { requestId, nodeId });
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(requestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return;
+        lock (_gate)
+        {
+            if (_requests.TryGetValue(requestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return;
+            }
+            _requests[requestId] = (fingerprint, new DeviceResponse(requestId.ToString("D"), nodeId, null, null, []));
+            _nodes.Remove(nodeId);
+        }
+        await PersistResponseAsync(requestId, fingerprint,
+            new DeviceResponse(requestId.ToString("D"), nodeId, null, null, []), "device.revoke", nodeId).ConfigureAwait(false);
+        if (database is not null)
+        {
+            ControlPlaneDevice? device = await database.Devices.FindAsync([nodeId], cancellationToken).ConfigureAwait(false);
+            if (device is not null) database.Devices.Remove(device);
+            await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public async Task RecordDiagnosticsAsync(DiagnosticsRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.NodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Message);
+        string fingerprint = JsonSerializer.Serialize(request);
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return;
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        lock (_gate)
+        {
+            if (_requests.TryGetValue(request.RequestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return;
+            }
+            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            _requests[request.RequestId] = (fingerprint, new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []));
+        }
+        await PersistResponseAsync(request.RequestId, fingerprint,
+            new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []), "device.diagnostics", request.NodeId).ConfigureAwait(false);
+    }
+
+    public async Task RecordTelemetryErrorAsync(TelemetryErrorRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.NodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Message);
+        string fingerprint = JsonSerializer.Serialize(request);
+        DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
+        if (persistedResponse is not null) return;
+        bool known = _nodes.ContainsKey(request.NodeId)
+            || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
+        lock (_gate)
+        {
+            if (_requests.TryGetValue(request.RequestId, out var replay))
+            {
+                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                return;
+            }
+            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            _requests[request.RequestId] = (fingerprint, new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []));
+        }
+        await PersistResponseAsync(request.RequestId, fingerprint,
+            new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []), "device.telemetry.error", request.NodeId).ConfigureAwait(false);
     }
 
     private async Task<DeviceResponse?> ReadPersistedResponseAsync(Guid requestId, string fingerprint)

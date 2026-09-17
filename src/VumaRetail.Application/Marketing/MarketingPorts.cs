@@ -16,6 +16,8 @@ public interface IOutboundMessageRepository
     Task<OutboundMessage?> FindByProviderEventIdAsync(Guid companyId, string providerEventId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OutboundMessage>> ListQueuedAsync(Guid companyId, DateTimeOffset asAt, bool dueOnly,
         int limit, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OutboundMessage>> ListByStatusAsync(Guid companyId,
+        IReadOnlyCollection<OutboundMessageStatus> statuses, int limit, CancellationToken cancellationToken = default);
     void Add(OutboundMessage message);
 }
 

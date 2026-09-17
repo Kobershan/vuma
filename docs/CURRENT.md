@@ -3,9 +3,21 @@
 > This is the small session handoff. Keep it current and concise. Historical detail belongs in
 > `PROGRESS.md`; architecture rationale belongs in `DECISIONS.md`.
 
-CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-17). Stages 17, 18, 21 and 21b are complete with
-API, PostgreSQL, seed, encrypted-backup, replay, genealogy, capacity and documented specialist-runtime
-limitation evidence. Remaining work is tracked in the open stage/task queues.
+CURRENT STAGE: Stages 21–31 completion pass — IN PROGRESS (2026-09-18). Pulled upstream
+through `8bbb3c6` (Stage 29 export execution, Stage 30b fleet/provisioning policies). This
+session's slice is staged for commit; the older procurement/CloudApi/security-guard WIP and the
+stale model-snapshot base remain uncommitted in the working tree and must be finished or dropped
+separately — see the handoff in `docs/PROGRESS.md`.
+
+WORK LOG (2026-09-18): Closed five code-level gaps with tests: (1) clearing balances now aggregate
+outstanding registry intents per company instead of returning zeros (`CompanyFanOut.
+AggregateClearingBalances` + 2 unit tests); (2) projects gain Activate/Close commands, Get/List
+queries and routes (`ProjectLifecycleTests` 4/4); (3) marketing gains `/deliveries` + `/suppressions`
+reads over a new `ListByStatusAsync` port (`MarketingReadsTests` 3/3); (4) reporting keeps canonical
+`/reports/exports` and adds the stage-documented `/report-exports` alias; (5) control plane gains
+device rebind/revoke/diagnostics/telemetry-error/update-check routes backed by idempotent store
+methods and `FleetOperations.SelectUpdate` (control-plane suite 23/23). Full unit/architecture/
+integration suites and CI are NOT yet rerun for this slice.
 
 WORK LOG (2026-09-17): Hardened Stage 23/26/27 API company-context boundaries. Service SLA
 deadlines, HR disciplinary routes, and asset/maintenance/checklist writes now establish the

@@ -46,6 +46,10 @@ public static class ReportingEndpoints
         }).RequirePermission(ReportingPermissions.View);
         group.MapPost("/exports/{id:guid}/complete", async (Guid id, CompleteExportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) => { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new CompleteReportExportCommand(request.CompanyId, id, request.ArtifactReference), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
         group.MapPost("/exports/{id:guid}/fail", async (Guid id, FailExportRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) => { company.SetCompany(request.CompanyId); await dispatcher.SendAsync(new FailReportExportCommand(request.CompanyId, id, request.Reason), cancellationToken); return Results.NoContent(); }).RequirePermission(ReportingPermissions.Manage);
+        // Compatibility alias for the stage-documented POST /api/v1/report-exports path.
+        endpoints.MapVumaApi().MapPost("/report-exports", RequestExportAsync)
+            .WithTags("Reporting").RequireModule("reporting").RequirePermission(ReportingPermissions.Manage)
+            .Produces<Guid>(StatusCodes.Status202Accepted);
         return endpoints;
     }
 

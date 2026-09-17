@@ -28,6 +28,29 @@ public static class ProjectEndpoints
         group.MapPost("/budgets/{id:guid}/approve", ApproveBudgetAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/contract-variations/{id:guid}/approve", ApproveVariationAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/milestones/{id:guid}/bill", BillMilestoneAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status202Accepted);
+        group.MapGet("/", async (Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(companyId);
+            return Results.Ok(await dispatcher.QueryAsync(new ListProjectsQuery(companyId), cancellationToken));
+        }).RequirePermission(ProjectPermissions.View);
+        group.MapGet("/{projectId:guid}", async (Guid projectId, Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(companyId);
+            ProjectResult? result = await dispatcher.QueryAsync(new GetProjectQuery(companyId, projectId), cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission(ProjectPermissions.View);
+        group.MapPost("/{projectId:guid}/activate", async (Guid projectId, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(request.CompanyId);
+            await dispatcher.SendAsync(new ActivateProjectCommand(request.CompanyId, projectId), cancellationToken);
+            return Results.NoContent();
+        }).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
+        group.MapPost("/{projectId:guid}/close", async (Guid projectId, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(request.CompanyId);
+            await dispatcher.SendAsync(new CloseProjectCommand(request.CompanyId, projectId), cancellationToken);
+            return Results.NoContent();
+        }).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         return endpoints;
     }
 

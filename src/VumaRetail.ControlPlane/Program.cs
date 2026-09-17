@@ -7,6 +7,8 @@ builder.Services.AddDbContext<ControlPlaneDbContext>(options =>
 builder.Services.AddScoped<ControlPlaneStore>();
 builder.Services.AddHttpClient<ExternalLicenseSigner>();
 builder.Services.AddSingleton<ILicenseSigner>(sp => sp.GetRequiredService<ExternalLicenseSigner>());
+builder.Services.AddSingleton<IClock, SystemControlPlaneClock>();
+builder.Services.AddSingleton<FleetOperations>();
 builder.Services.AddOpenApi();
 WebApplication app = builder.Build();
 using (IServiceScope scope = app.Services.CreateScope())
@@ -50,6 +52,49 @@ device.MapPost("/metering", async (MeteringRequest request, ControlPlaneStore st
     await store.AcceptMeteringAsync(request);
     return Results.Accepted();
 });
+device.MapPost("/activations/{id:guid}/rebind", async (Guid id, RebindRequest request, ControlPlaneStore store,
+    ILicenseSigner signer, CancellationToken cancellationToken) =>
+{
+    if (id != request.RequestId) return Results.BadRequest("Route id and request id differ.");
+    try { return Results.Ok(await store.RebindAsync(request, signer, cancellationToken)); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(ex.Message); }
+    catch (InvalidOperationException ex) when (ex.Message.Contains("signer", StringComparison.OrdinalIgnoreCase))
+    { return Results.Problem("Licence issuance is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable); }
+    catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
+});
+device.MapDelete("/activations/{id:guid}", async (Guid id, string nodeId, ControlPlaneStore store,
+    CancellationToken cancellationToken) =>
+{
+    await store.RevokeAsync(id, nodeId, cancellationToken);
+    return Results.NoContent();
+});
+device.MapPost("/diagnostics", async (DiagnosticsRequest request, ControlPlaneStore store,
+    CancellationToken cancellationToken) =>
+{
+    try { await store.RecordDiagnosticsAsync(request, cancellationToken); return Results.Accepted(); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(ex.Message); }
+    catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
+});
+device.MapPost("/telemetry/errors", async (TelemetryErrorRequest request, ControlPlaneStore store,
+    CancellationToken cancellationToken) =>
+{
+    try { await store.RecordTelemetryErrorAsync(request, cancellationToken); return Results.Accepted(); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(ex.Message); }
+    catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
+});
+device.MapGet("/updates/check", (string nodeId, string version, string channel, FleetOperations fleet) =>
+{
+    if (string.IsNullOrWhiteSpace(nodeId) || string.IsNullOrWhiteSpace(channel))
+        return Results.BadRequest("nodeId and channel are required.");
+    RolloutPlan? plan = fleet.SelectUpdate(nodeId, version ?? string.Empty, channel);
+    return Results.Ok(new UpdateCheckResponse(nodeId, version ?? string.Empty, channel,
+        plan?.Version, plan is not null));
+});
 app.Run();
 
 public partial class Program;
+
+file sealed class SystemControlPlaneClock : IClock
+{
+    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+}

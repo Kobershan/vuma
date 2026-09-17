@@ -26,5 +26,15 @@ public sealed class OutboundMessageRepository(VumaRetailDbContext db) : IOutboun
         return await query.OrderBy(x => x.ScheduledAt).ThenBy(x => x.Id).Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
+    public async Task<IReadOnlyList<OutboundMessage>> ListByStatusAsync(Guid companyId,
+        IReadOnlyCollection<OutboundMessageStatus> statuses, int limit, CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+        if (statuses.Count == 0) return Array.Empty<OutboundMessage>();
+        return await db.OutboundMessages
+            .Where(x => x.CompanyId == companyId && statuses.Contains(x.Status))
+            .OrderByDescending(x => x.ScheduledAt).ThenBy(x => x.Id).Take(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
     public void Add(OutboundMessage message) => db.OutboundMessages.Add(message);
 }
