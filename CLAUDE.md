@@ -167,14 +167,14 @@ Do not substitute these. If you believe one is wrong, write an ADR arguing it an
 
 | Layer | Choice |
 |---|---|
-| Language / runtime | C# 13 on .NET 9 (LTS-track), `net9.0-windows` for desktop |
+| Language / runtime | C# 14 on .NET 10 (LTS), `net10.0-windows` for desktop (ADR-156) |
 | Desktop app | WPF + MVVM via `CommunityToolkit.Mvvm`, `Microsoft.Extensions.Hosting` generic host |
 | Desktop UI kit | WPF-UI (Fluent) + custom Vuma theme; touch-first POS layouts |
-| Store server | ASP.NET Core 9 Minimal APIs + Windows Service host |
-| Cloud API | ASP.NET Core 9, container-deployable (Docker) |
+| Store server | ASP.NET Core 10 Minimal APIs + Windows Service host |
+| Cloud API | ASP.NET Core 10, container-deployable (Docker) |
 | Database | PostgreSQL 16 (store + cloud), schema-per-module, **one database per company plus a per-tenant registry database** (ADR-099). No cross-database transaction, no 2PC, no FDW — cross-company work is a saga (ADR-116) |
 | Terminal-local store | SQLite (`Microsoft.Data.Sqlite`) — offline cache + outbound queue |
-| ORM | EF Core 9 + Npgsql; migrations checked into `src/VumaRetail.Infrastructure/Migrations` |
+| ORM | EF Core 10 + Npgsql; migrations checked into `src/VumaRetail.Infrastructure/Migrations` |
 | IDs | **UUID v7** everywhere (sortable, offline-safe generation) |
 | Auth | ASP.NET Core Identity + JWT (15 min access / 30 day rotating refresh), device certs for terminals, 4–8 digit PIN for POS operators |
 | Realtime | SignalR (store LAN + cloud push) |

@@ -2526,3 +2526,29 @@ working; 09b's compensation keeps its own anti-join as defense in depth rather t
 **Proposal.** Preserve every historical stage/task identity. Roadmap 22 denotes marketing; new marketing parts use `22M`, while the existing business-types/hierarchy/transfers workstream keeps TASK-22 identifiers. Add the missing stage specifications with NOT_STARTED status and explicit task-decomposition gates. Use [shared requirements](stages/STAGE-SHARED-REQUIREMENTS.md) for proposed local authority, durable cloud intents, API scope and privacy acceptance; the 24-hour intent expiry, pagination limits and Stage 31 pilot RPO/RTO/load numbers are proposed planning defaults to confirm in implementation tasks. Do not expire already committed offline sales. Document Proxima Orbit through the existing IOrbitClient seam in [Proxima Orbit](PROXIMA-ORBIT.md), without importing an unknown upstream. Retain the Kotlin/Compose baseline until a separate client-stack ADR approves another stack.
 
 **Consequences and limits.** This is documentation only, not approval to change a locked policy, deploy services or grant vendor access. Resolve the LICENSING Path A/no-outage-restriction conflict through a separate explicit superseding ADR before certification. Signed releases and delayed integrity evidence can improve controlled distribution; they cannot guarantee uncopyable customer binaries or immediate detection of offline clones. Existing completion claims are not recertified. See [the audit and protection plan](README.md) for evidence, risks and acceptance gates.
+## ADR-156 — Migrate runtime from .NET 9 to .NET 10 LTS
+
+**Status.** ACCEPTED
+
+**Context.** Vuma Retail is currently pinned to .NET 9 and C# 13 across its hosts, desktop
+client, persistence layer, CI, containers and deployment tooling. .NET 10 is the current LTS
+track and provides the longer supported runtime runway required for an installed retail system
+whose store server and till must remain supportable in the field.
+
+**Decision.** Adopt C# 14 on .NET 10. All .NET projects target `net10.0`; the WPF desktop and
+gallery target `net10.0-windows`; `VumaRetail.Hardware` remains plain `net10.0` because its
+ESC/POS, 80mm layout, raw TCP printer and scale-barcode logic are platform-agnostic. Move the
+EF Core, Npgsql and explicitly referenced ASP.NET Core packages to their .NET 10-compatible
+major versions, and update SDK, CI, container and installer runtime declarations accordingly.
+The Kotlin/Compose Android client is outside this migration.
+
+**Consequences.** Package and runtime compatibility must be re-verified, especially EF Core
+conventions, migrations, query filters and raw SQL. The owner must perform the first full
+Release build after this migration with:
+
+```text
+dotnet build src/VumaRetail.sln -c Release
+```
+
+The migration does not authorize a database-schema redesign or a change to the locked product
+architecture; any such change requires its own ADR.
