@@ -13,7 +13,7 @@ terminal. Not the PC, the network or the UPS — those are deployment concerns a
 
 **The abstraction is cross-platform; only the transports are not.**
 
-`VumaRetail.Hardware` targets `net9.0`, not `net9.0-windows`, even though the product ships on
+`VumaRetail.Hardware` targets `net10.0`, not `net10.0-windows`, even though the product ships on
 Windows (ADR-031). What lives in it is the *protocol* half of hardware — ESC/POS byte sequences, a
 raw TCP socket, the digits inside a price-embedded barcode, the layout of an 80mm slip — and none of
 that is Windows-specific. It is also the half that is genuinely hard to get right, so it is worth
@@ -155,7 +155,7 @@ random, because a receipt test that prints an authorisation code should not be f
 ## 7. What a stage adding hardware should do
 
 1. Implement the existing interface. Do not add a parallel one.
-2. Keep the transport out of `VumaRetail.Hardware` if it needs a platform — a `net9.0-windows`
+2. Keep the transport out of `VumaRetail.Hardware` if it needs a platform — a `net10.0-windows`
    project referencing this one is the shape, the same way `VumaRetail.Desktop` will.
 3. Anything that parses a device's output belongs *here*, tested, whatever platform reads the bytes.
 4. If the device can be slow or absent, fail fast and let the caller carry on. R1 outranks every
