@@ -91,7 +91,10 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
         if (command.RequestId is { } requestId)
         {
             PickTask? already = await waves.FindTaskByRequestIdAsync(requestId, cancellationToken).ConfigureAwait(false);
-            if (already is not null) return already.Id;
+            if (already is not null)
+            {
+                return already.Id;
+            }
         }
 
         if (command.PickTaskId is { } replayed)
@@ -154,6 +157,7 @@ public sealed class ReleasePickWaveCommandValidator : AbstractValidator<ReleaseP
 /// <param name="waves">Wave and task lookup.</param>
 /// <param name="binStocks">Bin balance lookup — the allocator's candidate pool.</param>
 /// <param name="allocator">Decides which bin(s) satisfy a line's demand.</param>
+/// <param name="movements">Posts the stock movements that reserve allocated bin stock.</param>
 /// <param name="clock">The only source of time.</param>
 public sealed class ReleasePickWaveCommandHandler(
     IPickWaveRepository waves,

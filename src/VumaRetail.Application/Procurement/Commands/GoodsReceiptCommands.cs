@@ -19,6 +19,7 @@ namespace VumaRetail.Application.Procurement.Commands;
 /// The receipt's identity, or <c>null</c> to mint one here. A caller that already sent this create once
 /// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.20).
 /// </param>
+/// <param name="RequestId">The client operation id used for offline replay deduplication.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateGoodsReceiptCommand(
     Guid PurchaseOrderId, string? DeliveryNoteNumber, DateTimeOffset? ReceivedAt,

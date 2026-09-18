@@ -65,7 +65,10 @@ public sealed class OpenPutawayTaskCommandHandler(
         if (command.RequestId is { } requestId)
         {
             PutawayTask? already = await putawayTasks.FindByRequestIdAsync(requestId, cancellationToken).ConfigureAwait(false);
-            if (already is not null) return already.Id;
+            if (already is not null)
+            {
+                return already.Id;
+            }
         }
 
         if (command.PutawayTaskId is { } replayed)

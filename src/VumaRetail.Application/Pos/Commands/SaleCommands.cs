@@ -122,6 +122,7 @@ public sealed class OpenSaleCommandHandler(
 /// supplies the id it already used, which makes the replay idempotent — re-sending the same id returns
 /// the existing line instead of appending a second one (§4.11).
 /// </param>
+/// <param name="RequestId">The client operation id used for offline replay deduplication.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddSaleLineCommand(
     Guid SaleId,
@@ -305,6 +306,7 @@ public sealed class VoidSaleLineCommandHandler(ISaleRepository sales, IClock clo
 /// The tender's identity, or <c>null</c> to mint one here. A replay with the id already used returns
 /// the existing tender instead of taking the payment twice (§4.11).
 /// </param>
+/// <param name="RequestId">The client operation id used for offline replay deduplication.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record TenderSaleCommand(
     Guid SaleId,
@@ -395,6 +397,7 @@ public sealed record SaleCompletionResult(
 
 /// <summary>Closes the sale: freezes it, relieves stock and raises the financial event.</summary>
 /// <param name="SaleId">The sale.</param>
+/// <param name="RequestId">The client operation id used for offline replay deduplication.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CompleteSaleCommand(Guid SaleId, Guid? RequestId = null) : ICommand<SaleCompletionResult>, ISessionScopedCommand
 {
