@@ -15,20 +15,20 @@ public partial class WarehouseRequestIds : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.AddColumn<Guid>("request_id", "warehouse", "pick_tasks", nullable: true);
-        migrationBuilder.AddColumn<Guid>("request_id", "warehouse", "putaway_tasks", nullable: true);
+        migrationBuilder.AddColumn<Guid>("request_id", table: "pick_tasks", schema: "warehouse", nullable: true);
+        migrationBuilder.AddColumn<Guid>("request_id", table: "putaway_tasks", schema: "warehouse", nullable: true);
 
-        migrationBuilder.CreateIndex("ux_pick_tasks_request_id", "warehouse", "pick_tasks", "request_id", unique: true,
+        migrationBuilder.CreateIndex("ux_pick_tasks_request_id", table: "pick_tasks", column: "request_id", schema: "warehouse", unique: true,
             filter: "request_id IS NOT NULL AND deleted_at IS NULL");
-        migrationBuilder.CreateIndex("ux_putaway_tasks_request_id", "warehouse", "putaway_tasks", "request_id", unique: true,
+        migrationBuilder.CreateIndex("ux_putaway_tasks_request_id", table: "putaway_tasks", column: "request_id", schema: "warehouse", unique: true,
             filter: "request_id IS NOT NULL AND deleted_at IS NULL");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropIndex("ux_pick_tasks_request_id", "warehouse", "pick_tasks");
-        migrationBuilder.DropIndex("ux_putaway_tasks_request_id", "warehouse", "putaway_tasks");
-        migrationBuilder.DropColumn("request_id", "warehouse", "pick_tasks");
-        migrationBuilder.DropColumn("request_id", "warehouse", "putaway_tasks");
+        migrationBuilder.DropIndex("ux_pick_tasks_request_id", table: "pick_tasks", schema: "warehouse");
+        migrationBuilder.DropIndex("ux_putaway_tasks_request_id", table: "putaway_tasks", schema: "warehouse");
+        migrationBuilder.DropColumn("request_id", table: "pick_tasks", schema: "warehouse");
+        migrationBuilder.DropColumn("request_id", table: "putaway_tasks", schema: "warehouse");
     }
 }
