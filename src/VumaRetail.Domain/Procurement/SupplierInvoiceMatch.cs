@@ -290,6 +290,7 @@ public sealed class SupplierInvoiceMatch : Entity
         DateTimeOffset releasedAt,
         IReadOnlyDictionary<Guid, (Quantity Invoiced, Quantity Received)> currentOrderLineState)
     {
+        ArgumentNullException.ThrowIfNull(currentOrderLineState);
         EnsureNotReleased();
 
         if (_lines.Count == 0)

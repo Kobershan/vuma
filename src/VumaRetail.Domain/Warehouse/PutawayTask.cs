@@ -49,6 +49,7 @@ public sealed class PutawayTask : Entity
     /// <summary>The location the stock is unbinned at.</summary>
     public Guid LocationId { get; private set; }
 
+    /// <summary>The client request id used to make task creation idempotent.</summary>
     public Guid? RequestId { get; private set; }
 
     /// <summary>The item to shelve, when it has no variants.</summary>

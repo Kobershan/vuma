@@ -37,6 +37,7 @@ public sealed class PickTask : Entity
     /// <summary>The wave this line belongs to.</summary>
     public Guid PickWaveId { get; private set; }
 
+    /// <summary>The client request id used to make task creation idempotent.</summary>
     public Guid? RequestId { get; private set; }
 
     /// <summary>The item requested, when it has no variants.</summary>
