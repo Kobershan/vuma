@@ -176,6 +176,38 @@
           <TextBlock Text="UTC-backed clock · REST terminal" Style="{StaticResource Label}" HorizontalAlignment="Right" />
         </DockPanel>
       </Border>
+      <Border x:Name="TenderView" Visibility="Collapsed" Grid.RowSpan="3"
+              Background="{DynamicResource VumaSurfaceSunkenBrush}" Padding="{DynamicResource VumaInset24}">
+        <Border Style="{StaticResource Panel}" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel>
+            <TextBlock Text="Tender" FontFamily="{DynamicResource VumaTypeTitle1Family}"
+                       FontSize="{DynamicResource VumaTypeTitle1Size}" FontWeight="SemiBold" />
+            <TextBlock Text="Split tender is recorded one immutable payment at a time."
+                       Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="TenderDueText" Text="Remaining 0.00" Style="{StaticResource Body}"
+                       Margin="{DynamicResource VumaInset8}" />
+            <ComboBox x:Name="TenderTypeInput" SelectedIndex="0" Margin="{DynamicResource VumaInset8}">
+              <ComboBoxItem Content="Cash" />
+              <ComboBoxItem Content="Card" />
+              <ComboBoxItem Content="Voucher" />
+              <ComboBoxItem Content="MobileMoney" />
+              <ComboBoxItem Content="CustomerAccount" />
+            </ComboBox>
+            <TextBox x:Name="TenderAmountInput" Style="{StaticResource Input}" Text="0"
+                     Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="ChangeDueText" Text="Change due 0.00" Style="{StaticResource Body}"
+                       Foreground="{DynamicResource VumaPositiveBrush}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="TenderError" Style="{StaticResource Label}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource VumaCriticalBrush}" Margin="{DynamicResource VumaInset8}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="Back" Style="{StaticResource KeyButton}" Click="TenderBack_Click" />
+              <Button Content="Add tender" Style="{StaticResource KeyButton}" Click="AddTender_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+              <Button Content="Complete sale" Style="{StaticResource PrimaryButton}" Click="CompleteSale_Click" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
     </Grid>
   </Grid>
 </Window>

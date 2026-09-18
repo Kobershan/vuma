@@ -142,6 +142,10 @@ public partial class MainWindow : Window
         TaxText.Text = $"{sale.Tax:N2} {sale.Currency}";
         GrossText.Text = $"{sale.Gross:N2} {sale.Currency}";
         LinesList.ItemsSource = sale.Lines.Where(line => !line.IsVoided).ToList();
+        decimal remaining = Math.Max(0m, sale.Gross - sale.AmountTendered);
+        decimal change = Math.Max(0m, sale.AmountTendered - sale.Gross);
+        TenderDueText.Text = $"Remaining {remaining:N2} {sale.Currency}";
+        ChangeDueText.Text = $"Change due {change:N2} {sale.Currency}";
     }
 
     private async void NewSale_Click(object sender, RoutedEventArgs e)
@@ -170,8 +174,40 @@ public partial class MainWindow : Window
 
     private async void Tender_Click(object sender, RoutedEventArgs e)
     {
-        TillError.Text = "Tender screen is available after the sale has been selected.";
+        TenderError.Text = string.Empty;
+        TenderView.Visibility = Visibility.Visible;
         await RefreshSaleAsync();
+    }
+
+    private void TenderBack_Click(object sender, RoutedEventArgs e) => TenderView.Visibility = Visibility.Collapsed;
+
+    private async void AddTender_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string type = (TenderTypeInput.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                ?? throw new InvalidOperationException("Select a tender type.");
+            decimal amount = decimal.Parse(TenderAmountInput.Text, System.Globalization.CultureInfo.InvariantCulture);
+            string currency = Environment.GetEnvironmentVariable("VUMA_CURRENCY") ?? "ZAR";
+            await _api.AddTenderAsync(_saleId, type, amount, currency);
+            TenderAmountInput.Text = "0";
+            await RefreshSaleAsync();
+        }
+        catch (Exception ex) { TenderError.Text = ex.Message; }
+    }
+
+    private async void CompleteSale_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SaleCompletionResponse result = await _api.CompleteSaleAsync(_saleId);
+            TenderError.Text = result.StockIssuesRefused == 0
+                ? $"Completed {result.SaleNumber}. Change {result.ChangeGiven:N2} {result.Currency}."
+                : $"Completed with {result.StockIssuesRefused} stock reconciliation issue(s).";
+            TenderView.Visibility = Visibility.Collapsed;
+            StatusConnection.Text = "Online · sale complete";
+        }
+        catch (Exception ex) { TenderError.Text = ex.Message; }
     }
 
     private static Guid ReadRequiredGuid(string variable, string message)
@@ -236,6 +272,16 @@ public partial class MainWindow : Window
         public Task<SaleResponse> GetSaleAsync(Guid saleId) => GetAsync<SaleResponse>($"/pos/sales/{saleId}");
 
         public Task<PermissionsResponse> GetPermissionsAsync() => GetAsync<PermissionsResponse>("/me/permissions");
+
+        public async Task AddTenderAsync(Guid saleId, string tenderType, decimal amount, string currency)
+        {
+            await PostAsync<TenderSaleRequest, PosIdResponse>(
+                $"/pos/sales/{saleId}/tenders",
+                new TenderSaleRequest(tenderType, amount, currency, null, Guid.NewGuid()));
+        }
+
+        public Task<SaleCompletionResponse> CompleteSaleAsync(Guid saleId)
+            => PostAsync<object, SaleCompletionResponse>($"/pos/sales/{saleId}/complete", new { });
 
         public async Task<T> PostAsync<TRequest, T>(string path, TRequest request)
         {
