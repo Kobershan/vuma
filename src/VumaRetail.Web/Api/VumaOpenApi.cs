@@ -151,7 +151,7 @@ public static class VumaOpenApi
         ["api/v1/pos/sales/{saleId}/lines"] = new JsonObject
         {
             ["itemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000020"),
-            ["itemVariantId"] = JsonNullSentinel.JsonNull,
+            ["itemVariantId"] = JsonNode.Parse("null")!,
             ["quantity"] = JsonValue.Create(2),
             ["unitOfMeasure"] = JsonValue.Create("EA"),
             ["unitPrice"] = JsonValue.Create(59.99d),
@@ -238,7 +238,7 @@ public static class VumaOpenApi
         {
             ["companyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000040"),
             ["finishedItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000041"),
-            ["finishedVariantId"] = JsonNullSentinel.JsonNull,
+            ["finishedVariantId"] = JsonNode.Parse("null")!,
             ["version"] = JsonValue.Create(1),
             ["name"] = JsonValue.Create("Starter assembly"),
             ["lines"] = new JsonArray
@@ -246,7 +246,7 @@ public static class VumaOpenApi
                 new JsonObject
                 {
                     ["componentItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000042"),
-                    ["componentVariantId"] = JsonNullSentinel.JsonNull,
+                    ["componentVariantId"] = JsonNode.Parse("null")!,
                     ["quantity"] = JsonValue.Create(2),
                     ["unitOfMeasure"] = JsonValue.Create("EA"),
                     ["scrapPercent"] = JsonValue.Create(2.5),
