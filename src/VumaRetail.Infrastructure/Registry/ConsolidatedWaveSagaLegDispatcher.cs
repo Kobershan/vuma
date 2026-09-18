@@ -64,7 +64,7 @@ public sealed class ConsolidatedWaveSagaLegDispatcher(
                 intent.TenantId, payload.StoreId, wave.Id,
                 group.Key.ItemId, group.Key.ItemVariantId,
                 new Domain.Primitives.Quantity(group.Sum(x => x.Quantity), group.Key.UnitOfMeasure),
-                $"saga:{intent.Id:N}:{group.Key.PackSize}", taskId);
+                $"saga:{intent.Id:N}:{group.Key.PackSize}", id: taskId);
             companyDb.PickTasks.Add(task);
 
             foreach (CrossCompanyWaveLine line in group)

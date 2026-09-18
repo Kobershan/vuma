@@ -49,6 +49,8 @@ public sealed class PutawayTask : Entity
     /// <summary>The location the stock is unbinned at.</summary>
     public Guid LocationId { get; private set; }
 
+    public Guid? RequestId { get; private set; }
+
     /// <summary>The item to shelve, when it has no variants.</summary>
     public Guid? ItemId { get; private set; }
 
@@ -97,6 +99,7 @@ public sealed class PutawayTask : Entity
         PutawaySourceReferenceType sourceReferenceType,
         Guid? sourceReferenceId,
         Guid? suggestedBinId = null,
+        Guid? requestId = null,
         Guid? id = null)
     {
         if (tenantId == Guid.Empty)
@@ -116,9 +119,11 @@ public sealed class PutawayTask : Entity
             throw WarehouseRuleException.QuantityMustBePositive();
         }
 
-        return new PutawayTask(
+        PutawayTask task = new(
             id ?? UuidV7.NewGuid(), tenantId, storeId, locationId, itemId, itemVariantId, quantity, sourceReferenceType,
             sourceReferenceId, suggestedBinId);
+        task.RequestId = requestId;
+        return task;
     }
 
     /// <summary>Records the allocator's suggested bin.</summary>

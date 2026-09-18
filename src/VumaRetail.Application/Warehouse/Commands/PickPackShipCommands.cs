@@ -57,7 +57,8 @@ public sealed record AddPickTaskCommand(
     Guid? ItemVariantId,
     Quantity RequestedQuantity,
     string OutboundReference,
-    Guid? PickTaskId = null) : ICommand<Guid>;
+    Guid? PickTaskId = null,
+    Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed add-pick-task command before it reaches the handler.</summary>
 public sealed class AddPickTaskCommandValidator : AbstractValidator<AddPickTaskCommand>
@@ -86,6 +87,12 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
     public async Task<Guid> HandleAsync(AddPickTaskCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+
+        if (command.RequestId is { } requestId)
+        {
+            PickTask? already = await waves.FindTaskByRequestIdAsync(requestId, cancellationToken).ConfigureAwait(false);
+            if (already is not null) return already.Id;
+        }
 
         if (command.PickTaskId is { } replayed)
         {
@@ -118,7 +125,7 @@ public sealed class AddPickTaskCommandHandler(IPickWaveRepository waves, IStockK
 
         PickTask task = PickTask.Create(
             wave.TenantId, wave.StoreId, wave.Id, command.ItemId, command.ItemVariantId,
-            command.RequestedQuantity, command.OutboundReference, command.PickTaskId);
+            command.RequestedQuantity, command.OutboundReference, command.RequestId, command.PickTaskId);
 
         waves.AddTask(task);
 

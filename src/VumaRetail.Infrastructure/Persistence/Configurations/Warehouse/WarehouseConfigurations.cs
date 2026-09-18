@@ -169,6 +169,7 @@ internal sealed class PutawayTaskConfiguration : EntityConfiguration<PutawayTask
 
     protected override void ConfigureEntity(EntityTypeBuilder<PutawayTask> builder)
     {
+        builder.Property(task => task.RequestId);
         builder.Property(task => task.LocationId).IsRequired();
         builder.Property(task => task.ItemId);
         builder.Property(task => task.ItemVariantId);
@@ -194,6 +195,10 @@ internal sealed class PutawayTaskConfiguration : EntityConfiguration<PutawayTask
         builder.HasIndex(task => new { task.TenantId, task.LocationId })
             .HasDatabaseName("ix_putaway_tasks_pending_by_location")
             .HasFilter("status = 'Pending' AND deleted_at IS NULL");
+        builder.HasIndex(task => task.RequestId)
+            .IsUnique()
+            .HasDatabaseName("ux_putaway_tasks_request_id")
+            .HasFilter("request_id IS NOT NULL AND deleted_at IS NULL");
 
         builder.ToTable(table => table.HasCheckConstraint(
             "ck_putaway_tasks_exactly_one_sku",
@@ -298,6 +303,7 @@ internal sealed class PickTaskConfiguration : EntityConfiguration<PickTask>
 
     protected override void ConfigureEntity(EntityTypeBuilder<PickTask> builder)
     {
+        builder.Property(task => task.RequestId);
         builder.Property(task => task.PickWaveId).IsRequired();
         builder.Property(task => task.ItemId);
         builder.Property(task => task.ItemVariantId);
@@ -319,6 +325,10 @@ internal sealed class PickTaskConfiguration : EntityConfiguration<PickTask>
 
         builder.HasIndex(task => task.PickWaveId).HasDatabaseName("ix_pick_tasks_pick_wave_id");
         builder.HasIndex(task => task.AllocatedBinId).HasDatabaseName("ix_pick_tasks_allocated_bin_id");
+        builder.HasIndex(task => task.RequestId)
+            .IsUnique()
+            .HasDatabaseName("ux_pick_tasks_request_id")
+            .HasFilter("request_id IS NOT NULL AND deleted_at IS NULL");
 
         builder.ToTable(table => table.HasCheckConstraint(
             "ck_pick_tasks_exactly_one_sku",

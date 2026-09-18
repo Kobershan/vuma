@@ -21,7 +21,8 @@ public sealed record OpenPutawayTaskCommand(
     Quantity Quantity,
     PutawaySourceReferenceType SourceReferenceType,
     Guid? SourceReferenceId = null,
-    Guid? PutawayTaskId = null) : ICommand<Guid>;
+    Guid? PutawayTaskId = null,
+    Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed open-putaway command before it reaches the handler.</summary>
 public sealed class OpenPutawayTaskCommandValidator : AbstractValidator<OpenPutawayTaskCommand>
@@ -61,6 +62,12 @@ public sealed class OpenPutawayTaskCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (command.RequestId is { } requestId)
+        {
+            PutawayTask? already = await putawayTasks.FindByRequestIdAsync(requestId, cancellationToken).ConfigureAwait(false);
+            if (already is not null) return already.Id;
+        }
+
         if (command.PutawayTaskId is { } replayed)
         {
             PutawayTask? already = await putawayTasks.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
@@ -87,7 +94,8 @@ public sealed class OpenPutawayTaskCommandHandler(
 
         PutawayTask task = PutawayTask.Create(
             location.TenantId, location.StoreId, location.Id, command.ItemId, command.ItemVariantId,
-            command.Quantity, command.SourceReferenceType, command.SourceReferenceId, id: command.PutawayTaskId);
+            command.Quantity, command.SourceReferenceType, command.SourceReferenceId,
+            requestId: command.RequestId, id: command.PutawayTaskId);
 
         Guid? suggestion = await SuggestBinAsync(location.Id, command.ItemId, command.ItemVariantId, cancellationToken)
             .ConfigureAwait(false);

@@ -154,6 +154,9 @@ public sealed class PutawayTaskRepository(VumaRetailDbContext context) : IPutawa
     public Task<PutawayTask?> FindAsync(Guid putawayTaskId, CancellationToken cancellationToken = default)
         => context.PutawayTasks.FirstOrDefaultAsync(task => task.Id == putawayTaskId, cancellationToken);
 
+    public Task<PutawayTask?> FindByRequestIdAsync(Guid requestId, CancellationToken cancellationToken = default)
+        => context.PutawayTasks.FirstOrDefaultAsync(task => task.RequestId == requestId, cancellationToken);
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<PutawayTask>> ListPendingForLocationAsync(Guid locationId, CancellationToken cancellationToken = default)
         => await context.PutawayTasks
@@ -186,6 +189,9 @@ public sealed class PickWaveRepository(VumaRetailDbContext context) : IPickWaveR
     /// <inheritdoc />
     public Task<PickTask?> FindTaskAsync(Guid pickTaskId, CancellationToken cancellationToken = default)
         => context.PickTasks.FirstOrDefaultAsync(task => task.Id == pickTaskId, cancellationToken);
+
+    public Task<PickTask?> FindTaskByRequestIdAsync(Guid requestId, CancellationToken cancellationToken = default)
+        => context.PickTasks.FirstOrDefaultAsync(task => task.RequestId == requestId, cancellationToken);
 
     /// <inheritdoc />
     public void AddWave(PickWave wave) => context.PickWaves.Add(wave);

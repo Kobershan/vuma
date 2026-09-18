@@ -37,6 +37,8 @@ public sealed class PickTask : Entity
     /// <summary>The wave this line belongs to.</summary>
     public Guid PickWaveId { get; private set; }
 
+    public Guid? RequestId { get; private set; }
+
     /// <summary>The item requested, when it has no variants.</summary>
     public Guid? ItemId { get; private set; }
 
@@ -90,6 +92,7 @@ public sealed class PickTask : Entity
         Guid? itemVariantId,
         Quantity requestedQuantity,
         string outboundReference,
+        Guid? requestId = null,
         Guid? id = null)
     {
         if (tenantId == Guid.Empty)
@@ -114,8 +117,10 @@ public sealed class PickTask : Entity
             throw new ArgumentException("A pick task must name what raised its demand.", nameof(outboundReference));
         }
 
-        return new PickTask(
+        PickTask task = new(
             id ?? UuidV7.NewGuid(), tenantId, storeId, pickWaveId, itemId, itemVariantId, requestedQuantity, outboundReference.Trim());
+        task.RequestId = requestId;
+        return task;
     }
 
     /// <summary>Allocates this line to a bin.</summary>

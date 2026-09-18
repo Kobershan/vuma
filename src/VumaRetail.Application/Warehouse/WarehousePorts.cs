@@ -89,6 +89,7 @@ public interface IPutawayTaskRepository
 {
     /// <summary>Finds a task by id.</summary>
     Task<PutawayTask?> FindAsync(Guid putawayTaskId, CancellationToken cancellationToken = default);
+    Task<PutawayTask?> FindByRequestIdAsync(Guid requestId, CancellationToken cancellationToken = default);
 
     /// <summary>Every task still pending at a location.</summary>
     Task<IReadOnlyList<PutawayTask>> ListPendingForLocationAsync(Guid locationId, CancellationToken cancellationToken = default);
@@ -108,6 +109,7 @@ public interface IPickWaveRepository
 
     /// <summary>Finds one task within a wave.</summary>
     Task<PickTask?> FindTaskAsync(Guid pickTaskId, CancellationToken cancellationToken = default);
+    Task<PickTask?> FindTaskByRequestIdAsync(Guid requestId, CancellationToken cancellationToken = default);
 
     /// <summary>Adds a new wave.</summary>
     void AddWave(PickWave wave);

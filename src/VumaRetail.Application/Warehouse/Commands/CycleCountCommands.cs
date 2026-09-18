@@ -223,7 +223,8 @@ public sealed record MoveBinStockCommand(
     Guid? ItemId,
     Guid? ItemVariantId,
     Quantity Quantity,
-    Guid? TransferId = null) : ICommand<Guid>;
+    Guid? TransferId = null,
+    Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed move command before it reaches the handler.</summary>
 public sealed class MoveBinStockCommandValidator : AbstractValidator<MoveBinStockCommand>
@@ -257,7 +258,8 @@ public sealed class MoveBinStockCommandHandler(IBinRepository bins, IBinStockMov
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (command.TransferId is { } replayed)
+        Guid? replayId = command.RequestId ?? command.TransferId;
+        if (replayId is { } replayed)
         {
             bool already = await movements
                 .ExistsForReferenceAsync(replayed, Domain.Warehouse.BinStockReferenceType.InternalTransfer, cancellationToken)
@@ -282,7 +284,7 @@ public sealed class MoveBinStockCommandHandler(IBinRepository bins, IBinStockMov
             throw new ArgumentException("An internal bin move must stay within one location.");
         }
 
-        Guid transferId = command.TransferId ?? UuidV7.NewGuid();
+        Guid transferId = replayId ?? UuidV7.NewGuid();
 
         (Domain.Warehouse.BinStockMovement outMovement, _) = await mover
             .InternalTransferAsync(source, destination, command.ItemId, command.ItemVariantId, command.Quantity, transferId, cancellationToken)
