@@ -283,8 +283,12 @@ public sealed class SupplierInvoiceMatch : Entity
     /// </summary>
     /// <param name="releasedByUserId">Who released it.</param>
     /// <param name="releasedAt">When, UTC.</param>
+    /// <param name="currentOrderLineState">The order lines' current released-invoiced and received quantities.</param>
     /// <exception cref="ProcurementRuleException">It is blocked, has no lines, or is already released.</exception>
-    public void Release(Guid releasedByUserId, DateTimeOffset releasedAt)
+    public void Release(
+        Guid releasedByUserId,
+        DateTimeOffset releasedAt,
+        IReadOnlyDictionary<Guid, (Quantity Invoiced, Quantity Received)> currentOrderLineState)
     {
         EnsureNotReleased();
 
@@ -296,6 +300,19 @@ public sealed class SupplierInvoiceMatch : Entity
         if (!IsPayable)
         {
             throw ProcurementRuleException.BlockedMatchCannotBeReleased(Status);
+        }
+
+        // Match-time snapshots are advisory. Release is the financial boundary, so use the order's
+        // current cumulative released quantity and current receipt quantity here, immediately before
+        // freezing this document. This prevents a second match from paying the same receipt twice.
+        foreach (SupplierInvoiceMatchLine line in _lines)
+        {
+            if (line.PurchaseOrderLineId is { } orderLineId
+                && currentOrderLineState.TryGetValue(orderLineId, out (Quantity Invoiced, Quantity Received) state)
+                && (state.Invoiced + line.InvoicedQuantity).Value > state.Received.Value)
+            {
+                throw ProcurementRuleException.ReleaseExceedsReceivedQuantity(orderLineId);
+            }
         }
 
         ReleasedByUserId = releasedByUserId;

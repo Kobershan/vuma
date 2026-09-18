@@ -220,30 +220,20 @@ public sealed class ReleaseSupplierInvoiceCommandHandler(
             .ConfigureAwait(false)
             ?? throw new ProcurementNotFoundException("purchase order", match.PurchaseOrderId);
 
-        // The match's own status is checked first, unchanged: a match blocked at match time (this
-        // invoice's own quantity or price variance) is refused on that verdict, PROCUREMENT_BLOCKED_
-        // MATCH_CANNOT_BE_RELEASED, same as always.
-        match.Release(releasedBy, clock.UtcNow);
-
         List<SupplierInvoiceMatchLine> orderLines = match.Lines
             .Where(line => line.PurchaseOrderLineId is not null)
             .ToList();
 
-        // A second, narrower check the match's own status cannot make for itself: a sibling match
-        // against the same order line released between this match's own matching and this release
-        // already advanced PurchaseOrderLine.InvoicedQuantity — re-checking against that current figure,
-        // not the match-time snapshot SumInvoicedQuantityAsync took, is what actually stops a duplicate
-        // GL liability (§4.20). Nothing is written to the order until every line has passed.
+        // Release owns the final financial check. Supply the current order state it must validate;
+        // this is deliberately read immediately before Release rather than reusing match-time data.
+        Dictionary<Guid, (Quantity Invoiced, Quantity Received)> currentOrderLineState = [];
         foreach (SupplierInvoiceMatchLine line in orderLines)
         {
             PurchaseOrderLine orderLine = order.RequireLine(line.PurchaseOrderLineId!.Value);
-            Quantity cumulativeInvoiced = orderLine.InvoicedQuantity + line.InvoicedQuantity;
-
-            if (cumulativeInvoiced.Value > orderLine.ReceivedQuantity.Value)
-            {
-                throw ProcurementRuleException.ReleaseExceedsReceivedQuantity(orderLine.Id);
-            }
+            currentOrderLineState[orderLine.Id] = (orderLine.InvoicedQuantity, orderLine.ReceivedQuantity);
         }
+
+        match.Release(releasedBy, clock.UtcNow, currentOrderLineState);
 
         foreach (SupplierInvoiceMatchLine line in orderLines)
         {
