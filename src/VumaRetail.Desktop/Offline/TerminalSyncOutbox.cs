@@ -135,7 +135,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
                     command.Parameters.AddWithValue("$error", result.Detail ?? result.Outcome);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            transaction.Commit();
         }
         finally { _gate.Release(); }
     }

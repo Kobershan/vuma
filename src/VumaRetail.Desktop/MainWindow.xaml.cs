@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly TerminalApi _api;
     private readonly TerminalSyncOutbox _outbox;
+    private readonly IClock _clock;
     private string _pin = string.Empty;
     private Guid _tillSessionId;
     private Guid _saleId;
@@ -25,7 +26,8 @@ public partial class MainWindow : Window
 
     public MainWindow(IClock clock)
     {
-        _ = clock;
+        ArgumentNullException.ThrowIfNull(clock);
+        _clock = clock;
         _api = new TerminalApi();
         string outboxPath = Environment.GetEnvironmentVariable("VUMA_TERMINAL_OUTBOX_PATH")
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vuma", "terminal-outbox.db");
@@ -37,7 +39,7 @@ public partial class MainWindow : Window
         ConnectionText.Text = $"API {_api.BaseUrl}";
         _clockTimer.Tick += async (_, _) =>
         {
-            StatusClock.Text = DateTimeOffset.Now.ToString("HH:mm:ss");
+            StatusClock.Text = _clock.UtcNow.ToLocalTime().ToString("HH:mm:ss");
             try { StatusSync.Text = $"Sync queue {await _outbox.CountOutstandingAsync()}"; }
             catch { StatusSync.Text = "Sync queue unavailable"; }
         };
