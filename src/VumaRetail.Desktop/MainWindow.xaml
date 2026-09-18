@@ -146,6 +146,8 @@
               <Button Content="Void selected" Style="{StaticResource KeyButton}" Click="VoidLine_Click"
                       Margin="{DynamicResource VumaInset8}" />
               <Button Content="Park" Style="{StaticResource KeyButton}" Click="ParkSale_Click" />
+              <Button Content="Parked" Style="{StaticResource KeyButton}" Click="Parked_Click"
+                      Margin="{DynamicResource VumaInset8}" />
               <Button Content="New sale" Style="{StaticResource KeyButton}" Click="NewSale_Click"
                       Margin="{DynamicResource VumaInset8}" />
               <Button Content="Tender" Style="{StaticResource PrimaryButton}" Click="Tender_Click" />
@@ -252,6 +254,22 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
               <Button Content="Back" Style="{StaticResource KeyButton}" Click="CashUpBack_Click" />
               <Button Content="Close shift" Style="{StaticResource PrimaryButton}" Click="CloseCashUp_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Border>
+      <Border x:Name="ParkedView" Visibility="Collapsed" Grid.RowSpan="3"
+              Background="{DynamicResource VumaSurfaceSunkenBrush}" Padding="{DynamicResource VumaInset24}">
+        <Border Style="{StaticResource Panel}" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel>
+            <TextBlock Text="Parked sales" FontFamily="{DynamicResource VumaTypeTitle1Family}"
+                       FontSize="{DynamicResource VumaTypeTitle1Size}" FontWeight="SemiBold" />
+            <ListBox x:Name="ParkedSalesList" DisplayMemberPath="SaleNumber"
+                     Margin="{DynamicResource VumaInset12}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="Close" Style="{StaticResource KeyButton}" Click="ParkedClose_Click" />
+              <Button Content="Resume selected" Style="{StaticResource PrimaryButton}" Click="ResumeParked_Click"
                       Margin="{DynamicResource VumaInset8}" />
             </StackPanel>
           </StackPanel>

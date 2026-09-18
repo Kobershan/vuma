@@ -171,6 +171,32 @@ public partial class MainWindow : Window
         catch (Exception ex) { TillError.Text = ex.Message; }
     }
 
+    private async void Parked_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ParkedSalesList.ItemsSource = await _api.ListParkedSalesAsync();
+            ParkedView.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
+    private void ParkedClose_Click(object sender, RoutedEventArgs e) => ParkedView.Visibility = Visibility.Collapsed;
+
+    private async void ResumeParked_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (ParkedSalesList.SelectedItem is not SaleResponse sale)
+                throw new InvalidOperationException("Select a parked sale to resume.");
+            await _api.PostNoContentAsync($"/pos/sales/{sale.Id}/resume");
+            _saleId = sale.Id;
+            ParkedView.Visibility = Visibility.Collapsed;
+            await RefreshSaleAsync();
+        }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
     private async void VoidLine_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -339,6 +365,9 @@ public partial class MainWindow : Window
         }
 
         public Task<SaleResponse> GetSaleAsync(Guid saleId) => GetAsync<SaleResponse>($"/pos/sales/{saleId}");
+
+        public Task<IReadOnlyList<SaleResponse>> ListParkedSalesAsync()
+            => GetAsync<IReadOnlyList<SaleResponse>>($"/pos/terminals/{TerminalId}/parked-sales");
 
         public Task<TillSessionResponse> GetTillSessionAsync(Guid sessionId)
             => GetAsync<TillSessionResponse>($"/pos/till-sessions/{sessionId}");
