@@ -82,6 +82,7 @@ public static class Program
         foreach (var value in spacing)
         {
             sb.AppendLine($"  <x:Double x:Key=\"VumaSpacing{value}\">{value}</x:Double>");
+            sb.AppendLine($"  <Thickness x:Key=\"VumaInset{value}\">{value}</Thickness>");
         }
 
         foreach (var property in tokens["radius"]!.AsObject()!)
@@ -99,6 +100,10 @@ public static class Program
             sb.AppendLine($"  <x:Double x:Key=\"VumaType{key}LineHeight\">{scale["lineHeight"]}</x:Double>");
             sb.AppendLine($"  <x:Int32 x:Key=\"VumaType{key}Weight\">{scale["weight"]}</x:Int32>");
             sb.AppendLine($"  <FontFamily x:Key=\"VumaType{key}Family\">{families[scale["fontFamily"]!.GetValue<string>()]}</FontFamily>");
+        }
+        foreach (var property in tokens["touchTarget"]!.AsObject()!)
+        {
+            sb.AppendLine($"  <x:Double x:Key=\"VumaTouch{ToPascal(property.Key)}\">{property.Value}</x:Double>");
         }
         sb.AppendLine();
     }

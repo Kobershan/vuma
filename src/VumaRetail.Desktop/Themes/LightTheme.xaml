@@ -29,13 +29,21 @@
   <SolidColorBrush x:Key="VumaInfoBrush" Color="{StaticResource VumaInfo}" />
 
   <x:Double x:Key="VumaSpacing4">4</x:Double>
+  <Thickness x:Key="VumaInset4">4</Thickness>
   <x:Double x:Key="VumaSpacing8">8</x:Double>
+  <Thickness x:Key="VumaInset8">8</Thickness>
   <x:Double x:Key="VumaSpacing12">12</x:Double>
+  <Thickness x:Key="VumaInset12">12</Thickness>
   <x:Double x:Key="VumaSpacing16">16</x:Double>
+  <Thickness x:Key="VumaInset16">16</Thickness>
   <x:Double x:Key="VumaSpacing24">24</x:Double>
+  <Thickness x:Key="VumaInset24">24</Thickness>
   <x:Double x:Key="VumaSpacing32">32</x:Double>
+  <Thickness x:Key="VumaInset32">32</Thickness>
   <x:Double x:Key="VumaSpacing48">48</x:Double>
+  <Thickness x:Key="VumaInset48">48</Thickness>
   <x:Double x:Key="VumaSpacing64">64</x:Double>
+  <Thickness x:Key="VumaInset64">64</Thickness>
   <x:Double x:Key="VumaRadiusSm">8</x:Double>
   <x:Double x:Key="VumaRadiusMd">12</x:Double>
   <x:Double x:Key="VumaRadiusLg">16</x:Double>
@@ -73,5 +81,9 @@
   <x:Double x:Key="VumaTypeMonoLineHeight">18</x:Double>
   <x:Int32 x:Key="VumaTypeMonoWeight">400</x:Int32>
   <FontFamily x:Key="VumaTypeMonoFamily">JetBrains Mono</FontFamily>
+  <x:Double x:Key="VumaTouchPosPrimary">64</x:Double>
+  <x:Double x:Key="VumaTouchPosSecondary">48</x:Double>
+  <x:Double x:Key="VumaTouchBackOffice">36</x:Double>
+  <x:Double x:Key="VumaTouchAndroidWarehouse">56</x:Double>
 
 </ResourceDictionary>
