@@ -28,7 +28,7 @@
       PascalCase names mean quoted identifiers in every hand-written query forever
       (CONVENTIONS.md §2). This package applies the convention once, model-wide.
     -->
-    <PackageVersion Include="EFCore.NamingConventions" Version="9.0.0" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup Label="Hosting">
@@ -119,19 +119,19 @@
       used; see ADR-038 for why users are Vuma entities instead.
     -->
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.3.0" />
-    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.22.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup Label="Serialization">
-    <PackageVersion Include="System.Text.Json" Version="10.0.0" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
     <!--
       FluentAssertions is pinned to 6.x deliberately. Version 8 moved to a paid
       commercial licence, and Vuma is proprietary commercial software. 6.12.2 is
@@ -140,7 +140,7 @@
     <PackageVersion Include="FluentAssertions" Version="6.12.2" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
-    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <!--
       Testcontainers is the documented path (TESTING.md §2) and is used whenever Docker is present.
       VUMA_TEST_POSTGRES overrides it for CI service containers and for developer machines with a
@@ -149,7 +149,7 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />
     <!-- docs/TESTING.md §1's API level: routing, auth, validation, ProblemDetails and OpenAPI. -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
-    <PackageVersion Include="Npgsql" Version="10.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
     <!-- ADR-039: pin SSH.NET to non-vulnerable version; 2024.1.0 has high-severity GHSA-q939-rpr3-3284. -->
