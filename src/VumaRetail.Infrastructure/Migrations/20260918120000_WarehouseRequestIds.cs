@@ -1,11 +1,16 @@
 ﻿using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using VumaRetail.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace VumaRetail.Infrastructure.Migrations;
 
 /// <summary>Adds durable request ids for warehouse create-command replay.</summary>
+[DbContext(typeof(VumaRetailDbContext))]
+[Migration("20260918120000_WarehouseRequestIds")]
 public partial class WarehouseRequestIds : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
