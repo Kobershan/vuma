@@ -232,6 +232,36 @@ public partial class MainWindow : Window
         catch (Exception ex) { ReceiptText.Text = ex.Message; }
     }
 
+    private async void CashUp_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TillSessionResponse session = await _api.GetTillSessionAsync(_tillSessionId);
+            ExpectedCashText.Text = $"Expected {session.ExpectedCash:N2} {session.Currency}";
+            CountedCashInput.Text = session.ExpectedCash.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            CashVarianceText.Text = "Variance is calculated on close.";
+            CashUpError.Text = string.Empty;
+            CashUpView.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex) { CashUpError.Text = ex.Message; }
+    }
+
+    private void CashUpBack_Click(object sender, RoutedEventArgs e) => CashUpView.Visibility = Visibility.Collapsed;
+
+    private async void CloseCashUp_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            decimal counted = decimal.Parse(CountedCashInput.Text, System.Globalization.CultureInfo.InvariantCulture);
+            string currency = Environment.GetEnvironmentVariable("VUMA_CURRENCY") ?? "ZAR";
+            CashUpResponse result = await _api.CloseTillSessionAsync(_tillSessionId, counted, currency);
+            CashVarianceText.Text = $"Variance {result.Variance:N2} {result.Currency}";
+            CashUpError.Text = "Shift closed. Sign in again to open the next drawer.";
+            StatusConnection.Text = "Online · shift closed";
+        }
+        catch (Exception ex) { CashUpError.Text = ex.Message; }
+    }
+
     private static Guid ReadRequiredGuid(string variable, string message)
         => Guid.TryParse(Environment.GetEnvironmentVariable(variable), out Guid value)
             ? value
@@ -292,6 +322,13 @@ public partial class MainWindow : Window
         }
 
         public Task<SaleResponse> GetSaleAsync(Guid saleId) => GetAsync<SaleResponse>($"/pos/sales/{saleId}");
+
+        public Task<TillSessionResponse> GetTillSessionAsync(Guid sessionId)
+            => GetAsync<TillSessionResponse>($"/pos/till-sessions/{sessionId}");
+
+        public async Task<CashUpResponse> CloseTillSessionAsync(Guid sessionId, decimal countedCash, string currency)
+            => await PostAsync<CloseTillSessionRequest, CashUpResponse>(
+                $"/pos/till-sessions/{sessionId}/close", new CloseTillSessionRequest(countedCash, currency));
 
         public Task<PermissionsResponse> GetPermissionsAsync() => GetAsync<PermissionsResponse>("/me/permissions");
 

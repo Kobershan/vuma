@@ -172,7 +172,10 @@
       </Grid>
       <Border Grid.Row="2" Style="{StaticResource Panel}" Padding="{DynamicResource VumaInset8}">
         <DockPanel>
-          <TextBlock x:Name="StatusSync" Text="Sync queue 0" Style="{StaticResource Label}" />
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button Content="Cash up" Style="{StaticResource KeyButton}" Click="CashUp_Click" />
+            <TextBlock x:Name="StatusSync" Text="Sync queue 0" Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+          </StackPanel>
           <TextBlock Text="UTC-backed clock · REST terminal" Style="{StaticResource Label}" HorizontalAlignment="Right" />
         </DockPanel>
       </Border>
@@ -229,6 +232,28 @@
                       Margin="{DynamicResource VumaInset8}" />
             </StackPanel>
           </Grid>
+        </Border>
+      </Border>
+      <Border x:Name="CashUpView" Visibility="Collapsed" Grid.RowSpan="3"
+              Background="{DynamicResource VumaSurfaceSunkenBrush}" Padding="{DynamicResource VumaInset24}">
+        <Border Style="{StaticResource Panel}" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel>
+            <TextBlock Text="Cash-up" FontFamily="{DynamicResource VumaTypeTitle1Family}"
+                       FontSize="{DynamicResource VumaTypeTitle1Size}" FontWeight="SemiBold" />
+            <TextBlock x:Name="ExpectedCashText" Text="Expected 0.00" Style="{StaticResource Body}"
+                       Margin="{DynamicResource VumaInset8}" />
+            <TextBox x:Name="CountedCashInput" Style="{StaticResource Input}" Text="0"
+                     Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="CashVarianceText" Text="Variance 0.00" Style="{StaticResource Body}"
+                       Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="CashUpError" Style="{StaticResource Label}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource VumaCriticalBrush}" Margin="{DynamicResource VumaInset8}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="Back" Style="{StaticResource KeyButton}" Click="CashUpBack_Click" />
+              <Button Content="Close shift" Style="{StaticResource PrimaryButton}" Click="CloseCashUp_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+            </StackPanel>
+          </StackPanel>
         </Border>
       </Border>
     </Grid>
