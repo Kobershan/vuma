@@ -47,7 +47,11 @@ public sealed record LicenceStatusResponse(
     string? UpdatePaymentMethodUrl,
     string? SupportPhone,
     IReadOnlyList<ModuleEntitlementResponse> Entitlements,
-    IReadOnlyList<LimitUsageResponse> Limits);
+    IReadOnlyList<LimitUsageResponse> Limits)
+{
+    /// <summary>The support capabilities carried by the current lease.</summary>
+    public IReadOnlyList<SupportEntitlementResponse> SupportEntitlements { get; init; } = [];
+}
 
 /// <summary>One module, and whether this plan includes it.</summary>
 /// <param name="Module">The module.</param>
@@ -55,6 +59,9 @@ public sealed record LicenceStatusResponse(
 /// <param name="Enabled">Whether it is switched on.</param>
 /// <param name="Core">True for the platform modules, which are never sold separately.</param>
 public sealed record ModuleEntitlementResponse(string Module, string Description, bool Enabled, bool Core);
+
+/// <summary>One support capability and whether the current lease enables it.</summary>
+public sealed record SupportEntitlementResponse(string Key, string Description, bool Enabled);
 
 /// <summary>One limit, its ceiling and what is used against it.</summary>
 /// <param name="Limit">Which limit.</param>

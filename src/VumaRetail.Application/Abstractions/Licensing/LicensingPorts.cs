@@ -179,7 +179,15 @@ public interface IModuleManifest
     /// licence with a missing core flag gets noticed.
     /// </remarks>
     bool IsCore => false;
+
+    /// <summary>The individual billable capabilities declared by this module.</summary>
+    IReadOnlyCollection<ModuleEntitlementDeclaration> Entitlements => [];
 }
+
+/// <summary>A billable capability exposed by a module manifest.</summary>
+/// <param name="Key">The entitlement key carried by a lease.</param>
+/// <param name="Description">The customer-facing description.</param>
+public sealed record ModuleEntitlementDeclaration(string Key, string Description);
 
 /// <summary>
 /// A command whose writes belong to a session that was already open (<c>LICENSING.md</c> §4).

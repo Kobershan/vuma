@@ -83,7 +83,7 @@ public sealed class GetLicenceStatusQueryHandler(
                     manifest.IsCore)),
         ];
 
-        return new LicenceStatusResponse(
+        LicenceStatusResponse response = new(
             activation is { State: not ActivationState.Deactivated },
             licence?.PlanCode ?? string.Empty,
             decision.Level.ToString(),
@@ -107,6 +107,19 @@ public sealed class GetLicenceStatusQueryHandler(
                 Limit(LimitKind.Terminals, limits, usage.Terminals),
                 Limit(LimitKind.NamedUsers, limits, usage.NamedUsers),
             ]);
+
+        return response with
+        {
+            SupportEntitlements = manifests
+                .Where(manifest => string.Equals(manifest.Module, "support", StringComparison.OrdinalIgnoreCase))
+                .SelectMany(manifest => manifest.Entitlements)
+                .Select(entitlement => new SupportEntitlementResponse(
+                    entitlement.Key,
+                    entitlement.Description,
+                    enabled.Contains(entitlement.Key)))
+                .OrderBy(entitlement => entitlement.Key, StringComparer.Ordinal)
+                .ToList(),
+        };
     }
 
     private static LimitUsageResponse Limit(LimitKind kind, LicenceLimits limits, long used)

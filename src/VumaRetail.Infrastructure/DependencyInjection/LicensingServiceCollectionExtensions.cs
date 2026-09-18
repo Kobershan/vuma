@@ -101,6 +101,7 @@ public static class LicensingServiceCollectionExtensions
             ServiceDescriptor.Singleton<IModuleManifest, SyncModuleManifest>(),
             ServiceDescriptor.Singleton<IModuleManifest, BackupModuleManifest>(),
             ServiceDescriptor.Singleton<IModuleManifest, LicensingModuleManifest>(),
+            ServiceDescriptor.Singleton<IModuleManifest, VumaRetail.Licensing.SupportModuleManifest>(),
         ]);
 
         // The licensing handlers and validators live in VumaRetail.Licensing, which the
