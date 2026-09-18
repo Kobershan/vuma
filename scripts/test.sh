@@ -18,4 +18,7 @@ fi
 
 export VUMA_TEST_POSTGRES
 
-dotnet test -c Release "$@"
+dotnet test tests/VumaRetail.UnitTests -c Release "$@"
+dotnet test tests/VumaRetail.ControlPlane.Tests -c Release "$@"
+dotnet test tests/VumaRetail.ArchitectureTests -c Release "$@"
+dotnet test tests/VumaRetail.IntegrationTests -c Release "$@"

@@ -66,6 +66,7 @@ jobs:
           dotnet build src/VumaRetail.Licensing -c Release --no-restore
           dotnet build src/VumaRetail.Workflow -c Release --no-restore
           dotnet build src/VumaRetail.Finance -c Release --no-restore
+          dotnet build src/VumaRetail.ControlPlane -c Release --no-restore
           dotnet build src/VumaRetail.Imports -c Release --no-restore
           dotnet build src/VumaRetail.Hardware -c Release --no-restore
           dotnet build src/VumaRetail.Web -c Release --no-restore
@@ -74,6 +75,7 @@ jobs:
           dotnet build src/VumaRetail.CloudApi -c Release --no-restore
           dotnet build src/VumaRetail.TokenGenerator -c Release --no-restore
           dotnet build tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet build tests/VumaRetail.ControlPlane.Tests -c Release --no-restore
           dotnet build tests/VumaRetail.ArchitectureTests -c Release --no-restore
           dotnet build tests/VumaRetail.IntegrationTests -c Release --no-restore
 
@@ -193,6 +195,7 @@ jobs:
       - name: Test
         run: |
           dotnet test tests/VumaRetail.UnitTests -c Release --no-restore
+          dotnet test tests/VumaRetail.ControlPlane.Tests -c Release --no-restore
           dotnet test tests/VumaRetail.ArchitectureTests -c Release --no-restore
           dotnet test tests/VumaRetail.IntegrationTests -c Release --no-restore --logger "trx;LogFileName=results.trx" --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" --results-directory ./artifacts/test-results
 

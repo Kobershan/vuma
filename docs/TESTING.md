@@ -103,6 +103,9 @@ Use Bogus for generated data, but keep **fixed seeds** so failures are reproduci
 release's DB, and `Down` reverses) → `architecture-tests` → `vulnerability-scan` → `package`.
 A red pipeline blocks the stage from being marked DONE.
 
+The `test` gate runs the unit, control-plane, architecture, and PostgreSQL integration projects.
+The control-plane project is a separate deployable and must not be omitted from the CI test matrix.
+
 ---
 
 ## 7. Licensing test requirements (added in revision 2)
