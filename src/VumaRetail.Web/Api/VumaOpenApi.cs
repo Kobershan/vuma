@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
+using System.Text.Json.Nodes;
 using VumaRetail.Contracts;
 
 namespace VumaRetail.Web.Api;
@@ -68,7 +68,7 @@ public static class VumaOpenApi
                 }
 
                 if (context.Description.RelativePath is { } path
-                    && RequestExamples.TryGetValue(path, out IOpenApiAny? example)
+                    && RequestExamples.TryGetValue(path, out JsonNode? example)
                     && operation.RequestBody?.Content.TryGetValue("application/json", out OpenApiMediaType? media) == true)
                 {
                     media.Example = example;
@@ -108,192 +108,192 @@ public static class VumaOpenApi
     /// Request examples, keyed by route template. Kept here rather than on each endpoint because the
     /// built-in generator has no per-endpoint example hook that survives a route group.
     /// </summary>
-    private static readonly Dictionary<string, IOpenApiAny> RequestExamples = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, JsonNode> RequestExamples = new(StringComparer.Ordinal)
     {
-        ["api/v1/auth/token"] = new OpenApiObject
+        ["api/v1/auth/token"] = new JsonObject
         {
-            ["userName"] = new OpenApiString("nmokoena"),
-            ["password"] = new OpenApiString("CorrectHorseBattery1"),
+            ["userName"] = JsonValue.Create("nmokoena"),
+            ["password"] = JsonValue.Create("CorrectHorseBattery1"),
         },
-        ["api/v1/auth/pin"] = new OpenApiObject
+        ["api/v1/auth/pin"] = new JsonObject
         {
-            ["terminalId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000001"),
-            ["pin"] = new OpenApiString("1174"),
+            ["terminalId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000001"),
+            ["pin"] = JsonValue.Create("1174"),
         },
-        ["api/v1/auth/refresh"] = new OpenApiObject
+        ["api/v1/auth/refresh"] = new JsonObject
         {
-            ["refreshToken"] = new OpenApiString("s6Bh…never-logged…Qq1"),
+            ["refreshToken"] = JsonValue.Create("s6Bh…never-logged…Qq1"),
         },
-        ["api/v1/auth/terminal/activate"] = new OpenApiObject
+        ["api/v1/auth/terminal/activate"] = new JsonObject
         {
-            ["storeId"] = new OpenApiString("01926f2c-0000-7000-8000-0000000000aa"),
-            ["enrolmentCode"] = new OpenApiString("K7QF-2M9X-VD4T"),
-            ["certificateThumbprint"] = new OpenApiString(new string('A', 64)),
-            ["deviceFingerprint"] = new OpenApiString("board-serial-1"),
+            ["storeId"] = JsonValue.Create("01926f2c-0000-7000-8000-0000000000aa"),
+            ["enrolmentCode"] = JsonValue.Create("K7QF-2M9X-VD4T"),
+            ["certificateThumbprint"] = JsonValue.Create(new string('A', 64)),
+            ["deviceFingerprint"] = JsonValue.Create("board-serial-1"),
         },
-        ["api/v1/pos/till-sessions"] = new OpenApiObject
+        ["api/v1/pos/till-sessions"] = new JsonObject
         {
-            ["openingFloat"] = new OpenApiDouble(500d),
-            ["currency"] = new OpenApiString("ZAR"),
+            ["openingFloat"] = JsonValue.Create(500d),
+            ["currency"] = JsonValue.Create("ZAR"),
         },
-        ["api/v1/pos/till-sessions/{tillSessionId}/close"] = new OpenApiObject
+        ["api/v1/pos/till-sessions/{tillSessionId}/close"] = new JsonObject
         {
-            ["countedCash"] = new OpenApiDouble(1250.50d),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["note"] = new OpenApiString("Drawer counted at shift close"),
+            ["countedCash"] = JsonValue.Create(1250.50d),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["note"] = JsonValue.Create("Drawer counted at shift close"),
         },
-        ["api/v1/pos/sales"] = new OpenApiObject
+        ["api/v1/pos/sales"] = new JsonObject
         {
-            ["saleId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000010"),
-            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000011"),
-            ["customerId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000012"),
+            ["saleId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000010"),
+            ["locationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000011"),
+            ["customerId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000012"),
         },
-        ["api/v1/pos/sales/{saleId}/lines"] = new OpenApiObject
+        ["api/v1/pos/sales/{saleId}/lines"] = new JsonObject
         {
-            ["itemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000020"),
-            ["itemVariantId"] = new OpenApiNull(),
-            ["quantity"] = new OpenApiDouble(2),
-            ["unitOfMeasure"] = new OpenApiString("EA"),
-            ["unitPrice"] = new OpenApiDouble(59.99d),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["discountAmount"] = new OpenApiDouble(0),
-            ["saleLineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000021"),
+            ["itemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000020"),
+            ["itemVariantId"] = JsonNullSentinel.JsonNull,
+            ["quantity"] = JsonValue.Create(2),
+            ["unitOfMeasure"] = JsonValue.Create("EA"),
+            ["unitPrice"] = JsonValue.Create(59.99d),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["discountAmount"] = JsonValue.Create(0),
+            ["saleLineId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000021"),
         },
-        ["api/v1/pos/sales/{saleId}/tenders"] = new OpenApiObject
+        ["api/v1/pos/sales/{saleId}/tenders"] = new JsonObject
         {
-            ["tenderType"] = new OpenApiString("Cash"),
-            ["amount"] = new OpenApiDouble(120),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["reference"] = new OpenApiString("DRAWER-1"),
-            ["saleTenderId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000022"),
+            ["tenderType"] = JsonValue.Create("Cash"),
+            ["amount"] = JsonValue.Create(120),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["reference"] = JsonValue.Create("DRAWER-1"),
+            ["saleTenderId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000022"),
         },
-        ["api/v1/pos/sales/{saleId}/void"] = new OpenApiObject
+        ["api/v1/pos/sales/{saleId}/void"] = new JsonObject
         {
-            ["reason"] = new OpenApiString("Customer cancelled before payment"),
+            ["reason"] = JsonValue.Create("Customer cancelled before payment"),
         },
-        ["api/v1/pos/sales/{saleId}/receipt/prints"] = new OpenApiObject
+        ["api/v1/pos/sales/{saleId}/receipt/prints"] = new JsonObject
         {
-            ["reason"] = new OpenApiString("Customer requested a duplicate receipt"),
-            ["receiptPrintId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000023"),
+            ["reason"] = JsonValue.Create("Customer requested a duplicate receipt"),
+            ["receiptPrintId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000023"),
         },
-        ["api/v1/trading-sessions"] = new OpenApiObject
+        ["api/v1/trading-sessions"] = new JsonObject
         {
-            ["premisesId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000030"),
-            ["terminalId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000031"),
-            ["cashierUserId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000032"),
-            ["sessionCompanyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["idempotencyKey"] = new OpenApiString("till-20260911-0001"),
-            ["customerGroupPartnerId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000034"),
+            ["premisesId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000030"),
+            ["terminalId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000031"),
+            ["cashierUserId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000032"),
+            ["sessionCompanyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000033"),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["idempotencyKey"] = JsonValue.Create("till-20260911-0001"),
+            ["customerGroupPartnerId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000034"),
         },
-        ["api/v1/trading-sessions/{sessionId}/lines"] = new OpenApiObject
+        ["api/v1/trading-sessions/{sessionId}/lines"] = new JsonObject
         {
-            ["barcode"] = new OpenApiString("6009880999999"),
-            ["quantityValue"] = new OpenApiDouble(1),
-            ["quantityUom"] = new OpenApiString("EA"),
-            ["unitPriceAmount"] = new OpenApiDouble(49.99d),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["discountAmount"] = new OpenApiDouble(0),
-            ["taxCode"] = new OpenApiString("STANDARD"),
-            ["lineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000035"),
+            ["barcode"] = JsonValue.Create("6009880999999"),
+            ["quantityValue"] = JsonValue.Create(1),
+            ["quantityUom"] = JsonValue.Create("EA"),
+            ["unitPriceAmount"] = JsonValue.Create(49.99d),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["discountAmount"] = JsonValue.Create(0),
+            ["taxCode"] = JsonValue.Create("STANDARD"),
+            ["lineId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000035"),
         },
-        ["api/v1/trading-sessions/{sessionId}/tender"] = new OpenApiObject
+        ["api/v1/trading-sessions/{sessionId}/tender"] = new JsonObject
         {
-            ["tenderType"] = new OpenApiString("Cash"),
-            ["amount"] = new OpenApiDouble(49.99d),
-            ["currency"] = new OpenApiString("ZAR"),
-            ["reference"] = new OpenApiString("DRAWER-2"),
+            ["tenderType"] = JsonValue.Create("Cash"),
+            ["amount"] = JsonValue.Create(49.99d),
+            ["currency"] = JsonValue.Create("ZAR"),
+            ["reference"] = JsonValue.Create("DRAWER-2"),
         },
-        ["api/v1/trading-sessions/{sessionId}/tender/allocations"] = new OpenApiObject
+        ["api/v1/trading-sessions/{sessionId}/tender/allocations"] = new JsonObject
         {
-            ["allocations"] = new OpenApiArray
+            ["allocations"] = new JsonArray
             {
-                new OpenApiObject
+                new JsonObject
                 {
-                    ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
-                    ["amount"] = new OpenApiDouble(49.99d),
-                    ["currency"] = new OpenApiString("ZAR"),
+                    ["companyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000033"),
+                    ["amount"] = JsonValue.Create(49.99d),
+                    ["currency"] = JsonValue.Create("ZAR"),
                 },
             },
         },
-        ["api/v1/trading-sessions/{sessionId}/void"] = new OpenApiObject
+        ["api/v1/trading-sessions/{sessionId}/void"] = new JsonObject
         {
-            ["reason"] = new OpenApiString("Customer cancelled before completion"),
+            ["reason"] = JsonValue.Create("Customer cancelled before completion"),
         },
-        ["api/v1/trading-sessions/{sessionId}/returns"] = new OpenApiObject
+        ["api/v1/trading-sessions/{sessionId}/returns"] = new JsonObject
         {
-            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000033"),
-            ["invoiceNumber"] = new OpenApiString("INV-20260911-0001"),
-            ["reason"] = new OpenApiString("Damaged item"),
-            ["lines"] = new OpenApiArray
+            ["companyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000033"),
+            ["invoiceNumber"] = JsonValue.Create("INV-20260911-0001"),
+            ["reason"] = JsonValue.Create("Damaged item"),
+            ["lines"] = new JsonArray
             {
-                new OpenApiObject
+                new JsonObject
                 {
-                    ["sessionLineId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000035"),
-                    ["quantityValue"] = new OpenApiDouble(1),
+                    ["sessionLineId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000035"),
+                    ["quantityValue"] = JsonValue.Create(1),
                 },
             },
         },
-        ["api/v1/manufacturing/boms"] = new OpenApiObject
+        ["api/v1/manufacturing/boms"] = new JsonObject
         {
-            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000040"),
-            ["finishedItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000041"),
-            ["finishedVariantId"] = new OpenApiNull(),
-            ["version"] = new OpenApiInteger(1),
-            ["name"] = new OpenApiString("Starter assembly"),
-            ["lines"] = new OpenApiArray
+            ["companyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000040"),
+            ["finishedItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000041"),
+            ["finishedVariantId"] = JsonNullSentinel.JsonNull,
+            ["version"] = JsonValue.Create(1),
+            ["name"] = JsonValue.Create("Starter assembly"),
+            ["lines"] = new JsonArray
             {
-                new OpenApiObject
+                new JsonObject
                 {
-                    ["componentItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000042"),
-                    ["componentVariantId"] = new OpenApiNull(),
-                    ["quantity"] = new OpenApiDouble(2),
-                    ["unitOfMeasure"] = new OpenApiString("EA"),
-                    ["scrapPercent"] = new OpenApiDouble(2.5),
+                    ["componentItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000042"),
+                    ["componentVariantId"] = JsonNullSentinel.JsonNull,
+                    ["quantity"] = JsonValue.Create(2),
+                    ["unitOfMeasure"] = JsonValue.Create("EA"),
+                    ["scrapPercent"] = JsonValue.Create(2.5),
                 },
             },
         },
-        ["api/v1/manufacturing/production-orders"] = new OpenApiObject
+        ["api/v1/manufacturing/production-orders"] = new JsonObject
         {
-            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000050"),
-            ["companyId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000040"),
-            ["finishedItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000041"),
-            ["quantity"] = new OpenApiDouble(10),
-            ["unitOfMeasure"] = new OpenApiString("EA"),
-            ["orderNumber"] = new OpenApiString("PROD-2026-0001"),
-            ["billOfMaterialsId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000043"),
+            ["operationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000050"),
+            ["companyId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000040"),
+            ["finishedItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000041"),
+            ["quantity"] = JsonValue.Create(10),
+            ["unitOfMeasure"] = JsonValue.Create("EA"),
+            ["orderNumber"] = JsonValue.Create("PROD-2026-0001"),
+            ["billOfMaterialsId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000043"),
         },
-        ["api/v1/manufacturing/production-orders/{id}/release"] = new OpenApiObject
+        ["api/v1/manufacturing/production-orders/{id}/release"] = new JsonObject
         {
-            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000051"),
-            ["billOfMaterialsId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000043"),
+            ["operationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000051"),
+            ["billOfMaterialsId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000043"),
         },
-        ["api/v1/manufacturing/production-orders/{id}/issues"] = new OpenApiObject
+        ["api/v1/manufacturing/production-orders/{id}/issues"] = new JsonObject
         {
-            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000044"),
-            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000052"),
-            ["componentItemId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000042"),
-            ["quantity"] = new OpenApiDouble(20),
-            ["unitOfMeasure"] = new OpenApiString("EA"),
-            ["unitCost"] = new OpenApiDouble(12.5),
-            ["currency"] = new OpenApiString("ZAR"),
+            ["locationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000044"),
+            ["operationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000052"),
+            ["componentItemId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000042"),
+            ["quantity"] = JsonValue.Create(20),
+            ["unitOfMeasure"] = JsonValue.Create("EA"),
+            ["unitCost"] = JsonValue.Create(12.5),
+            ["currency"] = JsonValue.Create("ZAR"),
         },
-        ["api/v1/manufacturing/production-orders/{id}/receipts"] = new OpenApiObject
+        ["api/v1/manufacturing/production-orders/{id}/receipts"] = new JsonObject
         {
-            ["locationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000044"),
-            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000053"),
-            ["quantity"] = new OpenApiDouble(9),
-            ["unitOfMeasure"] = new OpenApiString("EA"),
-            ["unitCost"] = new OpenApiDouble(27.7778),
-            ["currency"] = new OpenApiString("ZAR"),
+            ["locationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000044"),
+            ["operationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000053"),
+            ["quantity"] = JsonValue.Create(9),
+            ["unitOfMeasure"] = JsonValue.Create("EA"),
+            ["unitCost"] = JsonValue.Create(27.7778),
+            ["currency"] = JsonValue.Create("ZAR"),
         },
-        ["api/v1/manufacturing/production-orders/{id}/scrap"] = new OpenApiObject
+        ["api/v1/manufacturing/production-orders/{id}/scrap"] = new JsonObject
         {
-            ["operationId"] = new OpenApiString("01926f2c-0000-7000-8000-000000000054"),
-            ["quantity"] = new OpenApiDouble(1),
-            ["unitOfMeasure"] = new OpenApiString("EA"),
-            ["unitCost"] = new OpenApiDouble(27.7778),
-            ["currency"] = new OpenApiString("ZAR"),
+            ["operationId"] = JsonValue.Create("01926f2c-0000-7000-8000-000000000054"),
+            ["quantity"] = JsonValue.Create(1),
+            ["unitOfMeasure"] = JsonValue.Create("EA"),
+            ["unitCost"] = JsonValue.Create(27.7778),
+            ["currency"] = JsonValue.Create("ZAR"),
         },
     };
 
@@ -304,12 +304,12 @@ public static class VumaOpenApi
         {
             ["application/problem+json"] = new OpenApiMediaType
             {
-                Example = new OpenApiObject
+                Example = new JsonObject
                 {
-                    ["status"] = new OpenApiInteger(int.Parse(status, System.Globalization.CultureInfo.InvariantCulture)),
-                    ["title"] = new OpenApiString(description),
-                    ["code"] = new OpenApiString(ExampleCodeFor(status)),
-                    ["correlationId"] = new OpenApiString("0192a1b2c3d47e8f9a0b1c2d3e4f5a6b"),
+                    ["status"] = JsonValue.Create(int.Parse(status, System.Globalization.CultureInfo.InvariantCulture)),
+                    ["title"] = JsonValue.Create(description),
+                    ["code"] = JsonValue.Create(ExampleCodeFor(status)),
+                    ["correlationId"] = JsonValue.Create("0192a1b2c3d47e8f9a0b1c2d3e4f5a6b"),
                 },
             },
         },

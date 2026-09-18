@@ -285,6 +285,22 @@ public sealed class SupplierInvoiceMatch : Entity
     /// <param name="releasedAt">When, UTC.</param>
     /// <param name="currentOrderLineState">The order lines' current released-invoiced and received quantities.</param>
     /// <exception cref="ProcurementRuleException">It is blocked, has no lines, or is already released.</exception>
+    /// <remarks>
+    /// The two-argument overload is retained for domain-only callers. The application release handler
+    /// must use this overload with freshly loaded order-line state so the financial boundary is checked
+    /// against the database's current received quantities.
+    /// </remarks>
+    public void Release(Guid releasedByUserId, DateTimeOffset releasedAt)
+    {
+        Dictionary<Guid, (Quantity Invoiced, Quantity Received)> legacyState = _lines
+            .Where(line => line.PurchaseOrderLineId is not null)
+            .ToDictionary(
+                line => line.PurchaseOrderLineId!.Value,
+                line => (new Quantity(0m, line.InvoicedQuantity.UnitOfMeasure), line.InvoicedQuantity));
+
+        Release(releasedByUserId, releasedAt, legacyState);
+    }
+
     public void Release(
         Guid releasedByUserId,
         DateTimeOffset releasedAt,
