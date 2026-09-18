@@ -40,6 +40,7 @@ public static class Program
             WriteWpfColors(sb, themeTokens["surface"]!, "Surface");
             WriteWpfColors(sb, themeTokens["text"]!, "Text");
             WriteWpfSemantic(sb, themeTokens);
+            WriteWpfMetrics(sb, tokens);
             sb.AppendLine("</ResourceDictionary>");
 
             var content = NormalizeLineEndings(sb.ToString());
@@ -71,6 +72,33 @@ public static class Program
             var name = $"Vuma{ToPascal(key)}";
             sb.AppendLine($"  <Color x:Key=\"{name}\">{hex}</Color>");
             sb.AppendLine($"  <SolidColorBrush x:Key=\"{name}Brush\" Color=\"{{StaticResource {name}}}\" />");
+        }
+        sb.AppendLine();
+    }
+
+    private static void WriteWpfMetrics(StringBuilder sb, JsonNode tokens)
+    {
+        var spacing = tokens["spacing"]!["values"]!.AsArray();
+        foreach (var value in spacing)
+        {
+            sb.AppendLine($"  <x:Double x:Key=\"VumaSpacing{value}\">{value}</x:Double>");
+        }
+
+        foreach (var property in tokens["radius"]!.AsObject()!)
+        {
+            sb.AppendLine($"  <x:Double x:Key=\"VumaRadius{ToPascal(property.Key)}\">{property.Value}</x:Double>");
+        }
+
+        var typography = tokens["typography"]!;
+        var families = typography["fontFamily"]!;
+        foreach (var property in typography["scale"]!.AsObject()!)
+        {
+            var scale = property.Value!;
+            var key = ToPascal(property.Key);
+            sb.AppendLine($"  <x:Double x:Key=\"VumaType{key}Size\">{scale["size"]}</x:Double>");
+            sb.AppendLine($"  <x:Double x:Key=\"VumaType{key}LineHeight\">{scale["lineHeight"]}</x:Double>");
+            sb.AppendLine($"  <x:Int32 x:Key=\"VumaType{key}Weight\">{scale["weight"]}</x:Int32>");
+            sb.AppendLine($"  <FontFamily x:Key=\"VumaType{key}Family\">{families[scale["fontFamily"]!.GetValue<string>()]}</FontFamily>");
         }
         sb.AppendLine();
     }

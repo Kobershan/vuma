@@ -28,4 +28,50 @@
   <Color x:Key="VumaInfo">#1B5FB0</Color>
   <SolidColorBrush x:Key="VumaInfoBrush" Color="{StaticResource VumaInfo}" />
 
+  <x:Double x:Key="VumaSpacing4">4</x:Double>
+  <x:Double x:Key="VumaSpacing8">8</x:Double>
+  <x:Double x:Key="VumaSpacing12">12</x:Double>
+  <x:Double x:Key="VumaSpacing16">16</x:Double>
+  <x:Double x:Key="VumaSpacing24">24</x:Double>
+  <x:Double x:Key="VumaSpacing32">32</x:Double>
+  <x:Double x:Key="VumaSpacing48">48</x:Double>
+  <x:Double x:Key="VumaSpacing64">64</x:Double>
+  <x:Double x:Key="VumaRadiusSm">8</x:Double>
+  <x:Double x:Key="VumaRadiusMd">12</x:Double>
+  <x:Double x:Key="VumaRadiusLg">16</x:Double>
+  <x:Double x:Key="VumaRadiusXl">22</x:Double>
+  <x:Double x:Key="VumaRadiusPill">999</x:Double>
+  <x:Double x:Key="VumaTypeDisplaySize">44</x:Double>
+  <x:Double x:Key="VumaTypeDisplayLineHeight">48</x:Double>
+  <x:Int32 x:Key="VumaTypeDisplayWeight">600</x:Int32>
+  <FontFamily x:Key="VumaTypeDisplayFamily">Inter Display</FontFamily>
+  <x:Double x:Key="VumaTypeTitle1Size">30</x:Double>
+  <x:Double x:Key="VumaTypeTitle1LineHeight">36</x:Double>
+  <x:Int32 x:Key="VumaTypeTitle1Weight">600</x:Int32>
+  <FontFamily x:Key="VumaTypeTitle1Family">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeTitle2Size">22</x:Double>
+  <x:Double x:Key="VumaTypeTitle2LineHeight">28</x:Double>
+  <x:Int32 x:Key="VumaTypeTitle2Weight">600</x:Int32>
+  <FontFamily x:Key="VumaTypeTitle2Family">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeHeadlineSize">17</x:Double>
+  <x:Double x:Key="VumaTypeHeadlineLineHeight">22</x:Double>
+  <x:Int32 x:Key="VumaTypeHeadlineWeight">600</x:Int32>
+  <FontFamily x:Key="VumaTypeHeadlineFamily">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeBodySize">15</x:Double>
+  <x:Double x:Key="VumaTypeBodyLineHeight">21</x:Double>
+  <x:Int32 x:Key="VumaTypeBodyWeight">400</x:Int32>
+  <FontFamily x:Key="VumaTypeBodyFamily">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeCalloutSize">14</x:Double>
+  <x:Double x:Key="VumaTypeCalloutLineHeight">19</x:Double>
+  <x:Int32 x:Key="VumaTypeCalloutWeight">400</x:Int32>
+  <FontFamily x:Key="VumaTypeCalloutFamily">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeCaptionSize">12</x:Double>
+  <x:Double x:Key="VumaTypeCaptionLineHeight">16</x:Double>
+  <x:Int32 x:Key="VumaTypeCaptionWeight">500</x:Int32>
+  <FontFamily x:Key="VumaTypeCaptionFamily">Inter</FontFamily>
+  <x:Double x:Key="VumaTypeMonoSize">13</x:Double>
+  <x:Double x:Key="VumaTypeMonoLineHeight">18</x:Double>
+  <x:Int32 x:Key="VumaTypeMonoWeight">400</x:Int32>
+  <FontFamily x:Key="VumaTypeMonoFamily">JetBrains Mono</FontFamily>
+
 </ResourceDictionary>
