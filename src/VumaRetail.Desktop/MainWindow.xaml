@@ -4,6 +4,7 @@
         Title="Vuma Till"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
+        Closed="Window_Closed"
         Background="{DynamicResource VumaSurfaceSunkenBrush}"
         Foreground="{DynamicResource VumaTextPrimaryBrush}">
   <Window.Resources>

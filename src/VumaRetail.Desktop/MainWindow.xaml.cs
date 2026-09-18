@@ -8,6 +8,7 @@ using System.Windows.Input;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Contracts.Identity;
 using VumaRetail.Contracts.Pos;
+using VumaRetail.Desktop.Offline;
 
 namespace VumaRetail.Desktop;
 
@@ -15,6 +16,7 @@ namespace VumaRetail.Desktop;
 public partial class MainWindow : Window
 {
     private readonly TerminalApi _api;
+    private readonly TerminalSyncOutbox _outbox;
     private string _pin = string.Empty;
     private Guid _tillSessionId;
     private Guid _saleId;
@@ -25,11 +27,20 @@ public partial class MainWindow : Window
     {
         _ = clock;
         _api = new TerminalApi();
+        string outboxPath = Environment.GetEnvironmentVariable("VUMA_TERMINAL_OUTBOX_PATH")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vuma", "terminal-outbox.db");
+        _outbox = new TerminalSyncOutbox(outboxPath);
+        _ = _outbox.InitializeAsync();
         InitializeComponent();
         StoreNameText.Text = Environment.GetEnvironmentVariable("VUMA_STORE_NAME") ?? "Vuma store";
         TerminalText.Text = $"Terminal {(_api.TerminalId == Guid.Empty ? "not configured" : _api.TerminalId)}";
         ConnectionText.Text = $"API {_api.BaseUrl}";
-        _clockTimer.Tick += (_, _) => StatusClock.Text = DateTimeOffset.Now.ToString("HH:mm:ss");
+        _clockTimer.Tick += async (_, _) =>
+        {
+            StatusClock.Text = DateTimeOffset.Now.ToString("HH:mm:ss");
+            try { StatusSync.Text = $"Sync queue {await _outbox.CountOutstandingAsync()}"; }
+            catch { StatusSync.Text = "Sync queue unavailable"; }
+        };
         _clockTimer.Start();
     }
 
@@ -266,6 +277,12 @@ public partial class MainWindow : Window
         => Guid.TryParse(Environment.GetEnvironmentVariable(variable), out Guid value)
             ? value
             : throw new InvalidOperationException(message);
+
+    private async void Window_Closed(object? sender, EventArgs e)
+    {
+        _clockTimer.Stop();
+        await _outbox.DisposeAsync();
+    }
 
     private sealed class TerminalApi
     {
