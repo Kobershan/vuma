@@ -151,6 +151,7 @@ public sealed class ReleasePickWaveCommandValidator : AbstractValidator<ReleaseP
 public sealed class ReleasePickWaveCommandHandler(
     IPickWaveRepository waves,
     IBinStockRepository binStocks,
+    IBinStockMovementRepository movements,
     IPickAllocationStrategy allocator,
     IClock clock) : ICommandHandler<ReleasePickWaveCommand, Unit>
 {
@@ -195,7 +196,7 @@ public sealed class ReleasePickWaveCommandHandler(
             Quantity totalAllocated = allocations.Aggregate(
                 Quantity.Zero(task.RequestedQuantity.UnitOfMeasure), (sum, a) => sum + a.Quantity);
 
-            if (totalAllocated < task.RequestedQuantity)
+            if (totalAllocated.IsZero)
             {
                 throw WarehouseRuleException.InsufficientStockToAllocate(task.RequestedQuantity, totalAllocated);
             }
@@ -211,6 +212,20 @@ public sealed class ReleasePickWaveCommandHandler(
                     ?? throw new WarehouseNotFoundException("bin stock", allocation.BinId);
 
                 balance.Reserve(allocation.Quantity);
+
+                movements.Add(BinStockMovement.Post(
+                    task.TenantId,
+                    task.StoreId,
+                    allocation.BinId,
+                    task.ItemId,
+                    task.ItemVariantId,
+                    BinStockMovementType.PickReserve,
+                    -allocation.Quantity,
+                    BinStockReferenceType.Pick,
+                    task.Id,
+                    totalAllocated < task.RequestedQuantity
+                        ? "Short allocation"
+                        : null));
 
                 (Guid, Guid?, Guid?) key = (allocation.BinId, task.ItemId, task.ItemVariantId);
 
@@ -378,7 +393,8 @@ public sealed class CancelPickWaveCommandHandler(IPickWaveRepository waves, IBin
         // ever confirm or explicitly cancel individually — released here or it leaks forever (§4.19).
         IReadOnlyList<PickTask> tasks = await waves.ListTasksAsync(wave.Id, cancellationToken).ConfigureAwait(false);
 
-        foreach (PickTask task in tasks.Where(task => task.Status == PickTaskStatus.Allocated))
+        foreach (PickTask task in tasks.Where(task =>
+            task.Status is PickTaskStatus.Allocated or PickTaskStatus.ShortAllocated))
         {
             if (task.AllocatedBinId is { } binId && task.AllocatedQuantity is { } allocated)
             {

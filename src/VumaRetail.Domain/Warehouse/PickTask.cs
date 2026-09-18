@@ -139,7 +139,7 @@ public sealed class PickTask : Entity
 
         AllocatedBinId = binId;
         AllocatedQuantityValue = quantity.Value;
-        Status = PickTaskStatus.Allocated;
+        Status = quantity < RequestedQuantity ? PickTaskStatus.ShortAllocated : PickTaskStatus.Allocated;
     }
 
     /// <summary>
@@ -149,7 +149,8 @@ public sealed class PickTask : Entity
     /// <exception cref="WarehouseRuleException">The line is not <see cref="PickTaskStatus.Allocated"/>, or the quantity exceeds the allocation.</exception>
     public void ConfirmPick(Quantity quantity)
     {
-        if (Status != PickTaskStatus.Allocated || AllocatedQuantity is not { } allocated)
+        if (Status is not (PickTaskStatus.Allocated or PickTaskStatus.ShortAllocated)
+            || AllocatedQuantity is not { } allocated)
         {
             throw WarehouseRuleException.PickTaskWrongStatus(PickTaskStatus.Allocated, Status);
         }

@@ -160,6 +160,9 @@ public enum PickTaskStatus
     /// <summary>Allocated to a bin; awaiting confirmation.</summary>
     Allocated = 1,
 
+    /// <summary>Allocated to the available portion of the demand; the bins were short.</summary>
+    ShortAllocated = 5,
+
     /// <summary>Confirmed picked in full.</summary>
     Picked = 2,
 
