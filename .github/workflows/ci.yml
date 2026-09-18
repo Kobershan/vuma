@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore
@@ -53,9 +53,9 @@ jobs:
 
       # Zero warnings in Domain and Application is a build failure there, not a report
       # (CLAUDE.md §7 rule 10 / Directory.Build.props).
-      # Desktop projects target net9.0-windows and are excluded from the Linux build;
+      # Desktop projects target net10.0-windows and are excluded from the Linux build;
       # they are built in the package job on Windows-latest.
-      # VumaRetail.Hardware targets net9.0 (cross-platform protocol layer) and IS built here.
+      # VumaRetail.Hardware targets net10.0 (cross-platform protocol layer) and IS built here.
       - name: Build
         run: |
           dotnet build src/VumaRetail.Domain -c Release --no-restore
@@ -124,7 +124,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - name: Install PostgreSQL 17 client tools
         run: |
@@ -167,7 +167,7 @@ jobs:
       # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
         run: |
-          dotnet tool install --global dotnet-ef --version 9.0.11 || true
+          dotnet tool install --global dotnet-ef --version 10.0.12 || true
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet-ef --version
 
@@ -216,7 +216,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       # The CLAUDE.md §7 rules that a project reference cannot express: layering through
       # transitive dependencies, the PublicApi isolation (rule 14), and the command
@@ -233,7 +233,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       # Verify token generation is deterministic: regenerate and compare to existing output
       - name: Verify token generation is deterministic
@@ -289,13 +289,13 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       # FIX 3: Ensure dotnet-ef is installed for the migration step
       # Use the version matching the SDK to avoid compatibility issues
       - name: Install dotnet-ef
         run: |
-          dotnet tool install --global dotnet-ef --version 9.0.11 || true
+          dotnet tool install --global dotnet-ef --version 10.0.12 || true
           export PATH="$HOME/.dotnet/tools:$PATH"
           dotnet-ef --version
 
@@ -352,7 +352,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore
@@ -399,7 +399,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       # Build the full solution including the Windows-only Desktop projects.
       # Restore first: this job runs on a fresh runner with no shared artifacts from build.
