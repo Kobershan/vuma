@@ -16,6 +16,7 @@
     <ProjectReference Include="..\VumaRetail.Contracts\VumaRetail.Contracts.csproj" />
     <ProjectReference Include="..\VumaRetail.Application\VumaRetail.Application.csproj" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 </Project>

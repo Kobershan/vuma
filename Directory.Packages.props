@@ -16,6 +16,7 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <!-- Keep the control-plane's SQLite native bundle on the patched runtime. -->
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
