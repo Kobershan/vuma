@@ -71,7 +71,7 @@ public static class VumaOpenApi
                     && RequestExamples.TryGetValue(path, out JsonNode? example)
                     && operation.RequestBody?.Content.TryGetValue("application/json", out OpenApiMediaType? media) == true)
                 {
-                    media.Example = example;
+                    media.Example = example.DeepClone();
                 }
 
                 return Task.CompletedTask;
