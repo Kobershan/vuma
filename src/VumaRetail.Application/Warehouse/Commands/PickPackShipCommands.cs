@@ -50,6 +50,7 @@ public sealed class OpenPickWaveCommandHandler(IStockLocationRepository location
 /// The task's identity, or <c>null</c> to mint one here. A caller that already sent this create once
 /// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.19).
 /// </param>
+/// <param name="RequestId">The client operation id used for task-creation deduplication.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record AddPickTaskCommand(
     Guid PickWaveId,
