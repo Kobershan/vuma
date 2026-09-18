@@ -3,7 +3,7 @@
   <!--
     Stage 09: the till's peripherals — receipt printer, cash drawer, scanner, scale, payment terminal.
 
-    Deliberately `net9.0` and not `net9.0-windows`, even though the product ships on Windows
+    Deliberately `net10.0` and not `net10.0-windows`, even though the product ships on Windows
     (ADR-031). What is in here is the *protocol* half of hardware — ESC/POS bytes, a raw TCP socket
     to a network printer, the digits inside a price-embedded barcode — and none of that is
     Windows-specific. It is also the half that is genuinely hard to get right and worth testing on
