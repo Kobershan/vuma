@@ -283,7 +283,6 @@ public sealed class SupplierInvoiceMatch : Entity
     /// </summary>
     /// <param name="releasedByUserId">Who released it.</param>
     /// <param name="releasedAt">When, UTC.</param>
-    /// <param name="currentOrderLineState">The order lines' current released-invoiced and received quantities.</param>
     /// <exception cref="ProcurementRuleException">It is blocked, has no lines, or is already released.</exception>
     /// <remarks>
     /// The two-argument overload is retained for domain-only callers. The application release handler
@@ -301,6 +300,11 @@ public sealed class SupplierInvoiceMatch : Entity
         Release(releasedByUserId, releasedAt, legacyState);
     }
 
+    /// <summary>Releases the match after rechecking current order-line quantities.</summary>
+    /// <param name="releasedByUserId">Who released it.</param>
+    /// <param name="releasedAt">When, UTC.</param>
+    /// <param name="currentOrderLineState">The order lines' current released-invoiced and received quantities.</param>
+    /// <exception cref="ProcurementRuleException">It is blocked, has no lines, or is already released.</exception>
     public void Release(
         Guid releasedByUserId,
         DateTimeOffset releasedAt,
