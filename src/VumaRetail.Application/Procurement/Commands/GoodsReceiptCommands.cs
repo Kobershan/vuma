@@ -21,7 +21,8 @@ namespace VumaRetail.Application.Procurement.Commands;
 /// </param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateGoodsReceiptCommand(
-    Guid PurchaseOrderId, string? DeliveryNoteNumber, DateTimeOffset? ReceivedAt, Guid? GoodsReceiptId = null) : ICommand<Guid>;
+    Guid PurchaseOrderId, string? DeliveryNoteNumber, DateTimeOffset? ReceivedAt,
+    Guid? GoodsReceiptId = null, Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed create-receipt command before it reaches the handler.</summary>
 public sealed class CreateGoodsReceiptCommandValidator : AbstractValidator<CreateGoodsReceiptCommand>
@@ -56,7 +57,8 @@ public sealed class CreateGoodsReceiptCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (command.GoodsReceiptId is { } replayed)
+        Guid? receiptId = command.RequestId ?? command.GoodsReceiptId;
+        if (receiptId is { } replayed)
         {
             GoodsReceipt? already = await receipts.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
 
@@ -78,7 +80,7 @@ public sealed class CreateGoodsReceiptCommandHandler(
         string number = await numbers.NextAsync(ReceiptNumberSeries, cancellationToken).ConfigureAwait(false);
 
         GoodsReceipt created = GoodsReceipt.Open(
-            order, number, command.DeliveryNoteNumber, receivedBy, command.ReceivedAt ?? clock.UtcNow, command.GoodsReceiptId);
+            order, number, command.DeliveryNoteNumber, receivedBy, command.ReceivedAt ?? clock.UtcNow, receiptId);
 
         receipts.Add(created);
 
