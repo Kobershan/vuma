@@ -4,8 +4,10 @@ using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Contracts.Identity;
+using VumaRetail.Contracts.Pos;
 
 namespace VumaRetail.Desktop;
 
@@ -14,6 +16,10 @@ public partial class MainWindow : Window
 {
     private readonly TerminalApi _api;
     private string _pin = string.Empty;
+    private Guid _tillSessionId;
+    private Guid _saleId;
+    private IReadOnlyCollection<string> _permissions = Array.Empty<string>();
+    private readonly System.Windows.Threading.DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     public MainWindow(IClock clock)
     {
@@ -23,6 +29,8 @@ public partial class MainWindow : Window
         StoreNameText.Text = Environment.GetEnvironmentVariable("VUMA_STORE_NAME") ?? "Vuma store";
         TerminalText.Text = $"Terminal {(_api.TerminalId == Guid.Empty ? "not configured" : _api.TerminalId)}";
         ConnectionText.Text = $"API {_api.BaseUrl}";
+        _clockTimer.Tick += (_, _) => StatusClock.Text = DateTimeOffset.Now.ToString("HH:mm:ss");
+        _clockTimer.Start();
     }
 
     private void PinKey_Click(object sender, RoutedEventArgs e)
@@ -53,9 +61,14 @@ public partial class MainWindow : Window
             if (_api.TerminalId == Guid.Empty) throw new InvalidOperationException("This terminal is not configured.");
 
             TokenResponse token = await _api.SignInWithPinAsync(_pin);
+            _permissions = (await _api.GetPermissionsAsync()).Permissions;
             ConnectionText.Text = $"Online · {token.DisplayName}";
             PinLoginView.Visibility = Visibility.Collapsed;
             TillView.Visibility = Visibility.Visible;
+            StatusOperator.Text = token.DisplayName;
+            StatusConnection.Text = "Online";
+            UnitPriceInput.IsEnabled = _permissions.Contains("pos.price.override", StringComparer.OrdinalIgnoreCase);
+            await StartTillAsync();
         }
         catch (Exception ex)
         {
@@ -70,6 +83,101 @@ public partial class MainWindow : Window
         _pin = string.Empty;
         PinDisplay.Text = string.Empty;
     }
+
+    private async Task StartTillAsync()
+    {
+        try
+        {
+            _tillSessionId = await _api.OpenTillSessionAsync(
+                decimal.TryParse(Environment.GetEnvironmentVariable("VUMA_OPENING_FLOAT"), out decimal openingFloat)
+                    ? openingFloat
+                    : 0m,
+                Environment.GetEnvironmentVariable("VUMA_CURRENCY") ?? "ZAR");
+            await StartNewSaleAsync();
+        }
+        catch (Exception ex)
+        {
+            TillError.Text = ex.Message;
+            StatusConnection.Text = "Online · till not open";
+        }
+    }
+
+    private async Task StartNewSaleAsync()
+    {
+        Guid locationId = ReadRequiredGuid("VUMA_LOCATION_ID", "A stock location is not configured.");
+        _saleId = await _api.OpenSaleAsync(locationId);
+        await RefreshSaleAsync();
+    }
+
+    private async void SearchInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        await AddLineAsync();
+    }
+
+    private async void AddLine_Click(object sender, RoutedEventArgs e) => await AddLineAsync();
+
+    private async Task AddLineAsync()
+    {
+        try
+        {
+            if (_saleId == Guid.Empty) throw new InvalidOperationException("Open a sale before adding a line.");
+            SellableItemResponse item = await _api.LookupBarcodeAsync(SearchInput.Text.Trim());
+            decimal quantity = decimal.Parse(QuantityInput.Text, System.Globalization.CultureInfo.InvariantCulture);
+            decimal unitPrice = decimal.Parse(UnitPriceInput.Text, System.Globalization.CultureInfo.InvariantCulture);
+            await _api.AddLineAsync(_saleId, item, quantity, unitPrice, Environment.GetEnvironmentVariable("VUMA_CURRENCY") ?? "ZAR");
+            SearchInput.Clear();
+            QuantityInput.Text = "1";
+            await RefreshSaleAsync();
+        }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
+    private async Task RefreshSaleAsync()
+    {
+        SaleResponse sale = await _api.GetSaleAsync(_saleId);
+        SaleNumberText.Text = sale.SaleNumber;
+        NetText.Text = $"{sale.Net:N2} {sale.Currency}";
+        TaxText.Text = $"{sale.Tax:N2} {sale.Currency}";
+        GrossText.Text = $"{sale.Gross:N2} {sale.Currency}";
+        LinesList.ItemsSource = sale.Lines.Where(line => !line.IsVoided).ToList();
+    }
+
+    private async void NewSale_Click(object sender, RoutedEventArgs e)
+    {
+        try { await StartNewSaleAsync(); TillError.Text = string.Empty; }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
+    private async void ParkSale_Click(object sender, RoutedEventArgs e)
+    {
+        try { await _api.PostNoContentAsync($"/pos/sales/{_saleId}/park"); await StartNewSaleAsync(); }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
+    private async void VoidLine_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (LinesList.SelectedItem is not SaleLineResponse line)
+                throw new InvalidOperationException("Select a line to void.");
+            await _api.PostNoContentAsync($"/pos/sales/{_saleId}/lines/{line.Id}/void");
+            await RefreshSaleAsync();
+        }
+        catch (Exception ex) { TillError.Text = ex.Message; }
+    }
+
+    private async void Tender_Click(object sender, RoutedEventArgs e)
+    {
+        TillError.Text = "Tender screen is available after the sale has been selected.";
+        await RefreshSaleAsync();
+    }
+
+    private static Guid ReadRequiredGuid(string variable, string message)
+        => Guid.TryParse(Environment.GetEnvironmentVariable(variable), out Guid value)
+            ? value
+            : throw new InvalidOperationException(message);
 
     private sealed class TerminalApi
     {
@@ -99,6 +207,56 @@ public partial class MainWindow : Window
                 ?? throw new InvalidOperationException("The API returned no token.");
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
             return token;
+        }
+
+        public async Task<Guid> OpenTillSessionAsync(decimal openingFloat, string currency)
+        {
+            PosIdResponse result = await PostAsync<OpenTillSessionRequest, PosIdResponse>(
+                "/pos/till-sessions/", new OpenTillSessionRequest(openingFloat, currency));
+            return result.Id;
+        }
+
+        public async Task<Guid> OpenSaleAsync(Guid locationId)
+        {
+            PosIdResponse result = await PostAsync<OpenSaleRequest, PosIdResponse>(
+                "/pos/sales/", new OpenSaleRequest(null, locationId));
+            return result.Id;
+        }
+
+        public Task<SellableItemResponse> LookupBarcodeAsync(string barcode)
+            => GetAsync<SellableItemResponse>($"/pos/catalog/barcode/{Uri.EscapeDataString(barcode)}");
+
+        public async Task AddLineAsync(Guid saleId, SellableItemResponse item, decimal quantity, decimal unitPrice, string currency)
+        {
+            await PostAsync<AddSaleLineRequest, PosIdResponse>(
+                $"/pos/sales/{saleId}/lines",
+                new AddSaleLineRequest(item.ItemId, item.ItemVariantId, quantity, item.UnitOfMeasure, unitPrice, currency));
+        }
+
+        public Task<SaleResponse> GetSaleAsync(Guid saleId) => GetAsync<SaleResponse>($"/pos/sales/{saleId}");
+
+        public Task<PermissionsResponse> GetPermissionsAsync() => GetAsync<PermissionsResponse>("/me/permissions");
+
+        public async Task<T> PostAsync<TRequest, T>(string path, TRequest request)
+        {
+            using HttpResponseMessage response = await _http.PostAsJsonAsync($"{BaseUrl}{path}", request);
+            await EnsureSuccess(response);
+            return await response.Content.ReadFromJsonAsync<T>()
+                ?? throw new InvalidOperationException("The API returned no data.");
+        }
+
+        public async Task PostNoContentAsync(string path)
+        {
+            using HttpResponseMessage response = await _http.PostAsync($"{BaseUrl}{path}", null);
+            await EnsureSuccess(response);
+        }
+
+        private async Task<T> GetAsync<T>(string path)
+        {
+            using HttpResponseMessage response = await _http.GetAsync($"{BaseUrl}{path}");
+            await EnsureSuccess(response);
+            return await response.Content.ReadFromJsonAsync<T>()
+                ?? throw new InvalidOperationException("The API returned no data.");
         }
 
         private static async Task EnsureSuccess(HttpResponseMessage response)

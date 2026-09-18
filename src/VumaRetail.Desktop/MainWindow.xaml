@@ -61,7 +61,7 @@
                      FontSize="{DynamicResource VumaTypeTitle1Size}" FontWeight="SemiBold"
                      Margin="{DynamicResource VumaInset8}" />
           <TextBlock x:Name="StoreNameText" Text="Store" Style="{StaticResource Body}"
-                     Margin="{DynamicResource VumaInset8},0,0,0" />
+                     Margin="{DynamicResource VumaInset8}" />
           <TextBlock x:Name="TerminalText" Text="Terminal —" Style="{StaticResource Label}"
                      Margin="{DynamicResource VumaInset4}" />
           <TextBlock x:Name="ConnectionText" Text="Checking connection…" Style="{StaticResource Label}"
@@ -91,6 +91,91 @@
         </StackPanel>
       </Border>
     </Grid>
-    <Grid x:Name="TillView" Visibility="Collapsed" />
+    <Grid x:Name="TillView" Visibility="Collapsed">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <Border Grid.Row="0" Style="{StaticResource Panel}" Padding="{DynamicResource VumaInset12}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <TextBlock x:Name="StatusOperator" Style="{StaticResource Body}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="StatusConnection" Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="StatusClock" Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+          </StackPanel>
+          <TextBlock Text="VUMA TILL" FontFamily="{DynamicResource VumaTypeTitle2Family}"
+                     FontSize="{DynamicResource VumaTypeTitle2Size}" FontWeight="SemiBold" />
+        </DockPanel>
+      </Border>
+      <Grid Grid.Row="1" Margin="{DynamicResource VumaInset12}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="2*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="{DynamicResource VumaInset8}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+              <TextBox x:Name="SearchInput" Style="{StaticResource Input}"
+                       KeyDown="SearchInput_KeyDown" ToolTip="Barcode or item search" />
+              <TextBox x:Name="QuantityInput" Style="{StaticResource Input}"
+                       Text="1" Margin="{DynamicResource VumaInset8}" ToolTip="Quantity" />
+              <TextBox x:Name="UnitPriceInput" Style="{StaticResource Input}"
+                       Text="0" ToolTip="Unit price" />
+              <Button Content="Add line" Style="{StaticResource PrimaryButton}" Click="AddLine_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+            </StackPanel>
+            <DataGrid x:Name="LinesList" Grid.Row="1" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                      Margin="{DynamicResource VumaInset8}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Item" Binding="{Binding Description}" />
+                <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" />
+                <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" />
+                <DataGridTextColumn Header="VAT" Binding="{Binding Tax, StringFormat=N2}" />
+                <DataGridTextColumn Header="Total" Binding="{Binding Gross, StringFormat=N2}" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="Void selected" Style="{StaticResource KeyButton}" Click="VoidLine_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+              <Button Content="Park" Style="{StaticResource KeyButton}" Click="ParkSale_Click" />
+              <Button Content="New sale" Style="{StaticResource KeyButton}" Click="NewSale_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+              <Button Content="Tender" Style="{StaticResource PrimaryButton}" Click="Tender_Click" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="{DynamicResource VumaInset8}">
+          <StackPanel>
+            <TextBlock Text="Current sale" Style="{StaticResource Label}" />
+            <TextBlock x:Name="SaleNumberText" Text="Not started" FontFamily="{DynamicResource VumaTypeTitle2Family}"
+                       FontSize="{DynamicResource VumaTypeTitle2Size}" FontWeight="SemiBold"
+                       Margin="{DynamicResource VumaInset8}" />
+            <TextBlock Text="NET" Style="{StaticResource Label}" />
+            <TextBlock x:Name="NetText" Text="0.00" Style="{StaticResource Body}" />
+            <TextBlock Text="VAT" Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="TaxText" Text="0.00" Style="{StaticResource Body}" />
+            <TextBlock Text="TOTAL" Style="{StaticResource Label}" Margin="{DynamicResource VumaInset8}" />
+            <TextBlock x:Name="GrossText" Text="0.00" FontFamily="{DynamicResource VumaTypeDisplayFamily}"
+                       FontSize="{DynamicResource VumaTypeDisplaySize}" FontWeight="Bold"
+                       Foreground="{DynamicResource VumaAccentBrush}" />
+            <TextBlock x:Name="TillError" Style="{StaticResource Label}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource VumaCriticalBrush}" Margin="{DynamicResource VumaInset16}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+      <Border Grid.Row="2" Style="{StaticResource Panel}" Padding="{DynamicResource VumaInset8}">
+        <DockPanel>
+          <TextBlock x:Name="StatusSync" Text="Sync queue 0" Style="{StaticResource Label}" />
+          <TextBlock Text="UTC-backed clock · REST terminal" Style="{StaticResource Label}" HorizontalAlignment="Right" />
+        </DockPanel>
+      </Border>
+    </Grid>
   </Grid>
 </Window>
