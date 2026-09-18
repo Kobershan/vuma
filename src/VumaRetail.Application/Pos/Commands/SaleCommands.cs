@@ -130,7 +130,8 @@ public sealed record AddSaleLineCommand(
     Quantity Quantity,
     Money UnitPrice,
     Money? DiscountAmount = null,
-    Guid? SaleLineId = null) : ICommand<Guid>, ISessionScopedCommand
+    Guid? SaleLineId = null,
+    Guid? RequestId = null) : ICommand<Guid>, ISessionScopedCommand
 {
     /// <inheritdoc />
     Guid ISessionScopedCommand.SessionId => SaleId;
@@ -183,7 +184,8 @@ public sealed class AddSaleLineCommandHandler(
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
-        if (command.SaleLineId is { } replayedLineId)
+        Guid? lineId = command.RequestId ?? command.SaleLineId;
+        if (lineId is { } replayedLineId)
         {
             SaleLine? already = sale.Lines.FirstOrDefault(line => line.Id == replayedLineId);
 
@@ -245,7 +247,7 @@ public sealed class AddSaleLineCommandHandler(
             calculation.NetAmount,
             calculation.TaxAmount,
             calculation.GrossAmount,
-            command.SaleLineId);
+            lineId);
 
         sale.AddLine(line);
 
@@ -309,7 +311,8 @@ public sealed record TenderSaleCommand(
     TenderType TenderType,
     Money Amount,
     string? Reference = null,
-    Guid? SaleTenderId = null) : ICommand<Guid>, ISessionScopedCommand
+    Guid? SaleTenderId = null,
+    Guid? RequestId = null) : ICommand<Guid>, ISessionScopedCommand
 {
     /// <inheritdoc />
     Guid ISessionScopedCommand.SessionId => SaleId;
@@ -343,7 +346,8 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
             ?? throw new PosNotFoundException("sale", command.SaleId);
 
-        if (command.SaleTenderId is { } replayedTenderId)
+        Guid? tenderId = command.RequestId ?? command.SaleTenderId;
+        if (tenderId is { } replayedTenderId)
         {
             SaleTender? already = sale.Tenders.FirstOrDefault(tender => tender.Id == replayedTenderId);
 
@@ -363,7 +367,7 @@ public sealed class TenderSaleCommandHandler(ISaleRepository sales, IClock clock
             command.Amount,
             command.Reference,
             clock.UtcNow,
-            command.SaleTenderId);
+            tenderId);
 
         sale.AddTender(tender);
 
@@ -392,7 +396,7 @@ public sealed record SaleCompletionResult(
 /// <summary>Closes the sale: freezes it, relieves stock and raises the financial event.</summary>
 /// <param name="SaleId">The sale.</param>
 [CommandSideEffect(SideEffect.Write)]
-public sealed record CompleteSaleCommand(Guid SaleId) : ICommand<SaleCompletionResult>, ISessionScopedCommand
+public sealed record CompleteSaleCommand(Guid SaleId, Guid? RequestId = null) : ICommand<SaleCompletionResult>, ISessionScopedCommand
 {
     /// <inheritdoc />
     Guid ISessionScopedCommand.SessionId => SaleId;
