@@ -208,6 +208,29 @@
           </StackPanel>
         </Border>
       </Border>
+      <Border x:Name="ReceiptView" Visibility="Collapsed" Grid.RowSpan="3"
+              Background="{DynamicResource VumaSurfaceSunkenBrush}" Padding="{DynamicResource VumaInset24}">
+        <Border Style="{StaticResource Panel}" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Receipt preview" FontFamily="{DynamicResource VumaTypeTitle1Family}"
+                       FontSize="{DynamicResource VumaTypeTitle1Size}" FontWeight="SemiBold" />
+            <ScrollViewer Grid.Row="1" Margin="{DynamicResource VumaInset12}">
+              <TextBlock x:Name="ReceiptText" FontFamily="{DynamicResource VumaTypeMonoFamily}"
+                         FontSize="{DynamicResource VumaTypeMonoSize}" TextWrapping="NoWrap" />
+            </ScrollViewer>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="Close" Style="{StaticResource KeyButton}" Click="ReceiptClose_Click" />
+              <Button Content="Record print" Style="{StaticResource PrimaryButton}" Click="RecordPrint_Click"
+                      Margin="{DynamicResource VumaInset8}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Border>
     </Grid>
   </Grid>
 </Window>

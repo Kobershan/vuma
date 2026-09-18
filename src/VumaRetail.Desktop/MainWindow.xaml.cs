@@ -205,9 +205,31 @@ public partial class MainWindow : Window
                 ? $"Completed {result.SaleNumber}. Change {result.ChangeGiven:N2} {result.Currency}."
                 : $"Completed with {result.StockIssuesRefused} stock reconciliation issue(s).";
             TenderView.Visibility = Visibility.Collapsed;
+            await ShowReceiptAsync();
             StatusConnection.Text = "Online · sale complete";
         }
         catch (Exception ex) { TenderError.Text = ex.Message; }
+    }
+
+    private async Task ShowReceiptAsync()
+    {
+        ReceiptResponse receipt = await _api.GetReceiptAsync(_saleId);
+        ReceiptText.Text = receipt.PlainText;
+        ReceiptView.Visibility = Visibility.Visible;
+    }
+
+    private void ReceiptClose_Click(object sender, RoutedEventArgs e) => ReceiptView.Visibility = Visibility.Collapsed;
+
+    private async void RecordPrint_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await _api.RecordReceiptPrintAsync(_saleId);
+            ReceiptView.Visibility = Visibility.Collapsed;
+            await StartNewSaleAsync();
+            StatusConnection.Text = "Online · ready for next sale";
+        }
+        catch (Exception ex) { ReceiptText.Text = ex.Message; }
     }
 
     private static Guid ReadRequiredGuid(string variable, string message)
@@ -282,6 +304,15 @@ public partial class MainWindow : Window
 
         public Task<SaleCompletionResponse> CompleteSaleAsync(Guid saleId)
             => PostAsync<object, SaleCompletionResponse>($"/pos/sales/{saleId}/complete", new { });
+
+        public Task<ReceiptResponse> GetReceiptAsync(Guid saleId)
+            => GetAsync<ReceiptResponse>($"/pos/sales/{saleId}/receipt");
+
+        public async Task RecordReceiptPrintAsync(Guid saleId)
+        {
+            await PostAsync<RecordReceiptPrintRequest, PosIdResponse>(
+                $"/pos/sales/{saleId}/receipt/prints", new RecordReceiptPrintRequest(null, Guid.NewGuid()));
+        }
 
         public async Task<T> PostAsync<TRequest, T>(string path, TRequest request)
         {
