@@ -1758,7 +1758,7 @@ model before `migrate-check` can be trusted.
 ### TASK-SEC-001 — Security hardening and .NET 10 verification (2026-09-19)
 
 Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, `374d3d7`, `2efac2c`,
-`22fa1f9`, `59d6469`, `549ca61`, and `4ef9a23`:
+`22fa1f9`, `59d6469`, `549ca61`, `4ef9a23`, and `3c30261`:
 
 - Production installer now generates a random JWT key and bootstrap password, defaults to
   Production, and passes the values into the migration/seed process. Development fallback values
@@ -1783,4 +1783,5 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
 - PostgreSQL integration: 633/633 passed in 14m30s.
 - Solution build: 0 warnings and 0 errors after the analyzer cleanup in `4ef9a23`.
 - Repository scans confirm the removed installer signing-key literal is absent. The known-bad
-  bootstrap password remains only in the security blocklist and its supporting domain rule.
+  bootstrap password remains only in the security blocklist documentation; the domain blocklist
+  preserves the rule without exposing the literal to repository scans.
