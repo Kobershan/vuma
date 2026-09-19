@@ -62,6 +62,7 @@ public sealed record TillSessionResponse(
 /// </param>
 /// <param name="LocationId">The stock location the goods leave.</param>
 /// <param name="CustomerId">The customer, when one was identified.</param>
+/// <param name="RequestId">The client operation id used when the terminal has not minted a sale id yet.</param>
 /// <remarks>
 /// Carries no currency (§4.13): a sale always trades in its till session's currency, which is itself
 /// resolved from the store, then the tenant, when the session opened — never from a request body.
@@ -69,7 +70,8 @@ public sealed record TillSessionResponse(
 public sealed record OpenSaleRequest(
     Guid? SaleId,
     Guid LocationId,
-    Guid? CustomerId = null);
+    Guid? CustomerId = null,
+    Guid? RequestId = null);
 
 /// <summary>Rings a line up on an open sale.</summary>
 /// <param name="ItemId">The item, when it has no variants. Exactly one of this and <paramref name="ItemVariantId"/>.</param>
@@ -83,6 +85,7 @@ public sealed record OpenSaleRequest(
 /// The line's id, or <c>null</c> to mint one. A terminal replaying a line it rang up offline supplies
 /// the id it already used; re-sending it returns the existing line rather than a second one (§4.11).
 /// </param>
+/// <param name="RequestId">The client operation id used when the terminal has not minted a line id yet.</param>
 public sealed record AddSaleLineRequest(
     Guid? ItemId,
     Guid? ItemVariantId,
@@ -91,7 +94,8 @@ public sealed record AddSaleLineRequest(
     decimal UnitPrice,
     string Currency,
     decimal? DiscountAmount = null,
-    Guid? SaleLineId = null);
+    Guid? SaleLineId = null,
+    Guid? RequestId = null);
 
 /// <summary>Takes a payment against an open sale.</summary>
 /// <param name="TenderType">Cash, Card, Voucher, MobileMoney or CustomerAccount.</param>
@@ -102,12 +106,14 @@ public sealed record AddSaleLineRequest(
 /// The tender's id, or <c>null</c> to mint one. Re-sending the id already used returns the existing
 /// tender rather than taking the payment twice (§4.11).
 /// </param>
+/// <param name="RequestId">The client operation id used when the terminal has not minted a tender id yet.</param>
 public sealed record TenderSaleRequest(
     string TenderType,
     decimal Amount,
     string Currency,
     string? Reference = null,
-    Guid? SaleTenderId = null);
+    Guid? SaleTenderId = null,
+    Guid? RequestId = null);
 
 /// <summary>Abandons a sale before it is paid for.</summary>
 /// <param name="Reason">Why. Recorded — an abandoned sale is what shrinkage looks like from outside.</param>

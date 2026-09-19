@@ -17,11 +17,13 @@ namespace VumaRetail.Application.Pos.Commands;
 /// </param>
 /// <param name="LocationId">The stock location the goods leave.</param>
 /// <param name="CustomerId">The customer, when one was identified.</param>
+/// <param name="RequestId">The client operation id used when the terminal has not minted a sale id yet.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record OpenSaleCommand(
     Guid? SaleId,
     Guid LocationId,
-    Guid? CustomerId = null) : ICommand<Guid>;
+    Guid? CustomerId = null,
+    Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed open-sale command before it reaches the handler.</summary>
 public sealed class OpenSaleCommandValidator : AbstractValidator<OpenSaleCommand>
@@ -62,7 +64,8 @@ public sealed class OpenSaleCommandHandler(
         Guid terminalId = PosActor.RequireTerminalId(principal);
         Guid operatorUserId = PosActor.RequireUserId(principal);
 
-        if (command.SaleId is { } replayed)
+        Guid? requestedSaleId = command.RequestId ?? command.SaleId;
+        if (requestedSaleId is { } replayed)
         {
             Sale? already = await sales.FindAsync(replayed, cancellationToken).ConfigureAwait(false);
 
@@ -84,7 +87,7 @@ public sealed class OpenSaleCommandHandler(
         // which is itself resolved from the store/tenant at OpenTillSessionCommand time. A sale can
         // therefore never diverge from the drawer it is rung up against.
         Sale sale = Sale.Open(
-            command.SaleId ?? UuidV7.NewGuid(),
+            requestedSaleId ?? UuidV7.NewGuid(),
             tenant.TenantId,
             tenant.StoreId,
             saleNumber,

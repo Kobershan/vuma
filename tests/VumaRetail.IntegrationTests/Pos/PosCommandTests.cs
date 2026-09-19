@@ -206,6 +206,25 @@ public sealed class PosCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_request_id_replays_open_sale_without_requiring_a_client_sale_id()
+    {
+        await using PosHarness harness = await PosHarness.CreateAsync(fixture);
+
+        await harness.SendAsync(new OpenTillSessionCommand(new Money(500m, "ZAR")));
+        await harness.Context.CommitAsync();
+
+        Guid requestId = UuidV7.NewGuid();
+        Guid first = await harness.SendAsync(new OpenSaleCommand(null, harness.LocationId, RequestId: requestId));
+        await harness.Context.CommitAsync();
+
+        Guid second = await harness.SendAsync(new OpenSaleCommand(null, harness.LocationId, RequestId: requestId));
+        await harness.Context.CommitAsync();
+
+        second.Should().Be(first);
+        harness.Context.Sales.Count().Should().Be(1);
+    }
+
+    [Fact]
     public async Task Replaying_the_whole_offline_sequence_does_not_double_anything()
     {
         // §4.11's worked example: a terminal goes offline after ringing two lines and tendering, the

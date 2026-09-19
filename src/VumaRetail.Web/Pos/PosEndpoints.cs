@@ -274,7 +274,7 @@ public static class PosEndpoints
     {
         Guid id = await dispatcher
             .SendAsync(
-                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId),
+                new OpenSaleCommand(request.SaleId, request.LocationId, request.CustomerId, request.RequestId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -305,7 +305,8 @@ public static class PosEndpoints
                     new Quantity(request.Quantity, request.UnitOfMeasure),
                     new Money(request.UnitPrice, request.Currency),
                     discount,
-                    request.SaleLineId),
+                    request.SaleLineId,
+                    request.RequestId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -331,7 +332,12 @@ public static class PosEndpoints
         Guid id = await dispatcher
             .SendAsync(
                 new TenderSaleCommand(
-                    saleId, type, new Money(request.Amount, request.Currency), request.Reference, request.SaleTenderId),
+                    saleId,
+                    type,
+                    new Money(request.Amount, request.Currency),
+                    request.Reference,
+                    request.SaleTenderId,
+                    request.RequestId),
                 cancellationToken)
             .ConfigureAwait(false);
 

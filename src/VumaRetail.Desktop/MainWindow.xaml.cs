@@ -352,7 +352,7 @@ public partial class MainWindow : Window
         public async Task<Guid> OpenSaleAsync(Guid locationId)
         {
             PosIdResponse result = await PostAsync<OpenSaleRequest, PosIdResponse>(
-                "/pos/sales/", new OpenSaleRequest(null, locationId));
+                "/pos/sales/", new OpenSaleRequest(null, locationId, RequestId: Guid.NewGuid()));
             return result.Id;
         }
 
@@ -363,7 +363,14 @@ public partial class MainWindow : Window
         {
             await PostAsync<AddSaleLineRequest, PosIdResponse>(
                 $"/pos/sales/{saleId}/lines",
-                new AddSaleLineRequest(item.ItemId, item.ItemVariantId, quantity, item.UnitOfMeasure, unitPrice, currency));
+                new AddSaleLineRequest(
+                    item.ItemId,
+                    item.ItemVariantId,
+                    quantity,
+                    item.UnitOfMeasure,
+                    unitPrice,
+                    currency,
+                    RequestId: Guid.NewGuid()));
         }
 
         public Task<SaleResponse> GetSaleAsync(Guid saleId) => GetAsync<SaleResponse>($"/pos/sales/{saleId}");
@@ -384,11 +391,13 @@ public partial class MainWindow : Window
         {
             await PostAsync<TenderSaleRequest, PosIdResponse>(
                 $"/pos/sales/{saleId}/tenders",
-                new TenderSaleRequest(tenderType, amount, currency, null, Guid.NewGuid()));
+                new TenderSaleRequest(tenderType, amount, currency, null, null, Guid.NewGuid()));
         }
 
         public Task<SaleCompletionResponse> CompleteSaleAsync(Guid saleId)
-            => PostAsync<object, SaleCompletionResponse>($"/pos/sales/{saleId}/complete", new { });
+            => PostAsync<object, SaleCompletionResponse>(
+                $"/pos/sales/{saleId}/complete",
+                new { RequestId = Guid.NewGuid() });
 
         public Task<ReceiptResponse> GetReceiptAsync(Guid saleId)
             => GetAsync<ReceiptResponse>($"/pos/sales/{saleId}/receipt");
