@@ -78,7 +78,7 @@ public sealed class ProcurementHarness : IAsyncDisposable
 
         Requisitions = new PurchaseRequisitionRepository(context);
         Rfqs = new RfqRepository(context);
-        Orders = new PurchaseOrderRepository(context);
+        Orders = new PurchaseOrderRepository(context, tenant);
         Receipts = new GoodsReceiptRepository(context);
         Matches = new SupplierInvoiceMatchRepository(context);
         Scorecards = new SupplierScorecardRepository(context);

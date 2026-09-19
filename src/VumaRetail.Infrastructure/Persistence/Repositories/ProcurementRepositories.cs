@@ -104,13 +104,37 @@ public sealed class RfqRepository(VumaRetailDbContext context) : IRfqRepository
 
 /// <summary>EF Core implementation of <see cref="IPurchaseOrderRepository"/>.</summary>
 /// <param name="context">The database context.</param>
-public sealed class PurchaseOrderRepository(VumaRetailDbContext context) : IPurchaseOrderRepository
+public sealed class PurchaseOrderRepository(VumaRetailDbContext context, ITenantContext tenant) : IPurchaseOrderRepository
 {
     /// <inheritdoc />
     public Task<PurchaseOrder?> FindAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default)
         => context.PurchaseOrders
             .Include(order => order.Lines)
             .FirstOrDefaultAsync(order => order.Id == purchaseOrderId, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<PurchaseOrder?> FindForUpdateAsync(
+        Guid purchaseOrderId, CancellationToken cancellationToken = default)
+    {
+        // Lock the parent order before loading its graph. Every invoice release takes this same lock,
+        // so the cumulative invoiced-quantity check cannot race another release in a separate process.
+        Guid lockedId = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM procurement.purchase_orders
+                 WHERE id = {purchaseOrderId} AND tenant_id = {tenant.TenantId} AND deleted_at IS NULL
+                 FOR UPDATE
+                 """)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (lockedId == Guid.Empty)
+        {
+            return null;
+        }
+
+        return await FindAsync(purchaseOrderId, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public Task<PurchaseOrder?> FindByNumberAsync(

@@ -215,8 +215,11 @@ public sealed class ReleaseSupplierInvoiceCommandHandler(
             ?? throw new ProcurementNotFoundException(
                 "supplier invoice match", command.SupplierInvoiceMatchId);
 
+        // The order row is the serialization point for all invoice releases against its lines. The
+        // current quantities are read only after this lock, and the lock is held by the command
+        // transaction through the financial event and unit-of-work commit.
         PurchaseOrder order = await orders
-            .FindAsync(match.PurchaseOrderId, cancellationToken)
+            .FindForUpdateAsync(match.PurchaseOrderId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new ProcurementNotFoundException("purchase order", match.PurchaseOrderId);
 

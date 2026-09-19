@@ -83,6 +83,13 @@ public interface IPurchaseOrderRepository
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<PurchaseOrder?> FindAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Finds an order with its lines loaded and locks the order row until the current command commits.
+    /// Financial operations that advance invoiced quantities use this method so concurrent invoice
+    /// releases serialize across application instances.
+    /// </summary>
+    Task<PurchaseOrder?> FindForUpdateAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default);
+
     /// <summary>Finds an order by its document number, or <c>null</c>.</summary>
     /// <param name="orderNumber">The order number.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>

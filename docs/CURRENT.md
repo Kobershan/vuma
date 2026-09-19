@@ -8,6 +8,11 @@ the current verified checkpoint, including upstream code-gap closure, replay-saf
 persisted dashboard measures and the StoreServer hosted report scheduler. The only uncommitted files are pre-existing desktop artifacts under
 `docs/`; they are intentionally preserved and excluded from commits.
 
+WORK LOG (2026-09-19): Procurement invoice release now locks the purchase-order row with PostgreSQL
+`FOR UPDATE` before rechecking cumulative invoiced quantity. This closes the remaining concurrent
+double-payment window across separate DbContexts/processes. The PostgreSQL-backed ProcurementCommandTests
+pass 16/16, including a two-transaction lock-release regression.
+
 WORK LOG (2026-09-18): Closed five code-level gaps with tests: (1) clearing balances now aggregate
 outstanding registry intents per company instead of returning zeros (`CompanyFanOut.
 AggregateClearingBalances` + 2 unit tests); (2) projects gain Activate/Close commands, Get/List

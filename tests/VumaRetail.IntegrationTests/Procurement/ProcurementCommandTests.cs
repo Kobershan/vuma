@@ -235,8 +235,8 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
 
         await using VumaRetailDbContext contextA = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
         await using VumaRetailDbContext contextB = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
-        PurchaseOrderRepository repositoryA = new(contextA);
-        PurchaseOrderRepository repositoryB = new(contextB);
+        PurchaseOrderRepository repositoryA = new(contextA, harness.TenantContext);
+        PurchaseOrderRepository repositoryB = new(contextB, harness.TenantContext);
 
         // Both read the same order line — 0 invoiced against 100 received — before either writes.
         PurchaseOrder? orderA = await repositoryA.FindAsync(orderId);
@@ -259,10 +259,39 @@ public sealed class ProcurementCommandTests(PostgresFixture fixture)
         // A fresh, independent read — not through harness.Context (already tracks this row, stale, from
         // setup) — to prove what genuinely persisted.
         await using VumaRetailDbContext contextC = TestDbContextFactory.For(harness.ConnectionString, tenant: harness.TenantContext);
-        PurchaseOrder final = (await new PurchaseOrderRepository(contextC).FindAsync(orderId))!;
+        PurchaseOrder final = (await new PurchaseOrderRepository(contextC, harness.TenantContext).FindAsync(orderId))!;
 
         final.Lines.Single(line => line.Id == orderLineId).InvoicedQuantity.Value.Should().Be(
             60m, "only the winning transaction's invoiced quantity may have persisted");
+    }
+
+    [Fact]
+    public async Task Purchase_order_for_update_blocks_a_second_invoice_release_reader()
+    {
+        // The release invariant depends on a database lock, not only on an optimistic version check:
+        // both release handlers must read current invoiced quantities after one has serialized on the
+        // same purchase-order row.
+        await using ProcurementHarness harness = await ProcurementHarness.CreateAsync(fixture);
+        (Guid orderId, _) = await ReceivedOrderAsync(harness, ordered: 10m, received: 10m);
+
+        await using VumaRetailDbContext contextA = TestDbContextFactory.For(
+            harness.ConnectionString, tenant: harness.TenantContext);
+        await using VumaRetailDbContext contextB = TestDbContextFactory.For(
+            harness.ConnectionString, tenant: harness.TenantContext);
+        PurchaseOrderRepository repositoryA = new(contextA, harness.TenantContext);
+        PurchaseOrderRepository repositoryB = new(contextB, harness.TenantContext);
+
+        await using var transactionA = await contextA.Database.BeginTransactionAsync();
+        (await repositoryA.FindForUpdateAsync(orderId)).Should().NotBeNull();
+
+        await using var transactionB = await contextB.Database.BeginTransactionAsync();
+        Task<PurchaseOrder?> secondReadTask = repositoryB.FindForUpdateAsync(orderId);
+        Task finishedFirst = await Task.WhenAny(secondReadTask, Task.Delay(TimeSpan.FromSeconds(2)));
+        finishedFirst.Should().NotBe(secondReadTask, "concurrent releases must serialize on the order row");
+
+        await transactionA.CommitAsync();
+        (await secondReadTask.WaitAsync(TimeSpan.FromSeconds(5))).Should().NotBeNull();
+        await transactionB.CommitAsync();
     }
 
     [Fact]
