@@ -1849,9 +1849,9 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
   fields and exhaustive EF-model-to-replication-registry coverage. Architecture and PostgreSQL
   replication tests pass.
 - Verification in this continuation: Unit 1,653/1,653; Architecture 87/87; Control Plane 30/30;
-  Desktop offline queue 3/3; release-manifest/signature/activation scripts pass; generated design
-  tokens are deterministic. Full PostgreSQL integration and final Release build evidence are being
-  recorded with the completion commit.
+  Desktop offline queue 3/3; PostgreSQL integration 642/642 in 17m05s; release-manifest/signature/
+  activation scripts pass; generated design tokens are deterministic. Full solution Release build
+  passes with 0 errors and 1,675 existing documentation/analyzer warnings.
 - The WiX source is present and CI-gated, but WiX cannot execute on this Linux host. Physical Windows
   installer execution, disconnected Windows POS acceptance, live mTLS/signer/provider credentials,
   and production backup/restore rehearsal remain external deployment evidence rather than claims of
