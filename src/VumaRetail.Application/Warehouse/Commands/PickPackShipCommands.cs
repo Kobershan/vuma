@@ -190,7 +190,7 @@ public sealed class ReleasePickWaveCommandHandler(
         foreach (PickTask task in tasks.Where(task => task.Status == PickTaskStatus.Pending))
         {
             IReadOnlyList<Domain.Warehouse.BinStock> candidates = await binStocks
-                .ListCandidatesAsync(wave.LocationId, task.ItemId, task.ItemVariantId, cancellationToken)
+                .ListCandidatesForUpdateAsync(wave.LocationId, task.ItemId, task.ItemVariantId, cancellationToken)
                 .ConfigureAwait(false);
 
             foreach (Domain.Warehouse.BinStock candidate in candidates)

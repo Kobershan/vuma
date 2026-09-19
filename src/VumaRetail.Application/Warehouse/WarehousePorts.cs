@@ -53,6 +53,14 @@ public interface IBinStockRepository
     Task<IReadOnlyList<BinStock>> ListCandidatesAsync(
         Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Lists candidates while holding PostgreSQL row locks until the command transaction commits.
+    /// Allocation commands must use this operation; a read-only candidate snapshot is not sufficient
+    /// to protect the on-hand/reserved invariant across processes.
+    /// </summary>
+    Task<IReadOnlyList<BinStock>> ListCandidatesForUpdateAsync(
+        Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default);
+
     /// <summary>Every balance held in one bin.</summary>
     Task<IReadOnlyList<BinStock>> ListForBinAsync(Guid binId, CancellationToken cancellationToken = default);
 

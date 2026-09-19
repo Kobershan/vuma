@@ -66,6 +66,10 @@ android/local.properties
 # Large locally generated Windows server bundle; rebuild with scripts/build-windows-server-bundle.ps1.
 /docs/windows-server-bundle/
 /docs/windows-desktop-bundle/
+/docs/windows-desktop-runtime-*/
+/docs/windows-desktop-singlefile-*/
+/docs/vuma-*.html
+*.tar.gz
 *.aab
 *.keystore
 *.jks

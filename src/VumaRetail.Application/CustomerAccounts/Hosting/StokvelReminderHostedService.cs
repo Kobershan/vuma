@@ -73,16 +73,17 @@ public sealed class StokvelReminderHostedService(
         var dispatcher = provider.GetRequiredService<INotificationDispatcher>();
         DateTimeOffset now = clock.UtcNow;
 
-        // The hosted pass has no single group in scope; it walks what the repository surfaces.
-        // Repository lists are per-group, so this pass is intentionally bounded: it reminds on
-        // groups the caller stages rather than scanning the tenant. Full-tenant arrears aging
-        // across every group is a Stage 29 reporting concern, not a 02:00 push.
-        _ = groups;
-        _ = ledger;
-        _ = dispatcher;
-        _ = now;
-        await Task.CompletedTask.ConfigureAwait(false);
-        return 0;
+        IReadOnlyList<StokvelGroup> activeGroups =
+            await groups.ListActiveAsync(cancellationToken).ConfigureAwait(false);
+
+        int reminded = 0;
+        foreach (StokvelGroup group in activeGroups)
+        {
+            reminded += await RemindGroupAsync(
+                groups, ledger, dispatcher, group.Id, now, cancellationToken).ConfigureAwait(false);
+        }
+
+        return reminded;
     }
 
     /// <summary>Reminds one group's arrears. Used by the pass above and directly by tests.</summary>

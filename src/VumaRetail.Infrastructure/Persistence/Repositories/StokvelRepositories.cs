@@ -18,6 +18,14 @@ public sealed class StokvelGroupRepository(VumaRetailDbContext context) : IStokv
         => context.StokvelGroups.FirstOrDefaultAsync(g => g.GroupNumber == number, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<StokvelGroup>> ListActiveAsync(CancellationToken cancellationToken = default)
+        => await context.StokvelGroups
+            .Where(g => g.Status == StokvelStatus.Active || g.Status == StokvelStatus.PayingOut)
+            .OrderBy(g => g.GroupNumber)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
     public Task<StokvelMember?> FindMemberAsync(Guid memberId, CancellationToken cancellationToken = default)
         => context.StokvelMembers.FirstOrDefaultAsync(m => m.Id == memberId, cancellationToken);
 

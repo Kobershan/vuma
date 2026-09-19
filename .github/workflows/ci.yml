@@ -358,12 +358,7 @@ jobs:
         run: dotnet restore
 
       - name: Fail on vulnerable packages
-        run: |
-          dotnet list VumaRetail.sln package --vulnerable --include-transitive 2>&1 | tee scan.log
-          if grep -Eq "has the following vulnerable packages|error NU[0-9]+" scan.log; then
-            echo "::error::Vulnerable packages found."
-            exit 1
-          fi
+        run: scripts/vulnerability-scan.sh
 
   android-compose-build:
     name: Android Compose build

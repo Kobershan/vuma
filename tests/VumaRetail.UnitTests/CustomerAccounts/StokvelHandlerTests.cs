@@ -1,4 +1,5 @@
 using NSubstitute;
+using Microsoft.Extensions.Logging.Abstractions;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions.Finance;
@@ -280,6 +281,54 @@ public sealed class StokvelHandlerTests
             groups, ledger, dispatcher, group.Id, new DateTimeOffset(2026, 11, 5, 8, 0, 0, TimeSpan.Zero));
 
         november.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Scheduled_reminder_pass_enumerates_active_groups()
+    {
+        var group = StokvelGroup.Create(
+            TenantId, StoreId, "STK-SCHEDULED", "Grocery", StokvelType.Savings,
+            "constitution", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 15),
+            StoreId, CompanyId);
+        group.Activate();
+        var member = StokvelMember.Join(
+            TenantId, StoreId, group.Id, UuidV7.NewGuid(), MemberRole.Member,
+            new Money(500m, "ZAR"), Now);
+
+        var groups = Substitute.For<IStokvelGroupRepository>();
+        groups.ListActiveAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<StokvelGroup> { group });
+        groups.FindAsync(group.Id, Arg.Any<CancellationToken>()).Returns(group);
+        groups.ListMembersAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<StokvelMember> { member });
+        groups.ListBasketsAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<HamperBasket>());
+
+        var ledger = Substitute.For<IStokvelContributionRepository>();
+        ledger.ListForGroupAsync(group.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<StokvelContribution>());
+        var dispatcher = Substitute.For<INotificationDispatcher>();
+        dispatcher.NotifyAsync(Arg.Any<NotificationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Guid> { UuidV7.NewGuid() });
+
+        var provider = Substitute.For<IServiceProvider>();
+        provider.GetService(typeof(IStokvelGroupRepository)).Returns(groups);
+        provider.GetService(typeof(IStokvelContributionRepository)).Returns(ledger);
+        provider.GetService(typeof(INotificationDispatcher)).Returns(dispatcher);
+
+        var service = new StokvelReminderHostedService(
+            provider,
+            new CustomerAccountsHostTenant(TenantId, StoreId),
+            NullLogger<StokvelReminderHostedService>.Instance,
+            Clock());
+
+        int reminded = await service.SendArrearsRemindersAsync(provider);
+
+        reminded.Should().Be(1);
+        await groups.Received(1).ListActiveAsync(Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).NotifyAsync(
+            Arg.Is<NotificationRequest>(request => request.Category == "customer-accounts.stokvel.arrears"),
+            Arg.Any<CancellationToken>());
     }
 
     private static ITenantContext Tenant()

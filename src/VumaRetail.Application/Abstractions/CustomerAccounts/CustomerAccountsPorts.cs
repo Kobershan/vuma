@@ -38,6 +38,7 @@ public interface IStokvelGroupRepository
 {
     Task<StokvelGroup?> FindAsync(Guid id, CancellationToken cancellationToken = default);
     Task<StokvelGroup?> FindByNumberAsync(string number, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<StokvelGroup>> ListActiveAsync(CancellationToken cancellationToken = default);
     Task<StokvelMember?> FindMemberAsync(Guid memberId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StokvelMember>> ListMembersAsync(Guid groupId, CancellationToken cancellationToken = default);
     Task<HamperBasket?> FindBasketAsync(Guid basketId, CancellationToken cancellationToken = default);

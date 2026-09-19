@@ -104,6 +104,41 @@ public sealed class BinStockRepository(VumaRetailDbContext context) : IBinStockR
             .ConfigureAwait(false);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<BinStock>> ListCandidatesForUpdateAsync(
+        Guid locationId, Guid? itemId, Guid? itemVariantId, CancellationToken cancellationToken = default)
+    {
+        // Lock the exact projection rows before reading their values. The command pipeline owns the
+        // transaction, so concurrent release processes block here and then observe the committed
+        // reservation from the first process. Nullable SKU columns use IS NOT DISTINCT FROM so the
+        // item-only and variant-only shapes are both matched correctly.
+        IReadOnlyList<Guid> ids = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                SELECT stock.id AS "Value"
+                FROM warehouse.bin_stock stock
+                INNER JOIN warehouse.bins bin ON bin.id = stock.bin_id
+                WHERE bin.location_id = {locationId}
+                  AND bin.is_active
+                  AND stock.item_id IS NOT DISTINCT FROM {itemId}
+                  AND stock.item_variant_id IS NOT DISTINCT FROM {itemVariantId}
+                FOR UPDATE OF stock
+                """)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.BinStocks
+            .Where(stock => ids.Contains(stock.Id))
+            .OrderByDescending(stock => stock.QuantityOnHand.Value - stock.QuantityReserved.Value)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<BinStock>> ListForBinAsync(Guid binId, CancellationToken cancellationToken = default)
         => await context.BinStocks
             .AsNoTracking()
