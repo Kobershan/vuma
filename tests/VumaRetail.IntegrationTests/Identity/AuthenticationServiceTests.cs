@@ -26,7 +26,7 @@ public sealed class AuthenticationServiceTests(PostgresFixture fixture)
         result.UserId.Should().Be(userId);
         result.AccessToken!.Value.Should().NotBeNullOrWhiteSpace();
         result.RefreshToken.Should().NotBeNullOrWhiteSpace();
-        result.AccessToken.ExpiresAt.Should().Be(harness.Clock.UtcNow.AddMinutes(15));
+        result.AccessToken.ExpiresAt.Should().Be(harness.Clock.UtcNow.AddMinutes(5));
     }
 
     [Fact]

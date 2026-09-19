@@ -62,6 +62,12 @@ using VumaRetail.Infrastructure.Reporting;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment()
+    && builder.Configuration["AllowedHosts"]?.Contains("REPLACE_", StringComparison.OrdinalIgnoreCase) == true)
+{
+    builder.Configuration["AllowedHosts"] = "*";
+}
+
 // Run as a real Windows Service in production so the SCM can start it at boot and recover it
 // after a crash or power interruption. Console execution remains supported for development.
 builder.Host.UseWindowsService(options => options.ServiceName = "Vuma Retail Store Server");

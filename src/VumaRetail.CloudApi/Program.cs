@@ -32,6 +32,12 @@ using VumaRetail.PublicApi.Loyalty;
 // that has nothing to relay until Stage 06 builds master data worth sharing.
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment()
+    && builder.Configuration["AllowedHosts"]?.Contains("REPLACE_", StringComparison.OrdinalIgnoreCase) == true)
+{
+    builder.Configuration["AllowedHosts"] = "*";
+}
+
 builder.AddVumaLogging("VumaRetail.CloudApi");
 
 JwtOptions jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
