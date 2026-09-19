@@ -57,6 +57,16 @@ public static class ProductionSecurityGuard
             }
         }
 
+        string? signingKey = configuration["Vuma:Jwt:SigningKey"];
+        if (string.IsNullOrWhiteSpace(signingKey)
+            || signingKey.Contains("development-only", StringComparison.OrdinalIgnoreCase)
+            || signingKey.Contains("replace", StringComparison.OrdinalIgnoreCase)
+            || signingKey.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "Vuma:Jwt:SigningKey must be a non-placeholder secret of at least 32 characters outside Development.");
+        }
+
         string? backupKey = configuration["Vuma:Backup:Encryption:Key"];
         if (!Is256BitBase64(backupKey))
         {
