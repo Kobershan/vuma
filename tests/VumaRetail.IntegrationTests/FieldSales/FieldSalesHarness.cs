@@ -33,7 +33,6 @@ using VumaRetail.Infrastructure.Sync;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.Sync.Clock;
 using VumaRetail.Workflow.Approvals;
-using VumaRetail.Workflow.Approvals;
 
 namespace VumaRetail.IntegrationTests.FieldSales;
 

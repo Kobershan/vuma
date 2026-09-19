@@ -186,7 +186,7 @@ public sealed class HrLifecycleTests
         var publications = Substitute.For<IRosterPublicationRepository>();
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
-        shift.AssignCompany(company.CompanyId.Value);
+        shift.AssignCompany(company.CompanyId!.Value);
         var tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(TenantId);
         var clock = Substitute.For<IClock>();
@@ -211,7 +211,7 @@ public sealed class HrLifecycleTests
         var publications = Substitute.For<IRosterPublicationRepository>();
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
-        selected.AssignCompany(company.CompanyId.Value);
+        selected.AssignCompany(company.CompanyId!.Value);
         other.AssignCompany(Guid.NewGuid());
         var tenant = Substitute.For<ITenantContext>();
         tenant.TenantId.Returns(TenantId);

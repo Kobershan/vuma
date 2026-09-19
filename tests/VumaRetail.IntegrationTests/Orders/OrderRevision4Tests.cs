@@ -14,7 +14,6 @@ using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Warehouse;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
-using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Api;
 using VumaRetail.IntegrationTests.Harness;
 

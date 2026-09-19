@@ -44,9 +44,8 @@ public sealed class SagaCoordinatorTests(PostgresFixture fixture)
             await coordinator.RetryLegAsync(intent.Id, intent.Legs.Single().LegId);
         }
 
-        SagaIntent? persisted = await coordinator.GetAsync(intent.Id);
-        persisted.Should().NotBeNull();
-        persisted = persisted!;
+        SagaIntent persisted = await coordinator.GetAsync(intent.Id)
+            ?? throw new InvalidOperationException("The saga intent was not persisted.");
         persisted.State.Should().Be(SagaIntentState.Completed);
         persisted.Legs.Should().ContainSingle().Which.State.Should().Be(SagaLegState.Acknowledged);
         persisted.Legs.Single().Attempts.Should().Be(4);

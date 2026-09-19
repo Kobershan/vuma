@@ -199,7 +199,7 @@ public sealed class PersistenceRulesTests
         // tenant reading another's trading data.
         List<string> offenders = Model.GetEntityTypes()
             .Where(entityType => typeof(Entity).IsAssignableFrom(entityType.ClrType))
-            .Where(entityType => entityType.GetQueryFilter() is null)
+            .Where(entityType => entityType.GetDeclaredQueryFilters().Count == 0)
             .Select(entityType => entityType.ClrType.Name)
             .ToList();
 

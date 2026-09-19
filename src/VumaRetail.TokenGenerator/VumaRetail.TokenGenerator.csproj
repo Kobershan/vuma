@@ -3,7 +3,4 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>VumaRetail.TokenGenerator</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Text.Json" />
-  </ItemGroup>
 </Project>

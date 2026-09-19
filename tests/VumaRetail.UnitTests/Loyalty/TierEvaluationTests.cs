@@ -19,24 +19,24 @@ public sealed class TierEvaluationTests
     }
 
     [Fact]
-    public void Catalogue_lists_tiers_threshold_ascending()
+    public async Task Catalogue_lists_tiers_threshold_ascending()
     {
         var orbit = new Infrastructure.Loyalty.InMemoryOrbitClient();
-        IReadOnlyList<TierDefinition> tiers = orbit.ListTiersAsync().GetAwaiter().GetResult();
+        IReadOnlyList<TierDefinition> tiers = await orbit.ListTiersAsync();
         tiers.Select(tier => tier.ThresholdPoints)
             .Should().BeInAscendingOrder();
         tiers.Should().Contain(tier => tier.TierId == "gold" && tier.Multiplier == 1.5m);
     }
 
     [Fact]
-    public void Member_at_gold_threshold_keeps_gold_on_sync()
+    public async Task Member_at_gold_threshold_keeps_gold_on_sync()
     {
         var orbit = new Infrastructure.Loyalty.InMemoryOrbitClient();
         var customer = Guid.NewGuid();
-        string orbitId = orbit.EnsureMemberAsync(customer).GetAwaiter().GetResult();
+        string orbitId = await orbit.EnsureMemberAsync(customer);
         orbit.SetLedger(orbitId, 5000m, "gold");
 
-        OrbitBalanceResult balance = orbit.GetBalanceAsync(orbitId).GetAwaiter().GetResult();
+        OrbitBalanceResult balance = await orbit.GetBalanceAsync(orbitId);
         balance.TierId.Should().Be("gold");
     }
 

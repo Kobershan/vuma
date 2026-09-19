@@ -38,7 +38,7 @@ public sealed class EmployeeDocumentTests
         var document = EmployeeDocument.Record(Guid.NewGuid(), Guid.NewGuid(), "Contract", "private/key.pdf", new string('b', 64));
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.NewGuid());
-        document.AssignCompany(company.CompanyId.Value);
+        document.AssignCompany(company.CompanyId!.Value);
         var repository = Substitute.For<IEmployeeDocumentRepository>();
         repository.ListAsync(document.EmployeeId, Arg.Any<CancellationToken>()).Returns([document]);
 
@@ -58,7 +58,7 @@ public sealed class EmployeeDocumentTests
             new DateOnly(2026, 9, 30));
         var company = Substitute.For<ICompanyContext>();
         company.CompanyId.Returns(Guid.NewGuid());
-        document.AssignCompany(company.CompanyId.Value);
+        document.AssignCompany(company.CompanyId!.Value);
         var repository = Substitute.For<IEmployeeDocumentRepository>();
         var authorizer = Substitute.For<IEmployeeDocumentDownloadAuthorizer>();
         var clock = Substitute.For<VumaRetail.Application.Abstractions.IClock>();

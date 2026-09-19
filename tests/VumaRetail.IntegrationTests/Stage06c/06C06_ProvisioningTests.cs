@@ -23,6 +23,7 @@ public sealed class _06C06_ProvisioningTests : IAsyncDisposable
     
     public _06C06_ProvisioningTests(PostgresFixture fixture)
     {
+        ArgumentNullException.ThrowIfNull(fixture);
         _fixture = fixture;
         _connectionString = fixture.AdminConnectionString;
     }

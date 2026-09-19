@@ -22,7 +22,7 @@ public sealed class HrStagesRulesTests
         IEntityType entity = Model.FindEntityType(type)!;
         Assert.Equal(schema, entity.GetSchema());
         Assert.Equal(table, entity.GetTableName());
-        Assert.NotNull(entity.GetQueryFilter());
+        Assert.NotEmpty(entity.GetDeclaredQueryFilters());
     }
 
     [Fact]
