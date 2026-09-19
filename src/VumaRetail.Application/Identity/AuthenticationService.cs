@@ -340,8 +340,18 @@ public sealed class AuthenticationService
     /// <param name="userId">The user.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     public async Task SignOutAsync(Guid userId, CancellationToken cancellationToken = default)
-        => await RevokeAllAsync(userId, RefreshTokenRevocation.SignedOut, _clock.UtcNow, cancellationToken)
+    {
+        User? user = await _users.FindAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (user is not null && _revocationCache is not null)
+        {
+            await _revocationCache
+                .RevokeStampAsync(user.Id, user.SecurityStamp, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await RevokeAllAsync(userId, RefreshTokenRevocation.SignedOut, _clock.UtcNow, cancellationToken)
             .ConfigureAwait(false);
+    }
 
     /// <summary>Authenticates a terminal by the thumbprint of the client certificate it presented.</summary>
     /// <param name="thumbprint">The SHA-256 thumbprint.</param>
