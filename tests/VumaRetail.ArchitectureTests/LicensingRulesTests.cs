@@ -15,27 +15,15 @@ namespace VumaRetail.ArchitectureTests;
 /// </remarks>
 public sealed class LicensingRulesTests
 {
-    /// <summary>Every assembly that may declare a module's permissions or its manifest.</summary>
-    private static readonly Assembly[] ModuleAssemblies =
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
-        // Stage 07. A rule that only covers the assemblies that existed when it was written stops
-        // being a rule — Finance is the first module to live in its own assembly, and it declares
-        // both a permission set and a manifest.
-        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
-    ];
+    /// <summary>
+    /// Every product assembly that may declare permissions, manifests or handlers. This is derived
+    /// from the actual application reference graph; adding a module cannot silently escape these
+    /// guards because somebody forgot to extend a test-only array.
+    /// </summary>
+    private static Assembly[] ModuleAssemblies => VumaRetail.TestSupport.ModuleAssemblies.All;
 
-    /// <summary>Every assembly that may declare a query handler.</summary>
-    private static readonly Assembly[] HandlerAssemblies =
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Infrastructure.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Licensing.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
-    ];
+    /// <summary>Every product assembly that may declare a query handler.</summary>
+    private static Assembly[] HandlerAssemblies => ModuleAssemblies;
 
     [Fact]
     public void Every_module_that_declares_permissions_also_declares_a_manifest()
@@ -71,12 +59,8 @@ public sealed class LicensingRulesTests
     }
 
     /// <summary>Every module assembly, excluding <c>VumaRetail.Licensing</c> itself — that one is licensing.</summary>
-    private static readonly Assembly[] BusinessModuleAssemblies =
-    [
-        typeof(VumaRetail.Application.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Sync.AssemblyMarker).Assembly,
-        typeof(VumaRetail.Finance.AssemblyMarker).Assembly,
-    ];
+    private static IEnumerable<Assembly> BusinessModuleAssemblies
+        => ModuleAssemblies.Where(assembly => assembly != typeof(VumaRetail.Licensing.AssemblyMarker).Assembly);
 
     /// <summary>
     /// The licensing-internal types only <c>VumaRetail.Licensing</c> may depend on directly.
