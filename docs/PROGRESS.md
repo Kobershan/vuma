@@ -1793,3 +1793,8 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
 - Repository scans confirm the removed installer signing-key literal is absent. The known-bad
   bootstrap password remains only in the security blocklist documentation; the domain blocklist
   preserves the rule without exposing the literal to repository scans.
+- POS replay identity is now exposed consistently at the HTTP boundary: open-sale, add-line, tender,
+  and completion requests carry client operation IDs, and the desktop client mints them. The focused
+  POS integration suite passes 30/30. The durable desktop outbox remains an entity-snapshot queue and
+  is not yet a safe command-envelope replay implementation; it must not be presented as complete
+  offline sale execution until the server-side command-batch contract is implemented.
