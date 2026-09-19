@@ -1782,9 +1782,10 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
 - Architecture: 86/86 passed.
 - PostgreSQL integration: 633/633 passed in 14m30s.
 - Incremental solution build after the analyzer cleanup: 0 warnings and 0 errors. A forced clean
-  build from the repository outputs 3,138 CS1591 public-documentation warnings and 216 CA1062
-  null-argument warnings; these remain open because suppressing them would violate the remediation
-  rule against blanket warning suppression. Domain/Application still build with zero warnings/errors.
+  build from the repository outputs 1,677 warnings (CS1591 public-documentation and CA1062
+  null-argument analysis; the parallel MSBuild log repeats individual diagnostics). These remain
+  open because suppressing them would violate the remediation rule against blanket warning
+  suppression. Domain/Application still build with zero warnings/errors.
 - Repository scans confirm the removed installer signing-key literal is absent. The known-bad
   bootstrap password remains only in the security blocklist documentation; the domain blocklist
   preserves the rule without exposing the literal to repository scans.
