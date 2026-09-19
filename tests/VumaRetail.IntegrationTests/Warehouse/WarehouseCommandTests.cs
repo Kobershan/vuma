@@ -236,7 +236,7 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Releasing_a_wave_beyond_what_any_bin_holds_is_refused()
+    public async Task Releasing_a_wave_beyond_what_any_bin_holds_creates_a_short_allocation()
     {
         await using WarehouseHarness harness = await WarehouseHarness.CreateAsync(fixture);
         (_, Guid binId) = await CreateZoneAndBinAsync(harness, "STOR-A", "A-01");
@@ -250,10 +250,12 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         Guid waveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
         await harness.SendAsync(new AddPickTaskCommand(waveId, harness.ItemId, null, Each(20m), "SO-2003"));
 
-        Func<Task> releasing = () => harness.SendAsync(new ReleasePickWaveCommand(waveId));
+        await harness.SendAsync(new ReleasePickWaveCommand(waveId));
 
-        (await releasing.Should().ThrowAsync<WarehouseRuleException>())
-            .Which.Code.Should().Be("WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE");
+        PickWaveResult released = await harness.QueryAsync(new GetPickWaveQuery(waveId));
+        released.Tasks.Should().ContainSingle();
+        released.Tasks[0].AllocatedQuantity!.Value.Value.Should().Be(5m);
+        released.Tasks[0].Status.Should().Be(PickTaskStatus.ShortAllocated);
     }
 
     [Fact]
@@ -606,11 +608,12 @@ public sealed class WarehouseCommandTests(PostgresFixture fixture)
         Guid secondWaveId = await harness.SendAsync(new OpenPickWaveCommand(harness.LocationId));
         await harness.SendAsync(new AddPickTaskCommand(secondWaveId, harness.ItemId, null, Each(5m), "SO-4002"));
 
-        Func<Task> releasingSecond = () => harness.SendAsync(new ReleasePickWaveCommand(secondWaveId));
-
         // Only 3 is genuinely available — the other 7 already belongs to the first wave's reservation.
-        (await releasingSecond.Should().ThrowAsync<WarehouseRuleException>())
-            .Which.Code.Should().Be("WAREHOUSE_INSUFFICIENT_STOCK_TO_ALLOCATE");
+        await harness.SendAsync(new ReleasePickWaveCommand(secondWaveId));
+        PickWaveResult secondReleased = await harness.QueryAsync(new GetPickWaveQuery(secondWaveId));
+        secondReleased.Tasks.Should().ContainSingle();
+        secondReleased.Tasks[0].AllocatedQuantity!.Value.Value.Should().Be(3m);
+        secondReleased.Tasks[0].Status.Should().Be(PickTaskStatus.ShortAllocated);
     }
 
     [Fact]

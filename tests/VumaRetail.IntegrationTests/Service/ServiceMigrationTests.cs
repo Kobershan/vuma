@@ -119,6 +119,7 @@ public sealed class ServiceMigrationTests(PostgresFixture fixture)
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'logistics'
+            ORDER BY table_name
             """).ToListAsync().ConfigureAwait(false);
         // Logistics is owned by the earlier warehouse/logistics migrations and is intentionally
         // retained when the Stage 23 service migrations are rolled back.

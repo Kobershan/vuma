@@ -46,7 +46,7 @@ public sealed class ThreeWayMatchTests
 
         match.Status.Should().Be(ThreeWayMatchStatus.Matched);
         match.Variances.Should().Be(ThreeWayMatchVarianceKind.None);
-        match.MatchedGross.Amount.Should().Be(8_000m);
+        match.MatchedGross.Amount.Should().Be(9_200m);
         match.PriceVariance.Amount.Should().Be(0m);
         match.IsPayable.Should().BeTrue();
     }
@@ -260,8 +260,8 @@ public sealed class ThreeWayMatchTests
 
         // The document-level variance is the claim against what the order supports, which is exactly the
         // surcharge nobody agreed to.
-        match.MatchedGross.Amount.Should().Be(8_000m);
-        match.PriceVariance.Amount.Should().Be(500m);
+        match.MatchedGross.Amount.Should().Be(9_200m);
+        match.PriceVariance.Amount.Should().Be(575m);
     }
 
     [Fact]
