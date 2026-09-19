@@ -1,6 +1,10 @@
 services:
+  # DEMO/DEVELOPMENT BLUEPRINT — do not use this file as the production deployment.
+  # Production must use persistent, non-free service/database plans, configured backups,
+  # retention, monitoring and restore procedures. Keep those choices in the operator's
+  # private Render environment rather than hard-coding a commercial tier here.
   - type: web
-    name: vuma-cloud-api
+    name: vuma-cloud-api-demo
     runtime: docker
     plan: free
     region: frankfurt
@@ -26,7 +30,8 @@ services:
         sync: false
 
 databases:
-  - name: vuma-postgres
+  # Demo-only database. Production requires a persistent plan and an independent backup policy.
+  - name: vuma-postgres-demo
     plan: free
     region: frankfurt
     databaseName: vuma_cloud

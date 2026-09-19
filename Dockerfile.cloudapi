@@ -8,8 +8,10 @@ RUN dotnet publish src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj \
     --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN useradd --system --uid 10001 --create-home vuma
 WORKDIR /app
-COPY --from=build /app/publish .
+COPY --from=build --chown=vuma:vuma /app/publish .
+USER vuma
 ENV ASPNETCORE_URLS=http://+:10000
 EXPOSE 10000
 # TLS NOTE: This container listens on plain HTTP (port 10000). In production, TLS MUST be terminated
