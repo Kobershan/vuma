@@ -1798,3 +1798,10 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
   POS integration suite passes 30/30. The durable desktop outbox remains an entity-snapshot queue and
   is not yet a safe command-envelope replay implementation; it must not be presented as complete
   offline sale execution until the server-side command-batch contract is implemented.
+- The desktop outbox schema initialization is now awaited by every operation and disposal path, so
+  first-launch calls cannot race schema creation. The WPF token generator now emits valid .NET 10
+  resource primitives (`sys:Double`/`sys:Int32`), and terminal certificate loading uses
+  `X509CertificateLoader`. `dotnet build src/VumaRetail.Desktop/VumaRetail.Desktop.csproj -c Release
+  --no-restore -p:EnableWindowsTargeting=true` passes with 0 errors and 104 existing warnings.
+  Commit `226ab34` is pushed. The warnings are primarily CS1591 public XML documentation and IDE0011
+  brace-style diagnostics; they remain open rather than being suppressed.
