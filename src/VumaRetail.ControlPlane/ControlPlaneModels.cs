@@ -69,6 +69,8 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
     public async Task<DeviceResponse> ActivateAsync(ActivationRequest request, ILicenseSigner signer,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(signer);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.LicenseKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.InstallId);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Fingerprint);

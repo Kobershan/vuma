@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Vuma Retail Store Server"
+      Manufacturer="Vuma Retail"
+      Version="1.0.0.0"
+      UpgradeCode="8E274A5B-74B5-4A4A-9E68-4A0D1C00F5F1"
+      Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer Vuma Retail Store Server is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="MainFeature" Title="Vuma Retail Store Server" Level="1">
+      <ComponentRef Id="StoreServerComponent" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Vuma Retail">
+        <Directory Id="STORE_SERVER_FOLDER" Name="StoreServer" />
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StoreServerComponent" Directory="STORE_SERVER_FOLDER" Guid="*">
+      <File Id="StoreServerExecutable" Source="$(var.PublishDir)\VumaRetail.StoreServer.exe" KeyPath="yes" />
+      <ServiceInstall
+          Id="StoreServerServiceInstall"
+          Name="VumaRetailStoreServer"
+          DisplayName="Vuma Retail Store Server"
+          Description="Vuma Retail local API and offline-first store synchronisation service."
+          Type="ownProcess"
+          Start="auto"
+          ErrorControl="normal"
+          Vital="yes"
+          Account="LocalSystem" />
+      <ServiceControl
+          Id="StoreServerServiceControl"
+          Name="VumaRetailStoreServer"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+    </Component>
+  </Fragment>
+</Wix>

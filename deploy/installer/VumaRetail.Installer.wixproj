@@ -1,0 +1,12 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <PublishDir>$(MSBuildThisFileDirectory)..\..\artifacts\windows-server</PublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="WixToolset.Util.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+</Project>

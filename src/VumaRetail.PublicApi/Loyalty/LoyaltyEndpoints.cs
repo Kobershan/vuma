@@ -616,6 +616,11 @@ public static class LoyaltyEndpoints
     public static bool VerifySignature(
         HttpContext http, string body, string secret, ILoggerFactory loggers)
     {
+        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(secret);
+        ArgumentNullException.ThrowIfNull(loggers);
+
         if (string.IsNullOrEmpty(secret))
         {
             // A missing verification secret must never turn an anonymous webhook into an

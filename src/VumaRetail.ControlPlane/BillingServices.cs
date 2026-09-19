@@ -23,6 +23,7 @@ public sealed class UsageRollupAggregator
 
     public bool Add(UsageRollup rollup)
     {
+        ArgumentNullException.ThrowIfNull(rollup);
         ArgumentException.ThrowIfNullOrWhiteSpace(rollup.TenantId);
         ArgumentException.ThrowIfNullOrWhiteSpace(rollup.NodeId);
         if (rollup.Transactions < 0 || rollup.ActiveUsers < 0 || rollup.Terminals < 0 || rollup.StorageBytes < 0

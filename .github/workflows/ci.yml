@@ -175,6 +175,9 @@ jobs:
       - name: Set PATH for dotnet tools
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
+      - name: Install deterministic coverage collector
+        run: dotnet tool install --global dotnet-coverage --version 18.11.2
+
       # FIX 4a: Restore NuGet packages before EF commands
       - name: Restore
         run: dotnet restore src/VumaRetail.Infrastructure
@@ -197,7 +200,11 @@ jobs:
           dotnet test tests/VumaRetail.UnitTests -c Release --no-restore
           dotnet test tests/VumaRetail.ControlPlane.Tests -c Release --no-restore
           dotnet test tests/VumaRetail.ArchitectureTests -c Release --no-restore
-          dotnet test tests/VumaRetail.IntegrationTests -c Release --no-restore --logger "trx;LogFileName=results.trx" --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" --results-directory ./artifacts/test-results
+          # coverlet's XPlat collector has a native-resource hang on the .NET 10 test host in
+          # this repository. Use the supported dotnet-coverage collector around the same real
+          # tests instead of allowing a coverage process to leave CI indefinitely running.
+          dotnet-coverage collect "dotnet test tests/VumaRetail.IntegrationTests -c Release --no-restore --logger:trx;LogFileName=results.trx --logger:console;verbosity=detailed" \
+            -f cobertura -o ./artifacts/test-results/coverage.cobertura.xml
 
       - name: Upload results
         if: always()
@@ -410,6 +417,10 @@ jobs:
           --self-contained true -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/desktop-win-single
 
+      - name: Build WiX StoreServer installer
+        shell: pwsh
+        run: ./scripts/build-windows-installer.ps1 -Configuration Release
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -455,7 +466,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { echo "::error::Generated files differ from committed output"; exit 1 }
 
       - name: Package
-        run: echo "WPF .exe, signed Flutter APK, and Flutter Windows artifacts are built; installer signing remains deployment-specific."
+        run: echo "WPF .exe, WiX StoreServer MSI, signed Flutter APK, and Flutter Windows artifacts are built; release signing remains deployment-specific."
 
       - name: Upload client artifacts
         uses: actions/upload-artifact@v4
@@ -466,3 +477,4 @@ jobs:
             mobile/build/windows/runner/Release/**
             src/VumaRetail.Desktop/bin/Release/**
             artifacts/desktop-win-single/**
+            artifacts/installer/**

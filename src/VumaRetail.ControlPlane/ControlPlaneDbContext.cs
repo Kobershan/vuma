@@ -11,6 +11,7 @@ public sealed class ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        ArgumentNullException.ThrowIfNull(builder);
         builder.Entity<ControlPlaneDevice>().HasKey(x => x.NodeId);
         builder.Entity<ControlPlaneDevice>().HasIndex(x => x.InstallId).IsUnique();
         builder.Entity<ControlPlaneRequest>().HasKey(x => x.RequestId);

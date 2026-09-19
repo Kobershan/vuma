@@ -95,6 +95,8 @@ public sealed class VendorProvisioning(IClock clock)
     public async Task<bool> RedeemUnlockAsync(Guid id, string code, IUnlockCodeSigner signer,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(signer);
         if (!unlocks.TryGetValue(id, out EmergencyWriteCode? current) || current.Redeemed || current.ExpiresAt <= clock.UtcNow)
         {
             return false;

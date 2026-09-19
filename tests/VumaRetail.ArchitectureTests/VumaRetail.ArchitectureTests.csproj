@@ -17,7 +17,6 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="NetArchTest.Rules" />
-    <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
   <ItemGroup>

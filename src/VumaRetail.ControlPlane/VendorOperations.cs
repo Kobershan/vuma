@@ -17,6 +17,7 @@ public sealed class AbuseDetector
 
     public IReadOnlyList<AbuseCase> Observe(DeviceObservation observation)
     {
+        ArgumentNullException.ThrowIfNull(observation);
         List<AbuseCase> found = [];
         foreach (DeviceObservation previous in _lastByNode.Values.Where(x => x.LicenseKey == observation.LicenseKey))
         {
@@ -80,8 +81,13 @@ public sealed record VendorPrincipal(string Id, VendorRole Role, string? Partner
 public sealed class VendorScope
 {
     public static bool CanViewTenant(VendorPrincipal principal, string tenantId, IReadOnlyDictionary<string, string> tenantPartners)
-        => principal.Role == VendorRole.Admin || principal.PartnerId is null
+    {
+        ArgumentNullException.ThrowIfNull(principal);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentNullException.ThrowIfNull(tenantPartners);
+        return principal.Role == VendorRole.Admin || principal.PartnerId is null
             || tenantPartners.TryGetValue(tenantId, out string? partner) && partner == principal.PartnerId;
+    }
 }
 
 public sealed record SupportGrant(Guid Id, string TenantId, string RequestedBy, DateTimeOffset ExpiresAt,
@@ -101,5 +107,9 @@ public static class SupportGrantPolicy
         return new SupportGrant(id, tenantId, requestedBy, expiresAt, true, true);
     }
 
-    public static bool IsActive(SupportGrant grant, DateTimeOffset now) => grant.Active && grant.TenantApproved && grant.ExpiresAt > now;
+    public static bool IsActive(SupportGrant grant, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(grant);
+        return grant.Active && grant.TenantApproved && grant.ExpiresAt > now;
+    }
 }

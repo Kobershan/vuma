@@ -70,6 +70,8 @@ android/local.properties
 /docs/windows-desktop-singlefile-*/
 /docs/vuma-*.html
 *.tar.gz
+/deploy/installer/bin/
+/deploy/installer/obj/
 *.aab
 *.keystore
 *.jks

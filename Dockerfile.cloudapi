@@ -1,7 +1,25 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY . .
+# Keep restore inputs separate from source so a normal source edit reuses the expensive
+# NuGet restore layer. The project files are copied to their original paths because project
+# references are resolved during restore.
+COPY global.json Directory.Build.props Directory.Packages.props VumaRetail.sln ./
+COPY src/VumaRetail.Application/VumaRetail.Application.csproj src/VumaRetail.Application/
+COPY src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj src/VumaRetail.CloudApi/
+COPY src/VumaRetail.Contracts/VumaRetail.Contracts.csproj src/VumaRetail.Contracts/
+COPY src/VumaRetail.ControlPlane/VumaRetail.ControlPlane.csproj src/VumaRetail.ControlPlane/
+COPY src/VumaRetail.Domain/VumaRetail.Domain.csproj src/VumaRetail.Domain/
+COPY src/VumaRetail.Finance/VumaRetail.Finance.csproj src/VumaRetail.Finance/
+COPY src/VumaRetail.Hardware/VumaRetail.Hardware.csproj src/VumaRetail.Hardware/
+COPY src/VumaRetail.Imports/VumaRetail.Imports.csproj src/VumaRetail.Imports/
+COPY src/VumaRetail.Infrastructure/VumaRetail.Infrastructure.csproj src/VumaRetail.Infrastructure/
+COPY src/VumaRetail.Licensing/VumaRetail.Licensing.csproj src/VumaRetail.Licensing/
+COPY src/VumaRetail.PublicApi/VumaRetail.PublicApi.csproj src/VumaRetail.PublicApi/
+COPY src/VumaRetail.Sync/VumaRetail.Sync.csproj src/VumaRetail.Sync/
+COPY src/VumaRetail.Web/VumaRetail.Web.csproj src/VumaRetail.Web/
+COPY src/VumaRetail.Workflow/VumaRetail.Workflow.csproj src/VumaRetail.Workflow/
 RUN dotnet restore src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj
+COPY src ./src
 RUN dotnet publish src/VumaRetail.CloudApi/VumaRetail.CloudApi.csproj \
     --configuration Release \
     --no-restore \

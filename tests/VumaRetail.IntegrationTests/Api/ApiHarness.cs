@@ -33,6 +33,7 @@ namespace VumaRetail.IntegrationTests.Api;
 public sealed class ApiHarness : IAsyncDisposable
 {
     private readonly WebApplicationFactory<Program> _factory;
+    private readonly List<HttpClient> _clients = [];
 
     private ApiHarness(WebApplicationFactory<Program> factory, Guid tenantId, Guid storeId, TestClock clock)
     {
@@ -40,7 +41,7 @@ public sealed class ApiHarness : IAsyncDisposable
         TenantId = tenantId;
         StoreId = storeId;
         Clock = clock;
-        Client = factory.CreateClient();
+        Client = Track(factory.CreateClient());
     }
 
     /// <summary>An HTTP client pointed at the running host.</summary>
@@ -144,6 +145,20 @@ public sealed class ApiHarness : IAsyncDisposable
 
                 builder.ConfigureTestServices(services =>
                 {
+                    // API tests exercise request wiring and explicit commands. Background workers
+                    // are tested through their own harnesses; starting every worker for every HTTP
+                    // host causes immediate read-only retries, noisy logs, and unbounded startup
+                    // work across the contract suite. Keep the framework web-host service, but do
+                    // not start application BackgroundService registrations in this request host.
+                    foreach (ServiceDescriptor descriptor in services
+                        .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                            && descriptor.ImplementationType is not null
+                            && typeof(BackgroundService).IsAssignableFrom(descriptor.ImplementationType))
+                        .ToArray())
+                    {
+                        services.Remove(descriptor);
+                    }
+
                     services.RemoveAll<IClock>();
                     services.AddSingleton<IClock>(clock);
 
@@ -152,6 +167,14 @@ public sealed class ApiHarness : IAsyncDisposable
             });
 
         ApiHarness harness = new(factory, tenantId, storeId, clock);
+
+        // Minimal API endpoint metadata is built lazily by EndpointRoutingMiddleware. Warm the real
+        // host while it is alive so the first test request cannot race route construction with
+        // WebApplicationFactory teardown.
+        using (HttpResponseMessage warmup = await harness.Client.GetAsync("/health").ConfigureAwait(false))
+        {
+            warmup.EnsureSuccessStatusCode();
+        }
 
         if (activate)
         {
@@ -261,7 +284,7 @@ public sealed class ApiHarness : IAsyncDisposable
 
         TokenResponse token = (await response.Content.ReadFromJsonAsync<TokenResponse>())!;
 
-        HttpClient authenticated = _factory.CreateClient();
+        HttpClient authenticated = Track(_factory.CreateClient());
         authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
 
         return authenticated;
@@ -284,15 +307,25 @@ public sealed class ApiHarness : IAsyncDisposable
                 NodeKind: nodeKind)));
         });
 
-        HttpClient authenticated = _factory.CreateClient();
+        HttpClient authenticated = Track(_factory.CreateClient());
         authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
         return authenticated;
+    }
+
+    private HttpClient Track(HttpClient client)
+    {
+        _clients.Add(client);
+        return client;
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        Client.Dispose();
+        foreach (HttpClient client in _clients)
+        {
+            client.Dispose();
+        }
+
         await _factory.DisposeAsync();
     }
 }
