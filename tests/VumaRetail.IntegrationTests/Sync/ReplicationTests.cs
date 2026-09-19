@@ -506,6 +506,24 @@ public sealed class ReplicationTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_terminal_node_can_replay_its_enrolment_to_the_store_once()
+    {
+        await using SyncHarness store = await SyncHarness.CreateAsync(fixture, "store:jhb01", NodeKind.Store);
+        await using SyncHarness terminal = await SyncHarness.CreateAsync(
+            fixture, "terminal:jhb01:t01", NodeKind.Terminal, store.TenantId, store.StoreId);
+
+        await terminal.SendAsync(new EnrolTerminalCommand(terminal.StoreId, "T01", "Till 1"));
+        SyncBatch batch = await BuildBatchAsync(terminal);
+
+        SyncAcknowledgement first = await store.SendAsync(new ReceiveSyncBatchCommand(batch));
+        SyncAcknowledgement replay = await store.SendAsync(new ReceiveSyncBatchCommand(batch));
+
+        first.Results.Should().ContainSingle().Which.Outcome.Should().Be(InboxOutcome.Applied);
+        replay.Results.Should().ContainSingle().Which.Outcome.Should().Be(InboxOutcome.Duplicate);
+        (await store.Context.Terminals.CountAsync(terminal => terminal.Code == "T01")).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Receiving_a_stamp_from_the_future_moves_the_receivers_clock_past_it()
     {
         // The hybrid half of the clock, end to end. A node whose own next stamp ordered *before* a

@@ -69,15 +69,23 @@ public static class VumaOpenApi
                 }
 
                 if (context.Description.RelativePath is { } path
-                    && RequestExamples.TryGetValue(path, out JsonNode? example)
-                    && example is not null
-                    && operation.RequestBody is { } requestBody)
+                    && operation.RequestBody is { } requestBody
+                    && requestBody.Content is { } content
+                    && content.TryGetValue("application/json", out OpenApiMediaType? media)
+                    && media is not null)
                 {
-                    if (requestBody.Content is { } content
-                        && content.TryGetValue("application/json", out OpenApiMediaType? media)
-                        && media is not null)
+                    if (RequestExamples.TryGetValue(path, out JsonNode? example) && example is not null)
                     {
                         media.Example = example.DeepClone();
+                    }
+                    else if (path.Contains("/licence/support-access/", StringComparison.Ordinal)
+                        && path.EndsWith("/approve", StringComparison.Ordinal))
+                    {
+                        media.Example = new JsonObject { ["durationHours"] = JsonValue.Create(4) };
+                    }
+                    else
+                    {
+                        media.Example = ExampleFromSchema(media.Schema);
                     }
                 }
 
@@ -137,6 +145,18 @@ public static class VumaOpenApi
             ["enrolmentCode"] = JsonValue.Create("K7QF-2M9X-VD4T"),
             ["certificateThumbprint"] = JsonValue.Create(new string('A', 64)),
             ["deviceFingerprint"] = JsonValue.Create("board-serial-1"),
+        },
+        ["api/v1/backup/snapshots"] = new JsonObject
+        {
+            ["kind"] = JsonValue.Create("Full"),
+        },
+        ["api/v1/licence/support-access/{grantId}/approve"] = new JsonObject
+        {
+            ["durationHours"] = JsonValue.Create(4),
+        },
+        ["api/v1/licence/support-access/{grantId:guid}/approve"] = new JsonObject
+        {
+            ["durationHours"] = JsonValue.Create(4),
         },
         ["api/v1/pos/till-sessions"] = new JsonObject
         {
@@ -332,4 +352,46 @@ public static class VumaOpenApi
         "422" => ApiErrorCodes.RuleViolation,
         _ => ApiErrorCodes.InternalError,
     };
+
+    private static JsonNode ExampleFromSchema(IOpenApiSchema? schema)
+    {
+        if (schema is null)
+        {
+            return new JsonObject();
+        }
+
+        if (schema.Examples is { Count: > 0 } examples && examples[0] is { } explicitExample)
+        {
+            return explicitExample.DeepClone();
+        }
+
+        if (schema.Properties is { Count: > 0 } properties)
+        {
+            JsonObject result = new();
+            foreach ((string name, IOpenApiSchema property) in properties)
+            {
+                result[name] = ExampleFromSchema(property);
+            }
+
+            return result;
+        }
+
+        if (schema.Items is { } itemSchema)
+        {
+            return new JsonArray(ExampleFromSchema(itemSchema));
+        }
+
+        return schema.Type?.ToString().ToLowerInvariant() switch
+        {
+            "boolean" => JsonValue.Create(false)!,
+            "integer" => JsonValue.Create(0)!,
+            "number" => JsonValue.Create(0)!,
+            "string" when string.Equals(schema.Format, "date", StringComparison.OrdinalIgnoreCase)
+                => JsonValue.Create("2026-01-01")!,
+            "string" when string.Equals(schema.Format, "date-time", StringComparison.OrdinalIgnoreCase)
+                => JsonValue.Create("2026-01-01T00:00:00Z")!,
+            "string" => JsonValue.Create("example")!,
+            _ => new JsonObject(),
+        };
+    }
 }

@@ -474,6 +474,43 @@ public sealed class ApiContractTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Every_json_request_body_has_a_generated_or_explicit_example()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+
+        using JsonDocument document = JsonDocument.Parse(
+            await harness.Client.GetStringAsync(new Uri("/openapi/v1.json", UriKind.Relative)));
+
+        List<string> missing = [];
+        foreach (JsonProperty pathProperty in document.RootElement.GetProperty("paths").EnumerateObject())
+        {
+            string path = pathProperty.Name;
+            JsonElement pathItem = pathProperty.Value;
+            foreach (JsonProperty operation in pathItem.EnumerateObject())
+            {
+                if (operation.Name is not ("get" or "post" or "put" or "patch" or "delete"))
+                {
+                    continue;
+                }
+
+                if (!operation.Value.TryGetProperty("requestBody", out JsonElement requestBody)
+                    || !requestBody.TryGetProperty("content", out JsonElement content)
+                    || !content.TryGetProperty("application/json", out JsonElement json))
+                {
+                    continue;
+                }
+
+                if (!json.TryGetProperty("example", out _))
+                {
+                    missing.Add($"{operation.Name.ToUpperInvariant()} {path}");
+                }
+            }
+        }
+
+        missing.Should().BeEmpty("CLAUDE.md §8 requires every JSON request body to be usable from the published contract");
+    }
+
+    [Fact]
     public async Task Every_route_is_versioned_except_the_named_infrastructure_ones()
     {
         // The rule that stops an endpoint quietly becoming un-versionable once a customer
