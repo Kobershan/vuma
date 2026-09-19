@@ -22706,13 +22706,13 @@ namespace VumaRetail.Infrastructure.Migrations
 
                             b1.Property<decimal>("Amount")
                                 .HasColumnType("numeric(18,4)")
-                                .HasColumnName("matched_net_amount");
+                                .HasColumnName("matched_gross_amount");
 
                             b1.Property<string>("Currency")
                                 .IsRequired()
                                 .HasMaxLength(3)
                                 .HasColumnType("character(3)")
-                                .HasColumnName("matched_net_currency")
+                                .HasColumnName("matched_gross_currency")
                                 .IsFixedLength();
                         });
 
@@ -22979,6 +22979,22 @@ namespace VumaRetail.Infrastructure.Migrations
                                 .HasMaxLength(3)
                                 .HasColumnType("character(3)")
                                 .HasColumnName("ordered_value_currency")
+                                .IsFixedLength();
+                        });
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "OrderedGrossValue", "VumaRetail.Domain.Procurement.SupplierInvoiceMatchLine.OrderedGrossValue#Money", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("ordered_gross_value_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .HasColumnName("ordered_gross_value_currency")
                                 .IsFixedLength();
                         });
 

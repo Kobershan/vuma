@@ -371,7 +371,7 @@ public sealed class SupplierInvoiceMatch : Entity
 
         foreach (SupplierInvoiceMatchLine line in _lines)
         {
-            matchedGross += line.OrderedValue;
+            matchedGross += line.OrderedGrossValue;
             variances |= line.Variances;
 
             if (line.Status > status)

@@ -45,6 +45,7 @@ public sealed class SupplierInvoiceMatchLine : Entity
         Money orderedUnitCost,
         Money invoicedUnitCost,
         Money orderedValue,
+        Money orderedGrossValue,
         Money invoicedValue,
         Money priceVariance,
         Quantity quantityVariance,
@@ -64,6 +65,7 @@ public sealed class SupplierInvoiceMatchLine : Entity
         OrderedUnitCost = orderedUnitCost;
         InvoicedUnitCost = invoicedUnitCost;
         OrderedValue = orderedValue;
+        OrderedGrossValue = orderedGrossValue;
         InvoicedValue = invoicedValue;
         PriceVariance = priceVariance;
         QuantityVariance = quantityVariance;
@@ -111,6 +113,9 @@ public sealed class SupplierInvoiceMatchLine : Entity
 
     /// <summary>The invoiced quantity at the <em>order's</em> cost — what the order supports paying.</summary>
     public Money OrderedValue { get; private set; }
+
+    /// <summary>What the order supports at its stored gross value, for document-level gross matching.</summary>
+    public Money OrderedGrossValue { get; private set; }
 
     /// <summary>The invoiced quantity at the <em>supplier's</em> cost — what they are asking for.</summary>
     public Money InvoicedValue { get; private set; }
@@ -166,6 +171,9 @@ public sealed class SupplierInvoiceMatchLine : Entity
         // first and multiplying would produce a variance made entirely of rounding on any line with a
         // fractional unit cost, and a supplier would be blocked over arithmetic nobody did.
         Money orderedValue = invoicedQuantity.Extend(orderLine.UnitCost).RoundToCurrencyScale();
+        Money orderedGrossValue = invoicedQuantity
+            .Extend(orderLine.Gross / orderLine.Quantity.Value)
+            .RoundToCurrencyScale();
         Money invoicedValue = invoicedQuantity.Extend(invoicedUnitCost).RoundToCurrencyScale();
         Money priceVariance = invoicedValue - orderedValue;
 
@@ -224,6 +232,7 @@ public sealed class SupplierInvoiceMatchLine : Entity
             orderLine.UnitCost,
             invoicedUnitCost,
             orderedValue,
+            orderedGrossValue,
             invoicedValue,
             priceVariance,
             quantityVariance,
@@ -273,6 +282,7 @@ public sealed class SupplierInvoiceMatchLine : Entity
             zeroQuantity,
             zero,
             invoicedUnitCost,
+            zero,
             zero,
             invoicedValue,
             invoicedValue,
