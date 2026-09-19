@@ -51,9 +51,13 @@ public static class VumaWebExtensions
             options.AddDefaultPolicy(policy =>
             {
                 if (allowedOrigins.Length == 0)
+                {
                     policy.SetIsOriginAllowed(_ => false);
+                }
                 else
+                {
                     policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+                }
             });
         });
 
@@ -160,7 +164,10 @@ public static class VumaWebExtensions
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
             context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'";
             if (context.Request.IsHttps)
+            {
                 context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+            }
+
             await next(context).ConfigureAwait(false);
         });
 
@@ -199,7 +206,10 @@ public static class VumaWebExtensions
     {
         string? ip = context.Connection.RemoteIpAddress?.ToString();
         if (ip is null)
+        {
             ip = context.Request.Headers["X-Forwarded-For"].ToString().Split(',')[0].Trim();
+        }
+
         return string.IsNullOrWhiteSpace(ip) ? "unknown-client" : ip;
     }
 

@@ -137,7 +137,11 @@ public static class GroupReceiptEndpoints
             CancellationToken ct) =>
         {
             var receipt = await repository.GetByIdAsync(id, ct);
-            if (receipt is null) return Results.NotFound();
+            if (receipt is null)
+            {
+                return Results.NotFound();
+            }
+
             return Results.Ok(new GroupReceiptDetailResponse
             {
                 Id = receipt.Id,

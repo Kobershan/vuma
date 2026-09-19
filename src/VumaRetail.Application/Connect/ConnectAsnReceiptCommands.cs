@@ -5,8 +5,8 @@ using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Procurement;
 using VumaRetail.Application.Procurement;
 using VumaRetail.Domain.Connect;
-using VumaRetail.Domain.Procurement;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Procurement;
 
 namespace VumaRetail.Application.Connect;
 

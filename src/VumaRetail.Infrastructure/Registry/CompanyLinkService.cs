@@ -1,11 +1,11 @@
 #pragma warning disable CS1591
 using System.Collections.Concurrent;
 using System.Text.Json;
-using VumaRetail.Domain.Registry;
+using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -34,9 +34,20 @@ public sealed class CompanyLinkService : ICompanyLinkService
 
     public async Task RequireLink(Guid companyA, Guid companyB, CompanyLinkScope requiredScope, CancellationToken cancellationToken = default)
     {
-        if (companyA == Guid.Empty) throw new ArgumentException("Company A is required.", nameof(companyA));
-        if (companyB == Guid.Empty) throw new ArgumentException("Company B is required.", nameof(companyB));
-        if (companyA == companyB) return;
+        if (companyA == Guid.Empty)
+        {
+            throw new ArgumentException("Company A is required.", nameof(companyA));
+        }
+
+        if (companyB == Guid.Empty)
+        {
+            throw new ArgumentException("Company B is required.", nameof(companyB));
+        }
+
+        if (companyA == companyB)
+        {
+            return;
+        }
 
         var (smaller, larger) = Order(companyA, companyB);
         var key = (_tenantContext.TenantId, smaller, larger);
@@ -90,9 +101,20 @@ public sealed class CompanyLinkService : ICompanyLinkService
 
     public async Task<CompanyLink> ProposeAsync(Guid companyA, Guid companyB, CompanyLinkScope scopes, CancellationToken cancellationToken = default)
     {
-        if (companyA == Guid.Empty) throw new ArgumentException("Company A is required.", nameof(companyA));
-        if (companyB == Guid.Empty) throw new ArgumentException("Company B is required.", nameof(companyB));
-        if (companyA == companyB) throw new ArgumentException("A company cannot link to itself.", nameof(companyB));
+        if (companyA == Guid.Empty)
+        {
+            throw new ArgumentException("Company A is required.", nameof(companyA));
+        }
+
+        if (companyB == Guid.Empty)
+        {
+            throw new ArgumentException("Company B is required.", nameof(companyB));
+        }
+
+        if (companyA == companyB)
+        {
+            throw new ArgumentException("A company cannot link to itself.", nameof(companyB));
+        }
 
         Guid tenantId = _tenantContext.TenantId;
         Guid operatorId = _operatorContext.RequireOperatorId();

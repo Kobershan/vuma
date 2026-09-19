@@ -152,7 +152,7 @@ public sealed class SalesDocumentsHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
 
         var clock = new TestClock();
         var tenant = TestTenantContext.Unfiltered();
@@ -201,7 +201,7 @@ public sealed class SalesDocumentsHarness : IAsyncDisposable
             seed.PriceListLines.Add(PriceListLine.Create(
                 seeded.Id, null, retail.Id, item.Id, null, new Money(100m, "ZAR"), minimumQuantity: 1m));
 
-            await seed.CommitAsync().ConfigureAwait(false);
+            await seed.CommitAsync();
 
             tenantId = seeded.Id;
             storeId = store.Id;
@@ -226,7 +226,7 @@ public sealed class SalesDocumentsHarness : IAsyncDisposable
             companyB.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
             registrySeed.Companies.Add(companyB);
 
-            await registrySeed.SaveChangesAsync().ConfigureAwait(false);
+            await registrySeed.SaveChangesAsync();
 
             companyAId = companyA.Id;
             companyBId = companyB.Id;
@@ -287,7 +287,7 @@ public sealed class SalesDocumentsHarness : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await _scopes.DisposeAsync().ConfigureAwait(false);
+        await _scopes.DisposeAsync();
 
         List<IAsyncDisposable> owned;
         lock (_owned)
@@ -300,12 +300,12 @@ public sealed class SalesDocumentsHarness : IAsyncDisposable
         {
             if (!ReferenceEquals(disposable, _scopes))
             {
-                await disposable.DisposeAsync().ConfigureAwait(false);
+                await disposable.DisposeAsync();
             }
         }
 
-        await Context.DisposeAsync().ConfigureAwait(false);
-        await Registry.DisposeAsync().ConfigureAwait(false);
+        await Context.DisposeAsync();
+        await Registry.DisposeAsync();
     }
 
     private sealed class TestCompanyFactory(

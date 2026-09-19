@@ -53,7 +53,7 @@ internal static class OrdersHarnessSetup
                 services.AddSingleton<ICompanyConnectionSecretStore, TestSecretStore>();
                 services.RemoveAll<ICompanyServingGuard>();
                 services.AddSingleton<ICompanyServingGuard, OpenServingGuard>();
-            }).ConfigureAwait(false);
+            });
 
         Guid companyId = await harness.InScopeAsync(async provider =>
         {
@@ -68,13 +68,13 @@ internal static class OrdersHarnessSetup
             company.SetLifecycle(CompanyLifecycleState.Registered);
             company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
             registry.Companies.Add(company);
-            await registry.SaveChangesAsync().ConfigureAwait(false);
+            await registry.SaveChangesAsync();
 
             return company.Id;
-        }).ConfigureAwait(false);
+        });
 
-        OrdersScenario scenario = await BuildAsync(harness).ConfigureAwait(false);
-        await StampCompanyAsync(harness, companyId).ConfigureAwait(false);
+        OrdersScenario scenario = await BuildAsync(harness);
+        await StampCompanyAsync(harness, companyId);
 
         return (harness, scenario, companyId);
     }
@@ -90,44 +90,44 @@ internal static class OrdersHarnessSetup
         {
             VumaRetailDbContext db = provider.GetRequiredService<VumaRetailDbContext>();
 
-            foreach (StockLocation location in await db.StockLocations.ToListAsync().ConfigureAwait(false))
+            foreach (StockLocation location in await db.StockLocations.ToListAsync())
             {
                 location.AssignCompany(companyId);
             }
 
-            foreach (Item item in await db.Items.ToListAsync().ConfigureAwait(false))
+            foreach (Item item in await db.Items.ToListAsync())
             {
                 item.AssignCompany(companyId);
             }
 
-            foreach (UnitOfMeasure uom in await db.UnitsOfMeasure.ToListAsync().ConfigureAwait(false))
+            foreach (UnitOfMeasure uom in await db.UnitsOfMeasure.ToListAsync())
             {
                 uom.AssignCompany(companyId);
             }
 
-            foreach (StockBalance balance in await db.StockBalances.ToListAsync().ConfigureAwait(false))
+            foreach (StockBalance balance in await db.StockBalances.ToListAsync())
             {
                 balance.AssignCompany(companyId);
             }
 
-            foreach (Zone zone in await db.Zones.ToListAsync().ConfigureAwait(false))
+            foreach (Zone zone in await db.Zones.ToListAsync())
             {
                 zone.AssignCompany(companyId);
             }
 
-            foreach (Domain.Warehouse.Bin bin in await db.Bins.ToListAsync().ConfigureAwait(false))
+            foreach (Domain.Warehouse.Bin bin in await db.Bins.ToListAsync())
             {
                 bin.AssignCompany(companyId);
             }
 
-            foreach (Domain.Warehouse.BinStock binStock in await db.BinStocks.ToListAsync().ConfigureAwait(false))
+            foreach (Domain.Warehouse.BinStock binStock in await db.BinStocks.ToListAsync())
             {
                 binStock.AssignCompany(companyId);
             }
 
-            await db.SaveChangesAsync().ConfigureAwait(false);
+            await db.SaveChangesAsync();
             return 0;
-        }).ConfigureAwait(false);
+        });
     }
 
     private sealed class TestSecretStore(IConfiguration configuration) : ICompanyConnectionSecretStore

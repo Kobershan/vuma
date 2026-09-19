@@ -27,7 +27,7 @@ public sealed class CreditCheckIntegrationTests(PostgresFixture fixture)
     [Fact]
     public async Task Tender_gate_reads_posted_ar_and_a_payment_moves_it()
     {
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
         var clock = new TestClock(Now);
         var tenant = TestTenantContext.Unfiltered();
         var principal = new TestPrincipalAccessor("user:accounts");
@@ -53,12 +53,12 @@ public sealed class CreditCheckIntegrationTests(PostgresFixture fixture)
         var account = CustomerAccount.Open(
             tenantId, storeId, "ACT-000001", partnerId, new Money(5000m, "ZAR"), 30, UuidV7.NewGuid());
         accounts.Add(account);
-        await context.CommitAsync().ConfigureAwait(false);
+        await context.CommitAsync();
 
         // R2,000 current + R1,000 45 days overdue: R3,000 owed before any payment.
         PostInvoice(context, tenantId, storeId, partnerId, "INV-1", 2000m, Today);
         Guid inv2 = PostInvoice(context, tenantId, storeId, partnerId, "INV-2", 1000m, Today.AddDays(-45));
-        await context.CommitAsync().ConfigureAwait(false);
+        await context.CommitAsync();
 
         var check = new CheckCreditLimitQueryHandler(
             accounts, Substitute.For<IAccountHolderRepository>(), arInvoices);
@@ -76,7 +76,7 @@ public sealed class CreditCheckIntegrationTests(PostgresFixture fixture)
         await pay.HandleAsync(new RecordAccountPaymentCommand(
             account.Id, 1000m, "ZAR", "EFT", "EFT-2026-0001",
             [new PaymentAllocationInput(inv2, 1000m)]));
-        await context.CommitAsync().ConfigureAwait(false);
+        await context.CommitAsync();
 
         CreditCheckResult afterRefused = await check.HandleAsync(
             new CheckCreditLimitQuery(account.Id, 2500m, "ZAR", 1500m));

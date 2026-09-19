@@ -1,8 +1,8 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
-using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Identity;
+using VumaRetail.Domain.Licensing;
 
 namespace VumaRetail.Application.Identity.Commands;
 

@@ -10,29 +10,29 @@ public sealed class LoyaltyMigrationTests(PostgresFixture fixture)
     [Fact]
     public async Task Stage20_migration_up_and_down_are_reversible()
     {
-        string connectionString = await fixture.CreateEmptyDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateEmptyDatabaseAsync();
         await using var context = TestDbContextFactory.For(connectionString);
 
-        await context.Database.MigrateAsync("20260910040430_Stage20_Loyalty").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260910040430_Stage20_Loyalty");
 
         IReadOnlyList<string> tables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'loyalty'
             ORDER BY table_name
-            """).ToListAsync().ConfigureAwait(false);
+            """).ToListAsync();
 
         tables.Should().BeEquivalentTo(
             ["members", "rewards", "settings", "tiers", "transactions"],
             options => options.WithStrictOrdering());
 
-        await context.Database.MigrateAsync("20260910035414_Stage19_Crm").ConfigureAwait(false);
+        await context.Database.MigrateAsync("20260910035414_Stage19_Crm");
 
         IReadOnlyList<string> remainingTables = await context.Database.SqlQuery<string>($"""
             SELECT table_name AS "Value"
             FROM information_schema.tables
             WHERE table_schema = 'loyalty'
-            """).ToListAsync().ConfigureAwait(false);
+            """).ToListAsync();
 
         remainingTables.Should().BeEmpty();
     }

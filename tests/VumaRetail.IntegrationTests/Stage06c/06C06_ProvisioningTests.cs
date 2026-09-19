@@ -1,4 +1,6 @@
+using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Primitives;
@@ -7,8 +9,6 @@ using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Harness;
 using Xunit;
-using FluentAssertions;
-using NSubstitute;
 
 namespace VumaRetail.IntegrationTests.Stage06c;
 

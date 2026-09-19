@@ -35,7 +35,10 @@ public sealed class TransactionJunctionPaymentGateway(HttpClient httpClient, IOp
     private PaymentGatewayAuthorization BuildHostedAuthorization(PaymentAuthorizationRequest request)
     {
         if (!Uri.TryCreate(_options.HostedPaymentPageUrl, UriKind.Absolute, out Uri? endpoint))
+        {
             throw new InvalidOperationException("Vuma:Ecommerce:PaymentGateway:HostedPaymentPageUrl must be an absolute URL.");
+        }
+
         string separator = string.IsNullOrEmpty(endpoint.Query) ? "?" : "&";
         string query = string.Join("&", new Dictionary<string, string>
         {
@@ -76,7 +79,10 @@ public sealed class TransactionJunctionPaymentGateway(HttpClient httpClient, IOp
     {
         Validate(request.Amount, request.Currency, request.MerchantReference);
         if (_options.Mode == TransactionJunctionMode.HostedPaymentPage)
+        {
             throw new InvalidOperationException("Capture, void and refund require the configured Transaction Junction Direct API.");
+        }
+
         using HttpRequestMessage message = new(HttpMethod.Post, RequiredEndpoint(operation));
         message.Headers.Add("Idempotency-Key", request.IdempotencyKey);
         message.Content = JsonContent.Create(new
@@ -104,21 +110,37 @@ public sealed class TransactionJunctionPaymentGateway(HttpClient httpClient, IOp
             "refund" => _options.DirectRefundPath,
             _ => null
         };
-        if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException($"Transaction Junction endpoint for '{operation}' is not configured.");
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new InvalidOperationException($"Transaction Junction endpoint for '{operation}' is not configured.");
+        }
+
         return new Uri(httpClient.BaseAddress ?? throw new InvalidOperationException("Transaction Junction API base address is not configured."), path);
     }
 
     private static async Task EnsureSuccess(HttpResponseMessage response)
     {
-        if (response.IsSuccessStatusCode) return;
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
         string detail = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         throw new HttpRequestException($"Transaction Junction request failed with {(int)response.StatusCode}: {detail}");
     }
 
     private static void Validate(decimal amount, string currency, string reference)
     {
-        if (amount <= 0m) throw new ArgumentOutOfRangeException(nameof(amount));
-        if (string.IsNullOrWhiteSpace(currency) || currency.Trim().Length != 3) throw new ArgumentException("Currency must be an ISO 4217 code.", nameof(currency));
+        if (amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        if (string.IsNullOrWhiteSpace(currency) || currency.Trim().Length != 3)
+        {
+            throw new ArgumentException("Currency must be an ISO 4217 code.", nameof(currency));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
     }
 

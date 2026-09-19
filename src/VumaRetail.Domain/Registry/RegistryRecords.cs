@@ -1,6 +1,6 @@
-using VumaRetail.Domain.Primitives;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using VumaRetail.Domain.Primitives;
 
 // Registry records are persistence aggregates; their public surface is intentionally simple.
 #pragma warning disable CS1591

@@ -1,11 +1,11 @@
 using System.Data;
-using VumaRetail.Domain.Registry;
-using VumaRetail.Domain.Primitives;
-using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -51,13 +51,40 @@ public sealed class GroupCreditService : IGroupCreditService
 
     public async Task<HoldResult> TryHoldAsync(Guid tenantId, Guid creditGroupId, Guid companyId, decimal amount, string currency, string documentReference, TimeSpan expiry, CancellationToken cancellationToken = default)
     {
-        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
-        if (creditGroupId == Guid.Empty) throw new ArgumentException("A credit group is required.", nameof(creditGroupId));
-        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
-        if (amount <= 0m) throw new ArgumentOutOfRangeException(nameof(amount), "A hold amount must be positive.");
-        if (string.IsNullOrWhiteSpace(currency)) throw new ArgumentException("A currency is required.", nameof(currency));
-        if (string.IsNullOrWhiteSpace(documentReference)) throw new ArgumentException("A document reference is required.", nameof(documentReference));
-        if (expiry <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(expiry), "A hold expiry must be positive.");
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
+
+        if (creditGroupId == Guid.Empty)
+        {
+            throw new ArgumentException("A credit group is required.", nameof(creditGroupId));
+        }
+
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A company is required.", nameof(companyId));
+        }
+
+        if (amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount), "A hold amount must be positive.");
+        }
+
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            throw new ArgumentException("A currency is required.", nameof(currency));
+        }
+
+        if (string.IsNullOrWhiteSpace(documentReference))
+        {
+            throw new ArgumentException("A document reference is required.", nameof(documentReference));
+        }
+
+        if (expiry <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expiry), "A hold expiry must be positive.");
+        }
 
         // Check the live trading-group link before entering the retrying serializable operation.
         // This is deliberately at the public cross-company entry point so a suspended link cannot
@@ -67,7 +94,9 @@ public sealed class GroupCreditService : IGroupCreditService
             .Select(member => member.CompanyId)
             .ToArrayAsync(cancellationToken);
         foreach (Guid other in linkedCompanies)
+        {
             await _companyLinks.RequireLink(companyId, other, CompanyLinkScope.SharedCredit, cancellationToken);
+        }
 
         // PostgreSQL detects a genuine serialisation race with SQLSTATE 40001. Re-read inside a
         // new serialisable transaction so the losing till returns an ordinary credit refusal
@@ -110,7 +139,9 @@ public sealed class GroupCreditService : IGroupCreditService
                 .SingleOrDefaultAsync(candidate => candidate.Id == creditGroupId && candidate.TenantId == tenantId, cancellationToken)
                 ?? throw new InvalidOperationException("Credit group not found.");
         if (!string.Equals(group.Currency, currency, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Hold currency must match the credit group currency.");
+        }
 
         CreditHold? existing = await _registry.CreditHolds
             .SingleOrDefaultAsync(hold => hold.TenantId == tenantId && hold.CreditGroupId == creditGroupId
@@ -123,7 +154,10 @@ public sealed class GroupCreditService : IGroupCreditService
         }
 
         CreditGroupMember? member = group.Members.SingleOrDefault(candidate => candidate.CompanyId == companyId);
-        if (member is null) throw new InvalidOperationException("The company is not a member of the credit group.");
+        if (member is null)
+        {
+            throw new InvalidOperationException("The company is not a member of the credit group.");
+        }
 
         CreditPosition position = await GetPositionAsync(tenantId, creditGroupId, cancellationToken);
         if (position.Available < amount)
@@ -158,8 +192,15 @@ public sealed class GroupCreditService : IGroupCreditService
         var hold = await _registry.CreditHolds.FindAsync(new object[] { holdId }, cancellationToken)
             ?? throw new InvalidOperationException("Hold not found.");
 
-        if (hold.State == CreditHoldState.Confirmed) return;
-        if (hold.State != CreditHoldState.Held) throw new InvalidOperationException("Hold is not in Held state.");
+        if (hold.State == CreditHoldState.Confirmed)
+        {
+            return;
+        }
+
+        if (hold.State != CreditHoldState.Held)
+        {
+            throw new InvalidOperationException("Hold is not in Held state.");
+        }
 
         hold.Confirm(_clock.UtcNow);
         _registry.CreditExposureEntries.Add(new CreditExposureEntry
@@ -181,8 +222,16 @@ public sealed class GroupCreditService : IGroupCreditService
         var hold = await _registry.CreditHolds.FindAsync(new object[] { holdId }, cancellationToken)
             ?? throw new InvalidOperationException("Hold not found.");
 
-        if (hold.State is CreditHoldState.Released or CreditHoldState.Expired) return;
-        if (hold.State != CreditHoldState.Held) throw new InvalidOperationException("Only an unconfirmed hold can be released.");
+        if (hold.State is CreditHoldState.Released or CreditHoldState.Expired)
+        {
+            return;
+        }
+
+        if (hold.State != CreditHoldState.Held)
+        {
+            throw new InvalidOperationException("Only an unconfirmed hold can be released.");
+        }
+
         hold.Release(_clock.UtcNow);
         await _registry.CommitAsync(cancellationToken);
     }
@@ -198,7 +247,11 @@ public sealed class GroupCreditService : IGroupCreditService
             hold.Expire(_clock.UtcNow);
         }
 
-        if (expired.Count > 0) await _registry.CommitAsync(cancellationToken);
+        if (expired.Count > 0)
+        {
+            await _registry.CommitAsync(cancellationToken);
+        }
+
         return expired.Count;
     }
 

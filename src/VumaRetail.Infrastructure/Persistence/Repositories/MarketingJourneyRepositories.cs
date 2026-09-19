@@ -20,7 +20,11 @@ public sealed class AttributionEventRepository(VumaRetailDbContext db) : IAttrib
     public async Task<IReadOnlyList<AttributionEvent>> ListAsync(Guid companyId, Guid? campaignId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
         IQueryable<AttributionEvent> query = db.AttributionEvents.Where(x => x.CompanyId == companyId && x.OccurredAt >= from && x.OccurredAt <= to);
-        if (campaignId is { } id) query = query.Where(x => x.CampaignId == id);
+        if (campaignId is { } id)
+        {
+            query = query.Where(x => x.CampaignId == id);
+        }
+
         return await query.OrderByDescending(x => x.OccurredAt).Take(5000).ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 }

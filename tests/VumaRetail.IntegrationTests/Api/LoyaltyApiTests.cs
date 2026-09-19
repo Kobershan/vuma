@@ -17,13 +17,13 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Anonymous_callers_get_401()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         var body = new EarnRequest(
             Guid.NewGuid(), 150m, "ZAR", "sale-1", Guid.NewGuid());
         HttpResponseMessage response = await harness.Client
             .PostAsJsonAsync($"/api/v1/loyalty/members/{Guid.NewGuid()}/earn", body)
-            .ConfigureAwait(false);
+            ;
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -31,12 +31,12 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Endpoints_answer_behind_their_permissions()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "reader1", "CorrectHorseBattery1",
-            LoyaltyPermissions.BalanceView).ConfigureAwait(false);
-        HttpClient reader = await harness.SignInAsync("reader1").ConfigureAwait(false);
+            LoyaltyPermissions.BalanceView);
+        HttpClient reader = await harness.SignInAsync("reader1");
 
         Guid customerId = Guid.NewGuid();
         Guid companyId = Guid.NewGuid();
@@ -58,7 +58,7 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
 
         foreach ((string url, HttpContent? body) in writes)
         {
-            HttpResponseMessage response = await reader.PostAsync(url, body).ConfigureAwait(false);
+            HttpResponseMessage response = await reader.PostAsync(url, body);
             response.StatusCode.Should().Be(
                 HttpStatusCode.Forbidden, $"write route {url} must sit behind its permission");
         }
@@ -67,7 +67,7 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Configure_enroll_earn_balance_redeem_loop_works_end_to_end()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "till1", "CorrectHorseBattery1",
@@ -77,73 +77,73 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
             LoyaltyPermissions.Earn,
             LoyaltyPermissions.Redeem,
             LoyaltyPermissions.BalanceView,
-            LoyaltyPermissions.CatalogueView).ConfigureAwait(false);
-        HttpClient till = await harness.SignInAsync("till1").ConfigureAwait(false);
+            LoyaltyPermissions.CatalogueView);
+        HttpClient till = await harness.SignInAsync("till1");
 
         Guid companyId = Guid.NewGuid();
         Guid customerId = Guid.NewGuid();
 
         HttpResponseMessage configured = await till.PostAsJsonAsync(
             "/api/v1/loyalty/settings",
-            new ConfigureLoyaltyRequest(companyId, "ZAR", 1m, 365, true)).ConfigureAwait(false);
+            new ConfigureLoyaltyRequest(companyId, "ZAR", 1m, 365, true));
         configured.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         HttpResponseMessage enrolled = await till.PostAsJsonAsync(
             $"/api/v1/loyalty/members/{customerId}/enroll",
-            new EnrollMemberRequest(companyId)).ConfigureAwait(false);
+            new EnrollMemberRequest(companyId));
         enrolled.StatusCode.Should().Be(HttpStatusCode.Created);
 
         HttpResponseMessage earned = await till.PostAsJsonAsync(
             $"/api/v1/loyalty/members/{customerId}/earn",
-            new EarnRequest(companyId, 150m, "ZAR", "sale-1", Guid.NewGuid())).ConfigureAwait(false);
+            new EarnRequest(companyId, 150m, "ZAR", "sale-1", Guid.NewGuid()));
         earned.StatusCode.Should().Be(HttpStatusCode.OK);
         var earn = (await earned.Content
-            .ReadFromJsonAsync<EarnResponse>().ConfigureAwait(false))!;
+            .ReadFromJsonAsync<EarnResponse>())!;
         earn.Queued.Should().BeFalse();
         earn.Points.Should().Be(150m);
 
         HttpResponseMessage balance = await till.GetAsync(
-            $"/api/v1/loyalty/members/{customerId}/balance?companyId={companyId}").ConfigureAwait(false);
+            $"/api/v1/loyalty/members/{customerId}/balance?companyId={companyId}");
         balance.StatusCode.Should().Be(HttpStatusCode.OK);
         var balanceBody = (await balance.Content
-            .ReadFromJsonAsync<BalanceResponse>().ConfigureAwait(false))!;
+            .ReadFromJsonAsync<BalanceResponse>())!;
         balanceBody.Balance.Should().Be(150m);
 
         HttpResponseMessage redeemed = await till.PostAsJsonAsync(
             $"/api/v1/loyalty/members/{customerId}/redeem",
-            new RedeemRequest(companyId, 50m, "reward-1", Guid.NewGuid())).ConfigureAwait(false);
+            new RedeemRequest(companyId, 50m, "reward-1", Guid.NewGuid()));
         redeemed.StatusCode.Should().Be(HttpStatusCode.OK);
 
         HttpResponseMessage history = await till.GetAsync(
-            $"/api/v1/loyalty/members/{customerId}/transactions?companyId={companyId}").ConfigureAwait(false);
+            $"/api/v1/loyalty/members/{customerId}/transactions?companyId={companyId}");
         history.StatusCode.Should().Be(HttpStatusCode.OK);
         var transactions = (await history.Content
-            .ReadFromJsonAsync<IReadOnlyList<TransactionResponse>>().ConfigureAwait(false))!;
+            .ReadFromJsonAsync<IReadOnlyList<TransactionResponse>>())!;
         transactions.Should().HaveCount(2);
 
         HttpResponseMessage synced = await till.PostAsJsonAsync(
             "/api/v1/loyalty/catalogue/sync",
-            new SyncCatalogueRequest(companyId)).ConfigureAwait(false);
+            new SyncCatalogueRequest(companyId));
         synced.StatusCode.Should().Be(HttpStatusCode.OK);
 
         HttpResponseMessage tiers = await till.GetAsync(
-            $"/api/v1/loyalty/tiers?companyId={companyId}").ConfigureAwait(false);
+            $"/api/v1/loyalty/tiers?companyId={companyId}");
         tiers.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task Unknown_members_answer_404_not_403()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "reader2", "CorrectHorseBattery1",
-            LoyaltyPermissions.BalanceView).ConfigureAwait(false);
-        HttpClient reader = await harness.SignInAsync("reader2").ConfigureAwait(false);
+            LoyaltyPermissions.BalanceView);
+        HttpClient reader = await harness.SignInAsync("reader2");
 
         HttpResponseMessage balance = await reader.GetAsync(
             $"/api/v1/loyalty/members/{Guid.NewGuid()}/balance?companyId={Guid.NewGuid()}")
-            .ConfigureAwait(false);
+            ;
 
         balance.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -151,13 +151,13 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Webhook_rejects_without_a_secret()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         // Anonymous by design (HMAC, not a user credential); missing configuration must fail closed.
         HttpResponseMessage accepted = await harness.Client.PostAsJsonAsync(
             "/api/v1/loyalty/webhooks/notifications",
             new WebhookNotificationRequest(
-                Guid.NewGuid(), "orbit-ghost", 10m, null, "balance.adjusted")).ConfigureAwait(false);
+                Guid.NewGuid(), "orbit-ghost", 10m, null, "balance.adjusted"));
 
         accepted.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -165,31 +165,31 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Burst_past_the_limit_answers_429_with_retry_after()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "scanner1", "CorrectHorseBattery1",
             LoyaltyPermissions.BalanceView,
             LoyaltyPermissions.MemberEnroll,
-            LoyaltyPermissions.Admin).ConfigureAwait(false);
-        HttpClient scanner = await harness.SignInAsync("scanner1").ConfigureAwait(false);
+            LoyaltyPermissions.Admin);
+        HttpClient scanner = await harness.SignInAsync("scanner1");
 
         Guid companyId = Guid.NewGuid();
         Guid customerId = Guid.NewGuid();
 
         await scanner.PostAsJsonAsync(
             "/api/v1/loyalty/settings",
-            new ConfigureLoyaltyRequest(companyId, "ZAR", 1m, 365, true)).ConfigureAwait(false);
+            new ConfigureLoyaltyRequest(companyId, "ZAR", 1m, 365, true));
         await scanner.PostAsJsonAsync(
             $"/api/v1/loyalty/members/{customerId}/enroll",
-            new EnrollMemberRequest(companyId)).ConfigureAwait(false);
+            new EnrollMemberRequest(companyId));
 
         int limited = 0;
         for (int index = 0; index < 110; index++)
         {
             HttpResponseMessage response = await scanner.GetAsync(
                 $"/api/v1/loyalty/members/{customerId}/balance?companyId={companyId}")
-                .ConfigureAwait(false);
+                ;
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -209,9 +209,9 @@ public sealed class LoyaltyApiTests(PostgresFixture fixture)
     [Fact]
     public async Task OpenAPI_lists_every_loyalty_route()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
-        string document = await harness.Client.GetStringAsync("/openapi/v1.json").ConfigureAwait(false);
+        string document = await harness.Client.GetStringAsync("/openapi/v1.json");
 
         string[] routes =
         [

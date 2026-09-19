@@ -1,7 +1,7 @@
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 
 namespace VumaRetail.ControlPlane;
@@ -37,11 +37,17 @@ public sealed class ExternalLicenseSigner(HttpClient client, IConfiguration conf
     {
         string endpoint = configuration["ControlPlane:SignerEndpoint"]?.Trim() ?? string.Empty;
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
             throw new InvalidOperationException("No HTTPS external licence signer is configured.");
+        }
+
         using HttpResponseMessage response = await client.PostAsJsonAsync(uri, new { payload }, cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
+        {
             throw new InvalidOperationException("The external licence signer is unavailable.");
+        }
+
         SignResponse? result = await response.Content.ReadFromJsonAsync<SignResponse>(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return !string.IsNullOrWhiteSpace(result?.Signature)
@@ -72,7 +78,11 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
             ControlPlaneRequest? persisted = await database.Requests.FindAsync([request.RequestId], cancellationToken).ConfigureAwait(false);
             if (persisted is not null)
             {
-                if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (persisted.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return JsonSerializer.Deserialize<DeviceResponse>(persisted.ResponseJson)
                     ?? throw new InvalidOperationException("Persisted activation response is invalid.");
             }
@@ -81,7 +91,11 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         {
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return replay.Response;
             }
         }
@@ -119,14 +133,26 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
         string fingerprint = JsonSerializer.Serialize(request);
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return persistedResponse;
+        if (persistedResponse is not null)
+        {
+            return persistedResponse;
+        }
+
         DeviceResponse response;
         lock (_gate)
         {
-            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            if (!known)
+            {
+                throw new KeyNotFoundException("Unknown device node.");
+            }
+
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return replay.Response;
             }
             response = new(request.RequestId.ToString("D"), request.NodeId, null, null, []);
@@ -146,13 +172,25 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
         string fingerprint = JsonSerializer.Serialize(request);
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return persistedResponse;
+        if (persistedResponse is not null)
+        {
+            return persistedResponse;
+        }
+
         lock (_gate)
         {
-            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            if (!known)
+            {
+                throw new KeyNotFoundException("Unknown device node.");
+            }
+
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return replay.Response;
             }
         }
@@ -168,7 +206,11 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         if (database is not null)
         {
             ControlPlaneDevice? device = await database.Devices.FindAsync([request.NodeId], cancellationToken).ConfigureAwait(false);
-            if (device is not null) device.LeaseId = leaseId;
+            if (device is not null)
+            {
+                device.LeaseId = leaseId;
+            }
+
             await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
         return response;
@@ -181,7 +223,10 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         ValidateNonNegative(request.Counts.ActiveUsers, nameof(request.Counts.ActiveUsers));
         ValidateNonNegative(request.Counts.StorageBytes, nameof(request.Counts.StorageBytes));
         if (request.ModuleUsage.Keys.Any(string.IsNullOrWhiteSpace) || request.ModuleUsage.Values.Any(x => x < 0))
+        {
             throw new ArgumentException("Metering module usage is invalid.", nameof(request));
+        }
+
         bool known = _nodes.ContainsKey(request.NodeId)
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
         string fingerprint = JsonSerializer.Serialize(request);
@@ -192,16 +237,28 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
                     x.NodeId == request.NodeId && x.Period == request.Period).ConfigureAwait(false);
             if (persisted is not null)
             {
-                if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Metering replay content differs.");
+                if (persisted.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Metering replay content differs.");
+                }
+
                 return;
             }
         }
         lock (_gate)
         {
-            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            if (!known)
+            {
+                throw new KeyNotFoundException("Unknown device node.");
+            }
+
             if (_meteringRequests.TryGetValue(request.RequestId, out string? existing))
             {
-                if (existing != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (existing != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return;
             }
             _meteringRequests[request.RequestId] = fingerprint;
@@ -227,18 +284,30 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Version);
         string fingerprint = JsonSerializer.Serialize(request);
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return persistedResponse;
+        if (persistedResponse is not null)
+        {
+            return persistedResponse;
+        }
+
         lock (_gate)
         {
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return replay.Response;
             }
         }
         bool known = _nodes.ContainsKey(request.NodeId)
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
-        if (!known) throw new KeyNotFoundException("Unknown device node.");
+        if (!known)
+        {
+            throw new KeyNotFoundException("Unknown device node.");
+        }
+
         string leaseId = Guid.NewGuid().ToString("N");
         string signature = await signer.SignAsync($"{request.NodeId}|{leaseId}|{request.Version}|rebind", cancellationToken)
             .ConfigureAwait(false);
@@ -266,12 +335,20 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
         string fingerprint = JsonSerializer.Serialize(new { requestId, nodeId });
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(requestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return;
+        if (persistedResponse is not null)
+        {
+            return;
+        }
+
         lock (_gate)
         {
             if (_requests.TryGetValue(requestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return;
             }
             _requests[requestId] = (fingerprint, new DeviceResponse(requestId.ToString("D"), nodeId, null, null, []));
@@ -282,7 +359,11 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         if (database is not null)
         {
             ControlPlaneDevice? device = await database.Devices.FindAsync([nodeId], cancellationToken).ConfigureAwait(false);
-            if (device is not null) database.Devices.Remove(device);
+            if (device is not null)
+            {
+                database.Devices.Remove(device);
+            }
+
             await database.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
@@ -295,17 +376,29 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Message);
         string fingerprint = JsonSerializer.Serialize(request);
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return;
+        if (persistedResponse is not null)
+        {
+            return;
+        }
+
         bool known = _nodes.ContainsKey(request.NodeId)
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
         lock (_gate)
         {
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return;
             }
-            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            if (!known)
+            {
+                throw new KeyNotFoundException("Unknown device node.");
+            }
+
             _requests[request.RequestId] = (fingerprint, new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []));
         }
         await PersistResponseAsync(request.RequestId, fingerprint,
@@ -320,17 +413,29 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Message);
         string fingerprint = JsonSerializer.Serialize(request);
         DeviceResponse? persistedResponse = await ReadPersistedResponseAsync(request.RequestId, fingerprint).ConfigureAwait(false);
-        if (persistedResponse is not null) return;
+        if (persistedResponse is not null)
+        {
+            return;
+        }
+
         bool known = _nodes.ContainsKey(request.NodeId)
             || database is not null && await database.Devices.FindAsync([request.NodeId]).ConfigureAwait(false) is not null;
         lock (_gate)
         {
             if (_requests.TryGetValue(request.RequestId, out var replay))
             {
-                if (replay.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+                if (replay.Fingerprint != fingerprint)
+                {
+                    throw new InvalidOperationException("Request replay content differs.");
+                }
+
                 return;
             }
-            if (!known) throw new KeyNotFoundException("Unknown device node.");
+            if (!known)
+            {
+                throw new KeyNotFoundException("Unknown device node.");
+            }
+
             _requests[request.RequestId] = (fingerprint, new DeviceResponse(request.RequestId.ToString("D"), request.NodeId, null, null, []));
         }
         await PersistResponseAsync(request.RequestId, fingerprint,
@@ -339,10 +444,22 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
 
     private async Task<DeviceResponse?> ReadPersistedResponseAsync(Guid requestId, string fingerprint)
     {
-        if (database is null) return null;
+        if (database is null)
+        {
+            return null;
+        }
+
         ControlPlaneRequest? persisted = await database.Requests.FindAsync([requestId]).ConfigureAwait(false);
-        if (persisted is null) return null;
-        if (persisted.Fingerprint != fingerprint) throw new InvalidOperationException("Request replay content differs.");
+        if (persisted is null)
+        {
+            return null;
+        }
+
+        if (persisted.Fingerprint != fingerprint)
+        {
+            throw new InvalidOperationException("Request replay content differs.");
+        }
+
         return JsonSerializer.Deserialize<DeviceResponse>(persisted.ResponseJson)
             ?? throw new InvalidOperationException("Persisted control-plane response is invalid.");
     }
@@ -350,7 +467,11 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
     private async Task PersistResponseAsync(Guid requestId, string fingerprint, DeviceResponse response,
         string action, string nodeId)
     {
-        if (database is null || await database.Requests.FindAsync([requestId]).ConfigureAwait(false) is not null) return;
+        if (database is null || await database.Requests.FindAsync([requestId]).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
         database.Requests.Add(new ControlPlaneRequest { RequestId = requestId, Fingerprint = fingerprint,
             ResponseJson = JsonSerializer.Serialize(response) });
         database.AuditEntries.Add(new ControlPlaneAuditEntry { Id = Guid.NewGuid(), OccurredAtUtc = _timeProvider.GetUtcNow(),
@@ -360,5 +481,9 @@ public sealed class ControlPlaneStore(ControlPlaneDbContext? database = null, Ti
 
     private static string Fingerprint(ActivationRequest request) => JsonSerializer.Serialize(request);
     private static void ValidateNonNegative(long value, string name)
-    { if (value < 0) throw new ArgumentOutOfRangeException(name); }
+    { if (value < 0)
+        {
+            throw new ArgumentOutOfRangeException(name);
+        }
+    }
 }

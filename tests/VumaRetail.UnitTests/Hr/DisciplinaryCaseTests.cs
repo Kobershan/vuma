@@ -1,8 +1,8 @@
-using VumaRetail.Domain.HrManagement;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Hr;
+using VumaRetail.Domain.HrManagement;
 
 namespace VumaRetail.UnitTests.Hr;
 

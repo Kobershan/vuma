@@ -1,8 +1,8 @@
 #pragma warning disable CS1591
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Assets;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Service;

@@ -194,7 +194,10 @@ public sealed class OutboxDispatcher(
     {
         Guid? companyId = messages[0].CompanyId;
         if (messages.Any(message => message.CompanyId != companyId))
+        {
             throw new InvalidOperationException("A sync batch cannot contain more than one company database.");
+        }
+
         return companyId;
     }
 

@@ -1,8 +1,8 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
-using System.Security.Claims;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Contracts.Backup;
@@ -10,11 +10,11 @@ using VumaRetail.Contracts.Sync;
 using VumaRetail.Domain.Backup;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sync;
+using VumaRetail.Infrastructure.Security.Identity;
 using VumaRetail.Sync.Commands;
 using VumaRetail.Sync.Permissions;
 using VumaRetail.Sync.Queries;
 using VumaRetail.Web.Api;
-using VumaRetail.Infrastructure.Security.Identity;
 
 namespace VumaRetail.Web.Sync;
 
@@ -201,7 +201,9 @@ public static class SyncEndpoints
     {
         Guid? claimedTenant = ReadGuid(caller, VumaClaims.TenantId);
         if (claimedTenant is { } tenant && tenant != request.TenantId)
+        {
             throw new SyncCallerEnvelopeMismatchException("The batch tenant is not the authenticated tenant.");
+        }
 
         Guid? claimedTerminal = ReadGuid(caller, VumaClaims.TerminalId);
         string? claimedNode = caller.FindFirstValue(VumaClaims.NodeId);
@@ -212,7 +214,10 @@ public static class SyncEndpoints
             string expectedNode = $"terminal:{terminal:N}";
             if (sourceKind != NodeKind.Terminal
                 || !string.Equals(request.SourceNode, expectedNode, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new SyncCallerEnvelopeMismatchException("A terminal may only submit its own terminal-tier batches.");
+            }
+
             return;
         }
 
@@ -220,8 +225,10 @@ public static class SyncEndpoints
             || !Enum.TryParse(claimedKind, ignoreCase: true, out NodeKind authenticatedKind)
             || authenticatedKind != sourceKind
             || !string.Equals(claimedNode, request.SourceNode, StringComparison.OrdinalIgnoreCase))
+        {
             throw new SyncCallerEnvelopeMismatchException(
                 "A sync batch must be submitted by an enrolled node credential matching its source node and tier.");
+        }
     }
 
     private static Guid? ReadGuid(ClaimsPrincipal principal, string claim)

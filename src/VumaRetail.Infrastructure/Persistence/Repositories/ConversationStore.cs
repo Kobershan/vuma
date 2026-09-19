@@ -15,7 +15,10 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
             .OrderByDescending(x => x.LastActivityAt)
             .FirstOrDefaultAsync(x => x.ContactBindingId == binding.Id && x.Channel == channel && x.State != ConversationState.Done, cancellationToken)
             .ConfigureAwait(false);
-        if (conversation is not null) return conversation;
+        if (conversation is not null)
+        {
+            return conversation;
+        }
 
         conversation = new Conversation(binding.TenantId, binding.Id, channel, at);
         db.Conversations.Add(conversation);
@@ -34,7 +37,11 @@ public sealed class EfConversationStore(VumaRetailDbContext db) : IConversationS
     {
         Conversation? conversation = await db.Conversations
             .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.Id == conversationId, cancellationToken).ConfigureAwait(false);
-        if (conversation is null) return false;
+        if (conversation is null)
+        {
+            return false;
+        }
+
         conversation.Escalate(at);
         await db.CommitAsync(cancellationToken).ConfigureAwait(false);
         return true;

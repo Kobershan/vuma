@@ -1,8 +1,8 @@
 using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Reporting;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Reporting;
 using VumaRetail.Domain.Reporting;
 
 namespace VumaRetail.UnitTests.Reporting;

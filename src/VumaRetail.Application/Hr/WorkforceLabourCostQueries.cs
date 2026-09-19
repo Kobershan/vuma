@@ -1,7 +1,7 @@
 #pragma warning disable CS1591
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sales;
-using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Domain.Sales.Analytics;

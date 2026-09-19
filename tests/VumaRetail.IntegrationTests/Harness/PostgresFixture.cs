@@ -1,6 +1,6 @@
+using Docker.DotNet;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using Docker.DotNet;
 using Testcontainers.PostgreSql;
 
 namespace VumaRetail.IntegrationTests.Harness;
@@ -43,9 +43,9 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <inheritdoc />
     public async Task InitializeAsync()
     {
-        _adminConnectionString = await ResolveServerAsync().ConfigureAwait(false);
+        _adminConnectionString = await ResolveServerAsync();
 
-        await CreateTemplateDatabaseAsync().ConfigureAwait(false);
+        await CreateTemplateDatabaseAsync();
     }
 
     /// <inheritdoc />
@@ -55,7 +55,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             try
             {
-                await _container.DisposeAsync().ConfigureAwait(false);
+                await _container.DisposeAsync();
             }
             catch (DockerApiException exception) when (exception.Message.Contains("permission denied", StringComparison.OrdinalIgnoreCase))
             {
@@ -75,13 +75,13 @@ public sealed class PostgresFixture : IAsyncLifetime
         int sequence = Interlocked.Increment(ref _databaseCounter);
         if (sequence % 20 == 0 && sequence > 200)
         {
-            await CleanupTestDatabasesAsync(sequence - 200).ConfigureAwait(false);
+            await CleanupTestDatabasesAsync(sequence - 200);
         }
 
         string name = DatabaseName($"vuma_test_{sequence}");
 
         await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" TEMPLATE "{TemplateDatabase}" """)
-            .ConfigureAwait(false);
+            ;
 
         return ConnectionStringFor(name);
     }
@@ -93,12 +93,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         int sequence = Volatile.Read(ref _databaseCounter);
         if (sequence % 20 == 0 && sequence > 200)
         {
-            await CleanupTestDatabasesAsync(sequence - 200).ConfigureAwait(false);
+            await CleanupTestDatabasesAsync(sequence - 200);
         }
 
         string name = DatabaseName("vuma_migrate");
 
-        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """).ConfigureAwait(false);
+        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """);
 
         return ConnectionStringFor(name);
     }
@@ -112,11 +112,11 @@ public sealed class PostgresFixture : IAsyncLifetime
     private async Task ExecuteOnServerAsync(string sql)
     {
         await using NpgsqlConnection connection = new(_adminConnectionString);
-        await connection.OpenAsync().ConfigureAwait(false);
+        await connection.OpenAsync();
 
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = sql;
-        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await command.ExecuteNonQueryAsync();
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     private async Task CleanupTestDatabasesAsync(int olderThanSequence)
     {
         await using NpgsqlConnection connection = new(_adminConnectionString);
-        await connection.OpenAsync().ConfigureAwait(false);
+        await connection.OpenAsync();
 
         List<string> names = [];
         await using (NpgsqlCommand list = connection.CreateCommand())
@@ -139,8 +139,8 @@ public sealed class PostgresFixture : IAsyncLifetime
                   AND split_part(datname, '_', 3)::integer < $1
                 """;
             list.Parameters.AddWithValue(olderThanSequence);
-            await using NpgsqlDataReader reader = await list.ExecuteReaderAsync().ConfigureAwait(false);
-            while (await reader.ReadAsync().ConfigureAwait(false))
+            await using NpgsqlDataReader reader = await list.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 names.Add(reader.GetString(0));
             }
@@ -152,7 +152,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             drop.CommandText = $"DROP DATABASE IF EXISTS \"{name.Replace("\"", "\"\"")}\"";
             try
             {
-                await drop.ExecuteNonQueryAsync().ConfigureAwait(false);
+                await drop.ExecuteNonQueryAsync();
             }
             catch (PostgresException exception) when (exception.SqlState == "55006")
             {
@@ -175,12 +175,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         string name = DatabaseName("vuma_model");
 
-        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """).ConfigureAwait(false);
+        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """);
 
         string connectionString = ConnectionStringFor(name);
 
         await using ProbeDbContext context = ProbeDbContext.ForProbe(connectionString);
-        await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        await context.Database.EnsureCreatedAsync();
 
         return connectionString;
     }
@@ -211,7 +211,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         string? external = Environment.GetEnvironmentVariable("VUMA_TEST_POSTGRES");
 
-        if (!string.IsNullOrWhiteSpace(external) && await CanConnectAsync(external).ConfigureAwait(false))
+        if (!string.IsNullOrWhiteSpace(external) && await CanConnectAsync(external))
         {
             return external;
         }
@@ -226,7 +226,7 @@ public sealed class PostgresFixture : IAsyncLifetime
                 .WithDatabase("postgres")
                 .Build();
 
-            await _container.StartAsync().ConfigureAwait(false);
+            await _container.StartAsync();
 
             return _container.GetConnectionString();
         }
@@ -252,7 +252,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         try
         {
             await using NpgsqlConnection connection = new(connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+            await connection.OpenAsync();
             return true;
         }
         catch (NpgsqlException)
@@ -269,14 +269,14 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         await using (NpgsqlConnection connection = new(_adminConnectionString))
         {
-            await connection.OpenAsync().ConfigureAwait(false);
+            await connection.OpenAsync();
 
             await using NpgsqlCommand command = connection.CreateCommand();
             command.CommandText = $"""
                 DROP DATABASE IF EXISTS "{TemplateDatabase}" WITH (FORCE);
                 CREATE DATABASE "{TemplateDatabase}";
                 """;
-            await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+            await command.ExecuteNonQueryAsync();
         }
 
         // Pooling off for this one connection. `CREATE DATABASE … TEMPLATE` refuses to run while
@@ -291,7 +291,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         // and would happily pass while the migrations that ship to a store are broken.
         await using (VumaRetailDbContext context = TestDbContextFactory.For(templateConnection))
         {
-            await context.Database.MigrateAsync().ConfigureAwait(false);
+            await context.Database.MigrateAsync();
         }
 
         // Both contexts, not just the business one. Every test database cloned from this
@@ -300,7 +300,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         // registry schema turns all of those into "relation does not exist" 500s.
         await using (VumaRegistryDbContext registry = TestDbContextFactory.ForRegistry(templateConnection))
         {
-            await registry.Database.MigrateAsync().ConfigureAwait(false);
+            await registry.Database.MigrateAsync();
         }
 
         NpgsqlConnection.ClearAllPools();

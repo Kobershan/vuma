@@ -68,7 +68,11 @@ public sealed class SagaCoordinatorTests(PostgresFixture fixture)
         public Task DispatchAsync(SagaIntent intent, SagaLeg leg, CancellationToken cancellationToken = default)
         {
             CallCount++;
-            if (_remainingFailures-- > 0) throw new InvalidOperationException("company database is temporarily unavailable");
+            if (_remainingFailures-- > 0)
+            {
+                throw new InvalidOperationException("company database is temporarily unavailable");
+            }
+
             AppliedLegs.Add((intent.Id, leg.LegId));
             return Task.CompletedTask;
         }

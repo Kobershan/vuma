@@ -20,12 +20,19 @@ public sealed class TwilioWhatsAppSender(HttpClient httpClient, IOptions<TwilioW
 {
     public async Task SendAsync(string destination, string body, CancellationToken cancellationToken = default)
     {
-        if (!options.Value.Enabled) throw new InvalidOperationException("Twilio WhatsApp is not configured.");
+        if (!options.Value.Enabled)
+        {
+            throw new InvalidOperationException("Twilio WhatsApp is not configured.");
+        }
+
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{options.Value.ApiBaseUrl.TrimEnd('/')}/2010-04-01/Accounts/{options.Value.AccountSid}/Messages.json");
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Value.AccountSid}:{options.Value.AuthToken}")));
         request.Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["From"] = Prefix(options.Value.From), ["To"] = Prefix(destination), ["Body"] = body });
         using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Twilio WhatsApp returned {(int)response.StatusCode}.");
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Twilio WhatsApp returned {(int)response.StatusCode}.");
+        }
     }
     private static string Prefix(string value) => value.StartsWith("whatsapp:", StringComparison.OrdinalIgnoreCase) ? value : $"whatsapp:{value}";
 }

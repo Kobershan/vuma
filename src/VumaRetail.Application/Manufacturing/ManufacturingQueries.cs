@@ -1,6 +1,6 @@
-using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Manufacturing;
 
 namespace VumaRetail.Application.Manufacturing;
 

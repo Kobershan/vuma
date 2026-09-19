@@ -378,16 +378,45 @@ public sealed class ThemeDesignRulesTests
         foreach ((string path, string text) in SolutionSource.ProductionFiles())
         {
             if (!path.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             var fileName = Path.GetFileName(path);
-            if (fileName is "LightTheme.xaml" or "DarkTheme.xaml") continue;
-            if (fileName is "VumaColorTokens.kt" or "VumaColorTokensDark.kt") continue;
-            if (fileName is "tokens.css") continue;
-            if (fileName is "ComponentStubs.cs") continue;
-            if (fileName is "TillLineListControl.cs") continue;
-            if (fileName is "StatTile.cs") continue;
-            if (fileName is "VumaControl.cs") continue;
+            if (fileName is "LightTheme.xaml" or "DarkTheme.xaml")
+            {
+                continue;
+            }
+
+            if (fileName is "VumaColorTokens.kt" or "VumaColorTokensDark.kt")
+            {
+                continue;
+            }
+
+            if (fileName is "tokens.css")
+            {
+                continue;
+            }
+
+            if (fileName is "ComponentStubs.cs")
+            {
+                continue;
+            }
+
+            if (fileName is "TillLineListControl.cs")
+            {
+                continue;
+            }
+
+            if (fileName is "StatTile.cs")
+            {
+                continue;
+            }
+
+            if (fileName is "VumaControl.cs")
+            {
+                continue;
+            }
 
             string[] lines = text.Split('\n');
             for (int index = 0; index < lines.Length; index++)
@@ -395,7 +424,9 @@ public sealed class ThemeDesignRulesTests
                 var trimmed = lines[index].TrimStart();
                 if (trimmed.StartsWith("//", StringComparison.Ordinal)
                     || trimmed.StartsWith("///", StringComparison.Ordinal))
+                {
                     continue;
+                }
 
                 var matches = HexColorPattern.Matches(trimmed);
                 foreach (Match match in matches)

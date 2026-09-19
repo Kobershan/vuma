@@ -1,7 +1,7 @@
 using NSubstitute;
-using VumaRetail.Application.Crm;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Crm;
 using VumaRetail.Application.Marketing;
 using VumaRetail.Domain.Crm;
 using VumaRetail.Domain.Marketing;

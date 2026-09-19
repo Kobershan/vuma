@@ -31,8 +31,8 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
     public async Task An_order_allocates_backorders_reallocates_ships_and_recognises_revenue_once()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
@@ -92,8 +92,8 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
     public async Task A_click_and_collect_order_is_collected_end_to_end()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
@@ -125,8 +125,8 @@ public sealed class OrdersCommandTests(PostgresFixture fixture)
     public async Task A_return_of_a_shipped_line_puts_stock_back_and_reaches_the_gl()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(

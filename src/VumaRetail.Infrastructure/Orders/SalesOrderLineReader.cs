@@ -51,7 +51,11 @@ public sealed class SalesOrderLineReader(VumaRetailDbContext context) : IOrderLi
 
     private static bool MatchesGeography(DeliveryGeography? geography, string level, string value)
     {
-        if (geography is null) return false;
+        if (geography is null)
+        {
+            return false;
+        }
+
         string actual = level switch
         {
             "Province" => geography.Province,

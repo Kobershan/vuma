@@ -1,7 +1,7 @@
 #pragma warning disable CS1591
-using VumaRetail.Domain.Quality;
-using VumaRetail.Domain.Primitives;
 using VumaRetail.Application.Inventory;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Quality;
 
 namespace VumaRetail.Application.Quality;
 

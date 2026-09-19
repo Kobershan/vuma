@@ -1,6 +1,6 @@
 using FluentAssertions;
-using NSubstitute;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Assets;

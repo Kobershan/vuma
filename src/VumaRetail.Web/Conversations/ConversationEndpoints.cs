@@ -1,17 +1,17 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using VumaRetail.Infrastructure.Conversations;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Domain.Conversations;
-using VumaRetail.Application.Abstractions;
+using VumaRetail.Infrastructure.Conversations;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 
@@ -71,7 +71,10 @@ public static class ConversationEndpoints
     private static async Task<IResult> CreateBindingAsync(CreateBindingRequest request, IContactBindingManagementService service, ITenantContext tenant, CancellationToken cancellationToken)
     {
         if (tenant.TenantId == Guid.Empty || request.ContactId == Guid.Empty || string.IsNullOrWhiteSpace(request.Address))
+        {
             return Results.BadRequest(new { error = "tenant, contactId and address are required" });
+        }
+
         ContactBinding binding = new(tenant.TenantId, request.Address, request.ContactId, request.Channel);
         await service.CreateAsync(binding, cancellationToken).ConfigureAwait(false);
         return Results.Created($"/api/v1/contact-bindings/{binding.Id}", new { binding.Id, binding.Channel, binding.Address, binding.ContactId });
@@ -79,7 +82,11 @@ public static class ConversationEndpoints
 
     private static async Task<IResult> IssueChallengeAsync(Guid bindingId, ChallengeRequest request, IContactBindingManagementService service, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Otp)) return Results.BadRequest(new { error = "otp is required" });
+        if (string.IsNullOrWhiteSpace(request.Otp))
+        {
+            return Results.BadRequest(new { error = "otp is required" });
+        }
+
         VerificationChallenge challenge = await service.IssueChallengeAsync(bindingId, request.Otp, cancellationToken).ConfigureAwait(false);
         return Results.Ok(new { challengeId = challenge.Id, challenge.ExpiresAt });
     }
@@ -87,7 +94,10 @@ public static class ConversationEndpoints
     private static async Task<IResult> VerifyBindingAsync(Guid bindingId, VerifyRequest request, IContactBindingManagementService service, CancellationToken cancellationToken)
     {
         if (request.ChallengeId == Guid.Empty || string.IsNullOrWhiteSpace(request.Otp))
+        {
             return Results.BadRequest(new { error = "challengeId and otp are required" });
+        }
+
         bool verified = await service.VerifyAsync(bindingId, request.ChallengeId, request.Otp, cancellationToken).ConfigureAwait(false);
         return verified ? Results.NoContent() : Results.UnprocessableEntity(new { error = "verification failed" });
     }
@@ -168,8 +178,16 @@ public static class ConversationEndpoints
         Dictionary<string, string> parameters = form.Keys.ToDictionary(key => key, key => form[key].ToString(), StringComparer.Ordinal);
         TwilioWhatsAppOptions options = context.RequestServices.GetRequiredService<IOptions<TwilioWhatsAppOptions>>().Value;
         string url = string.IsNullOrWhiteSpace(options.WebhookUrl) ? $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}" : options.WebhookUrl;
-        if (!TwilioWebhookSecurity.Verify(url, parameters, context.Request.Headers["X-Twilio-Signature"].ToString(), options.AuthToken)) return Results.Unauthorized();
-        if (!parameters.TryGetValue("From", out string? from) || !parameters.TryGetValue("Body", out string? body)) return Results.BadRequest(new { error = "Twilio From and Body are required." });
+        if (!TwilioWebhookSecurity.Verify(url, parameters, context.Request.Headers["X-Twilio-Signature"].ToString(), options.AuthToken))
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!parameters.TryGetValue("From", out string? from) || !parameters.TryGetValue("Body", out string? body))
+        {
+            return Results.BadRequest(new { error = "Twilio From and Body are required." });
+        }
+
         var services = context.RequestServices;
         return await InboundAsync(new InboundMessage(ConversationChannel.WhatsApp, from, body, parameters.GetValueOrDefault("MessageSid")), services.GetRequiredService<IContactResolver>(), services.GetRequiredService<IContactBindingManagementService>(), services.GetRequiredService<IConversationStore>(), services.GetRequiredService<IConversationDeliveryAudit>(), services.GetRequiredService<IIntentClassifier>(), services.GetRequiredService<IConversationStateMachine>(), services.GetRequiredService<IConversationIntentRouter>(), services.GetRequiredService<IReplyComposer>(), services.GetRequiredService<ConversationRateLimiter>(), services.GetRequiredService<IClock>(), services.GetRequiredService<ITenantContext>(), cancellationToken, services.GetRequiredService<IWhatsAppSender>(), services.GetRequiredService<ILoggerFactory>()).ConfigureAwait(false);
     }

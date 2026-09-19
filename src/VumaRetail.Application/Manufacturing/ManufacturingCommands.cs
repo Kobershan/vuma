@@ -2,8 +2,8 @@ using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Inventory;
-using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Inventory;
+using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.Application.Manufacturing;

@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Reporting;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Reporting;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
 

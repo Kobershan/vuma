@@ -60,7 +60,10 @@ public sealed class SnapshotKeyStore(SnapshotEncryptionOptions options) : ISnaps
     private static byte[] ResolveKey(SnapshotEncryptionOptions options)
     {
         if (!options.IsConfigured)
+        {
             throw new InvalidOperationException($"{SnapshotEncryptionOptions.SectionName}:Key is not configured.");
+        }
+
         try
         {
             byte[] key = Convert.FromBase64String(options.Key);

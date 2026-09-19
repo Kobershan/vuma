@@ -1,12 +1,12 @@
-using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Application.Orders;
-using VumaRetail.Application.Abstractions.Sales;
-using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions.FieldSales;
+using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Application.Logistics;
+using VumaRetail.Application.Orders;
 using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.Application.Conversations;

@@ -27,7 +27,10 @@ public sealed class UsageRollupAggregator
         ArgumentException.ThrowIfNullOrWhiteSpace(rollup.NodeId);
         if (rollup.Transactions < 0 || rollup.ActiveUsers < 0 || rollup.Terminals < 0 || rollup.StorageBytes < 0
             || rollup.ModuleUsage.Any(x => string.IsNullOrWhiteSpace(x.Key) || x.Value < 0))
+        {
             throw new ArgumentOutOfRangeException(nameof(rollup));
+        }
+
         return _rollups.TryAdd((rollup.NodeId, rollup.Period), rollup);
     }
 
@@ -36,8 +39,13 @@ public sealed class UsageRollupAggregator
         UsageRollup[] rows = _rollups.Values.Where(x => x.TenantId == tenantId && x.Period >= from && x.Period <= through).ToArray();
         Dictionary<string, long> modules = new(StringComparer.Ordinal);
         foreach (UsageRollup row in rows)
+        {
             foreach ((string module, long count) in row.ModuleUsage)
+            {
                 modules[module] = modules.GetValueOrDefault(module) + count;
+            }
+        }
+
         return new BillingUsage(rows.Sum(x => x.Transactions), rows.Sum(x => x.ActiveUsers), rows.Sum(x => x.Terminals),
             rows.Sum(x => x.StorageBytes), modules);
     }
@@ -57,7 +65,10 @@ public static class BillingCalculator
     public static decimal Prorate(decimal amount, DateOnly cycleStart, DateOnly cycleEnd, DateOnly changeDate)
     {
         if (cycleEnd <= cycleStart || changeDate < cycleStart || changeDate > cycleEnd)
+        {
             throw new ArgumentOutOfRangeException(nameof(changeDate));
+        }
+
         int totalDays = cycleEnd.DayNumber - cycleStart.DayNumber;
         int remainingDays = cycleEnd.DayNumber - changeDate.DayNumber;
         return decimal.Round(amount * remainingDays / totalDays, 2, MidpointRounding.AwayFromZero);
@@ -73,7 +84,11 @@ public sealed class DunningTracker
 
     public void RecordNotice(DunningNotice notice)
     {
-        if (_notices.Any(x => x.Id == notice.Id)) return;
+        if (_notices.Any(x => x.Id == notice.Id))
+        {
+            return;
+        }
+
         _notices.Add(notice);
     }
 

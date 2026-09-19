@@ -96,7 +96,7 @@ public sealed class AvailabilityHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
 
         var clock = new TestClock();
         var tenant = TestTenantContext.Unfiltered();
@@ -123,7 +123,7 @@ public sealed class AvailabilityHarness : IAsyncDisposable
             Item milk = Item.Create(seeded.Id, "MILK-2L", "Full cream milk 2L", ItemType.Stock, each.Id);
             seed.Items.Add(milk);
 
-            await seed.CommitAsync().ConfigureAwait(false);
+            await seed.CommitAsync();
 
             tenantId = seeded.Id;
             storeId = store.Id;
@@ -134,7 +134,7 @@ public sealed class AvailabilityHarness : IAsyncDisposable
         {
             Company company = Company.Create(tenantId, "SH", "Siyaya Hardware", "Siyaya Hardware", "ZAR", "en-ZA", "SH");
             registrySeed.Companies.Add(company);
-            await registrySeed.SaveChangesAsync().ConfigureAwait(false);
+            await registrySeed.SaveChangesAsync();
             companyId = company.Id;
         }
 
@@ -143,7 +143,7 @@ public sealed class AvailabilityHarness : IAsyncDisposable
             StockLocation location = StockLocation.Create(tenantId, storeId, "FLOOR", "Sales floor", StockLocationType.SalesFloor);
             location.AssignCompany(companyId);
             seed.StockLocations.Add(location);
-            await seed.CommitAsync().ConfigureAwait(false);
+            await seed.CommitAsync();
             locationId = location.Id;
         }
 
@@ -213,17 +213,17 @@ public sealed class AvailabilityHarness : IAsyncDisposable
             events,
             Clock);
 
-        StockLocation location = await locations.FindAsync(LocationId).ConfigureAwait(false)
+        StockLocation location = await locations.FindAsync(LocationId)
             ?? throw new InvalidOperationException("The harness location is missing.");
 
-        string uom = await skus.ResolveUnitOfMeasureCodeAsync(ItemId, null).ConfigureAwait(false);
+        string uom = await skus.ResolveUnitOfMeasureCodeAsync(ItemId, null);
         await poster.ReceiveAsync(
             location, ItemId, null,
             new Domain.Primitives.Quantity(quantity, uom),
             new Domain.Primitives.Money(unitCost, "ZAR"),
-            note: null).ConfigureAwait(false);
+            note: null);
 
-        await context.CommitAsync().ConfigureAwait(false);
+        await context.CommitAsync();
     }
 
     /// <summary>Reads the current available figure straight from the tables.</summary>
@@ -235,8 +235,8 @@ public sealed class AvailabilityHarness : IAsyncDisposable
         var balances = new StockBalanceRepository(context);
         var positions = new AvailableBalanceRepository(context);
 
-        Domain.Inventory.StockBalance? balance = await balances.FindAsync(LocationId, ItemId, null).ConfigureAwait(false);
-        AvailableBalance? position = await positions.FindAsync(LocationId, ItemId, null).ConfigureAwait(false);
+        Domain.Inventory.StockBalance? balance = await balances.FindAsync(LocationId, ItemId, null);
+        AvailableBalance? position = await positions.FindAsync(LocationId, ItemId, null);
 
         return (balance?.QuantityOnHand.Value ?? 0m) - (position?.Reserved.Value ?? 0m) - (position?.InStaging.Value ?? 0m);
     }
@@ -246,7 +246,7 @@ public sealed class AvailabilityHarness : IAsyncDisposable
     {
         foreach (IAsyncDisposable owned in _owned)
         {
-            await owned.DisposeAsync().ConfigureAwait(false);
+            await owned.DisposeAsync();
         }
 
         _owned.Clear();

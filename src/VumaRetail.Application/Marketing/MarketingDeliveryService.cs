@@ -1,6 +1,6 @@
 #pragma warning disable CS1591
-using VumaRetail.Domain.Marketing;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Domain.Marketing;
 
 namespace VumaRetail.Application.Marketing;
 

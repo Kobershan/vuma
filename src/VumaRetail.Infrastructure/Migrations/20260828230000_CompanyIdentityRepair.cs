@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Migrations;

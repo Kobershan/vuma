@@ -1,13 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using VumaRetail.Domain.Entities;
-using VumaRetail.Domain.Sync;
-using VumaRetail.Domain.Primitives;
-using VumaRetail.Domain.Registry;
-using VumaRetail.Infrastructure.Persistence;
-using VumaRetail.Infrastructure.Registry;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
+using VumaRetail.Domain.Sync;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Registry;
 using VumaRetail.IntegrationTests.Harness;
 
 namespace VumaRetail.IntegrationTests.Persistence;

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
+using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Backup;
 using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Application.Abstractions;
 
 namespace VumaRetail.Infrastructure.Backup;
 

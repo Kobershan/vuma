@@ -1,13 +1,13 @@
 #pragma warning disable CS1591
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
-using System.Text.Json;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Marketing;
-using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Marketing;
 using VumaRetail.Web.Api;
 using VumaRetail.Web.Licensing;
@@ -132,14 +132,25 @@ public static class MarketingEndpoints
         string provider, HttpRequest request, IConfiguration configuration, ICompanyContext company, IDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(provider)) return Results.BadRequest();
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            return Results.BadRequest();
+        }
+
         using var reader = new StreamReader(request.Body);
         string body = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         string secret = configuration["Vuma:Marketing:WebhookSecret"] ?? string.Empty;
         if (!ConversationWebhookSecurity.Verify(body, request.Headers["X-Vuma-Marketing-Signature"].ToString(), secret))
+        {
             return Results.Unauthorized();
+        }
+
         ProviderResultRequest? result = JsonSerializer.Deserialize<ProviderResultRequest>(body);
-        if (result is null) return Results.BadRequest();
+        if (result is null)
+        {
+            return Results.BadRequest();
+        }
+
         company.SetCompany(result.CompanyId);
         await dispatcher.SendAsync(new ApplyOutboundProviderResultCommand(result.MessageId, result.ProviderEventId,
             result.PayloadFingerprint, result.Delivered), cancellationToken).ConfigureAwait(false);
@@ -147,7 +158,10 @@ public static class MarketingEndpoints
     }
     private static void BindCompany(ICompanyContext company, Guid? companyId)
     {
-        if (companyId is { } selected) company.SetCompany(selected);
+        if (companyId is { } selected)
+        {
+            company.SetCompany(selected);
+        }
     }
     public sealed record CreateCampaignRequest(Guid CompanyId, Guid? StoreId, string Name, string TemplateId, DateTimeOffset ScheduledAt);
     public sealed record QueueMessageRequest(Guid CompanyId, Guid? StoreId, Guid CampaignId, Guid CustomerId, string IdempotencyKey, DateTimeOffset ScheduledAt,

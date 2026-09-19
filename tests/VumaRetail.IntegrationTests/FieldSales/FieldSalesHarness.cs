@@ -198,9 +198,9 @@ public sealed class FieldSalesHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string registryConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        string companyAConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        string companyBConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string registryConnection = await fixture.CreateDatabaseAsync();
+        string companyAConnection = await fixture.CreateDatabaseAsync();
+        string companyBConnection = await fixture.CreateDatabaseAsync();
 
         var clock = new TestClock(new DateTimeOffset(2026, 9, 9, 8, 0, 0, TimeSpan.Zero));
         var tenant = TestTenantContext.Unfiltered();
@@ -215,13 +215,13 @@ public sealed class FieldSalesHarness : IAsyncDisposable
         CompanySeed seedA = await SeedCompanyAsync(
                 companyAConnection, clock, principal, tenant, companyAId, managerId,
                 [("HOTPLATE-2", "Hot plate 2-burner", 500m, 799.00m), ("GLOVE-WL", "Work gloves", 60m, 100.33m)])
-            .ConfigureAwait(false);
+            ;
 
         CompanySeed seedB = await SeedCompanyAsync(
                 companyBConnection, clock, principal, tenant, companyBId, managerId,
                 [("MAIZE-10KG", "Maize meal 10kg", 120m, 214.00m)],
                 seedA.TenantId, seedA.StoreId)
-            .ConfigureAwait(false);
+            ;
 
         Guid tenantId = seedA.TenantId;
         Guid storeId = seedA.StoreId;
@@ -269,7 +269,7 @@ public sealed class FieldSalesHarness : IAsyncDisposable
                 tenantId, companyBId, "SC", seedB.LocationId, seedB.ItemIds["MAIZE-10KG"], null,
                 100m, 0m, 0m, "EA", clock.UtcNow));
 
-            await registrySeed.SaveChangesAsync().ConfigureAwait(false);
+            await registrySeed.SaveChangesAsync();
 
             // The group id is minted inside Create; read it back for the tests.
             Guid groupId = group.Id;
@@ -289,11 +289,11 @@ public sealed class FieldSalesHarness : IAsyncDisposable
             {
                 PriceList retailA = await priceDb.PriceLists
                     .FirstAsync(list => list.Code == "RETAIL")
-                    .ConfigureAwait(false);
+                    ;
                 priceDb.PriceListLines.Add(PriceListLine.Create(
                     tenantId, storeId, retailA.Id, seedB.ItemIds["MAIZE-10KG"], null,
                     new Money(214.00m, "ZAR"), minimumQuantity: 1m));
-                await priceDb.SaveChangesAsync().ConfigureAwait(false);
+                await priceDb.SaveChangesAsync();
             }
 
             VumaRegistryDbContext registry = TestDbContextFactory.ForRegistry(registryConnection, tenant);
@@ -363,7 +363,7 @@ public sealed class FieldSalesHarness : IAsyncDisposable
         SeedFinance(seed, tenantId, clock);
         SeedApproval(seed, tenantId, managerId, clock);
 
-        await seed.CommitAsync().ConfigureAwait(false);
+        await seed.CommitAsync();
 
         StockLedgerPoster poster = new(
             new StockBalanceRepository(seed),
@@ -372,13 +372,13 @@ public sealed class FieldSalesHarness : IAsyncDisposable
             clock);
         foreach ((string code, string name, decimal unitCost, decimal shelfPrice) in items)
         {
-            Item item = await seed.Items.FirstAsync(candidate => candidate.Code == code).ConfigureAwait(false);
+            Item item = await seed.Items.FirstAsync(candidate => candidate.Code == code);
             seed.PriceListLines.Add(PriceListLine.Create(
                 tenantId, storeId, retail.Id, item.Id, null, new Money(shelfPrice, "ZAR"), minimumQuantity: 1m));
             await poster.ReceiveAsync(location, item.Id, null, new Quantity(100m, "EA"), new Money(unitCost, "ZAR"), "Opening stock");
         }
 
-        await seed.CommitAsync().ConfigureAwait(false);
+        await seed.CommitAsync();
         return new CompanySeed(tenantId, storeId, location.Id, itemIds);
     }
 
@@ -529,10 +529,10 @@ public sealed class FieldSalesHarness : IAsyncDisposable
     {
         for (int index = _owned.Count - 1; index >= 0; index--)
         {
-            await _owned[index].DisposeAsync().ConfigureAwait(false);
+            await _owned[index].DisposeAsync();
         }
 
-        await Registry.DisposeAsync().ConfigureAwait(false);
+        await Registry.DisposeAsync();
     }
 
     /// <summary>Group projection reads for the planner: the real reader, nothing stubbed.</summary>

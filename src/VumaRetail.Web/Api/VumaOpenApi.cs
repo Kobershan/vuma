@@ -1,7 +1,7 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
-using System.Text.Json.Nodes;
 using VumaRetail.Contracts;
 
 namespace VumaRetail.Web.Api;

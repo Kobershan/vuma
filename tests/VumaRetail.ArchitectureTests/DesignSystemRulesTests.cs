@@ -132,13 +132,20 @@ public sealed class DesignSystemRulesTests
         {
             var relativePath = Path.GetRelativePath(SolutionSource.RepositoryRoot.FullName, file)
                 .Replace('\\', '/');
-            if (exemptPaths.Any(ep => relativePath.StartsWith(ep))) continue;
+            if (exemptPaths.Any(ep => relativePath.StartsWith(ep)))
+            {
+                continue;
+            }
 
             var lines = File.ReadAllLines(file);
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
-                if (line.TrimStart().StartsWith("//") || line.TrimStart().StartsWith("///")) continue;
+                if (line.TrimStart().StartsWith("//") || line.TrimStart().StartsWith("///"))
+                {
+                    continue;
+                }
+
                 if (matches(line))
                 {
                     violations.Add($"{relativePath}:{i + 1} — {line.Trim()}");
@@ -156,13 +163,20 @@ public sealed class DesignSystemRulesTests
             {
                 var relativePath = Path.GetRelativePath(SolutionSource.RepositoryRoot.FullName, file)
                     .Replace('\\', '/');
-                if (exemptPaths.Any(ep => relativePath.StartsWith(ep))) continue;
+                if (exemptPaths.Any(ep => relativePath.StartsWith(ep)))
+                {
+                    continue;
+                }
 
                 var lines = File.ReadAllLines(file);
                 for (int i = 0; i < lines.Length; i++)
                 {
                     var line = lines[i];
-                    if (line.TrimStart().StartsWith("//") || line.TrimStart().StartsWith("/*")) continue;
+                    if (line.TrimStart().StartsWith("//") || line.TrimStart().StartsWith("/*"))
+                    {
+                        continue;
+                    }
+
                     if (matches(line))
                     {
                         violations.Add($"{relativePath}:{i + 1} — {line.Trim()}");

@@ -1,8 +1,8 @@
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Application.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Registry;
 
 namespace VumaRetail.Web;
 

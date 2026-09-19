@@ -2,17 +2,17 @@ using FluentAssertions;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Application.Abstractions.FieldSales;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Sales;
 using VumaRetail.Application.Conversations;
+using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.CustomerAccounts;
-using VumaRetail.Domain.Primitives;
-using VumaRetail.Application.Abstractions.Sales;
-using VumaRetail.Application.Abstractions.Finance;
-using VumaRetail.Application.Abstractions.FieldSales;
-using VumaRetail.Application.FieldSales.Commands;
-using VumaRetail.Domain.Sales.Invoices;
 using VumaRetail.Domain.FieldSales;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Sales.Invoices;
 
 namespace VumaRetail.UnitTests.Conversations;
 

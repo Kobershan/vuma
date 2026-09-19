@@ -1,12 +1,12 @@
-using Npgsql;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Licensing;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
@@ -26,7 +26,9 @@ public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbCo
         var key = (tenantId, companyId);
         long generation = _generations.GetOrAdd(key, 0);
         if (_cache.TryGetValue(key, out var cached) && cached.Generation == generation && cached.Expires > clock.UtcNow)
+        {
             return cached.Value;
+        }
 
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var company = await db.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
@@ -36,11 +38,16 @@ public sealed class CompanyConnectionResolver(IDbContextFactory<VumaRegistryDbCo
             || (access == CompanyAccessMode.Read && company.LifecycleState is not (CompanyLifecycleState.Active or CompanyLifecycleState.Deactivated))
             || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+        {
             throw new InvalidOperationException("Company is not available for business operations.");
+        }
 
         var value = new CompanyConnection(company.Id, company.TenantId, company.ConnectionSecretRef, company.SchemaVersion);
         if (_generations.TryGetValue(key, out long currentGeneration) && currentGeneration == generation)
+        {
             _cache[key] = new(value, clock.UtcNow.AddMinutes(5), generation);
+        }
+
         return value;
     }
 
@@ -67,12 +74,16 @@ public sealed class AmbientCompanyContext : ICompanyContext
     public void SetCompany(Guid companyId)
     {
         if (companyId == Guid.Empty)
+        {
             throw new ArgumentException("A company is required.", nameof(companyId));
+        }
 
         if (_companyId is { } current)
         {
             if (current != companyId)
+            {
                 throw new InvalidOperationException("The acting company cannot change within an operation.");
+            }
 
             throw new InvalidOperationException("The acting company is already bound.");
         }
@@ -131,18 +142,24 @@ public sealed class CompanyDbContextFactory(
     public async Task<VumaRetailDbContext> CreateAsync(CompanyAccessMode access, CancellationToken cancellationToken = default)
     {
         if (_created)
+        {
             throw new InvalidOperationException("Only one company DbContext may be created per operation.");
+        }
 
         var companyId = context.RequireCompany();
         if (tenant.TenantId == Guid.Empty)
+        {
             throw new InvalidOperationException("An authenticated tenant is required before opening a company database.");
+        }
 
         await servingGuard.EnsureAccessibleAsync(tenant.TenantId, companyId, access, cancellationToken);
         var connection = access == CompanyAccessMode.Write
             ? await resolver.ResolveAsync(tenant.TenantId, companyId, cancellationToken)
             : await resolver.ResolveAsync(tenant.TenantId, companyId, access, cancellationToken);
         if (connection.TenantId != tenant.TenantId || connection.CompanyId != companyId)
+        {
             throw new InvalidOperationException("The resolved company is outside the acting tenant or context.");
+        }
 
         var connectionString = await secrets.ResolveAsync(connection.SecretReference, cancellationToken);
         var builder = new DbContextOptionsBuilder<VumaRetailDbContext>().UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations_history", "platform")).UseSnakeCaseNamingConvention();
@@ -183,7 +200,9 @@ public sealed class CompanyFanOut(IDbContextFactory<VumaRegistryDbContext> dbFac
             .ToListAsync(cancellationToken);
 
         if (companies.Count == 0)
+        {
             return Array.Empty<CompanyPeriodFigure>();
+        }
 
         var results = await ReadAsync(companies.Select(c => c.Id).ToList(), async (companyId, ct) =>
         {
@@ -241,9 +260,20 @@ public sealed class CompanyFanOut(IDbContextFactory<VumaRegistryDbContext> dbFac
             .ToDictionary(id => id, _ => (0m, 0m));
         foreach (var (from, to, amount) in intents)
         {
-            if (amount <= 0) continue;
-            if (totals.TryGetValue(from, out var f)) totals[from] = (f.Debit + amount, f.Credit);
-            if (totals.TryGetValue(to, out var t)) totals[to] = (t.Debit, t.Credit + amount);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            if (totals.TryGetValue(from, out var f))
+            {
+                totals[from] = (f.Debit + amount, f.Credit);
+            }
+
+            if (totals.TryGetValue(to, out var t))
+            {
+                totals[to] = (t.Debit, t.Credit + amount);
+            }
         }
         return totals
             .Select(kv => new CompanyClearingBalance { CompanyId = kv.Key, DebitAmount = kv.Value.Debit, CreditAmount = kv.Value.Credit })
@@ -310,8 +340,16 @@ public sealed class CompanyLifecycleService(VumaRegistryDbContext db, ICompanyCo
     {
         var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("COMPANY_NOT_FOUND");
-        if (company.LifecycleState == CompanyLifecycleState.Active) return;
-        if (company.LifecycleState != CompanyLifecycleState.Registered || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("COMPANY_NOT_READY");
+        if (company.LifecycleState == CompanyLifecycleState.Active)
+        {
+            return;
+        }
+
+        if (company.LifecycleState != CompanyLifecycleState.Registered || !string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("COMPANY_NOT_READY");
+        }
+
         company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
         await db.CommitAsync(cancellationToken).ConfigureAwait(false);
         resolver.Invalidate(companyId);
@@ -319,14 +357,22 @@ public sealed class CompanyLifecycleService(VumaRegistryDbContext db, ICompanyCo
 
     public async Task DeactivateAsync(Guid tenantId, Guid companyId, string reason, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reason is required.", nameof(reason));
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A reason is required.", nameof(reason));
+        }
+
         var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Company was not found.");
         string actor = principal?.Principal ?? "system:company-lifecycle";
         DateTimeOffset occurredAt = clock?.UtcNow
             ?? throw new InvalidOperationException("A clock is required for lifecycle audit timestamps.");
         CompanyLifecycleState fromState = company.LifecycleState;
-        if (!company.Deactivate(actor, reason, occurredAt)) return;
+        if (!company.Deactivate(actor, reason, occurredAt))
+        {
+            return;
+        }
+
         db.CompanyLifecycleAudits.Add(CompanyLifecycleAudit.Record(tenantId, companyId, fromState,
             CompanyLifecycleState.Deactivated, actor, reason, occurredAt));
         await db.CommitAsync(cancellationToken);
@@ -339,8 +385,15 @@ public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork u
 {
     public async Task<int> RedriveAsync(Guid tenantId, Guid companyId, CancellationToken cancellationToken = default)
     {
-        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
-        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
+
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A company is required.", nameof(companyId));
+        }
 
         var intents = await db.SagaIntents
             .Include(intent => intent.Legs)
@@ -355,14 +408,22 @@ public sealed class RegistrySagaRedriver(VumaRegistryDbContext db, IUnitOfWork u
             {
                 string key = $"saga-leg:{intent.Id:D}:{leg.LegId:D}";
                 if (await db.RegistryOutboxMessages.AnyAsync(message => message.TenantId == tenantId
-                    && message.IdempotencyKey == key, cancellationToken).ConfigureAwait(false)) continue;
+                    && message.IdempotencyKey == key, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
                 db.RegistryOutboxMessages.Add(new RegistryOutboxMessage(tenantId, "saga.leg.redrive",
                     JsonSerializer.Serialize(new { intentId = intent.Id, legId = leg.LegId, companyId }),
                     clock.UtcNow, key, intent.OperationStamp));
                 queued++;
             }
         }
-        if (queued > 0) await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+        if (queued > 0)
+        {
+            await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         return queued;
     }
 }
@@ -410,30 +471,44 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
             throw new InvalidOperationException("Registry migration has not been applied; cannot provision company.", ex);
         }
         if (persisted is not null)
+        {
             company = persisted;
+        }
         else if (await _db.Companies.IgnoreQueryFilters().AnyAsync(x => x.Id == company.Id, cancellationToken))
+        {
             throw new InvalidOperationException("COMPANY_TENANT_MISMATCH");
+        }
         else if (await _db.Companies.AnyAsync(x => x.TenantId == company.TenantId && (x.Code == company.Code || x.DocumentPrefix == company.DocumentPrefix), cancellationToken))
+        {
             throw new InvalidOperationException("COMPANY_DUPLICATE");
+        }
         else
+        {
             _db.Companies.Add(company);
+        }
 
         if (company.LifecycleState == CompanyLifecycleState.Active)
+        {
             return company;
+        }
 
         if (_entitlements is not null)
         {
             var count = await _db.Companies.CountAsync(x => x.TenantId == company.TenantId && x.Id != company.Id, cancellationToken);
             var limit = await _entitlements.CheckLimitAsync(LimitKind.Stores, count + 1, cancellationToken);
             if (limit.Exceeded)
+            {
                 throw new InvalidOperationException("COMPANY_LIMIT_EXCEEDED");
+            }
         }
 
         foreach (var step in _steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (IsAlreadyComplete(company, step))
+            {
                 continue;
+            }
 
             try
             {
@@ -463,9 +538,15 @@ public sealed class CompanyProvisioner : ICompanyProvisioner
             company.SetConnectionSecretRef(connection.SecretReference);
         }
         if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+        {
             throw new InvalidOperationException("Provisioning did not register a connection secret reference.");
+        }
+
         if (company.LifecycleState != CompanyLifecycleState.Registered)
+        {
             throw new InvalidOperationException("Provisioning did not register the company connection.");
+        }
+
         await _unitOfWork.CommitAsync(cancellationToken);
         _resolver.Invalidate(company.Id);
         return company;

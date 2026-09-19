@@ -43,8 +43,15 @@ public sealed class LogisticsDomainTests
     {
         Shipment shipment = Shipment.Create(TenantId, null, "S-2", null, null, null, null, "1 Main", null, "Durban", "4001", "ZA");
         shipment.Dispatch(Now);
-        if (outcome == ProofOfDeliveryOutcome.Delivered) shipment.MarkDelivered(Now);
-        else shipment.MarkException();
+        if (outcome == ProofOfDeliveryOutcome.Delivered)
+        {
+            shipment.MarkDelivered(Now);
+        }
+        else
+        {
+            shipment.MarkException();
+        }
+
         shipment.Status.Should().Be(LogisticsShipmentStatus.Exception);
     }
 }

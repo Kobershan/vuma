@@ -137,7 +137,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
 
         public static async Task<LayByScope> CreateAsync(PostgresFixture fixture)
         {
-            string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+            string connectionString = await fixture.CreateDatabaseAsync();
             var clock = new TestClock(Now);
             var tenant = TestTenantContext.Unfiltered();
             var principal = new TestPrincipalAccessor("user:layby");
@@ -150,7 +150,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
             scope.Tenant = tenant;
 
             context.CustomerFinanceTerms.Add(CustomerFinanceTerms.Seed(scope._tenantId, "ZAR"));
-            await context.CommitAsync().ConfigureAwait(false);
+            await context.CommitAsync();
 
             var company = Substitute.For<ICompanyContext>();
             company.RequireCompany().Returns(scope._companyId);
@@ -239,7 +239,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
                     _partnerId, "ZAR",
                     [new LayByLineInput(_itemId, null, quantity, "EA")],
                     deposit, "Till", 3, "LAYBY", _companyId));
-            await _context.CommitAsync().ConfigureAwait(false);
+            await _context.CommitAsync();
             return id;
         }
 
@@ -247,7 +247,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
         {
             await Handlers.Pay.HandleAsync(
                 new RecordLayByInstalmentCommand(agreementId, amount, "ZAR", "Till", receipt, takenOffline));
-            await _context.CommitAsync().ConfigureAwait(false);
+            await _context.CommitAsync();
         }
 
         public async Task CompleteAsync(Guid agreementId)
@@ -261,7 +261,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
             var complete = new CompleteLayByAgreementCommandHandler(
                 Laybys, holds, Reservations, Events, Tenant, TestCompany(), _clock);
             await complete.HandleAsync(new CompleteLayByAgreementCommand(agreementId));
-            await _context.CommitAsync().ConfigureAwait(false);
+            await _context.CommitAsync();
         }
 
         public async Task CancelAsync(Guid agreementId)
@@ -275,7 +275,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
             var cancel = new CancelLayByAgreementCommandHandler(
                 Laybys, holds, Reservations, Events, Tenant, TestCompany(), _clock);
             await cancel.HandleAsync(new CancelLayByAgreementCommand(agreementId));
-            await _context.CommitAsync().ConfigureAwait(false);
+            await _context.CommitAsync();
         }
 
         public IReadOnlyList<IFinancialEvent> Posted(string eventType)
@@ -290,7 +290,7 @@ public sealed class LayByAgreementIntegrationTests(PostgresFixture fixture)
 
         public async ValueTask DisposeAsync()
         {
-            await _context.DisposeAsync().ConfigureAwait(false);
+            await _context.DisposeAsync();
             GC.SuppressFinalize(this);
         }
 

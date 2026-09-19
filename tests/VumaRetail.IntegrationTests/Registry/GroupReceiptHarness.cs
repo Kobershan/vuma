@@ -171,7 +171,7 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
 
         var clock = new TestClock();
         var tenant = TestTenantContext.Unfiltered();
@@ -198,7 +198,7 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
 
             Store store = Store.Create(seeded.Id, "JHB01", "Harness Sandton");
             seed.Stores.Add(store);
-            await seed.CommitAsync().ConfigureAwait(false);
+            await seed.CommitAsync();
 
             tenantId = seeded.Id;
             storeId = store.Id;
@@ -209,13 +209,13 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
             registrySeed.Companies.Add(ActiveCompany(tenantId, "GRA", "Group Co A", operatorId));
             registrySeed.Companies.Add(ActiveCompany(tenantId, "GRB", "Group Co B", operatorId));
             registrySeed.Companies.Add(ActiveCompany(tenantId, "GRC", "Group Co C", operatorId));
-            await registrySeed.SaveChangesAsync().ConfigureAwait(false);
+            await registrySeed.SaveChangesAsync();
 
             // Company ids are minted inside Create; read them back so the finance seed below
             // books every row against the same companies the registry knows.
             List<Company> companies = await registrySeed.Companies
                 .OrderBy(c => c.Code)
-                .ToListAsync().ConfigureAwait(false);
+                .ToListAsync();
             companyAId = companies.Single(c => c.Code == "GRA").Id;
             companyBId = companies.Single(c => c.Code == "GRB").Id;
             companyCId = companies.Single(c => c.Code == "GRC").Id;
@@ -229,7 +229,7 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
                 companyBId, "INV-B-0001", 3000m, invoiceBId, customerId);
             SeedCompanyFinance(seed, "C", tenantId, storeId, clock,
                 companyCId, "INV-C-0001", 5000m, invoiceCId, customerId);
-            await seed.CommitAsync().ConfigureAwait(false);
+            await seed.CommitAsync();
         }
 
         tenant.SetTenant(tenantId, storeId);
@@ -312,7 +312,7 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await _scopes.DisposeAsync().ConfigureAwait(false);
+        await _scopes.DisposeAsync();
 
         List<IAsyncDisposable> owned;
         lock (_owned)
@@ -325,12 +325,12 @@ public sealed class GroupReceiptHarness : IAsyncDisposable
         {
             if (!ReferenceEquals(disposable, _scopes))
             {
-                await disposable.DisposeAsync().ConfigureAwait(false);
+                await disposable.DisposeAsync();
             }
         }
 
-        await Context.DisposeAsync().ConfigureAwait(false);
-        await Registry.DisposeAsync().ConfigureAwait(false);
+        await Context.DisposeAsync();
+        await Registry.DisposeAsync();
     }
 
     private static Company ActiveCompany(Guid tenantId, string code, string name, Guid operatorId)

@@ -1,6 +1,6 @@
-using VumaRetail.Domain.Sales.Analytics;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Domain.Sales.Analytics;
 #pragma warning disable CS1591
 
 namespace VumaRetail.Application.Sales.Services;

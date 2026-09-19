@@ -1,8 +1,8 @@
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
 using VumaRetail.ControlPlane;
+using Xunit;
 
 namespace VumaRetail.ControlPlane.Tests;
 
@@ -113,7 +113,10 @@ public sealed class ControlPlaneStoreTests
             new MeteringCounts(1, 1, 1, 1, 1, 1, 1, 1, 1), new Dictionary<string, long>(),
             new MeteringHealth(0, 0, 0, 0));
         await using (ControlPlaneDbContext database = new(options))
+        {
             await new ControlPlaneStore(database).AcceptMeteringAsync(metering);
+        }
+
         await using (ControlPlaneDbContext database = new(options))
         {
             var store = new ControlPlaneStore(database);

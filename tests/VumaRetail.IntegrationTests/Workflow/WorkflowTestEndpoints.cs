@@ -37,7 +37,7 @@ internal sealed class WorkflowTestEndpointsStartupFilter : IStartupFilter
                 if (!HttpMethods.IsPost(context.Request.Method)
                     || context.Request.Path != "/test/workflow/raise")
                 {
-                    await nextMiddleware(context).ConfigureAwait(false);
+                    await nextMiddleware(context);
                     return;
                 }
 
@@ -49,14 +49,14 @@ internal sealed class WorkflowTestEndpointsStartupFilter : IStartupFilter
 
                 RaiseTestApprovalCommand command = await context.Request
                     .ReadFromJsonAsync<RaiseTestApprovalCommand>()
-                    .ConfigureAwait(false)
+
                     ?? throw new InvalidOperationException("Malformed test request body.");
 
                 IDispatcher dispatcher = context.RequestServices.GetRequiredService<IDispatcher>();
 
-                object? outcome = await dispatcher.SendAsync(command).ConfigureAwait(false);
+                object? outcome = await dispatcher.SendAsync(command);
 
-                await context.Response.WriteAsJsonAsync(outcome).ConfigureAwait(false);
+                await context.Response.WriteAsJsonAsync(outcome);
             });
         };
 }

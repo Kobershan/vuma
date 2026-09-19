@@ -1,12 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Finance;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sales;
+using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Orders;
 using VumaRetail.Application.Orders.Commands;
-using VumaRetail.Application.Inventory;
 using VumaRetail.Application.Pos;
 using VumaRetail.Application.Warehouse;
 using VumaRetail.Domain.Inventory;

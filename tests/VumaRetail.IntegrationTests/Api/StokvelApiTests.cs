@@ -17,13 +17,13 @@ public sealed class StokvelApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Anonymous_callers_get_401()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         var body = new CreateStokvelRequest(
             "Grocery", "GroceryHamper", "constitution",
             new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 15), harness.StoreId);
         HttpResponseMessage response = await harness.Client
-            .PostAsJsonAsync("/api/v1/stokvels", body).ConfigureAwait(false);
+            .PostAsJsonAsync("/api/v1/stokvels", body);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -31,12 +31,12 @@ public sealed class StokvelApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Endpoints_answer_behind_their_permissions()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "clerk1", "CorrectHorseBattery1",
-            CustomerAccountsPermissions.AccountView).ConfigureAwait(false);
-        HttpClient clerk = await harness.SignInAsync("clerk1").ConfigureAwait(false);
+            CustomerAccountsPermissions.AccountView);
+        HttpClient clerk = await harness.SignInAsync("clerk1");
 
         Guid groupId = Guid.NewGuid();
         Guid memberId = Guid.NewGuid();
@@ -72,14 +72,14 @@ public sealed class StokvelApiTests(PostgresFixture fixture)
         foreach ((string method, string url, HttpContent? body) in writes)
         {
             HttpResponseMessage response = method == "POST" && body is not null
-                ? await clerk.PostAsync(url, body).ConfigureAwait(false)
-                : await clerk.PostAsync(url, new StringContent(string.Empty)).ConfigureAwait(false);
+                ? await clerk.PostAsync(url, body)
+                : await clerk.PostAsync(url, new StringContent(string.Empty));
             response.StatusCode.Should().Be(
                 HttpStatusCode.Forbidden, $"write route {url} must sit behind {CustomerAccountsPermissions.StokvelManage}");
         }
 
         HttpResponseMessage read = await clerk.GetAsync(
-            $"/api/v1/stokvels/{groupId}/group-statement?callerRole=Treasurer").ConfigureAwait(false);
+            $"/api/v1/stokvels/{groupId}/group-statement?callerRole=Treasurer");
         read.StatusCode.Should().Be(
             HttpStatusCode.Forbidden, $"read routes must sit behind {CustomerAccountsPermissions.StokvelView}");
     }
@@ -87,9 +87,9 @@ public sealed class StokvelApiTests(PostgresFixture fixture)
     [Fact]
     public async Task OpenAPI_lists_every_stokvel_route()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
-        string document = await harness.Client.GetStringAsync("/openapi/v1.json").ConfigureAwait(false);
+        string document = await harness.Client.GetStringAsync("/openapi/v1.json");
 
         string[] routes =
         [

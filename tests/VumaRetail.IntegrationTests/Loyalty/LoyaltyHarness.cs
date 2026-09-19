@@ -132,7 +132,7 @@ public sealed class LoyaltyHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
 
         TestClock clock = new();
         TestTenantContext tenant = TestTenantContext.Unfiltered();
@@ -152,7 +152,7 @@ public sealed class LoyaltyHarness : IAsyncDisposable
         context.Stores.Add(store);
         context.Users.Add(clerk);
 
-        await context.SaveChangesAsync().ConfigureAwait(false);
+        await context.SaveChangesAsync();
 
         Guid companyId = Guid.NewGuid();
         Guid customerId = Guid.NewGuid();
@@ -208,16 +208,16 @@ public sealed class LoyaltyHarness : IAsyncDisposable
     public async Task EnrollAsync()
     {
         await Dispatcher.SendAsync(new Application.Loyalty.Commands.ConfigureLoyaltyCommand(
-            CompanyId, "ZAR", 1m, 365, true)).ConfigureAwait(false);
+            CompanyId, "ZAR", 1m, 365, true));
         await Dispatcher.SendAsync(new Application.Loyalty.Commands.EnrollMemberCommand(
-            CompanyId, CustomerId, StoreId)).ConfigureAwait(false);
+            CompanyId, CustomerId, StoreId));
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await _services.DisposeAsync().ConfigureAwait(false);
-        await Context.DisposeAsync().ConfigureAwait(false);
+        await _services.DisposeAsync();
+        await Context.DisposeAsync();
     }
 }
 
@@ -231,7 +231,7 @@ public sealed record LoyaltyFork(
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await Services.DisposeAsync().ConfigureAwait(false);
-        await Context.DisposeAsync().ConfigureAwait(false);
+        await Services.DisposeAsync();
+        await Context.DisposeAsync();
     }
 }

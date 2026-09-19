@@ -2,10 +2,10 @@
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Hr;
-using VumaRetail.Domain.Projects;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Projects;
 
 namespace VumaRetail.Application.Projects;
 

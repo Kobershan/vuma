@@ -18,7 +18,7 @@ public sealed class StokvelPersistenceTests(PostgresFixture fixture)
     [Fact]
     public async Task Stokvel_rows_round_trip_with_their_company()
     {
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
         var clock = new TestClock(Now);
         var tenant = TestTenantContext.Unfiltered();
         var principal = new TestPrincipalAccessor("user:stokvel");
@@ -61,7 +61,7 @@ public sealed class StokvelPersistenceTests(PostgresFixture fixture)
             tenantId, storeId, group.Id, member.Id, StokvelPayoutKind.Cash,
             new Money(100m, "ZAR"), null, Now);
         payouts.Add(payout);
-        await context.CommitAsync().ConfigureAwait(false);
+        await context.CommitAsync();
 
         StokvelGroup? reloaded = await groups.FindByNumberAsync("STK-000001");
         reloaded.Should().NotBeNull();

@@ -1,11 +1,11 @@
 #pragma warning disable CS1591, IDE0011, CA1062
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.HrManagement;
 using VumaRetail.Domain.HrWorkforce;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace VumaRetail.Application.Hr;
 

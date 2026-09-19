@@ -3,9 +3,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.FieldSales;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.FieldSales;
-using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Application.FieldSales.Permissions;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;

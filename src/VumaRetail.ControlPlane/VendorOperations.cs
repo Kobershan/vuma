@@ -21,19 +21,32 @@ public sealed class AbuseDetector
         foreach (DeviceObservation previous in _lastByNode.Values.Where(x => x.LicenseKey == observation.LicenseKey))
         {
             if (previous.InstallFingerprint != observation.InstallFingerprint)
+            {
                 found.Add(New("duplicate-install", observation, $"fingerprint:{previous.InstallFingerprint}"));
+            }
+
             if (previous.DocumentSeries == observation.DocumentSeries && previous.NodeId != observation.NodeId)
+            {
                 found.Add(New("colliding-document-series", observation, $"series:{observation.DocumentSeries}"));
+            }
         }
         if (_lastByNode.TryGetValue(observation.NodeId, out DeviceObservation? last))
         {
             if (observation.MonotonicCounter < last.MonotonicCounter)
+            {
                 found.Add(New("counter-rollback", observation, $"previous:{last.MonotonicCounter}"));
+            }
+
             if (observation.At < last.At)
+            {
                 found.Add(New("clock-rollback", observation, $"previous:{last.At:O}"));
+            }
+
             if (DistanceKm(last.Latitude, last.Longitude, observation.Latitude, observation.Longitude)
                 > 900 && (observation.At - last.At).TotalHours < 2)
+            {
                 found.Add(New("impossible-travel", observation, $"distance-km:{DistanceKm(last.Latitude, last.Longitude, observation.Latitude, observation.Longitude):F0}"));
+            }
         }
         _lastByNode[observation.NodeId] = observation;
         _cases.AddRange(found);
@@ -80,7 +93,11 @@ public static class SupportGrantPolicy
         bool tenantApproved, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
-        if (!tenantApproved || expiresAt <= now) throw new InvalidOperationException("Tenant approval and a future expiry are required.");
+        if (!tenantApproved || expiresAt <= now)
+        {
+            throw new InvalidOperationException("Tenant approval and a future expiry are required.");
+        }
+
         return new SupportGrant(id, tenantId, requestedBy, expiresAt, true, true);
     }
 

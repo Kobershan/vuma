@@ -17,12 +17,12 @@ public sealed class CrmApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Anonymous_callers_get_401()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         var body = new CreateLeadRequest(
             Guid.NewGuid(), "Athoi", "Molefe", "a@example.co.za", null, null, "Web");
         HttpResponseMessage response = await harness.Client
-            .PostAsJsonAsync("/api/v1/crm/leads", body).ConfigureAwait(false);
+            .PostAsJsonAsync("/api/v1/crm/leads", body);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -30,12 +30,12 @@ public sealed class CrmApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Endpoints_answer_behind_their_permissions()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "clerk1", "CorrectHorseBattery1",
-            CrmPermissions.LeadView).ConfigureAwait(false);
-        HttpClient clerk = await harness.SignInAsync("clerk1").ConfigureAwait(false);
+            CrmPermissions.LeadView);
+        HttpClient clerk = await harness.SignInAsync("clerk1");
 
         Guid leadId = Guid.NewGuid();
         Guid dealId = Guid.NewGuid();
@@ -84,15 +84,15 @@ public sealed class CrmApiTests(PostgresFixture fixture)
         {
             HttpResponseMessage response = body is not null
                 ? method == "POST"
-                    ? await clerk.PostAsync(url, body).ConfigureAwait(false)
-                    : await clerk.PutAsync(url, body).ConfigureAwait(false)
-                : await clerk.PostAsync(url, new StringContent(string.Empty)).ConfigureAwait(false);
+                    ? await clerk.PostAsync(url, body)
+                    : await clerk.PutAsync(url, body)
+                : await clerk.PostAsync(url, new StringContent(string.Empty));
             response.StatusCode.Should().Be(
                 HttpStatusCode.Forbidden, $"write route {method} {url} must sit behind its manage permission");
         }
 
         HttpResponseMessage read = await clerk.GetAsync(
-            $"/api/v1/crm/leads/{leadId}").ConfigureAwait(false);
+            $"/api/v1/crm/leads/{leadId}");
         read.StatusCode.Should().Be(
             HttpStatusCode.NotFound, "a missing permission would be 403; 404 proves crm.lead.view passed");
     }
@@ -100,7 +100,7 @@ public sealed class CrmApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Lead_and_opportunity_happy_paths_work_end_to_end()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "opener1", "CorrectHorseBattery1",
@@ -114,63 +114,63 @@ public sealed class CrmApiTests(PostgresFixture fixture)
             CrmPermissions.SegmentView,
             CrmPermissions.ConsentManage,
             CrmPermissions.ConsentView,
-            CrmPermissions.View360).ConfigureAwait(false);
-        HttpClient opener = await harness.SignInAsync("opener1").ConfigureAwait(false);
+            CrmPermissions.View360);
+        HttpClient opener = await harness.SignInAsync("opener1");
         Guid companyId = Guid.NewGuid();
 
         HttpResponseMessage created = await opener.PostAsJsonAsync(
             "/api/v1/crm/leads",
             new CreateLeadRequest(
                 companyId, "Athoi", "Molefe", "happy@example.co.za", null, null, "Web"))
-            .ConfigureAwait(false);
+            ;
         created.StatusCode.Should().Be(HttpStatusCode.Created);
         var leadRef = (await created.Content
-            .ReadFromJsonAsync<CrmIdResponse>().ConfigureAwait(false))!;
+            .ReadFromJsonAsync<CrmIdResponse>())!;
 
         HttpResponseMessage fetched = await opener.GetAsync(
-            $"/api/v1/crm/leads/{leadRef.Id}").ConfigureAwait(false);
+            $"/api/v1/crm/leads/{leadRef.Id}");
         fetched.StatusCode.Should().Be(HttpStatusCode.OK);
         var lead = (await fetched.Content
-            .ReadFromJsonAsync<LeadResponse>().ConfigureAwait(false))!;
+            .ReadFromJsonAsync<LeadResponse>())!;
         lead.Email.Should().Be("happy@example.co.za");
         lead.Status.Should().Be("New");
 
         HttpResponseMessage deal = await opener.PostAsJsonAsync(
             "/api/v1/crm/opportunities",
             new CreateOpportunityRequest(companyId, "Rollout", 25000m, "ZAR", 10))
-            .ConfigureAwait(false);
+            ;
         deal.StatusCode.Should().Be(HttpStatusCode.Created);
 
         HttpResponseMessage activity = await opener.PostAsJsonAsync(
             "/api/v1/crm/activities",
             new LogActivityRequest(companyId, "Call", "Intro", "Went well"))
-            .ConfigureAwait(false);
+            ;
         activity.StatusCode.Should().Be(HttpStatusCode.Created);
 
         HttpResponseMessage segment = await opener.PostAsJsonAsync(
             "/api/v1/crm/segments",
             new CreateSegmentRequest(companyId, "Gold", "Static"))
-            .ConfigureAwait(false);
+            ;
         segment.StatusCode.Should().Be(HttpStatusCode.Created);
 
         Guid customerId = Guid.NewGuid();
         HttpResponseMessage consent = await opener.PostAsJsonAsync(
             "/api/v1/crm/consents/give",
             new GiveConsentRequest(companyId, customerId, "MarketingEmail", "signup-form"))
-            .ConfigureAwait(false);
+            ;
         consent.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         HttpResponseMessage view = await opener.GetAsync(
-            $"/api/v1/crm/customers/{customerId}/360-view").ConfigureAwait(false);
+            $"/api/v1/crm/customers/{customerId}/360-view");
         view.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task OpenAPI_lists_every_crm_route()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
-        string document = await harness.Client.GetStringAsync("/openapi/v1.json").ConfigureAwait(false);
+        string document = await harness.Client.GetStringAsync("/openapi/v1.json");
 
         string[] routes =
         [

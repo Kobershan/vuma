@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Domain.Entities;

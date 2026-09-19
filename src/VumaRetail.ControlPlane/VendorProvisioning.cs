@@ -30,9 +30,17 @@ public sealed class VendorProvisioning(IClock clock)
     public ProvisionedTenant Provision(string tenantId, TimeSpan trialLength)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
-        if (trialLength <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(trialLength));
+        if (trialLength <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(trialLength));
+        }
+
         string normalized = tenantId.Trim();
-        if (tenants.ContainsKey(normalized)) throw new InvalidOperationException("Tenant is already provisioned.");
+        if (tenants.ContainsKey(normalized))
+        {
+            throw new InvalidOperationException("Tenant is already provisioned.");
+        }
+
         ProvisionedTenant tenant = new(normalized, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)),
             clock.UtcNow.Add(trialLength), clock.UtcNow);
         tenants.Add(normalized, tenant);
@@ -42,8 +50,16 @@ public sealed class VendorProvisioning(IClock clock)
     public OffboardingPackage RequestOffboarding(string tenantId, bool exportVerified)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
-        if (!exportVerified) throw new InvalidOperationException("A verified export is required before offboarding.");
-        if (!tenants.ContainsKey(tenantId.Trim())) throw new KeyNotFoundException("Tenant was not found.");
+        if (!exportVerified)
+        {
+            throw new InvalidOperationException("A verified export is required before offboarding.");
+        }
+
+        if (!tenants.ContainsKey(tenantId.Trim()))
+        {
+            throw new KeyNotFoundException("Tenant was not found.");
+        }
+
         OffboardingPackage package = new(tenantId.Trim(), clock.UtcNow, clock.UtcNow.AddDays(90), true, false);
         offboarding[package.TenantId] = package;
         return package;
@@ -57,9 +73,17 @@ public sealed class VendorProvisioning(IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentNullException.ThrowIfNull(signer);
-        if (hours is < 1 or > 168) throw new ArgumentOutOfRangeException(nameof(hours));
+        if (hours is < 1 or > 168)
+        {
+            throw new ArgumentOutOfRangeException(nameof(hours));
+        }
+
         string normalized = tenantId.Trim();
-        if (!tenants.ContainsKey(normalized)) throw new KeyNotFoundException("Tenant was not found.");
+        if (!tenants.ContainsKey(normalized))
+        {
+            throw new KeyNotFoundException("Tenant was not found.");
+        }
+
         DateTimeOffset expiresAt = clock.UtcNow.AddHours(hours);
         string nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
         string code = await signer.SignAsync(normalized, nonce, expiresAt, cancellationToken).ConfigureAwait(false);
@@ -72,10 +96,16 @@ public sealed class VendorProvisioning(IClock clock)
         CancellationToken cancellationToken = default)
     {
         if (!unlocks.TryGetValue(id, out EmergencyWriteCode? current) || current.Redeemed || current.ExpiresAt <= clock.UtcNow)
+        {
             return false;
+        }
+
         string[] parts = code.Split('.', 2);
         if (parts.Length != 2 || !await signer.ValidateAsync(current.TenantId, parts[0], parts[1], current.ExpiresAt, cancellationToken).ConfigureAwait(false))
+        {
             return false;
+        }
+
         unlocks[id] = current with { Redeemed = true };
         return true;
     }

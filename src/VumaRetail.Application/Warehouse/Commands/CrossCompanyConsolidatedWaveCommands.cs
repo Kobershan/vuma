@@ -3,8 +3,8 @@ using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
-using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 
 namespace VumaRetail.Application.Warehouse.Commands;
 

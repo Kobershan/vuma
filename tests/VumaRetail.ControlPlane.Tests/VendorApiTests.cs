@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
-using Xunit;
 using VumaRetail.ControlPlane;
+using Xunit;
 
 namespace VumaRetail.ControlPlane.Tests;
 

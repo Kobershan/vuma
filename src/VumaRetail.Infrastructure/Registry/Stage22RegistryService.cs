@@ -1,8 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Sync;
-using System.Text.Json;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 
@@ -40,7 +40,11 @@ public sealed class Stage22RegistryService(
         BusinessCompanyMembership? existing = await registry.BusinessCompanyMemberships
             .SingleOrDefaultAsync(x => x.TenantId == tenant.TenantId && x.BusinessId == businessId && x.CompanyId == companyId, cancellationToken)
             .ConfigureAwait(false);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            return existing;
+        }
+
         var membership = BusinessCompanyMembership.Create(tenant.TenantId, businessId, companyId); registry.BusinessCompanyMemberships.Add(membership); await registry.CommitAsync(cancellationToken).ConfigureAwait(false); return membership;
     }
 
@@ -64,8 +68,16 @@ public sealed class Stage22RegistryService(
         bool member = await registry.BusinessCompanyMemberships.AnyAsync(
             x => x.TenantId == tenant.TenantId && x.BusinessId == businessId && x.CompanyId == companyId,
             cancellationToken).ConfigureAwait(false);
-        if (!member) throw new InvalidOperationException("The company is not a member of this business.");
-        if (nodeType == HierarchyNodeType.Store && !settings.IsValidStoreCode(storeCode ?? string.Empty)) throw new InvalidOperationException("Store code does not match the group prefix.");
+        if (!member)
+        {
+            throw new InvalidOperationException("The company is not a member of this business.");
+        }
+
+        if (nodeType == HierarchyNodeType.Store && !settings.IsValidStoreCode(storeCode ?? string.Empty))
+        {
+            throw new InvalidOperationException("Store code does not match the group prefix.");
+        }
+
         List<GroupHierarchyNode> nodes = await registry.GroupHierarchyNodes
             .Where(x => x.TenantId == tenant.TenantId && x.BusinessId == businessId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -100,7 +112,11 @@ public sealed class Stage22RegistryService(
         {
             throw new InvalidOperationException("Requester and holding company must belong to the transfer business.");
         }
-        if (!sender.IsControlEligible || !receiver.IsControlEligible) throw new InvalidOperationException("Franchised companies cannot participate in transfers.");
+        if (!sender.IsControlEligible || !receiver.IsControlEligible)
+        {
+            throw new InvalidOperationException("Franchised companies cannot participate in transfers.");
+        }
+
         GroupSettings settings = await registry.GroupSettings.SingleAsync(
             x => x.TenantId == tenant.TenantId && x.BusinessId == sender.BusinessId, cancellationToken)
             .ConfigureAwait(false);
@@ -177,7 +193,10 @@ public sealed class Stage22RegistryService(
             .Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.TenantId == tenant.TenantId && x.TransferId == transferId, cancellationToken)
             .ConfigureAwait(false);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            return existing;
+        }
 
         StockTransferDeliveryNote note = StockTransferDeliveryNote.Create(transfer, clock.UtcNow, driverReference);
         registry.StockTransferDeliveryNotes.Add(note);
@@ -219,7 +238,11 @@ public sealed class Stage22RegistryService(
             decimal quantity = relation == TransferRelation.Reverse
                 ? line.ReceivedQuantity ?? 0m
                 : line.Quantity - (line.ReceivedQuantity ?? 0m);
-            if (quantity <= 0m) continue;
+            if (quantity <= 0m)
+            {
+                continue;
+            }
+
             lines.Add(StockTransferLine.Create(
                 source.TenantId, source.Id, line.ItemId, line.ItemVariantId,
                 quantity, line.UnitOfMeasure, line.SenderLocationId, line.ReceiverLocationId));
@@ -469,9 +492,14 @@ public sealed class Stage22RegistryService(
         GroupHierarchyNode brand = await RequireHierarchyCompanyAsync(brandCompanyId, cancellationToken).ConfigureAwait(false);
         GroupHierarchyNode franchisee = await RequireHierarchyCompanyAsync(franchiseeCompanyId, cancellationToken).ConfigureAwait(false);
         if (brand.BusinessId != franchisee.BusinessId)
+        {
             throw new InvalidOperationException("Brand and franchisee must belong to the same business.");
+        }
+
         if (brand.OwnershipType != OwnershipType.Owned || franchisee.OwnershipType != OwnershipType.Franchised)
+        {
             throw new InvalidOperationException("Franchise pricing requires an owned brand and a franchised company.");
+        }
 
         FranchiseWholesalePriceRow? existing = await registry.FranchiseWholesalePriceRows.SingleOrDefaultAsync(
             x => x.TenantId == tenant.TenantId && x.BrandCompanyId == brandCompanyId
@@ -500,7 +528,9 @@ public sealed class Stage22RegistryService(
                 && x.OccupiesTo == null,
             cancellationToken).ConfigureAwait(false);
         if (!validOccupancy)
+        {
             throw new KeyNotFoundException("The company does not have an active occupancy at the premises.");
+        }
 
         SharedPremisesRetailPriceRow? existing = await registry.SharedPremisesRetailPriceRows.SingleOrDefaultAsync(
             x => x.TenantId == tenant.TenantId && x.PremisesId == premisesId && x.CompanyId == companyId && x.ItemId == itemId,
@@ -523,7 +553,9 @@ public sealed class Stage22RegistryService(
     {
         GroupHierarchyNode node = await RequireHierarchyCompanyAsync(companyId, cancellationToken).ConfigureAwait(false);
         if (node.BusinessId != businessId || node.OwnershipType != OwnershipType.Owned)
+        {
             throw new InvalidOperationException("Group pricing requires an owned company in the requested business.");
+        }
     }
 
     private async Task<GroupHierarchyNode> RequireHierarchyCompanyAsync(Guid companyId, CancellationToken cancellationToken)

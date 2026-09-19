@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Identity.Commands;
-using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Connect;
-using VumaRetail.Infrastructure.Sync;
 using VumaRetail.Domain.Identity;
+using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sync;
+using VumaRetail.Infrastructure.Sync;
 using VumaRetail.IntegrationTests.Harness;
 using VumaRetail.Sync.Commands;
 using VumaRetail.Sync.Protocol;

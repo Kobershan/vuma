@@ -1,12 +1,12 @@
 #pragma warning disable CS1591
 using System.Security.Cryptography;
 using System.Text;
-using VumaRetail.Domain.Ecommerce;
-using VumaRetail.Domain.Orders;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Orders.Commands;
 using VumaRetail.Application.Pos;
+using VumaRetail.Domain.Ecommerce;
+using VumaRetail.Domain.Orders;
 
 namespace VumaRetail.Application.Ecommerce;
 

@@ -1,5 +1,5 @@
-using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.CustomerAccounts;
+using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Finance;
 

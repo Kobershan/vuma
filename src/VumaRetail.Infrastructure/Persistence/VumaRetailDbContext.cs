@@ -844,9 +844,13 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
             if (entry.State == EntityState.Added)
             {
                 if (_companyContext?.CompanyId is { } activeCompany)
+                {
                     entry.Entity.AssignCompany(activeCompany);
+                }
                 else if (entry.Entity.CompanyId is null)
+                {
                     entry.Entity.AssignCompany(companyId);
+                }
             }
             else if (_companyContext?.CompanyId is { } active && entry.Entity.CompanyId != active
                 && !CompanyFilterExemptions.Contains(entry.Entity.GetType()))

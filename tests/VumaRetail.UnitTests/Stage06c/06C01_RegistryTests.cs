@@ -1,7 +1,7 @@
+using FluentAssertions;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using Xunit;
-using FluentAssertions;
 
 namespace VumaRetail.UnitTests.Stage06c;
 

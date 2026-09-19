@@ -1,10 +1,10 @@
 using FluentValidation;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Inventory;
+using VumaRetail.Application.Quality;
 using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Warehouse;
-using VumaRetail.Application.Quality;
 
 namespace VumaRetail.Application.Warehouse.Commands;
 

@@ -1,7 +1,7 @@
 ﻿#pragma warning disable CS1591
-using VumaRetail.Domain.Service;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Service;
 
 namespace VumaRetail.Application.Service;
 

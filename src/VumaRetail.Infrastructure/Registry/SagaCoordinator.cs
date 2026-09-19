@@ -1,8 +1,8 @@
-using VumaRetail.Domain.Registry;
+using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -33,9 +33,15 @@ public sealed class SagaCoordinator : ISagaCoordinator
             .Include(candidate => candidate.Legs)
             .SingleOrDefaultAsync(candidate => candidate.TenantId == intent.TenantId
                 && candidate.IdempotencyKey == intent.IdempotencyKey, cancellationToken);
-        if (recorded is not null) return ToResult(recorded);
+        if (recorded is not null)
+        {
+            return ToResult(recorded);
+        }
 
-        if (intent.State != SagaIntentState.Pending) throw new InvalidOperationException("Intent must be in Pending state.");
+        if (intent.State != SagaIntentState.Pending)
+        {
+            throw new InvalidOperationException("Intent must be in Pending state.");
+        }
 
         _registry.SagaIntents.Add(intent);
         await _registry.CommitAsync(cancellationToken);
@@ -60,7 +66,10 @@ public sealed class SagaCoordinator : ISagaCoordinator
 
     private async Task DispatchAsync(SagaIntent intent, SagaLeg leg, CancellationToken cancellationToken)
     {
-        if (leg.State == SagaLegState.Acknowledged) return;
+        if (leg.State == SagaLegState.Acknowledged)
+        {
+            return;
+        }
 
         try
         {
@@ -92,7 +101,9 @@ public sealed class SagaCoordinator : ISagaCoordinator
             ?? throw new InvalidOperationException("Intent not found.");
 
         if (intent.State is SagaIntentState.Completed or SagaIntentState.Compensated)
+        {
             throw new InvalidOperationException("Only an in-flight or timed-out intent can be compensated.");
+        }
 
         ISagaLegDispatcher dispatcher = DispatcherFor(intent);
         foreach (SagaLeg leg in intent.Legs
@@ -118,7 +129,10 @@ public sealed class SagaCoordinator : ISagaCoordinator
         var leg = intent.Legs.FirstOrDefault(l => l.LegId == legId)
             ?? throw new InvalidOperationException("Leg not found.");
 
-        if (intent.State is SagaIntentState.Compensated or SagaIntentState.Completed || leg.State is SagaLegState.Acknowledged or SagaLegState.Compensated) return;
+        if (intent.State is SagaIntentState.Compensated or SagaIntentState.Completed || leg.State is SagaLegState.Acknowledged or SagaLegState.Compensated)
+        {
+            return;
+        }
 
         // Backoff is calculated from the durable attempt count. A scheduler/redriver can invoke
         // this forever; retries do not create a second company-side document because the

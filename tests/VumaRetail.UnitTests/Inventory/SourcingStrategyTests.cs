@@ -1,5 +1,5 @@
-using VumaRetail.Domain.Inventory;
 using VumaRetail.Application.Inventory;
+using VumaRetail.Domain.Inventory;
 using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.UnitTests.Inventory;

@@ -26,18 +26,18 @@ public sealed class AvailabilityProjectionTests
     [Fact]
     public async Task A_reserve_is_visible_in_the_group_view_with_its_as_at()
     {
-        await using var harness = await AvailabilityHarness.CreateAsync(_fixture).ConfigureAwait(false);
-        await harness.ReceiveAsync(12m).ConfigureAwait(false);
+        await using var harness = await AvailabilityHarness.CreateAsync(_fixture);
+        await harness.ReceiveAsync(12m);
         IReservationService reservations = harness.CreateService();
 
         await reservations.ReserveAsync(
             harness.LocationId, harness.ItemId, null,
             new Quantity(5m, "EA"),
-            ReservationSource.Order, Guid.NewGuid()).ConfigureAwait(false);
+            ReservationSource.Order, Guid.NewGuid());
 
         var reader = new RegistryAvailabilityReader(harness.Registry, harness.Clock);
         GroupAvailabilityView view = await reader
-            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15));
 
         GroupAvailabilityContribution contribution = view.Contributions.Should().ContainSingle().Subject;
         contribution.Promise.Available.Value.Should().Be(7m);
@@ -50,20 +50,20 @@ public sealed class AvailabilityProjectionTests
     [Fact]
     public async Task A_quiet_contributor_is_named_stale_not_summed_silently()
     {
-        await using var harness = await AvailabilityHarness.CreateAsync(_fixture).ConfigureAwait(false);
-        await harness.ReceiveAsync(12m).ConfigureAwait(false);
+        await using var harness = await AvailabilityHarness.CreateAsync(_fixture);
+        await harness.ReceiveAsync(12m);
         IReservationService reservations = harness.CreateService();
 
         await reservations.ReserveAsync(
             harness.LocationId, harness.ItemId, null,
             new Quantity(5m, "EA"),
-            ReservationSource.Order, Guid.NewGuid()).ConfigureAwait(false);
+            ReservationSource.Order, Guid.NewGuid());
 
         harness.Clock.Advance(TimeSpan.FromMinutes(16));
 
         var reader = new RegistryAvailabilityReader(harness.Registry, harness.Clock);
         GroupAvailabilityView view = await reader
-            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15));
 
         view.HasStaleContributors.Should().BeTrue();
         view.StaleContributorCodes.Should().ContainSingle().Which.Should().Be("SH");
@@ -73,8 +73,8 @@ public sealed class AvailabilityProjectionTests
     [Fact]
     public async Task The_relay_heals_a_projection_the_direct_publish_never_reached()
     {
-        await using var harness = await AvailabilityHarness.CreateAsync(_fixture).ConfigureAwait(false);
-        await harness.ReceiveAsync(12m).ConfigureAwait(false);
+        await using var harness = await AvailabilityHarness.CreateAsync(_fixture);
+        await harness.ReceiveAsync(12m);
 
         // No direct publish on this service: the projection starts empty, the way a crash
         // between the company commit and the publish would leave it.
@@ -83,20 +83,20 @@ public sealed class AvailabilityProjectionTests
         await reservations.ReserveAsync(
             harness.LocationId, harness.ItemId, null,
             new Quantity(5m, "EA"),
-            ReservationSource.Order, Guid.NewGuid()).ConfigureAwait(false);
+            ReservationSource.Order, Guid.NewGuid());
 
         harness.Registry.GroupAvailabilityRows.Should().BeEmpty();
 
         await using var companyDb = harness.OpenCompanyDb();
         int applied = await harness.Relay.RelayCompanyAsync(
             companyDb, harness.Registry, harness.TenantId, harness.CompanyId,
-            harness.Clock.UtcNow).ConfigureAwait(false);
+            harness.Clock.UtcNow);
 
         applied.Should().BeGreaterThan(0);
 
         var reader = new RegistryAvailabilityReader(harness.Registry, harness.Clock);
         GroupAvailabilityView view = await reader
-            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15));
 
         view.Contributions.Should().ContainSingle().Subject.Promise.Available.Value.Should().Be(7m);
     }
@@ -105,7 +105,7 @@ public sealed class AvailabilityProjectionTests
     public async Task Rebuild_from_scratch_equals_the_incremental_projection_after_500_random_operations()
     {
         // Fixed seed: a failure reproduces exactly.
-        await using var harness = await AvailabilityHarness.CreateAsync(_fixture).ConfigureAwait(false);
+        await using var harness = await AvailabilityHarness.CreateAsync(_fixture);
         IReservationService reservations = harness.CreateService();
         var random = new Random(0x08C);
 
@@ -116,14 +116,14 @@ public sealed class AvailabilityProjectionTests
             int roll = random.Next(100);
             if (roll < 40)
             {
-                await harness.ReceiveAsync(random.Next(1, 11)).ConfigureAwait(false);
+                await harness.ReceiveAsync(random.Next(1, 11));
             }
             else if (roll < 75)
             {
                 ReserveOutcome outcome = await reservations.ReserveAsync(
                     harness.LocationId, harness.ItemId, null,
                     new Quantity(random.Next(1, 9), "EA"),
-                    ReservationSource.Order, Guid.NewGuid()).ConfigureAwait(false);
+                    ReservationSource.Order, Guid.NewGuid());
                 if (outcome.ReservationId.HasValue)
                 {
                     openHolds.Add(outcome.ReservationId.Value);
@@ -136,11 +136,11 @@ public sealed class AvailabilityProjectionTests
                 openHolds.RemoveAt(pick);
                 if (roll < 85)
                 {
-                    await reservations.ReleaseAsync(hold, "random release").ConfigureAwait(false);
+                    await reservations.ReleaseAsync(hold, "random release");
                 }
                 else
                 {
-                    await reservations.ConsumeAsync(hold, Guid.NewGuid()).ConfigureAwait(false);
+                    await reservations.ConsumeAsync(hold, Guid.NewGuid());
                 }
             }
         }
@@ -150,18 +150,18 @@ public sealed class AvailabilityProjectionTests
         StockBalance? balance = await companyDb.StockBalances
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.LocationId == harness.LocationId && b.ItemId == harness.ItemId)
-            .ConfigureAwait(false);
+            ;
         AvailableBalance? position = await companyDb.AvailableBalances
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.LocationId == harness.LocationId && b.ItemId == harness.ItemId)
-            .ConfigureAwait(false);
+            ;
 
         decimal expectedOnHand = balance?.QuantityOnHand.Value ?? 0m;
         decimal expectedReserved = position?.Reserved.Value ?? 0m;
 
         // Wipe the projection and rebuild from scratch: the relay path, not the incremental one.
         harness.Registry.GroupAvailabilityRows.RemoveRange(harness.Registry.GroupAvailabilityRows);
-        await harness.Registry.SaveChangesAsync().ConfigureAwait(false);
+        await harness.Registry.SaveChangesAsync();
 
         await harness.Relay.RebuildAsync(
             new Dictionary<Guid, VumaRetail.Infrastructure.Persistence.VumaRetailDbContext>
@@ -170,11 +170,11 @@ public sealed class AvailabilityProjectionTests
             },
             harness.Registry,
             harness.TenantId,
-            harness.Clock.UtcNow).ConfigureAwait(false);
+            harness.Clock.UtcNow);
 
         var reader = new RegistryAvailabilityReader(harness.Registry, harness.Clock);
         GroupAvailabilityView view = await reader
-            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15)).ConfigureAwait(false);
+            .ReadAsync(harness.ItemId, null, TimeSpan.FromMinutes(15));
 
         GroupAvailabilityContribution rebuilt = view.Contributions.Should().ContainSingle().Subject;
         rebuilt.Promise.OnHand.Value.Should().Be(expectedOnHand);

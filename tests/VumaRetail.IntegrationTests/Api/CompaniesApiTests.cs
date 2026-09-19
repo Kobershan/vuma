@@ -65,7 +65,7 @@ public sealed class CompaniesApiTests(PostgresFixture fixture)
             company.SetLifecycle(CompanyLifecycleState.Registered);
             company.SetLifecycle(CompanyLifecycleState.Active, isActive: true);
             registry.Companies.Add(company);
-            await registry.SaveChangesAsync().ConfigureAwait(false);
+            await registry.SaveChangesAsync();
             return company.Id;
         });
 }

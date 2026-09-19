@@ -1,10 +1,10 @@
+using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Registry;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Registry;
-using NSubstitute;
 using Xunit;
 
 namespace VumaRetail.UnitTests.Registry;

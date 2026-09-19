@@ -1,6 +1,6 @@
+using VumaRetail.Application.Loyalty;
 using VumaRetail.Application.Loyalty.Commands;
 using VumaRetail.Domain.Loyalty;
-using VumaRetail.Application.Loyalty;
 using VumaRetail.Domain.Primitives;
 
 namespace VumaRetail.UnitTests.Loyalty.Concurrency;

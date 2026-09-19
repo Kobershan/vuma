@@ -127,7 +127,7 @@ public sealed class CrmHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string connectionString = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string connectionString = await fixture.CreateDatabaseAsync();
 
         TestClock clock = new();
         TestTenantContext tenant = TestTenantContext.Unfiltered();
@@ -150,7 +150,7 @@ public sealed class CrmHarness : IAsyncDisposable
         Partner customer = Partner.Create(seeded.Id, "CUS-001", "Harness Customer", PartnerType.Customer);
         context.Partners.Add(customer);
 
-        await context.SaveChangesAsync().ConfigureAwait(false);
+        await context.SaveChangesAsync();
 
         Guid companyId = Guid.NewGuid();
         tenant.SetTenant(seeded.Id, store.Id);
@@ -162,7 +162,7 @@ public sealed class CrmHarness : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await _services.DisposeAsync().ConfigureAwait(false);
-        await Context.DisposeAsync().ConfigureAwait(false);
+        await _services.DisposeAsync();
+        await Context.DisposeAsync();
     }
 }

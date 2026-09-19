@@ -1,3 +1,4 @@
+using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
@@ -6,7 +7,6 @@ using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Registry;
 using Xunit;
-using FluentAssertions;
 
 namespace VumaRetail.UnitTests.Stage06c;
 

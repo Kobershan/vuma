@@ -188,9 +188,9 @@ public sealed class TradingBasketHarness : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        string registryConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        string companyAConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        string companyBConnection = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
+        string registryConnection = await fixture.CreateDatabaseAsync();
+        string companyAConnection = await fixture.CreateDatabaseAsync();
+        string companyBConnection = await fixture.CreateDatabaseAsync();
 
         var clock = new TestClock(new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.Zero));
         var tenant = TestTenantContext.Unfiltered();
@@ -208,14 +208,14 @@ public sealed class TradingBasketHarness : IAsyncDisposable
                 companyAConnection, clock, principal, tenant,
                 companyAId,
                 [("HOTPLATE-2", "Hot plate 2-burner", 500m), ("GLOVE-WL", "Work gloves", 60m)])
-            .ConfigureAwait(false);
+            ;
 
         CompanySeed seedB = await SeedCompanyAsync(
                 companyBConnection, clock, principal, tenant,
                 companyBId,
                 [("MAIZE-10KG", "Maize meal 10kg", 120m)],
                 seedA.TenantId, seedA.StoreId)
-            .ConfigureAwait(false);
+            ;
 
         Guid tenantId = seedA.TenantId;
         Guid storeId = seedA.StoreId;
@@ -287,7 +287,7 @@ public sealed class TradingBasketHarness : IAsyncDisposable
                 AsAt = clock.UtcNow,
             });
 
-            await registrySeed.SaveChangesAsync().ConfigureAwait(false);
+            await registrySeed.SaveChangesAsync();
         }
 
         tenant.SetTenant(tenantId, storeId);
@@ -368,7 +368,7 @@ public sealed class TradingBasketHarness : IAsyncDisposable
 
         SeedFinance(seed, tenantId, companyId, clock);
 
-        await seed.CommitAsync().ConfigureAwait(false);
+        await seed.CommitAsync();
 
         StockLedgerPoster poster = new(
             new StockBalanceRepository(seed),
@@ -377,11 +377,11 @@ public sealed class TradingBasketHarness : IAsyncDisposable
             clock);
         foreach ((string code, string name, decimal unitCost) in items)
         {
-            Item item = await seed.Items.FirstAsync(candidate => candidate.Code == code).ConfigureAwait(false);
+            Item item = await seed.Items.FirstAsync(candidate => candidate.Code == code);
             await poster.ReceiveAsync(location, item.Id, null, new Quantity(100m, "EA"), new Money(unitCost, "ZAR"), "Opening stock");
         }
 
-        await seed.CommitAsync().ConfigureAwait(false);
+        await seed.CommitAsync();
         return new CompanySeed(tenantId, storeId, itemIds);
     }
 
@@ -537,8 +537,8 @@ public sealed class TradingBasketHarness : IAsyncDisposable
         // Both chains: handlers mint document numbers through the session company's database
         // while the session rows land in the registry — the pipeline commits both.
         await using VumaRetailDbContext companyA = TestDbContextFactory.For(CompanyAConnection, Clock, Principal, TenantContext);
-        await companyA.CommitAsync(cancellationToken).ConfigureAwait(false);
-        await Registry.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await companyA.CommitAsync(cancellationToken);
+        await Registry.CommitAsync(cancellationToken);
     }
 
     private void Track(VumaRetailDbContext context)
@@ -551,10 +551,10 @@ public sealed class TradingBasketHarness : IAsyncDisposable
     {
         for (int index = _owned.Count - 1; index >= 0; index--)
         {
-            await _owned[index].DisposeAsync().ConfigureAwait(false);
+            await _owned[index].DisposeAsync();
         }
 
-        await Registry.DisposeAsync().ConfigureAwait(false);
+        await Registry.DisposeAsync();
     }
 
     /// <summary>Command handlers bound to this harness's contexts.</summary>
@@ -571,9 +571,9 @@ public sealed class TradingBasketHarness : IAsyncDisposable
                 new DocumentNumberSequence(companyA, harness.TenantContext),
                 harness.TenantContext,
                 harness.Clock);
-            Guid id = await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
-            await companyA.CommitAsync(cancellationToken).ConfigureAwait(false);
-            await harness.SaveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            Guid id = await handler.HandleAsync(command, cancellationToken);
+            await companyA.CommitAsync(cancellationToken);
+            await harness.SaveSessionsAsync(cancellationToken);
             return id;
         }
 
@@ -582,8 +582,8 @@ public sealed class TradingBasketHarness : IAsyncDisposable
         {
             var handler = new AddBasketLineCommandHandler(
                 harness.Sessions, barcodes, links, tax, packs, harness.TenantContext, harness.Clock);
-            Guid id = await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
-            await harness.SaveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            Guid id = await handler.HandleAsync(command, cancellationToken);
+            await harness.SaveSessionsAsync(cancellationToken);
             return id;
         }
 
@@ -591,24 +591,24 @@ public sealed class TradingBasketHarness : IAsyncDisposable
         public async Task CaptureTenderAsync(CaptureTenderCommand command, CancellationToken cancellationToken = default)
         {
             var handler = new CaptureTenderCommandHandler(harness.Sessions, harness.TenantContext, harness.Clock);
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
-            await harness.SaveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
+            await harness.SaveSessionsAsync(cancellationToken);
         }
 
         /// <summary>Runs an allocation override, then commits.</summary>
         public async Task OverrideAllocationAsync(OverrideTenderAllocationCommand command, CancellationToken cancellationToken = default)
         {
             var handler = new OverrideTenderAllocationCommandHandler(harness.Sessions, harness.TenantContext);
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
-            await harness.SaveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
+            await harness.SaveSessionsAsync(cancellationToken);
         }
 
         /// <summary>Runs a session void, then commits.</summary>
         public async Task VoidSessionAsync(VoidTradingSessionCommand command, CancellationToken cancellationToken = default)
         {
             var handler = new VoidTradingSessionCommandHandler(harness.Sessions, harness.TenantContext, harness.Clock);
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
-            await harness.SaveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
+            await harness.SaveSessionsAsync(cancellationToken);
         }
     }
 

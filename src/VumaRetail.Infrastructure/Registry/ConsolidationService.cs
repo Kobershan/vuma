@@ -51,7 +51,9 @@ public sealed class ConsolidationService : IConsolidationService
             foreach (CompanyAccountBalance balance in figure.Accounts)
             {
                 if (balance.AccountCode.StartsWith("ICCLR", StringComparison.OrdinalIgnoreCase))
+                {
                     continue; // Eliminate inter-company clearing accounts
+                }
 
                 ConsolidatedAccountLine? existing = accounts.FirstOrDefault(a => a.AccountCode == balance.AccountCode);
                 if (existing is not null)
@@ -112,7 +114,9 @@ public sealed class ConsolidationService : IConsolidationService
             foreach (CompanyAccountBalance balance in figure.Accounts)
             {
                 if (balance.AccountCode.StartsWith("ICCLR", StringComparison.OrdinalIgnoreCase))
+                {
                     continue; // Eliminate inter-company clearing
+                }
 
                 ConsolidatedAccountLine line = new()
                 {
@@ -124,9 +128,13 @@ public sealed class ConsolidationService : IConsolidationService
                 };
 
                 if (balance.AccountType is "Income")
+                {
                     incomeAccounts.Add(line);
+                }
                 else if (balance.AccountType is "Expense")
+                {
                     expenseAccounts.Add(line);
+                }
             }
         }
 
@@ -170,7 +178,9 @@ public sealed class ConsolidationService : IConsolidationService
             foreach (CompanyAccountBalance balance in figure.Accounts)
             {
                 if (balance.AccountCode.StartsWith("ICCLR", StringComparison.OrdinalIgnoreCase))
+                {
                     continue; // Eliminate inter-company clearing
+                }
 
                 ConsolidatedAccountLine line = new()
                 {

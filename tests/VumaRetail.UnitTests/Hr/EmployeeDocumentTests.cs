@@ -1,10 +1,10 @@
-using VumaRetail.Domain.HrManagement;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using NSubstitute;
-using VumaRetail.Application.Hr;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
-using Microsoft.Extensions.Configuration;
+using VumaRetail.Application.Hr;
+using VumaRetail.Domain.HrManagement;
 using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.UnitTests.Hr;

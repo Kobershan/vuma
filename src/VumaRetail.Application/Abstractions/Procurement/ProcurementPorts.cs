@@ -1,5 +1,5 @@
-using VumaRetail.Domain.Procurement;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Procurement;
 
 namespace VumaRetail.Application.Abstractions.Procurement;
 

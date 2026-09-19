@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Xunit;
 using VumaRetail.ControlPlane;
+using Xunit;
 
 namespace VumaRetail.ControlPlane.Tests;
 

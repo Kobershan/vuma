@@ -17,12 +17,12 @@ public sealed class TradingSessionApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Anonymous_callers_get_401()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         var body = new OpenTradingSessionRequest(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "ZAR", $"TS-{Guid.NewGuid():N}");
         HttpResponseMessage response = await harness.Client
-            .PostAsJsonAsync("/api/v1/trading-sessions", body).ConfigureAwait(false);
+            .PostAsJsonAsync("/api/v1/trading-sessions", body);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -30,12 +30,12 @@ public sealed class TradingSessionApiTests(PostgresFixture fixture)
     [Fact]
     public async Task Endpoints_answer_behind_their_permissions()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
         await harness.CreateUserAsync(
             "clerk1", "CorrectHorseBattery1",
-            "pos.sale.view").ConfigureAwait(false);
-        HttpClient clerk = await harness.SignInAsync("clerk1").ConfigureAwait(false);
+            "pos.sale.view");
+        HttpClient clerk = await harness.SignInAsync("clerk1");
 
         Guid sessionId = Guid.NewGuid();
         Guid lineId = Guid.NewGuid();
@@ -66,16 +66,16 @@ public sealed class TradingSessionApiTests(PostgresFixture fixture)
         {
             HttpResponseMessage response = method switch
             {
-                "POST" when body is not null => await clerk.PostAsync(url, body).ConfigureAwait(false),
-                "POST" => await clerk.PostAsync(url, new StringContent(string.Empty)).ConfigureAwait(false),
-                _ => await clerk.PutAsync(url, body!).ConfigureAwait(false),
+                "POST" when body is not null => await clerk.PostAsync(url, body),
+                "POST" => await clerk.PostAsync(url, new StringContent(string.Empty)),
+                _ => await clerk.PutAsync(url, body!),
             };
             response.StatusCode.Should().Be(
                 HttpStatusCode.Forbidden, $"write route {method} {url} must sit behind a basket permission");
         }
 
         HttpResponseMessage read = await clerk.GetAsync(
-            $"/api/v1/trading-sessions/{sessionId}").ConfigureAwait(false);
+            $"/api/v1/trading-sessions/{sessionId}");
         read.StatusCode.Should().Be(
             HttpStatusCode.Forbidden, "read routes must sit behind the basket permission");
     }
@@ -83,9 +83,9 @@ public sealed class TradingSessionApiTests(PostgresFixture fixture)
     [Fact]
     public async Task OpenAPI_lists_every_trading_route()
     {
-        await using var harness = await ApiHarness.CreateAsync(fixture).ConfigureAwait(false);
+        await using var harness = await ApiHarness.CreateAsync(fixture);
 
-        string document = await harness.Client.GetStringAsync("/openapi/v1.json").ConfigureAwait(false);
+        string document = await harness.Client.GetStringAsync("/openapi/v1.json");
 
         string[] routes =
         [

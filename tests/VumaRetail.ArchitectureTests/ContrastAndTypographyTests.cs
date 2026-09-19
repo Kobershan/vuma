@@ -87,7 +87,10 @@ public sealed class ContrastAndTypographyTests
 
         foreach (var prop in scale.AsObject())
         {
-            if (exemptTokens.Contains(prop.Key)) continue;
+            if (exemptTokens.Contains(prop.Key))
+            {
+                continue;
+            }
 
             var t = prop.Value!;
             var size = t["size"]!.GetValue<int>();
@@ -167,7 +170,10 @@ public sealed class ContrastAndTypographyTests
     private static (int r, int g, int b) HexToRgb(string hex)
     {
         if (hex.Length == 3)
+        {
             hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+        }
+
         return (
             Convert.ToInt32(hex.Substring(0, 2), 16),
             Convert.ToInt32(hex.Substring(2, 2), 16),

@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
@@ -34,7 +34,11 @@ public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
         int maxConcurrency = DefaultMaxConcurrency,
         ILogger<CompanyMigrationRunner>? logger = null)
     {
-        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency));
+        if (maxConcurrency <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxConcurrency));
+        }
+
         _registry = registry;
         _secrets = secrets;
         _unitOfWork = unitOfWork;
@@ -78,8 +82,10 @@ public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
             var company = companies.Single(x => x.Id == result.CompanyId);
             company.SetMigration(result.SchemaVersion, result.Succeeded ? "Current" : "Pending");
             if (!result.Succeeded)
-                company.RecordProvisioningFailure(result.Error ?? "Company migration failed.");
-        }
+                {
+                    company.RecordProvisioningFailure(result.Error ?? "Company migration failed.");
+                }
+            }
         await _unitOfWork.CommitAsync(cancellationToken);
         return results;
         }
@@ -123,7 +129,9 @@ public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
         try
         {
             if (string.IsNullOrWhiteSpace(company.ConnectionSecretRef))
+            {
                 return new(company.Id, false, "Company has no registered database connection.", company.SchemaVersion);
+            }
 
             var connectionString = await _secrets.ResolveAsync(company.ConnectionSecretRef, cancellationToken);
             var connection = new NpgsqlConnectionStringBuilder(connectionString)
@@ -183,10 +191,21 @@ public sealed class CompanyServingGuard(VumaRegistryDbContext registry) : ICompa
     public async Task EnsureAccessibleAsync(Guid tenantId, Guid companyId, CompanyAccessMode access, CancellationToken cancellationToken = default)
     {
         var company = await registry.Companies.AsNoTracking().SingleOrDefaultAsync(x => x.Id == companyId && x.TenantId == tenantId, cancellationToken);
-        if (company is null) throw new InvalidOperationException("COMPANY_NOT_FOUND");
-        if (access == CompanyAccessMode.Write && !company.CanServe) throw new CompanyReadOnlyException(company.LifecycleState);
+        if (company is null)
+        {
+            throw new InvalidOperationException("COMPANY_NOT_FOUND");
+        }
+
+        if (access == CompanyAccessMode.Write && !company.CanServe)
+        {
+            throw new CompanyReadOnlyException(company.LifecycleState);
+        }
+
         if (access == CompanyAccessMode.Read && company.LifecycleState is not (CompanyLifecycleState.Active or CompanyLifecycleState.Deactivated))
+        {
             throw new InvalidOperationException("COMPANY_NOT_SERVABLE");
+        }
+
         if (!string.Equals(company.MigrationState, "Current", StringComparison.OrdinalIgnoreCase))
         {
             string detail = string.IsNullOrWhiteSpace(company.ProvisioningError)

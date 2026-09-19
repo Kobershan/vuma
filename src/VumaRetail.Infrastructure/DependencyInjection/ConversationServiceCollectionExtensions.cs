@@ -1,12 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using VumaRetail.Application.Conversations;
+using Microsoft.Extensions.Options;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Infrastructure.Conversations;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Registry;
-using VumaRetail.Infrastructure.Conversations;
-using Microsoft.Extensions.Options;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 

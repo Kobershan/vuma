@@ -22,7 +22,11 @@ public sealed class OutboundMessageRepository(VumaRetailDbContext db) : IOutboun
         limit = Math.Clamp(limit, 1, 500);
         IQueryable<OutboundMessage> query = db.OutboundMessages
             .Where(x => x.CompanyId == companyId && x.Status == OutboundMessageStatus.Queued);
-        if (dueOnly) query = query.Where(x => x.ScheduledAt <= asAt && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= asAt));
+        if (dueOnly)
+        {
+            query = query.Where(x => x.ScheduledAt <= asAt && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= asAt));
+        }
+
         return await query.OrderBy(x => x.ScheduledAt).ThenBy(x => x.Id).Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -30,7 +34,11 @@ public sealed class OutboundMessageRepository(VumaRetailDbContext db) : IOutboun
         IReadOnlyCollection<OutboundMessageStatus> statuses, int limit, CancellationToken cancellationToken = default)
     {
         limit = Math.Clamp(limit, 1, 500);
-        if (statuses.Count == 0) return Array.Empty<OutboundMessage>();
+        if (statuses.Count == 0)
+        {
+            return Array.Empty<OutboundMessage>();
+        }
+
         return await db.OutboundMessages
             .Where(x => x.CompanyId == companyId && statuses.Contains(x.Status))
             .OrderByDescending(x => x.ScheduledAt).ThenBy(x => x.Id).Take(limit)

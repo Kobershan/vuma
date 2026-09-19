@@ -1,9 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using VumaRetail.Application.Projects;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Projects;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;

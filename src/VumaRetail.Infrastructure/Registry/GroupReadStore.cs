@@ -1,10 +1,10 @@
-using VumaRetail.Domain.Registry;
-using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Inventory;
+using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -24,10 +24,17 @@ public sealed class GroupReadStore : IGroupReadStore
 
     public async Task<GroupAvailability> GetAvailabilityAsync(Guid tenantId, IEnumerable<Guid> companyIds, CancellationToken cancellationToken = default)
     {
-        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
+
         Guid[] ids = companyIds.Distinct().Where(id => id != Guid.Empty).ToArray();
         DateTimeOffset now = _clock.UtcNow;
-        if (ids.Length == 0) return new GroupAvailability([], now);
+        if (ids.Length == 0)
+        {
+            return new GroupAvailability([], now);
+        }
 
         Dictionary<Guid, string> companies = await _registry.Companies.AsNoTracking()
             .Where(company => company.TenantId == tenantId && ids.Contains(company.Id))

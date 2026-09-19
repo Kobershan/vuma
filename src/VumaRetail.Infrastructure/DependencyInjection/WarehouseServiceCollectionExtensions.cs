@@ -2,11 +2,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Quality;
 using VumaRetail.Application.Warehouse;
 using VumaRetail.Application.Warehouse.Permissions;
-using VumaRetail.Application.Quality;
-using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Orders;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Warehouse;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;

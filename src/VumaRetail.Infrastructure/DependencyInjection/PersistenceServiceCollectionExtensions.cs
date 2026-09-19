@@ -2,16 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Sync;
-using VumaRetail.Infrastructure.Persistence;
-using VumaRetail.Infrastructure.Persistence.Interceptors;
-using VumaRetail.Infrastructure.Security;
-using VumaRetail.Infrastructure.Time;
-using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Abstractions.Licensing;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Registry;
+using VumaRetail.Infrastructure.Persistence;
+using VumaRetail.Infrastructure.Persistence.Interceptors;
 using VumaRetail.Infrastructure.Registry;
+using VumaRetail.Infrastructure.Security;
+using VumaRetail.Infrastructure.Time;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 

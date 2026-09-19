@@ -30,8 +30,16 @@ public sealed class FileSystemReportArtifactStore(ReportArtifactStoreOptions opt
         }
         string root = Path.GetFullPath(options.RootDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         string path = Path.GetFullPath(Path.Combine(options.RootDirectory, relative.Replace('/', Path.DirectorySeparatorChar)));
-        if (!path.StartsWith(root, StringComparison.Ordinal)) throw new ArgumentException("The artifact reference is outside the store.", nameof(artifactReference));
-        if (!File.Exists(path)) throw new FileNotFoundException("The report artifact was not found.", artifactReference);
+        if (!path.StartsWith(root, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The artifact reference is outside the store.", nameof(artifactReference));
+        }
+
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("The report artifact was not found.", artifactReference);
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<Stream>(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
     }

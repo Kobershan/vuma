@@ -22,7 +22,10 @@ public sealed class InMemoryConnectPaymentGateway : IPaymentGateway
     public Task<GatewayPaymentResult> CaptureAsync(Guid paymentId, string providerReference, CancellationToken cancellationToken = default)
     {
         if (paymentId == Guid.Empty || string.IsNullOrWhiteSpace(providerReference))
+        {
             throw new ArgumentException("A payment and provider reference are required.");
+        }
+
         GatewayPaymentResult result = _payments.TryGetValue(paymentId, out GatewayPaymentResult? current)
             ? current with { Status = current.Status == ConnectPaymentStatus.Authorised ? ConnectPaymentStatus.Captured : current.Status }
             : new(ConnectPaymentStatus.Failed, providerReference, "Payment was not authorised.");
@@ -36,7 +39,11 @@ public sealed class InMemoryConnectSettlementProvider : ISettlementProvider
     public Task<SettlementResult> SettleAsync(ConnectPaymentRequest request, string providerReference, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (string.IsNullOrWhiteSpace(providerReference)) throw new ArgumentException("A provider reference is required.");
+        if (string.IsNullOrWhiteSpace(providerReference))
+        {
+            throw new ArgumentException("A provider reference is required.");
+        }
+
         return Task.FromResult(new SettlementResult(ConnectPaymentStatus.Captured, $"REM-{request.PaymentId:N}"));
     }
 }

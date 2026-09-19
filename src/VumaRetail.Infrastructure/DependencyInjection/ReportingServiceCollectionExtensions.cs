@@ -5,8 +5,8 @@ using VumaRetail.Application.Identity.Permissions;
 using VumaRetail.Application.Reporting;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Persistence.Repositories;
-using VumaRetail.Infrastructure.Security;
 using VumaRetail.Infrastructure.Reporting;
+using VumaRetail.Infrastructure.Security;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 

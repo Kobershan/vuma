@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Connect;
 using VumaRetail.Domain.Connect;
-using VumaRetail.Domain.Procurement;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Procurement;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.IntegrationTests.Harness;
 

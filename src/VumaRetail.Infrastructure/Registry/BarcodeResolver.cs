@@ -1,10 +1,10 @@
-using VumaRetail.Domain.Registry;
-using VumaRetail.Domain.Primitives;
-using VumaRetail.Application.Abstractions;
-using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
+using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.Registry;
 
@@ -40,7 +40,9 @@ public sealed class BarcodeResolver : IBarcodeResolver
     public async Task<BarcodeResolution> ResolveAsync(string barcode, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(barcode))
+        {
             throw new ArgumentException("Barcode is required.", nameof(barcode));
+        }
 
         string scanned = barcode.Trim();
         List<CatalogRoutingIndexEntry> entries;
@@ -72,7 +74,9 @@ public sealed class BarcodeResolver : IBarcodeResolver
     public async Task RebuildAsync(CancellationToken cancellationToken = default)
     {
         if (_connections is null || _secrets is null || _tenant is null || _tenant.TenantId == Guid.Empty)
+        {
             throw new InvalidOperationException("Barcode routing rebuild requires an authenticated tenant and company connection services.");
+        }
 
         var companies = await _registry.Companies.AsNoTracking()
             .Where(x => x.TenantId == _tenant.TenantId && x.LifecycleState == CompanyLifecycleState.Active)
@@ -95,13 +99,20 @@ public sealed class BarcodeResolver : IBarcodeResolver
             var current = await _registry.CatalogRoutingIndex
                 .Where(x => x.TenantId == _tenant.TenantId && x.CompanyId == company.Id)
                 .ToListAsync(cancellationToken).ConfigureAwait(false);
-            foreach (CatalogRoutingIndexEntry row in current) row.IsRetired = true;
+            foreach (CatalogRoutingIndexEntry row in current)
+            {
+                row.IsRetired = true;
+            }
 
             foreach (var barcode in entries.Where(x => !string.IsNullOrWhiteSpace(x.Code)))
             {
                 Guid itemId = barcode.ItemId ?? (barcode.ItemVariantId is { } variantId && variants.TryGetValue(variantId, out var variant)
                     ? variant.ItemId : Guid.Empty);
-                if (itemId == Guid.Empty || !items.TryGetValue(itemId, out var item) || !item.IsActive) continue;
+                if (itemId == Guid.Empty || !items.TryGetValue(itemId, out var item) || !item.IsActive)
+                {
+                    continue;
+                }
+
                 Guid? variantIdValue = barcode.ItemVariantId;
                 CatalogRoutingIndexEntry? row = current.FirstOrDefault(x => x.Barcode == barcode.Code.Trim());
                 if (row is null)
@@ -119,9 +130,20 @@ public sealed class BarcodeResolver : IBarcodeResolver
 
     public async Task PublishAsync(Guid tenantId, Guid companyId, BarcodeEntry entry, CancellationToken cancellationToken = default)
     {
-        if (tenantId == Guid.Empty) throw new ArgumentException("A tenant is required.", nameof(tenantId));
-        if (companyId == Guid.Empty) throw new ArgumentException("A company is required.", nameof(companyId));
-        if (string.IsNullOrWhiteSpace(entry.Barcode)) throw new ArgumentException("A barcode is required.", nameof(entry));
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A tenant is required.", nameof(tenantId));
+        }
+
+        if (companyId == Guid.Empty)
+        {
+            throw new ArgumentException("A company is required.", nameof(companyId));
+        }
+
+        if (string.IsNullOrWhiteSpace(entry.Barcode))
+        {
+            throw new ArgumentException("A barcode is required.", nameof(entry));
+        }
 
         string companyCode = await _registry.Companies.AsNoTracking()
             .Where(company => company.TenantId == tenantId && company.Id == companyId)
@@ -160,13 +182,19 @@ public sealed class BarcodeResolver : IBarcodeResolver
     private async Task<BarcodeResolution> ResolveLocallyAsync(string barcode, CancellationToken cancellationToken)
     {
         Guid? companyId = _companyContext.CompanyId;
-        if (companyId is null) return new BarcodeResolution([], IsLocalFallback: true);
+        if (companyId is null)
+        {
+            return new BarcodeResolution([], IsLocalFallback: true);
+        }
 
         await using VumaRetailDbContext company = await _companyDatabases
             .CreateAsync(CompanyAccessMode.Read, cancellationToken);
         Domain.Catalog.Barcode? local = await company.Barcodes.AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.Code == barcode, cancellationToken);
-        if (local is null) return new BarcodeResolution([], IsLocalFallback: true);
+        if (local is null)
+        {
+            return new BarcodeResolution([], IsLocalFallback: true);
+        }
 
         Guid itemId = local.ItemId ?? Guid.Empty;
         Domain.Catalog.Item? item;
@@ -178,7 +206,10 @@ public sealed class BarcodeResolver : IBarcodeResolver
         }
         item = itemId == Guid.Empty ? null : await company.Items.AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.Id == itemId, cancellationToken);
-        if (item is null || !item.IsActive) return new BarcodeResolution([], IsLocalFallback: true);
+        if (item is null || !item.IsActive)
+        {
+            return new BarcodeResolution([], IsLocalFallback: true);
+        }
 
         return new BarcodeResolution(
             [new BarcodeCandidate(companyId.Value, "local", itemId, local.ItemVariantId,

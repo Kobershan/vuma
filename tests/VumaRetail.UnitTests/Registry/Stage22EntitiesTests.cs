@@ -1,5 +1,5 @@
-using VumaRetail.Domain.Registry;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Registry;
 
 namespace VumaRetail.UnitTests.Registry;
 

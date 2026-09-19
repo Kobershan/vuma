@@ -3,8 +3,8 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Application.Inventory;
 using VumaRetail.Domain.Inventory;
-using VumaRetail.Domain.Quality;
 using VumaRetail.Domain.Primitives;
+using VumaRetail.Domain.Quality;
 
 namespace VumaRetail.Application.Quality;
 

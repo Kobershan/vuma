@@ -40,13 +40,20 @@ public static class CompanyEndpoints
 
         companies.MapPost("/select", (HttpContext http, VumaRegistryDbContext db, ITenantContext tenant, IPrincipalAccessor principal, ICompanyContext context) =>
         {
-            if (!http.Request.Headers.TryGetValue(SelectionHeader, out var value) || !Guid.TryParse(value, out var companyId)) throw new InvalidOperationException("COMPANY_SELECTION_REQUIRED");
+            if (!http.Request.Headers.TryGetValue(SelectionHeader, out var value) || !Guid.TryParse(value, out var companyId))
+            {
+                throw new InvalidOperationException("COMPANY_SELECTION_REQUIRED");
+            }
 
             // ADR-127: a request naming a company absent from the token is 403 — not 404, and
             // not a filtered empty result. Tokens without a companies claim predate the rule.
             VumaCompanyClaims.RequireCompany(http.User, companyId);
 
-            if (!db.Companies.Any(x => x.Id == companyId && x.TenantId == tenant.TenantId && x.IsActive)) return Results.NotFound();
+            if (!db.Companies.Any(x => x.Id == companyId && x.TenantId == tenant.TenantId && x.IsActive))
+            {
+                return Results.NotFound();
+            }
+
             context.SetCompany(companyId);
             return Results.Ok(new SelectCompanyResponse(companyId, principal.TerminalId is not null ? "terminal" : "header"));
         }).RequirePermission(PlatformPermissions.CompanyView).Produces<SelectCompanyResponse>().WithSummary("Validates and binds the acting company for this request.");

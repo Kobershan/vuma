@@ -37,7 +37,11 @@ public sealed class FleetOperations(IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
-        if (percentage is < 0 or > 100) throw new ArgumentOutOfRangeException(nameof(percentage));
+        if (percentage is < 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(percentage));
+        }
+
         RolloutPlan plan = new(Guid.NewGuid(), version.Trim(), channel.Trim(), percentage, false, clock.UtcNow);
         rollouts.Add(plan);
         return plan;
@@ -46,7 +50,11 @@ public sealed class FleetOperations(IClock clock)
     public RolloutPlan HaltRollout(Guid rolloutId)
     {
         int index = rollouts.FindIndex(x => x.Id == rolloutId);
-        if (index < 0) throw new KeyNotFoundException("Rollout was not found.");
+        if (index < 0)
+        {
+            throw new KeyNotFoundException("Rollout was not found.");
+        }
+
         RolloutPlan halted = rollouts[index] with { Halted = true };
         rollouts[index] = halted;
         return halted;
@@ -56,15 +64,27 @@ public sealed class FleetOperations(IClock clock)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
-        if (plan.Halted || plan.Percentage == 0) return false;
-        if (plan.Percentage == 100) return true;
+        if (plan.Halted || plan.Percentage == 0)
+        {
+            return false;
+        }
+
+        if (plan.Percentage == 100)
+        {
+            return true;
+        }
+
         int bucket = (int)(unchecked((uint)StringComparer.Ordinal.GetHashCode($"{plan.Id:N}:{nodeId}")) % 100);
         return bucket < plan.Percentage;
     }
 
     public IReadOnlyList<FleetHealth> Health(TimeSpan offlineAfter)
     {
-        if (offlineAfter <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(offlineAfter));
+        if (offlineAfter <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offlineAfter));
+        }
+
         return nodes.Values.OrderBy(x => x.NodeId, StringComparer.Ordinal)
             .Select(x => new FleetHealth(x.NodeId, x.TenantId, clock.UtcNow - x.LastContactAt,
                 x.BackupVerified, clock.UtcNow - x.LastContactAt > offlineAfter)).ToArray();
@@ -72,7 +92,11 @@ public sealed class FleetOperations(IClock clock)
 
     public RemoteCommand QueueCommand(string nodeId, string command)
     {
-        if (!nodes.ContainsKey(nodeId)) throw new KeyNotFoundException("Fleet node was not found.");
+        if (!nodes.ContainsKey(nodeId))
+        {
+            throw new KeyNotFoundException("Fleet node was not found.");
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         RemoteCommand result = new(Guid.NewGuid(), nodeId, command.Trim(), clock.UtcNow, false);
         commands.Add(result);
@@ -82,7 +106,11 @@ public sealed class FleetOperations(IClock clock)
     public RemoteCommand HaltCommand(Guid commandId)
     {
         int index = commands.FindIndex(x => x.Id == commandId);
-        if (index < 0) throw new KeyNotFoundException("Remote command was not found.");
+        if (index < 0)
+        {
+            throw new KeyNotFoundException("Remote command was not found.");
+        }
+
         RemoteCommand halted = commands[index] with { Halted = true };
         commands[index] = halted;
         return halted;

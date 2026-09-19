@@ -26,8 +26,16 @@ public sealed class ContactBindingManagementService(
     public async Task<IReadOnlyList<ContactBinding>> ListAsync(ConversationChannel? channel = null, Guid? contactId = null, CancellationToken cancellationToken = default)
     {
         IQueryable<ContactBinding> query = registry.ContactBindings.AsNoTracking();
-        if (channel is not null) query = query.Where(x => x.Channel == channel);
-        if (contactId is not null) query = query.Where(x => x.ContactId == contactId);
+        if (channel is not null)
+        {
+            query = query.Where(x => x.Channel == channel);
+        }
+
+        if (contactId is not null)
+        {
+            query = query.Where(x => x.ContactId == contactId);
+        }
+
         return await query.OrderBy(x => x.Address).ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -54,7 +62,11 @@ public sealed class ContactBindingManagementService(
     public async Task<bool> RevokeAsync(Guid bindingId, CancellationToken cancellationToken = default)
     {
         ContactBinding? binding = await registry.ContactBindings.SingleOrDefaultAsync(x => x.Id == bindingId, cancellationToken);
-        if (binding is null) return false;
+        if (binding is null)
+        {
+            return false;
+        }
+
         binding.Revoke();
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
         return true;
@@ -63,8 +75,20 @@ public sealed class ContactBindingManagementService(
     public async Task<bool> SetConsentAsync(Guid bindingId, bool granted, CancellationToken cancellationToken = default)
     {
         ContactBinding? binding = await registry.ContactBindings.SingleOrDefaultAsync(x => x.Id == bindingId, cancellationToken);
-        if (binding is null) return false;
-        if (granted) binding.GrantConsent(); else binding.WithdrawConsent();
+        if (binding is null)
+        {
+            return false;
+        }
+
+        if (granted)
+        {
+            binding.GrantConsent();
+        }
+        else
+        {
+            binding.WithdrawConsent();
+        }
+
         await registry.CommitAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }

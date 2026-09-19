@@ -1,15 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
 using NSubstitute;
-using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions;
+using VumaRetail.Application.Abstractions.CustomerAccounts;
 using VumaRetail.Application.Abstractions.Registry;
+using VumaRetail.Application.Conversations;
 using VumaRetail.Application.Orders;
+using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.CustomerAccounts;
 using VumaRetail.Domain.Orders;
 using VumaRetail.Domain.Primitives;
-using VumaRetail.Application.Conversations;
-using VumaRetail.Domain.Conversations;
 
 namespace VumaRetail.UnitTests.Conversations;
 

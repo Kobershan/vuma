@@ -31,8 +31,8 @@ public sealed class OrderRevision4Tests(PostgresFixture fixture)
     public async Task Two_confirms_for_the_last_stock_leave_holds_never_negative()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         // Both orders are raised before either confirms, so the second confirm's availability read
@@ -81,8 +81,8 @@ public sealed class OrderRevision4Tests(PostgresFixture fixture)
     public async Task Cod_refuses_ship_until_paid_then_ships_and_authorised_collects()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
@@ -133,8 +133,8 @@ public sealed class OrderRevision4Tests(PostgresFixture fixture)
     public async Task Geography_snapshot_is_stored_and_groups_waves()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(
@@ -172,8 +172,8 @@ public sealed class OrderRevision4Tests(PostgresFixture fixture)
     public async Task Cancel_releases_the_hold_and_fulfilment_consumes_it()
     {
         (ApiHarness harness, OrdersScenario scenario, _) =
-            await OrdersHarnessSetup.CreateHarnessAsync(fixture).ConfigureAwait(false);
-        await using (harness.ConfigureAwait(false))
+            await OrdersHarnessSetup.CreateHarnessAsync(fixture);
+        await using (harness)
         {
 
         Guid orderId = await harness.SendAsync(new CreateOrderCommand(

@@ -14,7 +14,11 @@ public static class VendorApiAuthorization
     public static bool IsAllowed(HttpContext context, VendorRole minimumRole)
     {
         string? rawRole = context.Request.Headers["X-Vendor-Role"].FirstOrDefault();
-        if (!Enum.TryParse(rawRole, true, out VendorRole role)) return false;
+        if (!Enum.TryParse(rawRole, true, out VendorRole role))
+        {
+            return false;
+        }
+
         return role == VendorRole.Admin || role == minimumRole;
     }
 }

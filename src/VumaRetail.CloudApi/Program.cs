@@ -4,23 +4,23 @@ using VumaRetail.Infrastructure.DependencyInjection;
 using VumaRetail.Infrastructure.Persistence;
 using VumaRetail.Infrastructure.Security.Identity;
 using VumaRetail.Infrastructure.Sync;
+using VumaRetail.PublicApi.Loyalty;
 using VumaRetail.Web;
 using VumaRetail.Web.Api;
-using VumaRetail.Web.Projects;
 using VumaRetail.Web.Assets;
-using VumaRetail.Web.Diagnostics;
-using VumaRetail.Web.Identity;
-using VumaRetail.Web.Registry;
-using VumaRetail.Web.Sync;
-using VumaRetail.Web.Security;
 using VumaRetail.Web.Dashboard;
-using VumaRetail.Web.Inventory;
-using VumaRetail.Web.Quality;
+using VumaRetail.Web.Diagnostics;
 using VumaRetail.Web.Ecommerce;
+using VumaRetail.Web.Identity;
+using VumaRetail.Web.Inventory;
 using VumaRetail.Web.Marketing;
-using VumaRetail.Web.Service;
+using VumaRetail.Web.Projects;
+using VumaRetail.Web.Quality;
+using VumaRetail.Web.Registry;
 using VumaRetail.Web.Reporting;
-using VumaRetail.PublicApi.Loyalty;
+using VumaRetail.Web.Security;
+using VumaRetail.Web.Service;
+using VumaRetail.Web.Sync;
 
 // The cloud tier: the replica of every store, tenant-keyed, and the backup vault's home. Source of
 // truth for the tenant roll-up (R2).

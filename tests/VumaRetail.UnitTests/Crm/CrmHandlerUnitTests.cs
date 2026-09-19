@@ -1,5 +1,5 @@
-using NSubstitute;
 using FluentValidation;
+using NSubstitute;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Crm;
 using VumaRetail.Application.Crm.Commands;

@@ -5,8 +5,8 @@ using Microsoft.Extensions.Options;
 using VumaRetail.Application.Abstractions.Licensing;
 using VumaRetail.Application.Ecommerce;
 using VumaRetail.Application.Identity.Permissions;
-using VumaRetail.Infrastructure.Persistence.Repositories;
 using VumaRetail.Infrastructure.Ecommerce;
+using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;
 
@@ -28,8 +28,15 @@ public static class EcommerceServiceCollectionExtensions
         services.AddHttpClient<IPaymentGateway, TransactionJunctionPaymentGateway>((provider, client) =>
         {
             TransactionJunctionOptions options = provider.GetRequiredService<IOptions<TransactionJunctionOptions>>().Value;
-            if (!string.IsNullOrWhiteSpace(options.ApiBaseUrl)) client.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
-            if (!string.IsNullOrWhiteSpace(options.ApiKey)) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {options.ApiKey}");
+            if (!string.IsNullOrWhiteSpace(options.ApiBaseUrl))
+            {
+                client.BaseAddress = new Uri(options.ApiBaseUrl, UriKind.Absolute);
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {options.ApiKey}");
+            }
         });
         return services;
     }
