@@ -1,5 +1,6 @@
 #pragma warning disable EF1002
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
@@ -18,27 +19,39 @@ public interface ICompanyMigrationRunner
 
 public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
 {
+    private const long MigrationAdvisoryLockKey = 0x56756D614D696772L;
     private const int DefaultMaxConcurrency = 4;
     private readonly VumaRegistryDbContext _registry;
     private readonly ICompanyConnectionSecretStore _secrets;
     private readonly IUnitOfWork _unitOfWork;
     private readonly int _maxConcurrency;
+    private readonly ILogger<CompanyMigrationRunner> _logger;
 
     public CompanyMigrationRunner(
         VumaRegistryDbContext registry,
         ICompanyConnectionSecretStore secrets,
         IUnitOfWork unitOfWork,
-        int maxConcurrency = DefaultMaxConcurrency)
+        int maxConcurrency = DefaultMaxConcurrency,
+        ILogger<CompanyMigrationRunner>? logger = null)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency));
         _registry = registry;
         _secrets = secrets;
         _unitOfWork = unitOfWork;
         _maxConcurrency = maxConcurrency;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<CompanyMigrationRunner>.Instance;
     }
 
     public async Task<IReadOnlyList<CompanyMigrationResult>> MigrateAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        if (!await TryAcquireAdvisoryLockAsync(cancellationToken).ConfigureAwait(false))
+        {
+            _logger.LogInformation("Migration runner skipped: another pod holds the advisory lock.");
+            return [];
+        }
+
+        try
+        {
         // The registry is the control plane. It must be healthy before any company is touched.
         await _registry.Database.MigrateAsync(cancellationToken);
         var companies = await _registry.Companies
@@ -69,6 +82,34 @@ public sealed class CompanyMigrationRunner : ICompanyMigrationRunner
         }
         await _unitOfWork.CommitAsync(cancellationToken);
         return results;
+        }
+        finally
+        {
+            await ReleaseAdvisoryLockAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> TryAcquireAdvisoryLockAsync(CancellationToken cancellationToken)
+    {
+        await _registry.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = _registry.Database.GetDbConnection().CreateCommand();
+        command.CommandText = "SELECT pg_try_advisory_lock(@key)";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "key";
+        parameter.Value = MigrationAdvisoryLockKey;
+        command.Parameters.Add(parameter);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+    }
+
+    private async Task ReleaseAdvisoryLockAsync(CancellationToken cancellationToken)
+    {
+        await using var command = _registry.Database.GetDbConnection().CreateCommand();
+        command.CommandText = "SELECT pg_advisory_unlock(@key)";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "key";
+        parameter.Value = MigrationAdvisoryLockKey;
+        command.Parameters.Add(parameter);
+        await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<CompanyMigrationResult> MigrateCompanyAsync(
