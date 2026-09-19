@@ -1758,7 +1758,8 @@ model before `migrate-check` can be trusted.
 ### TASK-SEC-001 — Security hardening and .NET 10 verification (2026-09-19)
 
 Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, `374d3d7`, `2efac2c`,
-`22fa1f9`, `59d6469`, `549ca61`, `4ef9a23`, and `3c30261`:
+`22fa1f9`, `59d6469`, `549ca61`, `4ef9a23`, `3c30261`, `c74d43a`, `b8b1e12`,
+`43b1410`, `11acc03`, `7ec930d`, and `bff5220`:
 
 - Production installer now generates a random JWT key and bootstrap password, defaults to
   Production, and passes the values into the migration/seed process. Development fallback values
@@ -1774,13 +1775,16 @@ Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, `374d3d7`, `2ef
   and resolve keys through `ISnapshotKeyStore`.
 - Password blocklist, import magic-byte validation, nested-transaction debug logging, TLS deployment
   guidance, and .NET 10/ADR-158 updates are present.
+- Production startup now also rejects the shipped development JWT signing key; the regression test
+  `Production_rejects_the_shipped_development_jwt_key` passes. The cloud API image runs as UID 10001
+  and Docker build context excludes certificate/private-key material.
 
 Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no-build`):
 
 - Control plane: 28/28 passed.
 - Unit: 1,652/1,652 passed.
 - Architecture: 86/86 passed.
-- PostgreSQL integration: 633/633 passed in 14m30s.
+- PostgreSQL integration: 634/634 passed in 14m54s.
 - Incremental solution build after the analyzer cleanup: 0 warnings and 0 errors. A forced clean
   build from the repository outputs 1,677 warnings (CS1591 public-documentation and CA1062
   null-argument analysis; the parallel MSBuild log repeats individual diagnostics). These remain
