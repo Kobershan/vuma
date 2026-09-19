@@ -1757,7 +1757,8 @@ model before `migrate-check` can be trusted.
 
 ### TASK-SEC-001 — Security hardening and .NET 10 verification (2026-09-19)
 
-Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, and `374d3d7`:
+Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, `374d3d7`, `2efac2c`, and
+`22fa1f9`:
 
 - Production installer now generates a random JWT key and bootstrap password, defaults to
   Production, and passes the values into the migration/seed process. Development fallback values
@@ -1780,7 +1781,7 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
 - Unit: 1,652/1,652 passed.
 - Architecture: 86/86 passed.
 - PostgreSQL integration: 633/633 passed in 14m30s.
-- Solution build: 0 errors; 1,303 existing warnings remain, predominantly missing XML comments
+- Solution build: 0 errors; the latest clean rebuild reported 2,290 existing warnings, predominantly missing XML comments
   and analyzer/style warnings in pre-existing files.
 - `git grep "local-demo-signing-key"`: no matches.
 - `git grep "Admin@Vuma2026"`: only the deliberate blocklist documentation in `docs/SECURITY.md`.
