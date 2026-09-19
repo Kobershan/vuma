@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using VumaRetail.ControlPlane;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ControlPlaneDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("ControlPlane") ?? "Data Source=control-plane.db"));
+builder.Services.AddOptions<VendorApiAuthorizationOptions>()
+    .Bind(builder.Configuration.GetSection("ControlPlane:VendorAuthorization"));
 builder.Services.AddScoped<ControlPlaneStore>();
 builder.Services.AddHttpClient<ExternalLicenseSigner>();
 builder.Services.AddSingleton<ILicenseSigner>(sp => sp.GetRequiredService<ExternalLicenseSigner>());
@@ -15,6 +18,12 @@ builder.Services.AddSingleton<UsageRollupAggregator>();
 builder.Services.AddSingleton<DunningTracker>();
 builder.Services.AddOpenApi();
 WebApplication app = builder.Build();
+if (!app.Environment.IsDevelopment()
+    && string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("ControlPlane")))
+{
+    throw new InvalidOperationException(
+        "Production control plane requires an explicit persistent ControlPlane connection string.");
+}
 using (IServiceScope scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<ControlPlaneDbContext>().Database.EnsureCreatedAsync();
@@ -106,45 +115,50 @@ device.MapGet("/updates/check", (string nodeId, string version, string channel, 
 });
 
 RouteGroupBuilder vendor = app.MapGroup("/vendor/v1");
-vendor.MapGet("/fleet/health", (HttpContext http, FleetOperations fleet) =>
+vendor.MapGet("/fleet/health", (HttpContext http, FleetOperations fleet,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
 
     return Results.Ok(fleet.Health(TimeSpan.FromHours(24)));
 });
-vendor.MapPost("/rollouts", (StartRolloutRequest request, HttpContext http, FleetOperations fleet) =>
+vendor.MapPost("/rollouts", (StartRolloutRequest request, HttpContext http, FleetOperations fleet,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
 
     return Results.Ok(fleet.StartRollout(request.Version, request.Channel, request.Percentage));
 });
-vendor.MapPost("/rollouts/{id:guid}/halt", (Guid id, HttpContext http, FleetOperations fleet) =>
+vendor.MapPost("/rollouts/{id:guid}/halt", (Guid id, HttpContext http, FleetOperations fleet,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Engineering, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
 
     return Results.Ok(fleet.HaltRollout(id));
 });
-vendor.MapGet("/abuse", (HttpContext http, AbuseDetector abuse) =>
+vendor.MapGet("/abuse", (HttpContext http, AbuseDetector abuse,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
 
     return Results.Ok(abuse.Cases);
 });
-vendor.MapPost("/abuse/observations", (ObserveAbuseRequest request, HttpContext http, AbuseDetector abuse) =>
+vendor.MapPost("/abuse/observations", (ObserveAbuseRequest request, HttpContext http, AbuseDetector abuse,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
@@ -152,9 +166,10 @@ vendor.MapPost("/abuse/observations", (ObserveAbuseRequest request, HttpContext 
     return Results.Ok(abuse.Observe(new DeviceObservation(request.LicenseKey, request.InstallFingerprint,
         request.NodeId, request.MonotonicCounter, request.At, request.Latitude, request.Longitude, request.DocumentSeries)));
 });
-vendor.MapPost("/tenants", (ProvisionTenantRequest request, HttpContext http, VendorProvisioning provisioning) =>
+vendor.MapPost("/tenants", (ProvisionTenantRequest request, HttpContext http, VendorProvisioning provisioning,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Admin))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Admin, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
@@ -166,9 +181,10 @@ vendor.MapPost("/tenants", (ProvisionTenantRequest request, HttpContext http, Ve
 
     return Results.Created($"/vendor/v1/tenants/{request.TenantId}", provisioning.Provision(request.TenantId, TimeSpan.FromDays(request.TrialDays)));
 });
-vendor.MapPost("/support-grants", (SupportGrantRequest request, HttpContext http, IClock clock) =>
+vendor.MapPost("/support-grants", (SupportGrantRequest request, HttpContext http, IClock clock,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Support, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
@@ -176,9 +192,10 @@ vendor.MapPost("/support-grants", (SupportGrantRequest request, HttpContext http
     return Results.Ok(SupportGrantPolicy.Create(Guid.NewGuid(), request.TenantId, request.RequestedBy,
         request.ExpiresAt, request.TenantApproved, clock.UtcNow));
 });
-vendor.MapPost("/metering", (UsageRollup rollup, HttpContext http, UsageRollupAggregator aggregator) =>
+vendor.MapPost("/metering", (UsageRollup rollup, HttpContext http, UsageRollupAggregator aggregator,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
@@ -186,18 +203,19 @@ vendor.MapPost("/metering", (UsageRollup rollup, HttpContext http, UsageRollupAg
     return Results.Ok(new { accepted = aggregator.Add(rollup) });
 });
 vendor.MapGet("/tenants/{tenantId}/usage", (string tenantId, DateOnly from, DateOnly through,
-    HttpContext http, UsageRollupAggregator aggregator) =>
+    HttpContext http, UsageRollupAggregator aggregator, IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }
 
     return Results.Ok(aggregator.ForTenant(tenantId, from, through));
 });
-vendor.MapPost("/billing/calculate", (BillingCalculationRequest request, HttpContext http) =>
+vendor.MapPost("/billing/calculate", (BillingCalculationRequest request, HttpContext http,
+    IOptions<VendorApiAuthorizationOptions> authorization) =>
 {
-    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing))
+    if (!VendorApiAuthorization.IsAllowed(http, VendorRole.Billing, authorization.Value, app.Environment.IsDevelopment()))
     {
         return Results.Forbid();
     }

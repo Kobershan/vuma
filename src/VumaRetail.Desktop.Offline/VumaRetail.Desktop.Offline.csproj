@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../VumaRetail.Contracts/VumaRetail.Contracts.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../VumaRetail.Desktop/Offline/TerminalSyncOutbox.cs" Link="TerminalSyncOutbox.cs" />
+  </ItemGroup>
+</Project>

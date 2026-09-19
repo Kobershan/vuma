@@ -35,6 +35,26 @@ namespace VumaRetail.IntegrationTests.Sync;
 public sealed class ReplicationTests(PostgresFixture fixture)
 {
     [Fact]
+    public async Task Registry_covers_replicated_entities_across_transactional_modules()
+    {
+        await using SyncHarness node = await SyncHarness.CreateAsync(fixture, "registry-coverage", NodeKind.Store);
+        ReplicationRegistry registry = new(node.Context);
+
+        registry.KnownEntityTypes.Should().Contain([
+            nameof(VumaRetail.Domain.Pos.Sale),
+            nameof(VumaRetail.Domain.Pos.SaleLine),
+            nameof(VumaRetail.Domain.Pos.SaleTender),
+            nameof(VumaRetail.Domain.Sales.PriceList),
+            nameof(VumaRetail.Domain.Imports.ImportBatch),
+            nameof(VumaRetail.Domain.Procurement.PurchaseRequisition),
+            nameof(VumaRetail.Domain.Procurement.GoodsReceipt),
+            nameof(VumaRetail.Domain.Warehouse.Zone),
+            nameof(VumaRetail.Domain.Warehouse.Bin),
+            nameof(VumaRetail.Domain.Warehouse.PickTask)
+        ]);
+    }
+
+    [Fact]
     public async Task Offline_connect_order_converges_once_after_reconnect()
     {
         await using SyncHarness cloud = await SyncHarness.CreateAsync(fixture, "cloud-connect", NodeKind.Cloud);

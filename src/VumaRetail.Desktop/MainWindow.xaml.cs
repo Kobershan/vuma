@@ -18,6 +18,8 @@ public partial class MainWindow : Window
 {
     private readonly TerminalApi _api;
     private readonly TerminalSyncOutbox _outbox;
+    private readonly TerminalSyncTransport _syncTransport;
+    private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly IClock _clock;
     private string _pin = string.Empty;
     private Guid _tillSessionId;
@@ -33,6 +35,7 @@ public partial class MainWindow : Window
         string outboxPath = Environment.GetEnvironmentVariable("VUMA_TERMINAL_OUTBOX_PATH")
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vuma", "terminal-outbox.db");
         _outbox = new TerminalSyncOutbox(outboxPath);
+        _syncTransport = new TerminalSyncTransport(_api.HttpClient, _api.BaseUrl, _outbox);
         _ = _outbox.InitializeAsync();
         InitializeComponent();
         StoreNameText.Text = Environment.GetEnvironmentVariable("VUMA_STORE_NAME") ?? "Vuma store";
@@ -41,7 +44,24 @@ public partial class MainWindow : Window
         _clockTimer.Tick += async (_, _) =>
         {
             StatusClock.Text = _clock.UtcNow.ToLocalTime().ToString("HH:mm:ss");
-            try { StatusSync.Text = $"Sync queue {await _outbox.CountOutstandingAsync()}"; }
+            try
+            {
+                await _syncGate.WaitAsync();
+                try
+                {
+                    if (_api.HasAccessToken && ReadOptionalGuid("VUMA_TENANT_ID") is { } tenantId)
+                    {
+                        await _syncTransport.FlushAsync(tenantId, ReadOptionalGuid("VUMA_STORE_ID"),
+                            _api.TerminalId, cancellationToken: CancellationToken.None);
+                    }
+                }
+                finally
+                {
+                    _syncGate.Release();
+                }
+
+                StatusSync.Text = $"Sync queue {await _outbox.CountOutstandingAsync()}";
+            }
             catch { StatusSync.Text = "Sync queue unavailable"; }
         };
         _clockTimer.Start();
@@ -75,6 +95,7 @@ public partial class MainWindow : Window
             if (_api.TerminalId == Guid.Empty) throw new InvalidOperationException("This terminal is not configured.");
 
             TokenResponse token = await _api.SignInWithPinAsync(_pin);
+            _syncTransport.SetAccessToken(token.AccessToken);
             _permissions = (await _api.GetPermissionsAsync()).Permissions;
             ConnectionText.Text = $"Online · {token.DisplayName}";
             PinLoginView.Visibility = Visibility.Collapsed;
@@ -307,10 +328,14 @@ public partial class MainWindow : Window
             ? value
             : throw new InvalidOperationException(message);
 
+    private static Guid? ReadOptionalGuid(string variable)
+        => Guid.TryParse(Environment.GetEnvironmentVariable(variable), out Guid value) ? value : null;
+
     private async void Window_Closed(object? sender, EventArgs e)
     {
         _clockTimer.Stop();
         await _outbox.DisposeAsync();
+        _syncGate.Dispose();
     }
 
     private sealed class TerminalApi
@@ -318,6 +343,8 @@ public partial class MainWindow : Window
         private readonly HttpClient _http;
         public string BaseUrl { get; } = (Environment.GetEnvironmentVariable("VUMA_API_BASE_URL") ?? "https://localhost:7243/api/v1").TrimEnd('/');
         public Guid TerminalId { get; } = Guid.TryParse(Environment.GetEnvironmentVariable("VUMA_TERMINAL_ID"), out Guid id) ? id : Guid.Empty;
+        public HttpClient HttpClient => _http;
+        public bool HasAccessToken => _http.DefaultRequestHeaders.Authorization is not null;
 
         public TerminalApi()
         {

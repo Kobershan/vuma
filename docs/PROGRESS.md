@@ -1820,3 +1820,19 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
   --no-restore -p:EnableWindowsTargeting=true` passes with 0 errors and 104 existing warnings.
   Commit `226ab34` is pushed. The warnings are primarily CS1591 public XML documentation and IDE0011
   brace-style diagnostics; they remain open rather than being suppressed.
+## Remediation continuation — terminal queue, control-plane roles, replication (2026-09-19)
+
+- The desktop terminal outbox is now a portable production-tested component. SQLite persistence,
+  restart recovery, operation-id deduplication, acknowledgement settlement, and rejected-operation
+  retention are covered by `VumaRetail.Desktop.Tests`; the WPF shell creates the transport and flushes
+  queued work after authentication/reconnection.
+- Vendor control-plane routes no longer authorize from a caller-supplied role header outside
+  Development. Production authorization binds the role to a configured client-certificate thumbprint,
+  and production startup requires an explicit persistent control-plane connection string.
+- Replication coverage now verifies the live EF registry includes representative POS, sales, imports,
+  procurement, and warehouse entities. The existing two-database replay tests remain the protocol
+  acceptance gate.
+- Full terminal offline sale capture (local operator authorization, cached catalogue, local sale
+  aggregate execution, and UI acceptance on a disconnected LAN) remains an external Windows/device
+  acceptance item; the durable queue and server replay path are implemented and tested, but this is
+  not represented as complete offline POS certification.
