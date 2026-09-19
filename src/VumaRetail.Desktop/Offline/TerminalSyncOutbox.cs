@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.Data.Sqlite;
 using VumaRetail.Contracts.Sync;
 
@@ -14,6 +15,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Task _initialization;
 
     /// <summary>Opens the terminal database at the supplied path.</summary>
     public TerminalSyncOutbox(string databasePath)
@@ -21,15 +23,19 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(databasePath))!);
         _connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString());
+        _initialization = InitializeSchemaAsync();
     }
 
     /// <summary>Creates the outbox schema if this is the first terminal launch.</summary>
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public Task InitializeAsync(CancellationToken cancellationToken = default)
+        => _initialization.WaitAsync(cancellationToken);
+
+    private async Task InitializeSchemaAsync()
     {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await _connection.OpenAsync().ConfigureAwait(false);
             await using SqliteCommand command = _connection.CreateCommand();
             command.CommandText = """
                 CREATE TABLE IF NOT EXISTS terminal_outbox (
@@ -49,7 +55,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
                 CREATE INDEX IF NOT EXISTS ix_terminal_outbox_pending
                     ON terminal_outbox (state, sale_id, sequence);
                 """;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await command.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
         finally { _gate.Release(); }
     }
@@ -58,6 +64,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
     public async Task EnqueueAsync(Guid saleId, int sequence, SyncOperationDto operation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
+        await _initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -84,6 +91,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
     /// <summary>Returns the next in-order pending operations, across sales.</summary>
     public async Task<IReadOnlyList<QueuedOperation>> PendingAsync(int limit = 100, CancellationToken cancellationToken = default)
     {
+        await _initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -108,7 +116,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
                         reader.GetString(5),
                         reader.GetString(6),
                         reader.GetString(7),
-                        DateTimeOffset.Parse(reader.GetString(8))));
+                        DateTimeOffset.Parse(reader.GetString(8)))));
             }
             return rows;
         }
@@ -119,6 +127,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
     public async Task SettleAsync(SyncBatchResponse response, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(response);
+        await _initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -143,6 +152,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
     /// <summary>How many operations still need attention.</summary>
     public async Task<int> CountOutstandingAsync(CancellationToken cancellationToken = default)
     {
+        await _initialization.WaitAsync(cancellationToken).ConfigureAwait(false);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -156,6 +166,7 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        await _initialization.ConfigureAwait(false);
         await _connection.DisposeAsync().ConfigureAwait(false);
         _gate.Dispose();
     }

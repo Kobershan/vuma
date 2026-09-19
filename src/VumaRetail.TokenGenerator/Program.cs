@@ -35,7 +35,8 @@ public static class Program
         {
             var sb = new StringBuilder();
             sb.AppendLine("<ResourceDictionary xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\"");
-            sb.AppendLine("                xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\">");
+            sb.AppendLine("                xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"");
+            sb.AppendLine("                xmlns:sys=\"clr-namespace:System;assembly=System.Runtime\">");
             sb.AppendLine($"  <!-- {Marker.Trim('/', '*', ' ')} -->");
             WriteWpfColors(sb, themeTokens["surface"]!, "Surface");
             WriteWpfColors(sb, themeTokens["text"]!, "Text");
@@ -81,13 +82,13 @@ public static class Program
         var spacing = tokens["spacing"]!["values"]!.AsArray();
         foreach (var value in spacing)
         {
-            sb.AppendLine($"  <x:Double x:Key=\"VumaSpacing{value}\">{value}</x:Double>");
+            sb.AppendLine($"  <sys:Double x:Key=\"VumaSpacing{value}\">{value}</sys:Double>");
             sb.AppendLine($"  <Thickness x:Key=\"VumaInset{value}\">{value}</Thickness>");
         }
 
         foreach (var property in tokens["radius"]!.AsObject()!)
         {
-            sb.AppendLine($"  <x:Double x:Key=\"VumaRadius{ToPascal(property.Key)}\">{property.Value}</x:Double>");
+            sb.AppendLine($"  <sys:Double x:Key=\"VumaRadius{ToPascal(property.Key)}\">{property.Value}</sys:Double>");
         }
 
         var typography = tokens["typography"]!;
@@ -96,14 +97,14 @@ public static class Program
         {
             var scale = property.Value!;
             var key = ToPascal(property.Key);
-            sb.AppendLine($"  <x:Double x:Key=\"VumaType{key}Size\">{scale["size"]}</x:Double>");
-            sb.AppendLine($"  <x:Double x:Key=\"VumaType{key}LineHeight\">{scale["lineHeight"]}</x:Double>");
-            sb.AppendLine($"  <x:Int32 x:Key=\"VumaType{key}Weight\">{scale["weight"]}</x:Int32>");
+            sb.AppendLine($"  <sys:Double x:Key=\"VumaType{key}Size\">{scale["size"]}</sys:Double>");
+            sb.AppendLine($"  <sys:Double x:Key=\"VumaType{key}LineHeight\">{scale["lineHeight"]}</sys:Double>");
+            sb.AppendLine($"  <sys:Int32 x:Key=\"VumaType{key}Weight\">{scale["weight"]}</sys:Int32>");
             sb.AppendLine($"  <FontFamily x:Key=\"VumaType{key}Family\">{families[scale["fontFamily"]!.GetValue<string>()]}</FontFamily>");
         }
         foreach (var property in tokens["touchTarget"]!.AsObject()!)
         {
-            sb.AppendLine($"  <x:Double x:Key=\"VumaTouch{ToPascal(property.Key)}\">{property.Value}</x:Double>");
+            sb.AppendLine($"  <sys:Double x:Key=\"VumaTouch{ToPascal(property.Key)}\">{property.Value}</sys:Double>");
         }
         sb.AppendLine();
     }

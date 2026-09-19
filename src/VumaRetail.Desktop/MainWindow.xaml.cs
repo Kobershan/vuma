@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -325,7 +326,11 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(certificatePath))
             {
                 string password = Environment.GetEnvironmentVariable("VUMA_TERMINAL_PFX_PASSWORD") ?? string.Empty;
-                handler.ClientCertificates.Add(new X509Certificate2(certificatePath, password));
+                handler.ClientCertificates.Add(X509CertificateLoader.LoadPkcs12FromFile(
+                    certificatePath,
+                    password,
+                    X509KeyStorageFlags.EphemeralKeySet,
+                    Pkcs12LoaderLimits.Defaults));
             }
 
             _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
