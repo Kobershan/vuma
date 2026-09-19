@@ -13,6 +13,11 @@ WORK LOG (2026-09-19): Procurement invoice release now locks the purchase-order 
 double-payment window across separate DbContexts/processes. The PostgreSQL-backed ProcurementCommandTests
 pass 16/16, including a two-transaction lock-release regression.
 
+WORK LOG (2026-09-19): Licensing architecture guards now use the discovered product assembly graph
+for permissions, manifests and handlers instead of a manually maintained assembly list. The focused
+module/licensing/workflow/company guard set passes 14/14; migration model checks remain clean for both
+company and registry contexts.
+
 WORK LOG (2026-09-18): Closed five code-level gaps with tests: (1) clearing balances now aggregate
 outstanding registry intents per company instead of returning zeros (`CompanyFanOut.
 AggregateClearingBalances` + 2 unit tests); (2) projects gain Activate/Close commands, Get/List
