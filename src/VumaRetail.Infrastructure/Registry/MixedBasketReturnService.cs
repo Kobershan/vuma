@@ -22,7 +22,6 @@ namespace VumaRetail.Infrastructure.Registry;
 /// <summary>Splits a mixed-basket return by origin company (ADR-128).</summary>
 public sealed class MixedBasketReturnService(
     ITradingSessionRepository sessions,
-    ITradingCompanyGateway gateway,
     IServiceScopeFactory scopes,
     IReplicationRegistry replication,
     IReplicaWriter replicas,

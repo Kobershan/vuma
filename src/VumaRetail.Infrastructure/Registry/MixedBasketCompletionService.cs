@@ -1137,7 +1137,7 @@ internal sealed record LegDocuments(Guid SaleId, Guid InvoiceId, string InvoiceN
 public sealed class TradingSessionFailedException(
     Guid SessionId, Guid IntentId, IReadOnlyList<CompletedSegment> Posted, string Reason, Exception? Inner = null)
     : InvalidOperationException(
-        $"Trading session {SessionId} failed after posting {Posted.Count} segment(s): {Reason}", Inner);
+        $"Trading session {SessionId} intent {IntentId} failed after posting {Posted.Count} segment(s): {Reason}", Inner);
 
 /// <summary>One basket leg failed hard (the company, not the arithmetic).</summary>
 /// <param name="CompanyId">The failed leg's company.</param>

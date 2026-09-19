@@ -6,7 +6,6 @@ using VumaRetail.Application.FieldSales;
 using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Application.FieldSales.Permissions;
 using VumaRetail.Application.Identity.Permissions;
-using VumaRetail.Infrastructure.FieldSales;
 using VumaRetail.Infrastructure.Persistence.Repositories;
 
 namespace VumaRetail.Infrastructure.DependencyInjection;

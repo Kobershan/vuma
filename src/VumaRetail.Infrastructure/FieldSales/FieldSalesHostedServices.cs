@@ -7,9 +7,7 @@ using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Infrastructure.Persistence;
 
 using VumaRetail.Application.Abstractions.Registry;
-using VumaRetail.Application.FieldSales.Commands;
 using VumaRetail.Domain.Registry;
-using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.Infrastructure.FieldSales;
 

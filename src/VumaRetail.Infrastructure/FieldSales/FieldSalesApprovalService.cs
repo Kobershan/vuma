@@ -928,7 +928,8 @@ public sealed class FieldSalesApprovalService : IFieldSalesApprovalService
             var addHandler = new AddSalesReturnLineCommandHandler(returns, sales);
             var remaining = sale.LiveLines.ToDictionary(line => line.Id, line => line.Quantity.Value);
 
-            foreach (CreditProposalLine proposal in header.Lines)
+            foreach (CreditProposalLine proposal in header.Lines
+                ?? throw new FieldSalesException("CREDIT_LINES_MISSING", "The credit note has no proposal lines."))
             {
                 SaleLine? match = sale.LiveLines
                     .Where(line => line.ItemId == proposal.ItemId
@@ -1225,7 +1226,7 @@ internal sealed record CreditProposalLine(Guid LineId, Guid? ItemId, Guid? ItemV
 /// <param name="Inner">The step failure.</param>
 public sealed class FieldSalesApprovalFailedException(
     Guid ProFormaId, Guid IntentId, string Reason, Exception? Inner = null)
-    : InvalidOperationException($"Pro forma {ProFormaId} approval failed: {Reason}", Inner);
+    : InvalidOperationException($"Pro forma {ProFormaId} approval intent {IntentId} failed: {Reason}", Inner);
 
 /// <summary>A saga key is already completing elsewhere, or a replay disagrees.</summary>
 /// <param name="IntentId">The existing intent, or empty when it could not be loaded.</param>

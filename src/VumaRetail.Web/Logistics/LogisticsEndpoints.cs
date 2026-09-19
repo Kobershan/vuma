@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Logistics;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Warehouse.Permissions;

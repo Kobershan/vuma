@@ -106,8 +106,6 @@ public sealed class ReservationService : IReservationService, IAsyncDisposable, 
         DateOnly? expiryDate = null,
         string? serialNumber = null)
     {
-        ArgumentNullException.ThrowIfNull(demanded);
-
         if (locationId == Guid.Empty)
         {
             throw new ArgumentException("A reservation must name a location.", nameof(locationId));

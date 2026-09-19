@@ -76,7 +76,8 @@ internal sealed class ProductionOrderConfiguration : EntityConfiguration<Product
     private static ValueComparer<IReadOnlyList<T>> CreateComparer<T>()
         => new(
             (left, right) => (left ?? Array.Empty<T>()).SequenceEqual(right ?? Array.Empty<T>()),
-            values => (values ?? Array.Empty<T>()).Aggregate(0, (hash, value) => HashCode.Combine(hash, value.GetHashCode())),
+            values => (values ?? Array.Empty<T>()).Aggregate(
+                0, (hash, value) => HashCode.Combine(hash, EqualityComparer<T>.Default.GetHashCode(value!))),
             values => (values ?? Array.Empty<T>()).ToList());
 
     protected override string Schema => Schemas.Manufacturing;

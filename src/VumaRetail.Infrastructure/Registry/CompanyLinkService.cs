@@ -41,7 +41,7 @@ public sealed class CompanyLinkService : ICompanyLinkService
         var (smaller, larger) = Order(companyA, companyB);
         var key = (_tenantContext.TenantId, smaller, larger);
 
-        if (!_linkCache.TryGetValue(key, out LinkSnapshot cached))
+        if (!_linkCache.TryGetValue(key, out LinkSnapshot? cached))
         {
             CompanyLink? link = await _registry.CompanyLinks
                 .AsNoTracking()
@@ -57,9 +57,11 @@ public sealed class CompanyLinkService : ICompanyLinkService
             _linkCache[key] = cached;
         }
 
-        if (cached.Status != CompanyLinkStatus.Active
-            || (cached.EffectiveTo is not null && cached.EffectiveTo <= _clock.UtcNow)
-            || !cached.Scopes.HasFlag(requiredScope))
+        LinkSnapshot resolved = cached;
+
+        if (resolved.Status != CompanyLinkStatus.Active
+            || (resolved.EffectiveTo is not null && resolved.EffectiveTo <= _clock.UtcNow)
+            || !resolved.Scopes.HasFlag(requiredScope))
         {
             throw new CompanyLinkRequiredException(companyA, companyB, requiredScope);
         }

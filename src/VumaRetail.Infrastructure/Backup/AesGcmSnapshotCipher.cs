@@ -37,7 +37,7 @@ public sealed class SnapshotEncryptionOptions
 /// <para>
 /// Chunked because a snapshot does not fit in memory. GCM is a one-shot construction — it will not
 /// stream — so the file is framed: a header, then repeated
-/// <c>[length][nonce][tag][ciphertext]</c> records of at most <see cref="ChunkSize"/> plaintext
+/// <c>[length][nonce][tag][ciphertext]</c> records of at most <c>ChunkSize</c> plaintext
 /// bytes each.
 /// </para>
 /// <para>

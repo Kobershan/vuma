@@ -20,7 +20,11 @@ namespace VumaRetail.Infrastructure.Inventory;
 /// to the company — one leg, one transaction, never two companies in one scope (ADR-116).
 /// </summary>
 /// <param name="scopes">Creates one child scope per call.</param>
-/// <param name="tenant">The ambient tenant, propagated into each child scope.</param>
+/// <param name="replication">The replication registry.</param>
+/// <param name="replicas">The replica writer.</param>
+/// <param name="hybridClock">The replication clock.</param>
+/// <param name="node">This node's identity.</param>
+/// <param name="clock">The application clock.</param>
 /// <param name="logger">Where a failed call is recorded.</param>
 /// <remarks>
 /// The principal flows through <c>IHttpContextAccessor</c> into child scopes, so legs taken from
@@ -36,7 +40,6 @@ public sealed class ServiceScopeCompanyGateway(
     IClock clock,
     ILogger<ServiceScopeCompanyGateway> logger) : ISourcingCompanyGateway
 {
-    private readonly IClock _clock = clock;
     /// <inheritdoc />
     public async Task<ReserveOutcome> ReserveLegAsync(ReservationLegRequest leg, CancellationToken cancellationToken = default)
     {
@@ -207,7 +210,7 @@ public sealed class ServiceScopeCompanyGateway(
                 location.Id,
                 source.DeliveryAddress,
                 source.Currency,
-_clock.UtcNow,
+clock.UtcNow,
                  requestedFulfilmentDate: null);
             order.AssignGroupDocument(groupDocumentRef);
             order.AssignCompany(companyId);
@@ -224,7 +227,7 @@ _clock.UtcNow,
                 orderLine.RecordAllocationOutcome(new Quantity(0m, line.Quantity.UnitOfMeasure));
             }
 
-            order.Confirm(_clock.UtcNow);
+            order.Confirm(clock.UtcNow);
 
             companyDb.SalesOrders.Add(order);
             foreach (SalesOrderLine orderLine in order.Lines)

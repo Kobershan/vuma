@@ -36,6 +36,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     /// <param name="options">EF options, including the Npgsql provider and the interceptors.</param>
     /// <param name="tenantContext">Supplies the tenant the global query filter scopes to.</param>
     /// <param name="companyContext">Supplies the active company for row stamping and filtering.</param>
+    /// <param name="logger">Records deferred transaction commits.</param>
     public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null, ILogger<VumaRetailDbContext>? logger = null)
         : base(options)
     {

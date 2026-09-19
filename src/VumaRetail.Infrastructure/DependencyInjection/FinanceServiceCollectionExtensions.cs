@@ -23,7 +23,7 @@ public static class FinanceServiceCollectionExtensions
     /// Same shape as <c>AddVumaCatalog</c>/<c>AddVumaPartners</c> — see the remarks on
     /// <c>AddVumaCatalog</c> for why self-registering <see cref="IModulePermissions"/> and
     /// <see cref="IModuleManifest"/> here, rather than in a central list, is safe. Does not register
-    /// <see cref="FinanceReconciliationHostedService"/> — that needs a host tenant the caller supplies,
+    /// <c>FinanceReconciliationHostedService</c> — that needs a host tenant the caller supplies,
     /// so it is <see cref="AddVumaFinanceReconciliation"/>, called separately once the host knows which
     /// tenant it is running as (the same split <c>AddVumaControlPlaneClient</c> uses for
     /// <c>LicensingHostTenant</c>).
@@ -75,7 +75,7 @@ public static class FinanceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers <see cref="FinanceReconciliationHostedService"/> — ADR-016's "automated daily job"
+    /// Registers <c>FinanceReconciliationHostedService</c> — ADR-016's "automated daily job"
     /// (ADR-063).
     /// </summary>
     /// <param name="services">The container.</param>

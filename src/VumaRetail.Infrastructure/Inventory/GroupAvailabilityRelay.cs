@@ -11,7 +11,6 @@ namespace VumaRetail.Infrastructure.Inventory;
 
 /// <summary>Publishes availability snapshots to the registry projection (ADR-119).</summary>
 /// <param name="registry">The registry database.</param>
-/// <param name="clock">The only source of time.</param>
 /// <remarks>
 /// Upsert by natural key, idempotent by construction: publishing the same figure twice changes
 /// nothing observable except <c>AsAt</c>, so a retry after a crash between the company commit
