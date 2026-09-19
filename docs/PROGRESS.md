@@ -1836,3 +1836,23 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
   aggregate execution, and UI acceptance on a disconnected LAN) remains an external Windows/device
   acceptance item; the durable queue and server replay path are implemented and tested, but this is
   not represented as complete offline POS certification.
+### Remediation verification continuation — 2026-09-19
+
+- Sales-return request identity is durable on `(tenant, sale, request_id)` and the return handler
+  locks the parent sale plus sibling return lines inside the PostgreSQL transaction. Concurrent full
+  and partial return integration tests pass; replaying the same request returns the existing return.
+- Warehouse reservations and warehouse command request identities were re-audited and their existing
+  PostgreSQL integration tests remain green. The sync design remains the approved local-domain
+  execution plus durable outbox/entity-state replication contract; it does not accept arbitrary
+  server-side business-command envelopes.
+- Added exhaustive PublicApi contract reflection coverage for supplier/margin/internal commercial
+  fields and exhaustive EF-model-to-replication-registry coverage. Architecture and PostgreSQL
+  replication tests pass.
+- Verification in this continuation: Unit 1,653/1,653; Architecture 87/87; Control Plane 30/30;
+  Desktop offline queue 3/3; release-manifest/signature/activation scripts pass; generated design
+  tokens are deterministic. Full PostgreSQL integration and final Release build evidence are being
+  recorded with the completion commit.
+- The WiX source is present and CI-gated, but WiX cannot execute on this Linux host. Physical Windows
+  installer execution, disconnected Windows POS acceptance, live mTLS/signer/provider credentials,
+  and production backup/restore rehearsal remain external deployment evidence rather than claims of
+  local verification.

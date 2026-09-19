@@ -173,4 +173,37 @@ public sealed class LayeringTests
             .GetResult()
             .ShouldPass("The public API has its own DTOs. Map into them through the Application layer.");
     }
+
+    [Fact]
+    public void PublicApi_contracts_do_not_expose_internal_supplier_or_margin_data()
+    {
+        // Dependency isolation prevents a DTO from directly referencing an internal entity, but it
+        // does not stop a future developer adding a property named SupplierId, Margin, or Cost to a
+        // public record. Keep that boundary structural: a review should not be the only thing that
+        // prevents internal procurement and profitability data becoming an internet response.
+        string[] forbiddenFragments = ["supplier", "margin"];
+        string[] allowedCostProperties = ["CostInPoints"];
+
+        List<string> offenders = PublicApi
+            .GetTypes()
+            .Where(type => type.IsClass && type.IsPublic)
+            .SelectMany(type => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => (Type: type, Property: property)))
+            .Where(entry => forbiddenFragments.Any(fragment =>
+                entry.Property.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase)))
+            .Concat(PublicApi
+                .GetTypes()
+                .Where(type => type.IsClass && type.IsPublic)
+                .SelectMany(type => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Select(property => (Type: type, Property: property)))
+                .Where(entry => entry.Property.Name.Contains("cost", StringComparison.OrdinalIgnoreCase))
+                .Where(entry => !allowedCostProperties.Contains(entry.Property.Name, StringComparer.Ordinal)))
+            .Select(entry => $"{entry.Type.FullName}.{entry.Property.Name}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(offenders.Count == 0, $"Public API contracts expose internal commercial data:{Environment.NewLine}"
+            + string.Join(Environment.NewLine, offenders.Select(offender => $"  - {offender}")));
+    }
 }

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 using VumaRetail.Application.Abstractions.Sync;
 using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Domain.Connect;
+using ReplicatedAttribute = VumaRetail.Domain.Entities.ReplicatedAttribute;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Manufacturing;
 using VumaRetail.Domain.Pos;
@@ -53,6 +55,19 @@ public sealed class ReplicationTests(PostgresFixture fixture)
             nameof(VumaRetail.Domain.Warehouse.Bin),
             nameof(VumaRetail.Domain.Warehouse.PickTask)
         ]);
+
+        // Keep this assertion exhaustive. A hand-picked list can stay green while a newly added
+        // replicated entity is omitted from the receiver's runtime registry. The registry is built
+        // from the actual EF model, so compare the two sets rather than maintaining another list.
+        HashSet<string> modelReplicated = node.Context.Model.GetEntityTypes()
+            .Select(entityType => (entityType, Declaration: entityType.ClrType
+                .GetCustomAttribute<ReplicatedAttribute>()))
+            .Where(entry => entry.Declaration is not null)
+            .Select(entry => entry.entityType.ClrType.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        registry.KnownEntityTypes.Should().BeEquivalentTo(modelReplicated,
+            "every mapped entity with a replication declaration must be reachable through the closed registry");
     }
 
     [Fact]
