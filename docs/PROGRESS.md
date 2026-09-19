@@ -1754,3 +1754,33 @@ Working-tree warning: the older procurement/CloudApi/security-guard WIP plus unt
 without a Designer, `Web/Platform/`, and a stale-base `ModelSnapshot` (23k-line diff) are NOT
 part of this slice and remain uncommitted. The snapshot must be regenerated from the current
 model before `migrate-check` can be trusted.
+
+### TASK-SEC-001 — Security hardening and .NET 10 verification (2026-09-19)
+
+Completed and pushed in commits `4d163b0`, `9e6fe4d`, `35c8bdd`, and `374d3d7`:
+
+- Production installer now generates a random JWT key and bootstrap password, defaults to
+  Production, and passes the values into the migration/seed process. Development fallback values
+  are generated at runtime only.
+- Cloud webhook secret and AllowedHosts are guarded at startup; local Development host filtering
+  explicitly normalises the documentation placeholder to `*` so TestServer/local traffic remains
+  usable. Rate limiting precedes authentication, security headers and deny-by-default CORS are wired.
+- Company migration fan-out uses a PostgreSQL advisory lock. Pre-registry company exemptions emit a
+  process counter and an ADR-157 retirement warning. Existing refresh enrichment repopulates company
+  claims when a claimless token is rotated.
+- Write requests reject access tokens whose security stamp was revoked after password change,
+  deactivation, or sign-out. Access tokens are five minutes. Snapshot blobs carry a key-version byte
+  and resolve keys through `ISnapshotKeyStore`.
+- Password blocklist, import magic-byte validation, nested-transaction debug logging, TLS deployment
+  guidance, and .NET 10/ADR-158 updates are present.
+
+Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no-restore`):
+
+- Control plane: 28/28 passed.
+- Unit: 1,652/1,652 passed.
+- Architecture: 86/86 passed.
+- PostgreSQL integration: 633/633 passed in 14m30s.
+- Solution build: 0 errors; 1,303 existing warnings remain, predominantly missing XML comments
+  and analyzer/style warnings in pre-existing files.
+- `git grep "local-demo-signing-key"`: no matches.
+- `git grep "Admin@Vuma2026"`: only the deliberate blocklist documentation in `docs/SECURITY.md`.
