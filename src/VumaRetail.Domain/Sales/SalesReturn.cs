@@ -74,6 +74,9 @@ public sealed class SalesReturn : Entity
     /// <summary>The completed sale this return is against. A bare id into <c>pos</c>, never a foreign key.</summary>
     public Guid SaleId { get; private set; }
 
+    /// <summary>The originating client request, when this return was captured through an offline-capable client.</summary>
+    public Guid? RequestId { get; private set; }
+
     /// <summary>The human-readable number on the credit slip. ADR-065's sequence, series <c>RTN</c>.</summary>
     public string ReturnNumber { get; private set; } = string.Empty;
 
@@ -133,6 +136,7 @@ public sealed class SalesReturn : Entity
     /// The return's identity, or <c>null</c> to mint one here. A caller that already sent this create
     /// once supplies the id it used the first time, which makes a dropped-connection retry idempotent.
     /// </param>
+    /// <param name="requestId">The originating client request identity, when supplied.</param>
     /// <exception cref="SalesRuleException">The sale never completed (business rule 7).</exception>
     public static SalesReturn Raise(
         Sale sale,
@@ -141,7 +145,8 @@ public sealed class SalesReturn : Entity
         TenderType refundTenderType,
         Guid authorisedByUserId,
         DateTimeOffset raisedAt,
-        Guid? id = null)
+        Guid? id = null,
+        Guid? requestId = null)
     {
         ArgumentNullException.ThrowIfNull(sale);
         ArgumentException.ThrowIfNullOrWhiteSpace(returnNumber);
@@ -166,7 +171,10 @@ public sealed class SalesReturn : Entity
             reason.Trim(),
             refundTenderType,
             authorisedByUserId,
-            raisedAt);
+            raisedAt)
+        {
+            RequestId = requestId
+        };
     }
 
     /// <summary>Puts one of the original sale's lines onto the return.</summary>

@@ -347,7 +347,7 @@ public sealed record PriceResolutionResponse(
 /// <param name="SaleId">The sale the goods came off.</param>
 /// <param name="Reason">Why they came back.</param>
 /// <param name="RefundTenderType">How the refund is being given — Cash, Card, Voucher or MobileMoney.</param>
-public sealed record CreateSalesReturnRequest(Guid SaleId, string Reason, string RefundTenderType);
+public sealed record CreateSalesReturnRequest(Guid SaleId, string Reason, string RefundTenderType, Guid? RequestId = null);
 
 /// <summary>Puts one of the original sale's lines onto a draft return.</summary>
 /// <param name="SaleLineId">The original line the goods came off.</param>
@@ -639,5 +639,4 @@ public sealed record SalesAnalyticsResponse(
 /// <summary>The ids of the generated invoices.</summary>
 /// <param name="InvoiceIds">The invoice ids.</param>
 public sealed record InvoiceIdsResponse(List<Guid> InvoiceIds);
-
 

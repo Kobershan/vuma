@@ -163,6 +163,12 @@ public sealed class SalesReturnRepository(VumaRetailDbContext context, ITenantCo
             .Include(salesReturn => salesReturn.Lines)
             .FirstOrDefaultAsync(salesReturn => salesReturn.Id == salesReturnId, cancellationToken);
 
+    public Task<SalesReturn?> FindByRequestIdAsync(Guid saleId, Guid requestId,
+        CancellationToken cancellationToken = default)
+        => context.SalesReturns
+            .FirstOrDefaultAsync(salesReturn => salesReturn.SaleId == saleId
+                && salesReturn.RequestId == requestId, cancellationToken);
+
     /// <inheritdoc />
     public async Task<SalesReturn?> FindForUpdateAsync(Guid salesReturnId, CancellationToken cancellationToken = default)
     {

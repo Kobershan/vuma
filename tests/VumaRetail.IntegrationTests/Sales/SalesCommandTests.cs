@@ -205,6 +205,22 @@ public sealed class SalesCommandTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task CreateSalesReturnCommand_uses_sale_and_request_identity_when_document_id_is_not_replayed()
+    {
+        await using SalesHarness harness = await SalesHarness.CreateAsync(fixture);
+        Guid saleId = await SellAsync(harness, quantity: 1m, unitPrice: 115m);
+        Guid requestId = UuidV7.NewGuid();
+
+        Guid first = await harness.SendAsync(new CreateSalesReturnCommand(
+            saleId, "Retryable request", TenderType.Cash, RequestId: requestId));
+        Guid replayed = await harness.SendAsync(new CreateSalesReturnCommand(
+            saleId, "Retryable request", TenderType.Cash, RequestId: requestId));
+
+        replayed.Should().Be(first);
+        (await harness.Returns.ListForSaleAsync(saleId)).Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task FindForUpdateAsync_genuinely_blocks_a_second_reader_until_the_first_transaction_ends()
     {
         // §4.21's other half — a real concurrency race, a different mechanism from the id-replay fix
@@ -304,6 +320,64 @@ public sealed class SalesCommandTests(PostgresFixture fixture)
         SalesReturn reloaded = await harness.QueryAsync(new GetSalesReturnQuery(second));
 
         reloaded.Gross.Amount.Should().Be(115m);
+    }
+
+    [Fact]
+    public async Task Two_independent_transactions_cannot_return_more_than_the_sold_quantity()
+    {
+        await using SalesHarness harness = await SalesHarness.CreateAsync(fixture);
+
+        Guid saleId = await SellAsync(harness, quantity: 1m, unitPrice: 115m);
+        Sale sale = await RequireSaleAsync(harness, saleId);
+        Guid firstReturnId = await harness.SendAsync(new CreateSalesReturnCommand(
+            saleId, "Concurrent first", TenderType.Cash, RequestId: UuidV7.NewGuid()));
+        Guid secondReturnId = await harness.SendAsync(new CreateSalesReturnCommand(
+            saleId, "Concurrent second", TenderType.Cash, RequestId: UuidV7.NewGuid()));
+        Guid saleLineId = sale.Lines.Single().Id;
+
+        Barrier bothReady = new(2);
+        async Task AddLineAsync(Guid returnId)
+        {
+            await using VumaRetailDbContext context = TestDbContextFactory.For(
+                harness.ConnectionString, harness.Clock, harness.Principal, harness.TenantContext);
+            await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+                await context.Database.BeginTransactionAsync();
+
+            SalesReturnRepository returns = new(context, harness.TenantContext);
+            SalesReturn salesReturn = await returns.FindAsync(returnId)
+                ?? throw new InvalidOperationException("The test return was not created.");
+            SaleLine line = await context.SaleLines.SingleAsync(candidate => candidate.Id == saleLineId);
+            bothReady.SignalAndWait();
+
+            decimal previouslyReturned = await returns.SumReturnedQuantityAsync(
+                saleLineId, salesReturn.Id);
+            salesReturn.AddLine(line, new Quantity(1m, "EA"), previouslyReturned);
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        Task first = AddLineAsync(firstReturnId);
+        Task second = AddLineAsync(secondReturnId);
+        Exception[] failures = (await Task.WhenAll(
+            CaptureAsync(first), CaptureAsync(second))).Where(error => error is not null).Cast<Exception>().ToArray();
+
+        failures.Should().ContainSingle();
+        failures[0].Should().BeOfType<SalesRuleException>()
+            .Which.Code.Should().Be("SALES_RETURN_EXCEEDS_QUANTITY_SOLD");
+        (await harness.Context.SalesReturnLines.CountAsync(line => line.SaleLineId == saleLineId)).Should().Be(1);
+    }
+
+    private static async Task<Exception?> CaptureAsync(Task operation)
+    {
+        try
+        {
+            await operation;
+            return null;
+        }
+        catch (Exception error)
+        {
+            return error;
+        }
     }
 
     [Fact]

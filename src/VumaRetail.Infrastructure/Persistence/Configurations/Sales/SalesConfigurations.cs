@@ -255,6 +255,7 @@ internal sealed class SalesReturnConfiguration : EntityConfiguration<SalesReturn
     protected override void ConfigureEntity(EntityTypeBuilder<SalesReturn> builder)
     {
         builder.Property(salesReturn => salesReturn.SaleId).IsRequired();
+        builder.Property(salesReturn => salesReturn.RequestId);
         builder.Property(salesReturn => salesReturn.ReturnNumber).IsRequired().HasMaxLength(32);
         builder.Property(salesReturn => salesReturn.LocationId).IsRequired();
         builder.Property(salesReturn => salesReturn.CustomerId);
@@ -302,6 +303,11 @@ internal sealed class SalesReturnConfiguration : EntityConfiguration<SalesReturn
         // and again by the aggregate before every line is added.
         builder.HasIndex(salesReturn => salesReturn.SaleId)
             .HasDatabaseName("ix_sales_returns_sale_id");
+
+        builder.HasIndex(salesReturn => new { salesReturn.TenantId, salesReturn.SaleId, salesReturn.RequestId })
+            .IsUnique()
+            .HasDatabaseName("ux_sales_returns_tenant_sale_request")
+            .HasFilter("request_id IS NOT NULL AND deleted_at IS NULL");
 
         builder.HasIndex(salesReturn => new { salesReturn.Status, salesReturn.CompletedAt })
             .HasDatabaseName("ix_sales_returns_status_completed_at");

@@ -762,7 +762,7 @@ public static class SalesEndpoints
 
         Guid id = await dispatcher
             .SendAsync(
-                new CreateSalesReturnCommand(request.SaleId, request.Reason, refundTender),
+                new CreateSalesReturnCommand(request.SaleId, request.Reason, refundTender, RequestId: request.RequestId),
                 cancellationToken)
             .ConfigureAwait(false);
 

@@ -243,6 +243,10 @@ public interface ISalesReturnRepository
     /// <param name="cancellationToken">Cancels the operation.</param>
     Task<SalesReturn?> FindAsync(Guid salesReturnId, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds a previously accepted create request for one sale.</summary>
+    Task<SalesReturn?> FindByRequestIdAsync(Guid saleId, Guid requestId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Finds a return with its lines loaded, row-locked until the command's own commit — the
     /// concurrency-safe half of §4.21's fix. Two concurrent <c>CompleteSalesReturnCommand</c> calls for

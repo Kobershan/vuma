@@ -17,12 +17,14 @@ namespace VumaRetail.Application.Sales.Commands;
 /// The return's identity, or <c>null</c> to mint one here. A caller that already sent this create once
 /// supplies the id it used the first time, which makes a dropped-connection retry idempotent (§4.21).
 /// </param>
+/// <param name="RequestId">The originating client request identity, unique per sale.</param>
 [CommandSideEffect(SideEffect.Write)]
 public sealed record CreateSalesReturnCommand(
     Guid SaleId,
     string Reason,
     TenderType RefundTenderType,
-    Guid? SalesReturnId = null) : ICommand<Guid>;
+    Guid? SalesReturnId = null,
+    Guid? RequestId = null) : ICommand<Guid>;
 
 /// <summary>Rejects a malformed create-return command before it reaches the handler.</summary>
 public sealed class CreateSalesReturnCommandValidator : AbstractValidator<CreateSalesReturnCommand>
@@ -70,6 +72,18 @@ public sealed class CreateSalesReturnCommandHandler(
             }
         }
 
+        if (command.RequestId is { } requestId)
+        {
+            SalesReturn? already = await returns
+                .FindByRequestIdAsync(command.SaleId, requestId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (already is not null)
+            {
+                return already.Id;
+            }
+        }
+
         Guid authorisedBy = SalesActor.RequireUserId(principal);
 
         Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
@@ -89,7 +103,8 @@ public sealed class CreateSalesReturnCommandHandler(
             command.RefundTenderType,
             authorisedBy,
             clock.UtcNow,
-            command.SalesReturnId);
+            command.SalesReturnId,
+            command.RequestId);
 
         returns.Add(created);
 
