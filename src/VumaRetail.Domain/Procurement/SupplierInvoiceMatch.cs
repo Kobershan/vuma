@@ -365,13 +365,13 @@ public sealed class SupplierInvoiceMatch : Entity
     /// </summary>
     private void Recalculate()
     {
-        Money matchedNet = Money.Zero(Currency);
+        Money matchedGross = Money.Zero(Currency);
         ThreeWayMatchVarianceKind variances = ThreeWayMatchVarianceKind.None;
         ThreeWayMatchStatus status = ThreeWayMatchStatus.Matched;
 
         foreach (SupplierInvoiceMatchLine line in _lines)
         {
-            matchedNet += line.OrderedValue;
+            matchedGross += line.OrderedValue;
             variances |= line.Variances;
 
             if (line.Status > status)
@@ -380,13 +380,13 @@ public sealed class SupplierInvoiceMatch : Entity
             }
         }
 
-        MatchedGross = matchedNet;
+        MatchedGross = matchedGross;
         Variances = variances;
         Status = status;
 
-        // The document-level variance is the claim against what the order supports, not the sum of the
-        // per-line variances. They are the same number when every invoiced line is on the order, and
-        // they differ exactly when the supplier has added something — which is the case worth showing.
-        PriceVariance = ClaimedNet - matchedNet;
+        // Compare gross with gross. The document-level variance is the supplier's total claim against
+        // what the order supports, not the sum of per-line variances. This keeps tax-inclusive audit
+        // reporting consistent when the supplier adds a line or changes the tax treatment.
+        PriceVariance = ClaimedGross - MatchedGross;
     }
 }

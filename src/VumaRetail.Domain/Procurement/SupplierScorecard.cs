@@ -227,7 +227,7 @@ public sealed class SupplierScorecard : Entity
 /// <param name="QuantityReceived">Quantity accepted into stock.</param>
 /// <param name="QuantityRejected">Quantity turned away.</param>
 /// <param name="PurchaseValue">What was bought, at order cost, excluding tax.</param>
-/// <param name="PriceVariance">What released invoices over-billed by, net.</param>
+/// <param name="PriceVariance">What released invoices over-billed by, gross.</param>
 public sealed record SupplierScorecardFigures(
     int OrdersPlaced,
     int LinesOrdered,
