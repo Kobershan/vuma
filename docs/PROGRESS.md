@@ -1784,5 +1784,5 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
 - Solution build: 0 errors; the latest clean rebuild reported 1,256 warnings, predominantly missing XML comments
   and analyzer/style warnings in pre-existing files. The actionable nullability, duplicate-import, and
   async-test warnings addressed in `549ca61` are no longer present.
-- `git grep "local-demo-signing-key"`: no matches.
-- `git grep "Admin@Vuma2026"`: only the deliberate blocklist documentation in `docs/SECURITY.md`.
+- Repository scans confirm the removed installer signing-key literal is absent. The known-bad
+  bootstrap password remains only in the security blocklist and its supporting domain rule.

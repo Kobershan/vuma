@@ -73,7 +73,8 @@ public static class VumaOpenApi
                     && example is not null
                     && operation.RequestBody is { } requestBody)
                 {
-                    if (requestBody.Content.TryGetValue("application/json", out OpenApiMediaType? media)
+                    if (requestBody.Content is { } content
+                        && content.TryGetValue("application/json", out OpenApiMediaType? media)
                         && media is not null)
                     {
                         media.Example = example.DeepClone();
