@@ -13,3 +13,8 @@ docs/*.tar.gz
 .env.*
 !.env.example
 **/appsettings.*.local.json
+*.pfx
+*.p12
+*.key
+*.pem
+*.crt
