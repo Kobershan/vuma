@@ -4,6 +4,7 @@ using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Finance;
 using VumaRetail.Application.Abstractions.Imports;
 using VumaRetail.Domain.Imports;
+using VumaRetail.Imports;
 
 namespace VumaRetail.Application.Imports.Commands;
 
@@ -101,6 +102,13 @@ public sealed class CreateImportBatchCommandHandler(
         if (command.Content.Length > options.MaxUploadBytes)
         {
             throw ImportRuleException.UploadTooLarge(command.Content.Length, options.MaxUploadBytes);
+        }
+
+        if (!ImportFormatValidator.IsValid(command.SourceFormat, command.Content.Span))
+        {
+            throw new ImportRuleException(
+                "IMPORTS_UNREADABLE",
+                "Bytes do not match the declared format.");
         }
 
         ImportTargetDescriptor target = handlers.For(command.TargetKind).Descriptor;

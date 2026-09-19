@@ -7,10 +7,16 @@ param(
     [string]$DatabasePassword,
     [int]$ApiPort = 7243,
     [string]$TenantId = "01900000-0000-7000-8000-0000000000d0",
-    [switch]$InstallLocalPostgres
+    [switch]$InstallLocalPostgres,
+    [switch]$Demo,
+    [string]$BootstrapPassword
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Demo) {
+    Write-Warning "-Demo disables production security guards. Use only on an isolated development machine."
+}
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -32,6 +38,12 @@ if ([string]::IsNullOrWhiteSpace($DatabasePassword)) {
 }
 if ([string]::IsNullOrWhiteSpace($DatabasePassword)) {
     throw "A PostgreSQL password is required."
+}
+
+if ([string]::IsNullOrWhiteSpace($BootstrapPassword)) {
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+    $BootstrapPassword = -join (1..16 | ForEach-Object { $alphabet[(Get-Random -Maximum $alphabet.Length)] })
+    Write-Host "[SAVE THIS — it will not be shown again] Bootstrap password: $BootstrapPassword"
 }
 
 New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
@@ -66,8 +78,12 @@ $machine = [EnvironmentVariableTarget]::Machine
 [Environment]::SetEnvironmentVariable("ConnectionStrings__Vuma", "Host=127.0.0.1;Port=5432;Database=$DatabaseName;Username=$DatabaseUser;Password=$DatabasePassword", $machine)
 [Environment]::SetEnvironmentVariable("Vuma__Host__TenantId", $TenantId, $machine)
 [Environment]::SetEnvironmentVariable("Vuma__Host__StoreId", "", $machine)
-[Environment]::SetEnvironmentVariable("Vuma__Jwt__SigningKey", "local-demo-signing-key-change-before-production-2026", $machine)
-[Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development", $machine)
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$JwtSigningKey = [Convert]::ToBase64String($bytes)
+[Environment]::SetEnvironmentVariable("Vuma__Jwt__SigningKey", $JwtSigningKey, $machine)
+[Environment]::SetEnvironmentVariable("VUMA_BOOTSTRAP_PASSWORD", $BootstrapPassword, $machine)
+[Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", $(if ($Demo) { "Development" } else { "Production" }), $machine)
 [Environment]::SetEnvironmentVariable("ASPNETCORE_URLS", "http://0.0.0.0:$ApiPort", $machine)
 
 $exePath = Join-Path $InstallRoot "VumaRetail.StoreServer.exe"
@@ -97,5 +113,6 @@ $serverName = [System.Net.Dns]::GetHostName()
 Write-Host "Vuma local server installed and started."
 Write-Host "Health check: http://localhost:$ApiPort/health"
 Write-Host "Desktop API URL: http://$serverName`:$ApiPort/api/v1"
-Write-Host "Bootstrap login: admin / Admin@Vuma2026!"
+Write-Host "Generated JWT signing key (store securely): $JwtSigningKey"
+Write-Host "Bootstrap login: admin / $BootstrapPassword"
 Write-Host "After creating the real administrator, deactivate the bootstrap account."

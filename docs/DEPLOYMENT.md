@@ -63,3 +63,9 @@ revoke access in the registry before any database operation.
 The dashboard, desktop client and Flutter client all call the API. The database connection is chosen
 server-side from authenticated tenant/company context; a client-supplied company id is never trusted
 as a database selector.
+## TLS requirements for non-Render deployments
+
+Render terminates TLS before forwarding HTTP to the cloud container. On a VPS or self-hosted Docker
+deployment, put nginx, Caddy, an AWS ALB, or another TLS-terminating reverse proxy in front of port
+10000. Never expose the container's plain HTTP port directly to the internet. Configure
+`AllowedHosts` with the real public hostname(s), not `*` or the shipped placeholder.

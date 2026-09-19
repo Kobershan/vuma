@@ -44,6 +44,17 @@ public static class VumaWebExtensions
         services.AddScoped<IPrincipalAccessor, HttpContextPrincipalAccessor>();
 
         services.AddVumaIdentity(jwt);
+        services.AddCors(options =>
+        {
+            string[] allowedOrigins = jwt.CorsAllowedOrigins ?? [];
+            options.AddDefaultPolicy(policy =>
+            {
+                if (allowedOrigins.Length == 0)
+                    policy.SetIsOriginAllowed(_ => false);
+                else
+                    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+            });
+        });
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -141,6 +152,16 @@ public static class VumaWebExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         app.UseExceptionHandler();
+        app.Use(async (context, next) =>
+        {
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'";
+            if (context.Request.IsHttps)
+                context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+            await next(context).ConfigureAwait(false);
+        });
 
         // Gives 401, 403 and 404 a body. They are produced by middleware that short-circuits before
         // the exception handler, so without this they are the only errors in the system with no code.
@@ -148,18 +169,23 @@ public static class VumaWebExtensions
 
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseVumaRequestLogging();
-
+        app.UseRateLimiter();
+        app.UseCors();
         app.UseAuthentication();
         app.UseMiddleware<TenantResolutionMiddleware>();
         app.UseMiddleware<OperatorResolutionMiddleware>();
         app.UseAuthorization();
-        app.UseRateLimiter();
 
         return app;
     }
 
     private static string ClientKey(HttpContext context)
-        => context.Connection.RemoteIpAddress?.ToString() ?? "unknown-client";
+    {
+        string? ip = context.Connection.RemoteIpAddress?.ToString();
+        if (ip is null)
+            ip = context.Request.Headers["X-Forwarded-For"].ToString().Split(',')[0].Trim();
+        return string.IsNullOrWhiteSpace(ip) ? "unknown-client" : ip;
+    }
 
     /// <summary>Requires the caller to hold a permission (ADR-013).</summary>
     /// <typeparam name="TBuilder">The endpoint convention builder.</typeparam>

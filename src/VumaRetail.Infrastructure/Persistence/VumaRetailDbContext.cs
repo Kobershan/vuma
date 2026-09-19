@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Application.Abstractions.Registry;
 using VumaRetail.Domain.Entities;
@@ -29,16 +30,18 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
 {
     private readonly ITenantContext _tenantContext;
     private readonly ICompanyContext? _companyContext;
+    private readonly ILogger<VumaRetailDbContext>? _logger;
 
     /// <summary>Creates the context.</summary>
     /// <param name="options">EF options, including the Npgsql provider and the interceptors.</param>
     /// <param name="tenantContext">Supplies the tenant the global query filter scopes to.</param>
     /// <param name="companyContext">Supplies the active company for row stamping and filtering.</param>
-    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null)
+    public VumaRetailDbContext(DbContextOptions options, ITenantContext tenantContext, ICompanyContext? companyContext = null, ILogger<VumaRetailDbContext>? logger = null)
         : base(options)
     {
         _tenantContext = tenantContext;
         _companyContext = companyContext;
+        _logger = logger;
     }
 
     /// <summary>Tenants — the isolation root every other row hangs off.</summary>
@@ -741,6 +744,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
         // one here would either be ignored or commit half the outer scope's work.
         if (Database.CurrentTransaction is not null)
         {
+            _logger?.LogDebug("CommitAsync skipped: deferred to outer transaction {TransactionId}.", Database.CurrentTransaction.TransactionId);
             return await operation(cancellationToken).ConfigureAwait(false);
         }
 

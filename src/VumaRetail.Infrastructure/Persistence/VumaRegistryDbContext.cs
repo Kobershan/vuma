@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VumaRetail.Application.Abstractions;
 using VumaRetail.Domain.Conversations;
 using VumaRetail.Domain.Registry;
@@ -10,9 +11,11 @@ namespace VumaRetail.Infrastructure.Persistence;
 /// <summary>EF context for the per-tenant registry database (ADR-099).</summary>
 public sealed class VumaRegistryDbContext(
     DbContextOptions<VumaRegistryDbContext> options,
-    ITenantContext tenantContext) : DbContext(options), IUnitOfWork
+    ITenantContext tenantContext,
+    ILogger<VumaRegistryDbContext>? logger = null) : DbContext(options), IUnitOfWork
 {
     private readonly ITenantContext _tenantContext = tenantContext;
+    private readonly ILogger<VumaRegistryDbContext>? _logger = logger;
 
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<CompanyLifecycleAudit> CompanyLifecycleAudits => Set<CompanyLifecycleAudit>();
@@ -92,6 +95,7 @@ public sealed class VumaRegistryDbContext(
 
         if (Database.CurrentTransaction is not null)
         {
+            _logger?.LogDebug("CommitAsync skipped: deferred to outer transaction {TransactionId}.", Database.CurrentTransaction.TransactionId);
             return await operation(cancellationToken).ConfigureAwait(false);
         }
 

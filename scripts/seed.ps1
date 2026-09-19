@@ -12,7 +12,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$ConnectionString
+    [string]$ConnectionString,
+    [string]$BootstrapPassword = $env:VUMA_BOOTSTRAP_PASSWORD
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,6 +22,11 @@ $root = Split-Path -Parent $PSScriptRoot
 if ($ConnectionString) {
     $env:ConnectionStrings__Vuma = $ConnectionString
 }
+
+if (-not $BootstrapPassword -and $env:ASPNETCORE_ENVIRONMENT -ne 'Development') {
+    throw 'VUMA_BOOTSTRAP_PASSWORD is required outside Development.'
+}
+if ($BootstrapPassword) { $env:VUMA_BOOTSTRAP_PASSWORD = $BootstrapPassword }
 
 # The demo seed runs as a development tool by default. The host refuses to start on the placeholder
 # JWT signing key outside Development (docs/SECURITY.md §1); seeding a real deployment means setting

@@ -23,7 +23,9 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
     {
         RuleFor(command => command.UserName).NotEmpty().MaximumLength(128);
         RuleFor(command => command.DisplayName).NotEmpty().MaximumLength(256);
-        RuleFor(command => command.Password).NotEmpty().MinimumLength(CredentialPolicy.MinimumPasswordLength);
+        RuleFor(command => command.Password).NotEmpty().MinimumLength(CredentialPolicy.MinimumPasswordLength)
+            .Must(password => !PasswordBlocklist.IsBlocked(password))
+            .WithMessage("This password is not permitted. Choose a different password.");
         RuleFor(command => command.Email).MaximumLength(256);
     }
 }
@@ -163,7 +165,9 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
     public ChangePasswordCommandValidator()
     {
         RuleFor(command => command.UserId).NotEmpty();
-        RuleFor(command => command.NewPassword).NotEmpty().MinimumLength(CredentialPolicy.MinimumPasswordLength);
+        RuleFor(command => command.NewPassword).NotEmpty().MinimumLength(CredentialPolicy.MinimumPasswordLength)
+            .Must(password => !PasswordBlocklist.IsBlocked(password))
+            .WithMessage("This password is not permitted. Choose a different password.");
     }
 }
 

@@ -482,6 +482,8 @@ therefore never restores its siblings; the registry can safely re-drive that com
 saga legs by their `(intent_id, leg_id)` idempotency key (ADR-120).
 
 **Encryption.** AES-256-GCM in 1 MiB framed chunks — GCM is one-shot and will not stream, and a
+version byte prefixes each encrypted snapshot. Version `0x01` uses the configured key; rotate by
+introducing a new versioned key and retaining old keys until all snapshots using them expire.
 snapshot does not fit in memory. The chunk index is authenticated as associated data, so chunks
 cannot be reordered, dropped or duplicated while their individual tags still verify; a zero-length
 authenticated terminator catches truncation. Authenticated encryption is the requirement rather than

@@ -17,6 +17,11 @@ if [[ -n "${VUMA_CONNECTION:-}" ]]; then
   export ConnectionStrings__Vuma="$VUMA_CONNECTION"
 fi
 
+if [[ -z "${VUMA_BOOTSTRAP_PASSWORD:-}" && "${ASPNETCORE_ENVIRONMENT:-Development}" != "Development" ]]; then
+  echo "VUMA_BOOTSTRAP_PASSWORD is required outside Development." >&2
+  exit 1
+fi
+
 # The demo seed runs as a development tool by default. The host refuses to start on the placeholder
 # JWT signing key outside Development (docs/SECURITY.md §1) and that guard stays exactly as it is —
 # seeding a real deployment means setting ASPNETCORE_ENVIRONMENT and a real key, like any other run.

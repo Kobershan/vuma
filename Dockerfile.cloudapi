@@ -12,4 +12,9 @@ WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:10000
 EXPOSE 10000
+# TLS NOTE: This container listens on plain HTTP (port 10000). In production, TLS MUST be terminated
+# at the reverse proxy layer (Render, nginx, Caddy, AWS ALB, etc.). Never expose port 10000 directly
+# to the internet without a TLS-terminating proxy in front.
+# For Kestrel-direct HTTPS (non-Render deployments), configure ASPNETCORE_URLS=https://+:10000 and
+# Kestrel__Endpoints__Https__Certificate__Path=/certs/server.pfx plus its secret password.
 ENTRYPOINT ["sh", "-c", "dotnet VumaRetail.CloudApi.dll --urls http://0.0.0.0:${PORT:-10000}"]

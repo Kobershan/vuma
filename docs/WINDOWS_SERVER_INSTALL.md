@@ -35,7 +35,8 @@ The same installation can be started with the simpler `install-vuma.cmd` launche
 
 This creates the database, applies migrations, seeds the development administrator, installs the
 `VumaRetailStoreServer` Windows Service, and opens the API on port 7243 for the private network.
-The bootstrap login is `admin` / `Admin@Vuma2026!`; deactivate it after creating the real admin.
+The installer prints a generated bootstrap password once; save it securely and deactivate the account
+after creating the real administrator. Set `AllowedHosts` to the server's actual hostname(s).
 
 ## Install on the local server
 

@@ -19,6 +19,20 @@ public static class ProductionSecurityGuard
             return;
         }
 
+        string? allowedHosts = configuration["AllowedHosts"];
+        if (string.IsNullOrWhiteSpace(allowedHosts)
+            || allowedHosts == "*"
+            || allowedHosts.Contains("REPLACE_", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("AllowedHosts must be set to the real hostname(s) outside Development.");
+        }
+
+        if (cloudHost && string.IsNullOrWhiteSpace(configuration["Vuma:Loyalty:Public:WebhookSecret"]))
+        {
+            throw new InvalidOperationException(
+                "Vuma:Loyalty:Public:WebhookSecret must be configured on the cloud tier outside Development.");
+        }
+
         string[] connectionNames = cloudHost ? ["Vuma", "Registry"] : ["Vuma"];
         foreach (string name in connectionNames)
         {

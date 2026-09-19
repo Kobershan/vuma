@@ -16,6 +16,12 @@ services:
         sync: false
       - key: Vuma__Jwt__SigningKey
         sync: false
+      - key: Vuma__Loyalty__Public__WebhookSecret
+        sync: false
+      - key: AllowedHosts
+        sync: false
+      - key: Vuma__Jwt__CorsAllowedOrigins__0
+        sync: false
       - key: Vuma__Backup__Encryption__Key
         sync: false
 

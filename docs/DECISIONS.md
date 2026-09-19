@@ -2552,3 +2552,21 @@ dotnet build src/VumaRetail.sln -c Release
 
 The migration does not authorize a database-schema redesign or a change to the locked product
 architecture; any such change requires its own ADR.
+## ADR-157 — Company exemption bypass: upgrade path and retirement plan
+
+**Status:** Accepted  
+**Date:** 2026-09-19
+
+Pre-registry claimless tokens remain temporarily unrestricted so existing sessions are not broken
+during registry rollout. Refresh flows must populate company memberships when available. The bypass
+is measured and is retired at Stage 31 once the daily hit rate is zero and all tokens issued before
+the registry rollout date have expired. At that point a claimless token receives `Forbidden`.
+
+## ADR-158 — Upgrade from .NET 9 to .NET 10 LTS
+
+**Status:** Accepted  
+**Date:** 2026-09-19
+
+Vuma adopts C# 14 on .NET 10 LTS because .NET 9 is STS and reaches end of support in November 2026.
+All first-party projects target `net10.0` or `net10.0-windows`; EF Core and ASP.NET Core follow the
+runtime major. HMAC-SHA256 JWT remains deferred to the asymmetric-signing work planned for Stage 20.

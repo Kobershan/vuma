@@ -69,7 +69,10 @@ public sealed class JwtOptions
     public string SigningKey { get; set; } = DevelopmentPlaceholderKey;
 
     /// <summary>How long an access token lasts. 15 minutes (<c>CLAUDE.md</c> §4).</summary>
-    public TimeSpan AccessTokenLifetime { get; set; } = TimeSpan.FromMinutes(15);
+    public TimeSpan AccessTokenLifetime { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Explicitly configured browser origins; empty means no cross-origin access.</summary>
+    public string[]? CorsAllowedOrigins { get; set; }
 
     /// <summary>How long a refresh token lasts. 30 days, rotating (<c>CLAUDE.md</c> §4).</summary>
     public TimeSpan RefreshTokenLifetime { get; set; } = TimeSpan.FromDays(30);
@@ -211,6 +214,8 @@ public static class VumaCompanyClaims
     {
         IReadOnlyList<CompanyMembership>? companies = Parse(user);
 
+        // ADR-157: pre-registry tokens carry no companies claim and are unconditionally allowed.
+        // TODO(Stage-31): remove this bypass when the telemetry hit rate reaches zero.
         if (companies is null || companies.Count == 0)
         {
             return;

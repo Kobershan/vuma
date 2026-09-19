@@ -34,6 +34,8 @@ Hashed with ASP.NET Core Identity's `PasswordHasher<T>` — PBKDF2-HMAC-SHA512, 
 rehashed on next sign-in. Minimum length 12, no composition rules and no forced expiry: both push
 users towards `Password1!` and a sticky note on the monitor.
 
+The blocklist rejects `Admin@Vuma2026!`, `Password@123!`, `Welcome@123!`, and `Changeme@1234!`.
+
 Five consecutive failures lock the account for 15 minutes. The counter resets on success. Sign-in
 never distinguishes "no such user" from "wrong password" in its response.
 
@@ -71,7 +73,7 @@ a false positive that closes a till costs more than the piracy it prevents.
 
 | Token | Lifetime | Storage |
 |---|---|---|
-| Access (JWT, HS256) | 15 minutes | Never persisted; carried in `Authorization: Bearer` |
+| Access (JWT, HS256) | 5 minutes | Never persisted; carried in `Authorization: Bearer` |
 | Refresh | 30 days, rotating | Only its SHA-256 hash is stored |
 
 The access token carries `sub`, `tenant`, optional `store`, `terminal`, `stamp` (the user's security
