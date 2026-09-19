@@ -94,6 +94,7 @@ public sealed class AuthenticationService
     private readonly IClock _clock;
     private readonly CredentialPolicy _policy;
     private readonly ITokenCompanyEnricher? _companyEnricher;
+    private readonly ITokenRevocationCache? _revocationCache;
 
     /// <summary>Creates the service.</summary>
     /// <param name="users">User lookup.</param>
@@ -116,6 +117,7 @@ public sealed class AuthenticationService
     /// where no registry is wired; the container supplies the registry implementation and the
     /// direct constructions in tests keep compiling unchanged.
     /// </param>
+    /// <param name="revocationCache">Short-lived cache for invalidated access-token stamps.</param>
     public AuthenticationService(
         IUserRepository users,
         ITerminalRepository terminals,
@@ -127,7 +129,8 @@ public sealed class AuthenticationService
         ITenantContext tenant,
         IClock clock,
         CredentialPolicy? policy = null,
-        ITokenCompanyEnricher? companyEnricher = null)
+        ITokenCompanyEnricher? companyEnricher = null,
+        ITokenRevocationCache? revocationCache = null)
     {
         _users = users;
         _terminals = terminals;
@@ -140,6 +143,7 @@ public sealed class AuthenticationService
         _clock = clock;
         _policy = policy ?? CredentialPolicy.Default;
         _companyEnricher = companyEnricher;
+        _revocationCache = revocationCache;
     }
 
     /// <summary>Signs a user in with their password.</summary>

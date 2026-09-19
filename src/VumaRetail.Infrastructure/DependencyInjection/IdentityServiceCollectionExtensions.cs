@@ -42,6 +42,7 @@ public static class IdentityServiceCollectionExtensions
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         services.AddSingleton<ITokenHasher, Sha256TokenHasher>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
+        services.AddScoped<ITokenRevocationCache, TokenRevocationCache>();
         services.AddSingleton(CredentialPolicy.Default);
 
         services.AddVumaPermissionCatalogue();

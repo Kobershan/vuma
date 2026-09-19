@@ -176,11 +176,13 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
 /// <param name="tokens">Refresh token store.</param>
 /// <param name="hasher">Hashes the password.</param>
 /// <param name="clock">The only source of time.</param>
+/// <param name="revocationCache">Short-lived cache for invalidated access-token stamps.</param>
 public sealed class ChangePasswordCommandHandler(
     IUserRepository users,
     IRefreshTokenRepository tokens,
     IPasswordHasher hasher,
-    IClock clock) : ICommandHandler<ChangePasswordCommand, Unit>
+    IClock clock,
+    ITokenRevocationCache? revocationCache = null) : ICommandHandler<ChangePasswordCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(ChangePasswordCommand command, CancellationToken cancellationToken = default)
@@ -198,7 +200,12 @@ public sealed class ChangePasswordCommandHandler(
         // SetPasswordHash rotates the security stamp, which retires every access token already out
         // there. The refresh tokens are revoked explicitly as well so the audit trail records why
         // they died rather than leaving rows that simply stopped working.
+        string previousSecurityStamp = user.SecurityStamp;
         user.SetPasswordHash(hasher.Hash(command.NewPassword));
+        if (revocationCache is not null)
+        {
+            await revocationCache.RevokeStampAsync(user.Id, previousSecurityStamp, cancellationToken).ConfigureAwait(false);
+        }
 
         IReadOnlyList<RefreshToken> live = await tokens.ListLiveAsync(user.Id, cancellationToken).ConfigureAwait(false);
 
@@ -217,7 +224,9 @@ public sealed class ChangePasswordCommandHandler(
 public sealed record DeactivateUserCommand(Guid UserId) : ICommand;
 
 /// <summary>Deactivates a user and invalidates their access.</summary>
-public sealed class DeactivateUserCommandHandler(IUserRepository users) : ICommandHandler<DeactivateUserCommand, Unit>
+public sealed class DeactivateUserCommandHandler(
+    IUserRepository users,
+    ITokenRevocationCache? revocationCache = null) : ICommandHandler<DeactivateUserCommand, Unit>
 {
     /// <inheritdoc />
     public async Task<Unit> HandleAsync(DeactivateUserCommand command, CancellationToken cancellationToken = default)
@@ -225,7 +234,12 @@ public sealed class DeactivateUserCommandHandler(IUserRepository users) : IComma
         ArgumentNullException.ThrowIfNull(command);
         User user = await users.FindAsync(command.UserId, cancellationToken).ConfigureAwait(false)
             ?? throw new IdentityNotFoundException("user", command.UserId);
+        string previousSecurityStamp = user.SecurityStamp;
         user.Deactivate();
+        if (revocationCache is not null)
+        {
+            await revocationCache.RevokeStampAsync(user.Id, previousSecurityStamp, cancellationToken).ConfigureAwait(false);
+        }
         return Unit.Value;
     }
 }

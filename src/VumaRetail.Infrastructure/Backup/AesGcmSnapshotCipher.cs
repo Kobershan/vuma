@@ -48,7 +48,34 @@ public sealed class SnapshotEncryptionOptions
 /// </para>
 /// </remarks>
 /// <param name="options">The key.</param>
-public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : ISnapshotCipher
+public sealed class SnapshotKeyStore(SnapshotEncryptionOptions options) : ISnapshotKeyStore
+{
+    public byte CurrentVersion => 1;
+
+    public byte[] GetKey(byte version)
+        => version == CurrentVersion
+            ? ResolveKey(options)
+            : throw new InvalidOperationException($"Unknown snapshot encryption key version {version}.");
+
+    private static byte[] ResolveKey(SnapshotEncryptionOptions options)
+    {
+        if (!options.IsConfigured)
+            throw new InvalidOperationException($"{SnapshotEncryptionOptions.SectionName}:Key is not configured.");
+        try
+        {
+            byte[] key = Convert.FromBase64String(options.Key);
+            return key.Length == 32
+                ? key
+                : throw new InvalidOperationException($"{SnapshotEncryptionOptions.SectionName}:Key must be 256 bits.");
+        }
+        catch (FormatException malformed)
+        {
+            throw new InvalidOperationException($"{SnapshotEncryptionOptions.SectionName}:Key is not valid base64.", malformed);
+        }
+    }
+}
+
+public sealed class AesGcmSnapshotCipher : ISnapshotCipher
 {
     /// <summary>Plaintext bytes per chunk. 1 MiB — well inside GCM's limits and cheap on memory.</summary>
     private const int ChunkSize = 1024 * 1024;
@@ -58,6 +85,13 @@ public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : IS
 
     /// <summary>Format version. Bumped if the framing ever changes.</summary>
     private const byte FormatVersion = 1;
+    private readonly ISnapshotKeyStore _keyStore;
+
+    public AesGcmSnapshotCipher(SnapshotEncryptionOptions options, ISnapshotKeyStore? keyStore = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _keyStore = keyStore ?? new SnapshotKeyStore(options);
+    }
 
     /// <inheritdoc />
     public async Task EncryptAsync(
@@ -68,9 +102,11 @@ public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : IS
         ArgumentNullException.ThrowIfNull(plaintext);
         ArgumentNullException.ThrowIfNull(destination);
 
-        byte[] key = ResolveKey();
+        byte keyVersion = _keyStore.CurrentVersion;
+        byte[] key = _keyStore.GetKey(keyVersion);
 
         await destination.WriteAsync(Magic, cancellationToken).ConfigureAwait(false);
+        await destination.WriteAsync(new[] { keyVersion }, cancellationToken).ConfigureAwait(false);
         await destination.WriteAsync(new[] { FormatVersion }, cancellationToken).ConfigureAwait(false);
 
         using AesGcm cipher = new(key, AesGcm.TagByteSizes.MaxSize);
@@ -127,9 +163,7 @@ public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : IS
         ArgumentNullException.ThrowIfNull(ciphertext);
         ArgumentNullException.ThrowIfNull(destination);
 
-        byte[] key = ResolveKey();
-
-        byte[] preamble = new byte[Magic.Length + 1];
+        byte[] preamble = new byte[Magic.Length + 2];
 
         if (await ReadFullyAsync(ciphertext, preamble, cancellationToken).ConfigureAwait(false) != preamble.Length
             || !preamble.AsSpan(0, Magic.Length).SequenceEqual(Magic)
@@ -137,6 +171,8 @@ public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : IS
         {
             throw new SnapshotDecryptionException();
         }
+
+        byte[] key = _keyStore.GetKey(preamble[Magic.Length]);
 
         using AesGcm cipher = new(key, AesGcm.TagByteSizes.MaxSize);
 
@@ -203,35 +239,6 @@ public sealed class AesGcmSnapshotCipher(SnapshotEncryptionOptions options) : IS
         BinaryPrimitives.WriteInt64LittleEndian(associated, chunkIndex);
 
         return associated;
-    }
-
-    private byte[] ResolveKey()
-    {
-        if (!options.IsConfigured)
-        {
-            throw new InvalidOperationException(
-                $"{SnapshotEncryptionOptions.SectionName}:Key is not configured. A snapshot is every "
-                + "row a tenant has; it is not written unencrypted.");
-        }
-
-        byte[] key;
-
-        try
-        {
-            key = Convert.FromBase64String(options.Key);
-        }
-        catch (FormatException malformed)
-        {
-            throw new InvalidOperationException(
-                $"{SnapshotEncryptionOptions.SectionName}:Key is not valid base64.",
-                malformed);
-        }
-
-        return key.Length == 32
-            ? key
-            : throw new InvalidOperationException(
-                $"{SnapshotEncryptionOptions.SectionName}:Key must be 256 bits (32 bytes) of base64, "
-                + $"not {key.Length} bytes.");
     }
 
     /// <summary>

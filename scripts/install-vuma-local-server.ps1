@@ -85,6 +85,10 @@ $JwtSigningKey = [Convert]::ToBase64String($bytes)
 [Environment]::SetEnvironmentVariable("VUMA_BOOTSTRAP_PASSWORD", $BootstrapPassword, $machine)
 [Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", $(if ($Demo) { "Development" } else { "Production" }), $machine)
 [Environment]::SetEnvironmentVariable("ASPNETCORE_URLS", "http://0.0.0.0:$ApiPort", $machine)
+$env:Vuma__Jwt__SigningKey = $JwtSigningKey
+$env:VUMA_BOOTSTRAP_PASSWORD = $BootstrapPassword
+$env:ASPNETCORE_ENVIRONMENT = if ($Demo) { "Development" } else { "Production" }
+$env:ASPNETCORE_URLS = "http://0.0.0.0:$ApiPort"
 
 $exePath = Join-Path $InstallRoot "VumaRetail.StoreServer.exe"
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue

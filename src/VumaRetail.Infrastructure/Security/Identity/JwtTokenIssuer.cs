@@ -218,6 +218,7 @@ public static class VumaCompanyClaims
         // TODO(Stage-31): remove this bypass when the telemetry hit rate reaches zero.
         if (companies is null || companies.Count == 0)
         {
+            CompanyExemptionTelemetry.Increment();
             return;
         }
 
@@ -226,4 +227,16 @@ public static class VumaCompanyClaims
             throw new Domain.Registry.ForbiddenException(companyId);
         }
     }
+}
+
+/// <summary>Counts requests still using the pre-registry company exemption.</summary>
+public static class CompanyExemptionTelemetry
+{
+    private static long _count;
+
+    /// <summary>Number of exemption passes observed by this process.</summary>
+    public static long Count => Interlocked.Read(ref _count);
+
+    /// <summary>Records one exemption pass.</summary>
+    public static void Increment() => Interlocked.Increment(ref _count);
 }

@@ -158,9 +158,10 @@ public static class DemoSeed
             [PlatformPermissions.StoreView],
             cancellationToken).ConfigureAwait(false);
 
-        string bootstrapPassword = Environment.GetEnvironmentVariable("VUMA_BOOTSTRAP_PASSWORD")
+        string? configuredBootstrapPassword = Environment.GetEnvironmentVariable("VUMA_BOOTSTRAP_PASSWORD");
+        string bootstrapPassword = configuredBootstrapPassword
             ?? (string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase)
-                ? "Development-only-bootstrap-change-me!"
+                ? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(12))
                 : throw new InvalidOperationException("VUMA_BOOTSTRAP_PASSWORD is required outside Development."));
         await EnsureUserAsync(provider, "admin", "Vuma Administrator", bootstrapPassword, ownerRole, null, null, cancellationToken)
             .ConfigureAwait(false);

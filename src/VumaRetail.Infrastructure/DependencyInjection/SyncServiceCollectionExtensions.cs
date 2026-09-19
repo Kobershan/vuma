@@ -149,6 +149,7 @@ public static class SyncServiceCollectionExtensions
         services.AddSingleton(encryption);
         services.AddSingleton(tools);
 
+        services.AddSingleton<ISnapshotKeyStore, SnapshotKeyStore>();
         services.AddSingleton<ISnapshotCipher, AesGcmSnapshotCipher>();
 
         services.AddScoped<IBackupEngine>(provider =>

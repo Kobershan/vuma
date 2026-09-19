@@ -41,6 +41,7 @@ public static class VumaWebExtensions
 
         services.AddSingleton(host);
         services.AddHttpContextAccessor();
+        services.AddDistributedMemoryCache();
         services.AddScoped<IPrincipalAccessor, HttpContextPrincipalAccessor>();
 
         services.AddVumaIdentity(jwt);
@@ -172,6 +173,21 @@ public static class VumaWebExtensions
         app.UseRateLimiter();
         app.UseCors();
         app.UseAuthentication();
+        app.Use(async (context, next) =>
+        {
+            if (!HttpMethods.IsGet(context.Request.Method)
+                && context.User.Identity?.IsAuthenticated == true
+                && Guid.TryParse(context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out Guid userId)
+                && context.User.FindFirst(VumaClaims.SecurityStamp)?.Value is { Length: > 0 } stamp
+                && await context.RequestServices.GetRequiredService<ITokenRevocationCache>()
+                    .IsStampRevokedAsync(userId, stamp, context.RequestAborted).ConfigureAwait(false))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            await next(context).ConfigureAwait(false);
+        });
         app.UseMiddleware<TenantResolutionMiddleware>();
         app.UseMiddleware<OperatorResolutionMiddleware>();
         app.UseAuthorization();

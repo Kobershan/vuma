@@ -100,6 +100,16 @@ public interface ISnapshotCipher
     Task DecryptAsync(Stream ciphertext, Stream destination, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Resolves versioned snapshot-encryption keys.</summary>
+public interface ISnapshotKeyStore
+{
+    /// <summary>The key version used for newly written snapshots.</summary>
+    byte CurrentVersion { get; }
+
+    /// <summary>Gets a 256-bit key for a stored version.</summary>
+    byte[] GetKey(byte version);
+}
+
 /// <summary>The snapshot ledger.</summary>
 public interface IBackupSnapshotRepository
 {

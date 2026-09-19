@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using VumaRetail.Infrastructure.Security.Identity;
 
 namespace VumaRetail.Web.Security;
 
@@ -17,6 +18,13 @@ public static class ProductionSecurityGuard
         if (environment.IsDevelopment())
         {
             return;
+        }
+
+        if (CompanyExemptionTelemetry.Count > 0)
+        {
+            Console.Error.WriteLine(
+                $"WARNING: {CompanyExemptionTelemetry.Count} pre-registry company exemption requests "
+                + "were observed before this process restarted; see ADR-157 and Stage 31.");
         }
 
         string? allowedHosts = configuration["AllowedHosts"];
