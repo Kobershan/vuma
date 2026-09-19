@@ -4,6 +4,7 @@ using VumaRetail.Application.Identity.Commands;
 using VumaRetail.Domain.Connect;
 using VumaRetail.Domain.Identity;
 using VumaRetail.Domain.Manufacturing;
+using VumaRetail.Domain.Pos;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Sync;
 using VumaRetail.Infrastructure.Sync;
@@ -52,6 +53,50 @@ public sealed class ReplicationTests(PostgresFixture fixture)
             nameof(VumaRetail.Domain.Warehouse.Bin),
             nameof(VumaRetail.Domain.Warehouse.PickTask)
         ]);
+    }
+
+    [Fact]
+    public async Task A_terminal_captured_sale_replays_to_store_once_after_reconnect()
+    {
+        await using SyncHarness store = await SyncHarness.CreateAsync(fixture, "store:offline-sale", NodeKind.Store);
+        await using SyncHarness terminal = await SyncHarness.CreateAsync(
+            fixture, "terminal:offline-sale", NodeKind.Terminal, store.TenantId, store.StoreId);
+
+        Guid terminalId = Guid.NewGuid();
+        Guid operatorId = Guid.NewGuid();
+        Guid locationId = Guid.NewGuid();
+        TillSession session = TillSession.Open(terminal.TenantId, terminal.StoreId, terminalId, operatorId,
+            new Money(0m, "ZAR"), terminal.Clock.UtcNow);
+        Guid saleId = Guid.NewGuid();
+        Sale sale = Sale.Open(saleId, terminal.TenantId, terminal.StoreId, "OFFLINE-0001", session,
+            operatorId, locationId, null, "ZAR", terminal.Clock.UtcNow);
+        SaleLine line = SaleLine.Ring(terminal.TenantId, terminal.StoreId, saleId, 1, Guid.NewGuid(), null,
+            "Offline item", new Quantity(1m, "EA"), new Money(10m, "ZAR"), Money.Zero("ZAR"),
+            "STANDARD", new Money(8.77m, "ZAR"), new Money(1.23m, "ZAR"), new Money(10m, "ZAR"));
+        sale.AddLine(line);
+        terminal.Context.Add(session);
+        terminal.Context.Add(sale);
+        await terminal.Context.CommitAsync();
+
+        ReplicationScope scope = new();
+        ReplicaWriter writer = new(terminal.Context, scope);
+        SyncBatch batch = new(terminal.Node.NodeId, terminal.Node.Kind, terminal.TenantId, terminal.StoreId,
+        [
+            new(Guid.NewGuid(), nameof(TillSession), session.Id, SyncOperationKind.Upsert,
+                terminal.HybridClock.Next(), writer.Serialise(session), terminal.Clock.UtcNow),
+            new(Guid.NewGuid(), nameof(Sale), sale.Id, SyncOperationKind.Upsert,
+                terminal.HybridClock.Next(), writer.Serialise(sale), terminal.Clock.UtcNow),
+            new(Guid.NewGuid(), nameof(SaleLine), line.Id, SyncOperationKind.Upsert,
+                terminal.HybridClock.Next(), writer.Serialise(line), terminal.Clock.UtcNow)
+        ]);
+
+        SyncAcknowledgement first = await store.SendAsync(new ReceiveSyncBatchCommand(batch));
+        SyncAcknowledgement replay = await store.SendAsync(new ReceiveSyncBatchCommand(batch));
+
+        first.Results.Should().OnlyContain(result => result.Outcome == InboxOutcome.Applied);
+        replay.Results.Should().OnlyContain(result => result.Outcome == InboxOutcome.Duplicate);
+        (await store.Context.Sales.CountAsync(item => item.Id == saleId)).Should().Be(1);
+        (await store.Context.SaleLines.CountAsync(item => item.SaleId == saleId)).Should().Be(1);
     }
 
     [Fact]

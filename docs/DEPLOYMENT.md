@@ -63,6 +63,24 @@ revoke access in the registry before any database operation.
 The dashboard, desktop client and Flutter client all call the API. The database connection is chosen
 server-side from authenticated tenant/company context; a client-supplied company id is never trusted
 as a database selector.
+
+## Control plane production gate
+
+Run `VumaRetail.ControlPlane` as a separately protected service. Start it with an explicit persistent
+`ConnectionStrings:ControlPlane` value and an HTTPS `ControlPlane:SignerEndpoint`; the process refuses
+production startup when either is missing. Use `src/VumaRetail.ControlPlane/appsettings.Production.example.json`
+as a shape-only template and inject the real values through the deployment secret store.
+
+Vendor routes require mutual TLS. Map each certificate's SHA-256 thumbprint to its least-privileged
+vendor role under `ControlPlane:VendorAuthorization:CertificateRoles`. The `X-Vendor-Role` header is
+accepted only in Development and must not be used by a production client. Rotate certificates by
+deploying the replacement thumbprint before revoking the old one, then remove the old mapping.
+
+The control-plane database path must be on a persistent, backed-up volume. A container-local SQLite
+file is not a production topology unless the volume, backup, restore and single-writer ownership are
+explicitly provided. Live mTLS, signer, backup-restore and rollback acceptance must be executed in the
+target deployment environment; repository tests verify the fail-closed configuration and authorization
+contract only.
 ## TLS requirements for non-Render deployments
 
 Render terminates TLS before forwarding HTTP to the cloud container. On a VPS or self-hosted Docker
