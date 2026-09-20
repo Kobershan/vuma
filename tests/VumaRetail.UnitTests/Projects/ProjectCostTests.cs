@@ -76,6 +76,54 @@ public sealed class ProjectCostTests
     }
 
     [Fact]
+    public async Task Job_cost_report_keeps_budget_cost_and_contract_currencies_separate()
+    {
+        Guid tenantId = Guid.NewGuid(), companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        Project project = Project.Create(tenantId, null, companyId, "P-JOB", "Fitout", "ZAR");
+        ProjectBudget budget = ProjectBudget.Create(tenantId, null, companyId, project.Id, 1, new Money(1000m, "ZAR"));
+        budget.SetMeasures(new Money(200m, "ZAR"), new Money(300m, "ZAR"));
+        ProjectContract contract = ProjectContract.Create(tenantId, null, companyId, project.Id, "C-1", new Money(5000m, "ZAR"));
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+        repository.ListBudgetsAsync(project.Id, Arg.Any<CancellationToken>()).Returns([budget]);
+        repository.ListContractsAsync(project.Id, Arg.Any<CancellationToken>()).Returns([contract]);
+        repository.ListCostsAsync(project.Id, Arg.Any<CancellationToken>()).Returns([
+            ProjectCostEntry.Record(tenantId, null, companyId, project.Id, "A", ProjectCostKind.Other, new Money(100m, "ZAR")),
+            ProjectCostEntry.Record(tenantId, null, companyId, project.Id, "B", ProjectCostKind.Other, new Money(25m, "USD"))]);
+
+        ProjectJobCostReportResult? result = await new GetProjectJobCostReportQueryHandler(repository, company, tenant)
+            .HandleAsync(new GetProjectJobCostReportQuery(companyId, project.Id));
+
+        result.Should().NotBeNull();
+        result!.Budgets.Should().ContainSingle(x => x.Currency == "ZAR" && x.Budget == 1000m && x.Available == 500m);
+        result.Costs.Should().ContainInOrder(new ProjectCostTotal("USD", 25m), new ProjectCostTotal("ZAR", 100m));
+        result.Contracts.Should().ContainSingle(x => x.Number == "C-1" && x.OriginalValue == 5000m);
+    }
+
+    [Fact]
+    public async Task Job_cost_report_returns_nothing_for_a_foreign_tenant_project()
+    {
+        Guid activeTenant = Guid.NewGuid(), companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(activeTenant);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        Project foreign = Project.Create(Guid.NewGuid(), null, companyId, "P-FOREIGN", "Foreign", "ZAR");
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(foreign.Id, Arg.Any<CancellationToken>()).Returns(foreign);
+
+        ProjectJobCostReportResult? result = await new GetProjectJobCostReportQueryHandler(repository, company, tenant)
+            .HandleAsync(new GetProjectJobCostReportQuery(companyId, foreign.Id));
+
+        result.Should().BeNull();
+        await repository.DidNotReceive().ListCostsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Cost_allocation_rejects_a_project_from_another_tenant()
     {
         Guid activeTenantId = Guid.NewGuid();

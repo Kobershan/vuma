@@ -1,6 +1,6 @@
 # STAGE 28 — Projects, Contracts and Job Costing
 
-**Status:** IN_PROGRESS — repository-owned project, contract, rebate, budget, cost and milestone persistence and scoped APIs are implemented; procurement cost allocation, WIP, invoice integration, formal reconciliation records, full PostgreSQL/API acceptance and specialist review remain · project writes use the registered `projects.project.manage` permission and `projects` licensing manifest · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
+**Status:** IN_PROGRESS — repository-owned project, contract, rebate, budget, cost, milestone and currency-separated job-cost reporting persistence/APIs are implemented; procurement cost allocation, WIP, invoice integration, formal reconciliation records, full PostgreSQL/API acceptance and specialist review remain · project writes use the registered `projects.project.manage` permission and `projects` licensing manifest · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 ## Objective
 
@@ -53,7 +53,7 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
 - [~] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports. The
   currency-aware `RebateAgreement` lifecycle, threshold and percentage calculation, persistence,
   reconciliation command, calculation/list APIs and scoped cost summary are implemented and tested;
-  formal reconciliation records and richer job-cost reporting remain.
+  formal reconciliation records, WIP and richer invoice-integrated reporting remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -86,6 +86,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   number handling, plus a scoped rebate calculation query/API. Contract replay, changed-content
   rejection, cross-tenant rejection and active/currency-safe rebate calculation are covered by
   `ProjectCostTests`; StoreServer Release build succeeds.
+- 2026-09-20: Added `GET /api/v1/projects/{projectId}/job-cost`, backed by a tenant/company-scoped
+  read model that reports budget measures, currency-separated cost totals and project contracts.
+  `ProjectCostTests` passes **10/10**, StoreServer Release build has **0 errors**, and architecture
+  tests pass **88/88**.
 
 ## Tests / acceptance
 

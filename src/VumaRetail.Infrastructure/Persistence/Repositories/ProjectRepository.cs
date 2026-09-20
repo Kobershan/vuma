@@ -8,7 +8,11 @@ public sealed class ProjectRepository(VumaRetailDbContext context) : IProjectRep
 {
     public Task<Project?> FindProjectAsync(Guid id, CancellationToken cancellationToken = default) => context.Projects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectBudget?> FindBudgetAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectBudgets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public async Task<IReadOnlyList<ProjectBudget>> ListBudgetsAsync(Guid projectId, CancellationToken cancellationToken = default)
+        => await context.ProjectBudgets.AsNoTracking().Where(x => x.ProjectId == projectId).OrderByDescending(x => x.Version).ToListAsync(cancellationToken).ConfigureAwait(false);
     public Task<ProjectContract?> FindContractAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectContracts.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public async Task<IReadOnlyList<ProjectContract>> ListContractsAsync(Guid projectId, CancellationToken cancellationToken = default)
+        => await context.ProjectContracts.AsNoTracking().Where(x => x.ProjectId == projectId).OrderBy(x => x.Number).ToListAsync(cancellationToken).ConfigureAwait(false);
     public Task<ProjectContract?> FindContractByNumberAsync(Guid companyId, string number, CancellationToken cancellationToken = default) => context.ProjectContracts.FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Number == number.Trim(), cancellationToken);
     public Task<ContractVariation?> FindVariationAsync(Guid id, CancellationToken cancellationToken = default) => context.ContractVariations.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default) => context.BillingMilestones.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

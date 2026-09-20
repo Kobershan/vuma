@@ -26,6 +26,12 @@ public static class ProjectEndpoints
             return Results.Ok(await dispatcher.QueryAsync(new GetProjectCostSummaryQuery(companyId, projectId), cancellationToken));
         })
             .RequirePermission(ProjectPermissions.View);
+        group.MapGet("/{projectId:guid}/job-cost", async (Guid projectId, Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
+        {
+            company.SetCompany(companyId);
+            ProjectJobCostReportResult? report = await dispatcher.QueryAsync(new GetProjectJobCostReportQuery(companyId, projectId), cancellationToken);
+            return report is null ? Results.NotFound() : Results.Ok(report);
+        }).RequirePermission(ProjectPermissions.View);
         group.MapPost("/budgets/{id:guid}/approve", ApproveBudgetAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/contract-variations/{id:guid}/approve", ApproveVariationAsync).RequirePermission(ProjectPermissions.Manage).Produces(StatusCodes.Status204NoContent);
         group.MapPost("/milestones/{id:guid}/bill", BillMilestoneAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status202Accepted);
