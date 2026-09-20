@@ -138,3 +138,35 @@ public sealed class RecordReceiptPrintCommandHandler(
         return print.Id;
     }
 }
+
+/// <summary>Verifies that a paid POS sale has been handed over exactly once.</summary>
+/// <param name="SaleId">The sale identified by the receipt QR code.</param>
+[CommandSideEffect(SideEffect.Write)]
+public sealed record DispatchSaleCommand(Guid SaleId) : ICommand<Unit>;
+
+/// <summary>Rejects an invalid dispatch verification request.</summary>
+public sealed class DispatchSaleCommandValidator : AbstractValidator<DispatchSaleCommand>
+{
+    /// <summary>Builds the rules.</summary>
+    public DispatchSaleCommandValidator() => RuleFor(command => command.SaleId).NotEmpty();
+}
+
+/// <summary>Consumes the sale's one-time dispatch state inside the normal command transaction.</summary>
+public sealed class DispatchSaleCommandHandler(
+    ISaleRepository sales,
+    IPrincipalAccessor principal,
+    IClock clock) : ICommandHandler<DispatchSaleCommand, Unit>
+{
+    /// <inheritdoc />
+    public async Task<Unit> HandleAsync(
+        DispatchSaleCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        Sale sale = await sales.FindAsync(command.SaleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new PosNotFoundException("sale", command.SaleId);
+
+        sale.MarkDispatched(clock.UtcNow, PosActor.RequireUserId(principal));
+        return Unit.Value;
+    }
+}

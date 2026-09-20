@@ -15,7 +15,7 @@ public sealed class ReceiptRendererTests
     private static readonly DateTimeOffset Completed = new(2026, 8, 15, 14, 32, 0, TimeSpan.Zero);
     private static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
 
-    private static ReceiptDocument Receipt(bool isReprint = false, decimal change = 85m)
+    private static ReceiptDocument Receipt(bool isReprint = false, decimal change = 85m, string dispatchCode = "")
         => new(
             "SALE-000042",
             "Harness Sandton",
@@ -47,7 +47,8 @@ public sealed class ReceiptRendererTests
             [new ReceiptTender(TenderType.Cash, new Money(97.66m + change, "ZAR"), null)],
             new Money(change, "ZAR"),
             isReprint,
-            "Thank you for shopping with us");
+            "Thank you for shopping with us",
+            dispatchCode);
 
     [Fact]
     public void Every_line_fits_the_paper()
@@ -104,6 +105,29 @@ public sealed class ReceiptRendererTests
 
         text.Should().Contain("Discount");
         text.Should().Contain("-5.00");
+    }
+
+    [Fact]
+    public void The_slip_shows_total_item_quantity_and_line_count()
+    {
+        string text = ReceiptRenderer.RenderText(Receipt(), Utc);
+
+        text.Should().Contain("Items (2 lines)");
+        text.Should().Contain("1.752");
+    }
+
+    [Fact]
+    public void A_dispatch_reference_adds_a_native_thermal_qr_code()
+    {
+        const string dispatchCode = "VUMA-DISPATCH:01900000000070008000000000000042";
+
+        byte[] bytes = ReceiptRenderer.RenderEscPos(Receipt(dispatchCode: dispatchCode), Utc);
+        string decoded = Encoding.Latin1.GetString(bytes);
+
+        decoded.Should().Contain("SCAN TO VERIFY DISPATCH");
+        decoded.Should().Contain(dispatchCode);
+        Contains(bytes, EscPos.QrModel2.ToArray()).Should().BeTrue();
+        Contains(bytes, EscPos.QrPrint.ToArray()).Should().BeTrue();
     }
 
     [Fact]

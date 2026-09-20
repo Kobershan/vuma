@@ -111,6 +111,11 @@ internal sealed class SaleConfiguration : EntityConfiguration<Sale>
         builder.Property(sale => sale.CompletedAt);
         builder.Property(sale => sale.VoidedAt);
         builder.Property(sale => sale.VoidReason).HasMaxLength(500);
+        builder.Property(sale => sale.DispatchedAt);
+        builder.Property(sale => sale.DispatchedByUserId);
+        builder.HasIndex(sale => new { sale.TenantId, sale.DispatchedAt })
+            .HasDatabaseName("ix_sales_tenant_id_dispatched_at")
+            .HasFilter("dispatched_at IS NOT NULL");
 
         // ADR-066's shape, for the same reason: lines and tenders are full entities with their own
         // configuration and their own tables, reached through a backing-field navigation. They are not

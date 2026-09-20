@@ -288,11 +288,16 @@ public sealed record ReceiptTenderResponse(string TenderType, decimal Amount, st
 /// <param name="ChangeGiven">What was handed back.</param>
 /// <param name="Currency">The ISO 4217 currency.</param>
 /// <param name="IsReprint">True when this receipt has been printed before.</param>
+/// <param name="DispatchCode">The reference encoded in the one-time dispatch QR code.</param>
+/// <param name="DispatchedAt">When the sale was handed over, or <c>null</c> before dispatch.</param>
 /// <param name="PlainText">
 /// The slip laid out as fixed-width text, exactly as a thermal printer would set it. Included so a
 /// caller that is not driving a printer — a screen preview, an emailed copy, a test — does not have to
 /// reimplement the layout.
 /// </param>
+/// <param name="LegalName">The registered company name, when configured.</param>
+/// <param name="StorePhone">The store telephone number, when configured.</param>
+/// <param name="StoreEmail">The store email address, when configured.</param>
 public sealed record ReceiptResponse(
     string SaleNumber,
     string StoreName,
@@ -310,7 +315,12 @@ public sealed record ReceiptResponse(
     decimal ChangeGiven,
     string Currency,
     bool IsReprint,
-    string PlainText);
+    string DispatchCode,
+    DateTimeOffset? DispatchedAt,
+    string PlainText,
+    string? LegalName = null,
+    string? StorePhone = null,
+    string? StoreEmail = null);
 
 /// <summary>One printing of a receipt.</summary>
 /// <param name="Id">The print's id.</param>

@@ -21,6 +21,9 @@ internal sealed class StoreConfiguration : EntityConfiguration<Store>
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(store => store.Phone).HasMaxLength(32);
+        builder.Property(store => store.Email).HasMaxLength(256);
+
         // Structured since Stage 06 (ADR-037) — every field nullable, because a store that has not
         // recorded a trading address yet is a store with no address, not an empty one.
         builder.HasAddress(store => store.Address, "address", isRequired: false);

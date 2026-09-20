@@ -36,6 +36,9 @@ public sealed class PosPermissions : IModulePermissions
     /// <summary>Print a receipt again. Separate from the first print, and audited (see <c>ReceiptPrint</c>).</summary>
     public const string ReceiptReprint = "pos.receipt.reprint";
 
+    /// <summary>Verify the one-time handover represented by a receipt QR code.</summary>
+    public const string DispatchVerify = "pos.dispatch.verify";
+
     /// <summary>Open a shift with a float.</summary>
     public const string TillOpen = "pos.till.open";
 
@@ -55,6 +58,7 @@ public sealed class PosPermissions : IModulePermissions
         new(PermissionKey.Parse(SaleDiscount), "Apply a manual discount to a sale line.", IsHighRisk: true),
         new(PermissionKey.Parse(ReceiptPrint), "Print a receipt."),
         new(PermissionKey.Parse(ReceiptReprint), "Reprint a receipt, with a recorded reason.", IsHighRisk: true),
+        new(PermissionKey.Parse(DispatchVerify), "Verify and consume a sale's one-time dispatch QR code.", IsHighRisk: true),
         new(PermissionKey.Parse(TillOpen), "Open a till session with a float.", IsHighRisk: true),
         new(PermissionKey.Parse(TillClose), "Count the drawer and close a till session.", IsHighRisk: true),
     ];

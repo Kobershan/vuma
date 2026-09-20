@@ -21,6 +21,12 @@ public sealed class PosConflictException(string code, string message)
             "POS_TILL_SESSION_ALREADY_OPEN",
             $"Terminal {terminalId} already has an open till session. Close it before opening another — "
             + "two open sessions on one drawer means neither one's expected cash is a real number.");
+
+    /// <summary>A sale's one-time handover has already been verified.</summary>
+    public static PosConflictException SaleAlreadyDispatched(Guid saleId)
+        => new(
+            "POS_SALE_ALREADY_DISPATCHED",
+            $"Sale {saleId} has already been dispatched. The same QR code cannot be used twice.");
 }
 
 /// <summary>
@@ -47,6 +53,11 @@ public sealed class PosForbiddenException(string code, string message)
 /// <param name="message">What the rule says.</param>
 public sealed class PosRuleException(string code, string message) : DomainException(code, message)
 {
+    /// <summary>A handover may only be recorded for a completed sale.</summary>
+    public static PosRuleException SaleMustBeCompletedForDispatch(SaleStatus status)
+        => new(
+            "POS_SALE_NOT_COMPLETED_FOR_DISPATCH",
+            $"A sale in {status} status cannot be dispatched. Only a completed, paid sale may leave the store.");
     /// <summary>A sale line named neither an item nor a variant, or named both.</summary>
     public static PosRuleException ExactlyOneItemOrVariantRequired()
         => new(

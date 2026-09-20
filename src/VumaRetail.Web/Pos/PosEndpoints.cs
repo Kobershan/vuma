@@ -176,6 +176,14 @@ public static class PosEndpoints
                 "Whether this is a reprint is derived from the log, not supplied — and a reprint with "
                 + "no reason is refused with 422.");
 
+        sales.MapPost("/{saleId:guid}/dispatch", DispatchSaleAsync)
+            .RequirePermission(PosPermissions.DispatchVerify)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithSummary("Consumes the receipt QR code and verifies the goods were handed over once.")
+            .WithDescription("A second scan of the same sale is rejected as already dispatched.");
+
         sales.MapGet("/{saleId:guid}/receipt/prints", ListReceiptPrintsAsync)
             .RequirePermission(PosPermissions.SaleView)
             .Produces<IReadOnlyList<ReceiptPrintResponse>>()
@@ -411,6 +419,13 @@ public static class PosEndpoints
         return TypedResults.Created($"/api/v1/pos/sales/{saleId}/receipt/prints", new PosIdResponse(id));
     }
 
+    private static async Task<IResult> DispatchSaleAsync(
+        Guid saleId, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        await dispatcher.SendAsync(new DispatchSaleCommand(saleId), cancellationToken).ConfigureAwait(false);
+        return TypedResults.NoContent();
+    }
+
     private static async Task<IResult> ListReceiptPrintsAsync(
         Guid saleId, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
@@ -578,6 +593,8 @@ public static class PosEndpoints
             receipt.ChangeGiven.Amount,
             receipt.Gross.Currency,
             receipt.IsReprint,
+            receipt.DispatchCode,
+            receipt.DispatchedAt,
 
             // Rendered here rather than by the caller. The layout is the part that is easy to get
             // subtly wrong — column alignment, the reprint banner, the per-rate tax block a VAT invoice
@@ -585,7 +602,10 @@ public static class PosEndpoints
             // the thermal printer cannot disagree about what the customer was handed. UTC because the
             // API's own contract is UTC (§7 rule 9); a till renders its own local time from the store's
             // timezone when it drives the printer directly.
-            ReceiptRenderer.RenderText(receipt, TimeZoneInfo.Utc));
+            ReceiptRenderer.RenderText(receipt, TimeZoneInfo.Utc),
+            receipt.LegalName,
+            receipt.StorePhone,
+            receipt.StoreEmail);
 
     private static TEnum ParseEnum<TEnum>(string value, string propertyName, string messageName)
         where TEnum : struct, Enum

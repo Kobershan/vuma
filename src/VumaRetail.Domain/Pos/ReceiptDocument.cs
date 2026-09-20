@@ -40,6 +40,11 @@ namespace VumaRetail.Domain.Pos;
 /// <param name="ChangeGiven">What was handed back.</param>
 /// <param name="IsReprint">True when this is not the first printing. Printed on the slip, prominently.</param>
 /// <param name="Footer">The tenant's closing message, or <c>null</c>.</param>
+/// <param name="DispatchCode">The authenticated one-time dispatch reference encoded in the QR code.</param>
+/// <param name="DispatchedAt">When the goods were handed over, or <c>null</c> while still awaiting dispatch.</param>
+/// <param name="LegalName">The registered company name, or <c>null</c> when not configured.</param>
+/// <param name="StorePhone">The store contact telephone number, or <c>null</c>.</param>
+/// <param name="StoreEmail">The store contact email address, or <c>null</c>.</param>
 public sealed record ReceiptDocument(
     string SaleNumber,
     string StoreName,
@@ -56,7 +61,12 @@ public sealed record ReceiptDocument(
     IReadOnlyList<ReceiptTender> Tenders,
     Money ChangeGiven,
     bool IsReprint,
-    string? Footer);
+    string? Footer,
+    string DispatchCode = "",
+    DateTimeOffset? DispatchedAt = null,
+    string? LegalName = null,
+    string? StorePhone = null,
+    string? StoreEmail = null);
 
 /// <summary>One line on the slip.</summary>
 /// <param name="Description">What it was, as snapshotted at ring-up.</param>

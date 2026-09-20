@@ -118,6 +118,15 @@ public sealed class Sale : Entity
     /// <summary>Why it was abandoned. Required when it was.</summary>
     public string? VoidReason { get; private set; }
 
+    /// <summary>When the sold goods were handed to the customer or carrier, or <c>null</c> before then.</summary>
+    public DateTimeOffset? DispatchedAt { get; private set; }
+
+    /// <summary>The authenticated operator who verified the one-time dispatch.</summary>
+    public Guid? DispatchedByUserId { get; private set; }
+
+    /// <summary>Whether this sale has already been handed over.</summary>
+    public bool IsDispatched => DispatchedAt is not null;
+
     /// <summary>Every line ever rung up, voided ones included. Ordered by line number.</summary>
     public IReadOnlyList<SaleLine> Lines => _lines;
 
@@ -228,6 +237,30 @@ public sealed class Sale : Entity
         {
             throw PosRuleException.SaleIsNotOpen(Status);
         }
+    }
+
+    /// <summary>Marks the completed sale as handed over exactly once.</summary>
+    /// <param name="dispatchedAt">When the handover was verified.</param>
+    /// <param name="operatorUserId">The authenticated verifier.</param>
+    public void MarkDispatched(DateTimeOffset dispatchedAt, Guid operatorUserId)
+    {
+        if (Status is not SaleStatus.Completed)
+        {
+            throw PosRuleException.SaleMustBeCompletedForDispatch(Status);
+        }
+
+        if (IsDispatched)
+        {
+            throw PosConflictException.SaleAlreadyDispatched(Id);
+        }
+
+        if (operatorUserId == Guid.Empty)
+        {
+            throw new ArgumentException("A dispatch must identify the verifying operator.", nameof(operatorUserId));
+        }
+
+        DispatchedAt = dispatchedAt;
+        DispatchedByUserId = operatorUserId;
     }
 
     /// <summary>Rings a line up and refreshes the totals.</summary>

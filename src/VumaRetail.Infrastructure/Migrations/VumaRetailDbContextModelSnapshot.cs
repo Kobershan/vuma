@@ -19651,6 +19651,16 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("phone");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -19969,6 +19979,14 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
+                    b.Property<DateTimeOffset?>("DispatchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dispatched_at");
+
+                    b.Property<Guid?>("DispatchedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dispatched_by_user_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -20169,6 +20187,10 @@ namespace VumaRetail.Infrastructure.Migrations
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sales_tenant_id");
+
+                    b.HasIndex("TenantId", "DispatchedAt")
+                        .HasDatabaseName("ix_sales_tenant_id_dispatched_at")
+                        .HasFilter("dispatched_at IS NOT NULL");
 
                     b.HasIndex("TenantId", "CompanyId")
                         .HasDatabaseName("ix_sales_tenant_id_company_id");

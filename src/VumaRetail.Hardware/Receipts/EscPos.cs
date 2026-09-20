@@ -74,6 +74,35 @@ public static class EscPos
     /// </remarks>
     public static ReadOnlySpan<byte> KickDrawer => [Escape, (byte)'p', 0, 25, 250];
 
+    /// <summary><c>GS ( k 04 00 31 41 32 00</c> — select QR model 2.</summary>
+    public static ReadOnlySpan<byte> QrModel2 => [GroupSeparator, (byte)'(', (byte)'k', 4, 0, 49, 65, 50, 0];
+
+    /// <summary><c>GS ( k 03 00 31 43 06</c> — QR module size six.</summary>
+    public static ReadOnlySpan<byte> QrSize => [GroupSeparator, (byte)'(', (byte)'k', 3, 0, 49, 67, 6];
+
+    /// <summary><c>GS ( k 03 00 31 45 31</c> — QR error correction level M.</summary>
+    public static ReadOnlySpan<byte> QrErrorCorrection => [GroupSeparator, (byte)'(', (byte)'k', 3, 0, 49, 69, 49];
+
+    /// <summary>Stores the QR payload using the ESC/POS model 2 function.</summary>
+    public static byte[] QrStoreData(ReadOnlySpan<byte> data)
+    {
+        int parameterLength = data.Length + 3;
+        byte[] command = new byte[data.Length + 8];
+        command[0] = GroupSeparator;
+        command[1] = (byte)'(';
+        command[2] = (byte)'k';
+        command[3] = (byte)(parameterLength & 0xFF);
+        command[4] = (byte)(parameterLength >> 8);
+        command[5] = 49;
+        command[6] = 80;
+        command[7] = 48;
+        data.CopyTo(command.AsSpan(8));
+        return command;
+    }
+
+    /// <summary><c>GS ( k 03 00 31 51 30</c> — prints the stored QR code.</summary>
+    public static ReadOnlySpan<byte> QrPrint => [GroupSeparator, (byte)'(', (byte)'k', 3, 0, 49, 81, 48];
+
     /// <summary>
     /// The encoding a receipt's text is written in — Latin-1 (ISO-8859-1), the printer's usual
     /// power-on code page and the one that covers every character a South African item description

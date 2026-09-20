@@ -168,6 +168,30 @@ public sealed class SaleTests
     }
 
     [Fact]
+    public void A_completed_sale_can_be_dispatched_only_once()
+    {
+        Sale sale = NewSale();
+        sale.AddLine(Line(sale));
+        sale.AddTender(SaleTender.Capture(TenantId, StoreId, sale.Id, TenderType.Cash, new Money(115m, "ZAR"), null, Now));
+        sale.Complete(Now);
+
+        sale.MarkDispatched(Now.AddMinutes(1), OperatorId);
+
+        sale.IsDispatched.Should().BeTrue();
+        sale.DispatchedByUserId.Should().Be(OperatorId);
+        Action replay = () => sale.MarkDispatched(Now.AddMinutes(2), OperatorId);
+        replay.Should().Throw<PosConflictException>().Which.Code.Should().Be("POS_SALE_ALREADY_DISPATCHED");
+    }
+
+    [Fact]
+    public void An_open_sale_cannot_be_dispatched()
+    {
+        Action dispatch = () => NewSale().MarkDispatched(Now, OperatorId);
+
+        dispatch.Should().Throw<PosRuleException>().Which.Code.Should().Be("POS_SALE_NOT_COMPLETED_FOR_DISPATCH");
+    }
+
+    [Fact]
     public void An_under_tendered_sale_does_not_complete()
     {
         Sale sale = NewSale();

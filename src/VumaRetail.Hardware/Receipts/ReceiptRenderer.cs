@@ -49,6 +49,12 @@ public static class ReceiptRenderer
 
         lines.Add(Centre(receipt.StoreName.ToUpperInvariant(), width));
 
+        if (!string.IsNullOrWhiteSpace(receipt.LegalName)
+            && !string.Equals(receipt.LegalName, receipt.StoreName, StringComparison.OrdinalIgnoreCase))
+        {
+            lines.AddRange(Wrap(receipt.LegalName, width).Select(line => Centre(line, width)));
+        }
+
         if (!string.IsNullOrWhiteSpace(receipt.StoreAddress))
         {
             lines.AddRange(Wrap(receipt.StoreAddress, width).Select(line => Centre(line, width)));
@@ -57,6 +63,16 @@ public static class ReceiptRenderer
         if (!string.IsNullOrWhiteSpace(receipt.TaxNumber))
         {
             lines.Add(Centre($"VAT no. {receipt.TaxNumber}", width));
+        }
+
+        if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
+        {
+            lines.Add(Centre($"Tel {receipt.StorePhone}", width));
+        }
+
+        if (!string.IsNullOrWhiteSpace(receipt.StoreEmail))
+        {
+            lines.Add(Centre(receipt.StoreEmail, width));
         }
 
         lines.Add(new string('-', width));
@@ -72,6 +88,9 @@ public static class ReceiptRenderer
         DateTimeOffset local = TimeZoneInfo.ConvertTime(receipt.CompletedAt, timeZone);
 
         lines.Add(Columns($"Receipt {receipt.SaleNumber}", local.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture), width));
+
+        decimal totalItems = receipt.Lines.Sum(line => line.Quantity.Value);
+        lines.Add(Columns($"Items ({receipt.Lines.Count} line{(receipt.Lines.Count == 1 ? string.Empty : "s")})", Trim(totalItems), width));
 
         if (!string.IsNullOrWhiteSpace(receipt.OperatorName))
         {
@@ -135,6 +154,13 @@ public static class ReceiptRenderer
             lines.AddRange(Wrap(receipt.Footer, width).Select(line => Centre(line, width)));
         }
 
+        if (!string.IsNullOrWhiteSpace(receipt.DispatchCode))
+        {
+            lines.Add(string.Empty);
+            lines.Add(Centre(receipt.DispatchedAt is null ? "SCAN TO VERIFY DISPATCH" : "DISPATCHED", width));
+            lines.Add(Centre(receipt.DispatchCode, width));
+        }
+
         return lines;
     }
 
@@ -174,6 +200,17 @@ public static class ReceiptRenderer
         if (openDrawer)
         {
             buffer.Write(EscPos.KickDrawer);
+        }
+
+        if (!string.IsNullOrWhiteSpace(receipt.DispatchCode))
+        {
+            buffer.Write(EscPos.AlignCentre);
+            buffer.Write(EscPos.TextEncoding.GetBytes("SCAN TO VERIFY DISPATCH\n"));
+            buffer.Write(EscPos.QrModel2);
+            buffer.Write(EscPos.QrSize);
+            buffer.Write(EscPos.QrErrorCorrection);
+            buffer.Write(EscPos.QrStoreData(EscPos.TextEncoding.GetBytes(receipt.DispatchCode)));
+            buffer.Write(EscPos.QrPrint);
         }
 
         buffer.Write(EscPos.PartialCut);

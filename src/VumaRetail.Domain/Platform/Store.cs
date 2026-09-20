@@ -50,6 +50,12 @@ public sealed class Store : Entity
     /// <summary>The trading address, or <c>null</c> if none has been recorded yet (Stage 06, ADR-037).</summary>
     public Address? Address { get; private set; }
 
+    /// <summary>The store's customer-facing telephone number, or <c>null</c> if not recorded.</summary>
+    public string? Phone { get; private set; }
+
+    /// <summary>The store's customer-facing email address, or <c>null</c> if not recorded.</summary>
+    public string? Email { get; private set; }
+
     /// <summary>ISO 4217 code this store trades in, or <c>null</c> to use the tenant's base currency.</summary>
     public string? CurrencyOverride { get; private set; }
 
@@ -80,6 +86,13 @@ public sealed class Store : Entity
     {
         Name = Require(name, nameof(name));
         Address = address;
+    }
+
+    /// <summary>Sets the contact details printed on customer documents.</summary>
+    public void SetContactDetails(string? phone, string? email)
+    {
+        Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
     }
 
     /// <summary>Overrides the tenant's currency and timezone for this store, or clears the overrides.</summary>

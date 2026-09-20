@@ -126,8 +126,10 @@ public static class DemoSeed
 
         Store johannesburg = await EnsureStoreAsync(context, unitOfWork, tenant.Id, "JHB01", "Vuma Sandton", cancellationToken)
             .ConfigureAwait(false);
+        johannesburg.SetContactDetails("+27 11 555 0101", "sandton@vuma.example");
         await EnsureStoreAsync(context, unitOfWork, tenant.Id, "CPT02", "Vuma Claremont", cancellationToken)
             .ConfigureAwait(false);
+        await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         // Before anything else goes through the pipeline. Stage 04b's read-only guard refuses every
         // business write on an unactivated installation, which is correct in production and would

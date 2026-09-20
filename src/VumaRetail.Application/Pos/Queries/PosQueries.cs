@@ -129,7 +129,12 @@ public sealed class BuildReceiptQueryHandler(
             [.. sale.Tenders.Select(tender => new ReceiptTender(tender.Type, tender.Amount, tender.Reference))],
             sale.ChangeGiven,
             alreadyPrinted > 0,
-            Footer: null);
+            Footer: null,
+            DispatchCode: $"VUMA-DISPATCH:{sale.Id:N}",
+            DispatchedAt: sale.DispatchedAt,
+            LegalName: tenant?.LegalName,
+            StorePhone: store?.Phone,
+            StoreEmail: store?.Email);
     }
 
     private static string? FormatAddress(Address? address)
