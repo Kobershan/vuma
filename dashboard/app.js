@@ -65,6 +65,8 @@
     for (const location of list(locations.data)) {
       const result = await resource(`/inventory/locations/${location.id}/balances`, location.name);
       const panel = document.createElement('article'); panel.className = 'panel'; panel.innerHTML = `<div class="panel-head"><div><h3>${esc(location.name)}</h3><span class="muted">${esc(location.code)} · Stock balances</span></div></div>${result.error ? `<p class="error">${esc(result.error)}</p>` : table(result.data)}`; grid.appendChild(panel);
+      const ledger = await resource(`/inventory/locations/${location.id}/ledger`, location.name);
+      const ledgerPanel = document.createElement('article'); ledgerPanel.className = 'panel'; ledgerPanel.innerHTML = `<div class="panel-head"><div><h3>${esc(location.name)} movement ledger</h3><span class="muted">Receipts, issues, returns and adjustments</span></div></div>${ledger.error ? `<p class="error">${esc(ledger.error)}</p>` : table(ledger.data)}`; grid.appendChild(ledgerPanel);
     }
   }
   async function route() { const id = location.hash.slice(1) || 'overview'; document.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.module === id)); const module = modules.find((m) => m.id === id) || modules[0]; try { if (module.id === 'overview') await renderOverview(); else await renderModule(module); $('#last-updated').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; } catch (error) { $('#workspace').innerHTML = `<div class="panel"><p class="error">${esc(error.message)}</p></div>`; } }
