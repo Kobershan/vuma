@@ -357,7 +357,16 @@ if (args.Contains("--restore", StringComparer.Ordinal))
 // requests still cross the normal authenticated /api/v1 boundary, so hosting it here avoids a second
 // origin and keeps the browser from needing a token in local storage.
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        if (context.Context.Request.Path.StartsWithSegments("/dashboard"))
+        {
+            context.Context.Response.Headers.CacheControl = "no-store, max-age=0";
+        }
+    }
+});
 app.UseVumaWeb();
 app.UseVumaOpenApi();
 app.MapVumaIdentity();
