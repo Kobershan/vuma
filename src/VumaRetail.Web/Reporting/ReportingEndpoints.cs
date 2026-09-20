@@ -15,7 +15,9 @@ public static class ReportingEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/reports")
             .WithTags("Reporting").RequireModule("reporting");
-        endpoints.MapVumaApi().MapGet("/dashboard/overview", async (Guid companyId, DateOnly businessDate,
+        // The store dashboard owns /dashboard/overview. Keep the persisted projection endpoint under
+        // the reporting namespace so both routes cannot become ambiguous at runtime.
+        endpoints.MapVumaApi().MapGet("/reports/dashboard/overview", async (Guid companyId, DateOnly businessDate,
             ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             company.SetCompany(companyId);

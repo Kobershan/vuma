@@ -32,7 +32,7 @@ Add mappings/repositories for the listed types under `src/VumaRetail.Infrastruct
 
 ### API
 
-`GET /api/v1/dashboard/overview`, `GET /api/v1/reports/{code}`, `POST /api/v1/report-exports`, `GET /api/v1/report-exports/{id}`, `/api/v1/report-schedules`. These are planned contracts: publish OpenAPI examples, permissions, idempotency, concurrency and error codes before client implementation. For server modules, routes live in `src/VumaRetail.Web/`; customer-facing DTOs stay in `src/VumaRetail.PublicApi/`. Preserve route compatibility where an endpoint exists already.
+`GET /api/v1/dashboard/overview`, `GET /api/v1/reports/dashboard/overview`, `GET /api/v1/reports/{code}`, `POST /api/v1/report-exports`, `GET /api/v1/report-exports/{id}`, `/api/v1/report-schedules`. The store dashboard route returns live operational facts; the reporting route returns the persisted projection and freshness contributors. These are planned contracts: publish OpenAPI examples, permissions, idempotency, concurrency and error codes before client implementation. For server modules, routes live in `src/VumaRetail.Web/`; customer-facing DTOs stay in `src/VumaRetail.PublicApi/`. Preserve route compatibility where an endpoint exists already.
 
 ### Permissions and entitlement
 

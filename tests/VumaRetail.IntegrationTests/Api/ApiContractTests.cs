@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using VumaRetail.Application.Identity.Permissions;
+using VumaRetail.Application.Orders.Permissions;
 using VumaRetail.Contracts;
 using VumaRetail.Contracts.Identity;
 using VumaRetail.IntegrationTests.Harness;
@@ -20,6 +21,26 @@ namespace VumaRetail.IntegrationTests.Api;
 [Collection(PostgresCollection.Name)]
 public sealed class ApiContractTests(PostgresFixture fixture)
 {
+    [Fact]
+    public async Task Dashboard_overview_has_one_route_and_returns_live_data()
+    {
+        await using ApiHarness harness = await ApiHarness.CreateAsync(fixture);
+        await harness.CreateUserAsync("dashboard-owner", permissions: OrdersPermissions.View);
+
+        using HttpClient signedIn = await harness.SignInAsync("dashboard-owner");
+        HttpResponseMessage response = await signedIn.GetAsync("/api/v1/dashboard/overview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using IServiceScope scope = harness.Services.CreateScope();
+        EndpointDataSource endpoints = scope.ServiceProvider.GetRequiredService<EndpointDataSource>();
+        endpoints.Endpoints.OfType<RouteEndpoint>()
+            .Count(endpoint => string.Equals(
+                endpoint.RoutePattern.RawText,
+                "/api/v1/dashboard/overview",
+                StringComparison.OrdinalIgnoreCase))
+            .Should().Be(1);
+    }
+
     [Fact]
     public async Task Signing_in_returns_a_token_and_the_api_version_header()
     {
