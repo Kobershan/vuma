@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using VumaRetail.Domain.Entities;
+using VumaRetail.Domain.Quality;
 using VumaRetail.Infrastructure.Persistence;
 
 namespace VumaRetail.ArchitectureTests;
@@ -96,6 +97,15 @@ public sealed class PersistenceRulesTests
 
             {string.Join(Environment.NewLine, offenders.Select(entry => $"  - {entry}"))}
             """);
+    }
+
+    [Fact]
+    public void Json_backed_recall_trace_references_have_a_value_comparer()
+    {
+        IProperty property = Model.FindEntityType(typeof(RecallCase))!
+            .FindProperty(nameof(RecallCase.TraceReferences))!;
+
+        Assert.NotNull(property.GetValueComparer());
     }
 
     [Fact]

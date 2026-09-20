@@ -1856,3 +1856,15 @@ Evidence from the final Release run (`dotnet test VumaRetail.sln -c Release --no
   installer execution, disconnected Windows POS acceptance, live mTLS/signer/provider credentials,
   and production backup/restore rehearsal remain external deployment evidence rather than claims of
   local verification.
+
+### Remediation verification continuation — 2026-09-20
+
+- Added an EF Core value comparer for the JSON-backed `RecallCase.TraceReferences` collection and an
+  architecture/model regression test. This removes the change-tracking warning that could otherwise
+  cause false-positive collection modifications.
+- The infrastructure project builds cleanly, and the new model regression test passes. The full
+  PostgreSQL, unit, architecture, control-plane, desktop, migration, Docker, DR, release-script,
+  vulnerability, and design-token gates remain green from the verification run immediately before
+  this change.
+- Docker build and runtime inspection verified the Cloud API image runs as the non-root `vuma` user.
+  Both EF contexts report no pending model changes, and the encrypted disaster-recovery drill passed.

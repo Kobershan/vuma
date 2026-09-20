@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VumaRetail.Domain.Primitives;
 using VumaRetail.Domain.Quality;
@@ -53,6 +54,10 @@ internal sealed class QualityCertificateConfiguration : EntityConfiguration<Qual
 internal sealed class RecallCaseConfiguration : EntityConfiguration<RecallCase>
 {
     private static readonly JsonSerializerOptions SerializerOptions = new();
+    private static readonly ValueComparer<IReadOnlyList<RecallTraceReference>> TraceReferencesComparer = new(
+        (left, right) => left != null && right != null && left.SequenceEqual(right),
+        value => value.Aggregate(0, (hash, item) => HashCode.Combine(hash, item)),
+        value => value.ToList());
     protected override string Schema => Schemas.Quality;
     protected override string TableName => "recall_cases";
     protected override void ConfigureEntity(EntityTypeBuilder<RecallCase> builder)
@@ -67,6 +72,7 @@ internal sealed class RecallCaseConfiguration : EntityConfiguration<RecallCase>
         builder.Property(x => x.TraceReferences).HasField("_trace").HasColumnName("trace_references").HasColumnType("jsonb").IsRequired()
             .HasConversion(value => JsonSerializer.Serialize(value, SerializerOptions),
                 json => JsonSerializer.Deserialize<List<RecallTraceReference>>(json, SerializerOptions) ?? new List<RecallTraceReference>());
+        builder.Property(x => x.TraceReferences).Metadata.SetValueComparer(TraceReferencesComparer);
         builder.HasIndex(x => new { x.TenantId, x.OperationId }).IsUnique()
             .HasDatabaseName("ux_recall_cases_tenant_operation").HasFilter("deleted_at IS NULL");
         builder.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status })
