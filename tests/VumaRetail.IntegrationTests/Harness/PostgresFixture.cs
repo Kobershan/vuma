@@ -2,6 +2,7 @@ using Docker.DotNet;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
+using System.Diagnostics;
 
 namespace VumaRetail.IntegrationTests.Harness;
 
@@ -32,6 +33,7 @@ namespace VumaRetail.IntegrationTests.Harness;
 public sealed class PostgresFixture : IAsyncLifetime
 {
     private const string TemplateDatabase = "vuma_template";
+    private static readonly TimeSpan DatabaseOperationTimeout = TimeSpan.FromSeconds(90);
 
     private PostgreSqlContainer? _container;
     private string _adminConnectionString = string.Empty;
@@ -80,8 +82,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         string name = DatabaseName($"vuma_test_{sequence}");
 
-        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" TEMPLATE "{TemplateDatabase}" """)
-            ;
+        await ExecuteOnServerAsync(
+            $"""CREATE DATABASE "{name}" TEMPLATE "{TemplateDatabase}" """,
+            $"clone {name} from {TemplateDatabase}");
 
         return ConnectionStringFor(name);
     }
@@ -98,7 +101,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         string name = DatabaseName("vuma_migrate");
 
-        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """);
+        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """, $"create empty {name}");
 
         return ConnectionStringFor(name);
     }
@@ -109,14 +112,29 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// </summary>
     private static string DatabaseName(string prefix) => $"{prefix}_{Guid.NewGuid():N}";
 
-    private async Task ExecuteOnServerAsync(string sql)
+    private async Task ExecuteOnServerAsync(string sql, string operation)
     {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        Console.WriteLine($"[integration-db] starting {operation}");
+
+        using CancellationTokenSource timeout = new(DatabaseOperationTimeout);
         await using NpgsqlConnection connection = new(_adminConnectionString);
-        await connection.OpenAsync();
+        await connection.OpenAsync(timeout.Token);
 
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = sql;
-        await command.ExecuteNonQueryAsync();
+        command.CommandTimeout = (int)DatabaseOperationTimeout.TotalSeconds;
+
+        try
+        {
+            await command.ExecuteNonQueryAsync(timeout.Token);
+            Console.WriteLine($"[integration-db] completed {operation} in {stopwatch.Elapsed.TotalSeconds:F1}s");
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"PostgreSQL operation '{operation}' exceeded {DatabaseOperationTimeout.TotalSeconds:0}s.");
+        }
     }
 
     /// <summary>
@@ -175,7 +193,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         string name = DatabaseName("vuma_model");
 
-        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """);
+        await ExecuteOnServerAsync($"""CREATE DATABASE "{name}" """, $"create model {name}");
 
         string connectionString = ConnectionStringFor(name);
 
@@ -276,6 +294,7 @@ public sealed class PostgresFixture : IAsyncLifetime
                 DROP DATABASE IF EXISTS "{TemplateDatabase}" WITH (FORCE);
                 CREATE DATABASE "{TemplateDatabase}";
                 """;
+            command.CommandTimeout = (int)DatabaseOperationTimeout.TotalSeconds;
             await command.ExecuteNonQueryAsync();
         }
 
@@ -285,6 +304,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         string templateConnection = new NpgsqlConnectionStringBuilder(ConnectionStringFor(TemplateDatabase))
         {
             Pooling = false,
+            CommandTimeout = (int)DatabaseOperationTimeout.TotalSeconds,
         }.ConnectionString;
 
         // The real migration chain, not EnsureCreated. EnsureCreated builds the schema from the model
