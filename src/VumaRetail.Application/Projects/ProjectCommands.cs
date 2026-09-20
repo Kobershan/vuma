@@ -20,6 +20,9 @@ public sealed record AllocateProjectCostCommand(Guid CompanyId, Guid ProjectId, 
 public sealed record AllocateProjectLabourCostCommand(Guid CompanyId, Guid ProjectId, Guid EmployeeId,
     DateOnly From, DateOnly To) : ICommand<Guid>;
 
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateProjectContractCommand(Guid CompanyId, Guid ProjectId, string Number, decimal OriginalValue, string Currency) : ICommand<Guid>;
+
 public sealed class CreateProjectCommandHandler(IProjectRepository projects, ITenantContext tenant, ICompanyContext company)
     : ICommandHandler<CreateProjectCommand, Guid>
 {
@@ -33,6 +36,27 @@ public sealed class CreateProjectCommandHandler(IProjectRepository projects, ITe
     internal static void EnsureCompany(ICompanyContext company, Guid expected)
     {
         if (company.CompanyId is not { } active || active != expected) throw new InvalidOperationException("The project company is not the active company.");
+    }
+}
+
+public sealed class CreateProjectContractCommandHandler(IProjectRepository projects, ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<CreateProjectContractCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(CreateProjectContractCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        Project project = await projects.FindProjectAsync(command.ProjectId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Project not found.");
+        if (project.TenantId != tenant.TenantId || project.CompanyId != command.CompanyId) throw new InvalidOperationException("The project is outside the active tenant/company scope.");
+        ProjectContract? existing = await projects.FindContractByNumberAsync(command.CompanyId, command.Number, cancellationToken).ConfigureAwait(false);
+        Money value = new(command.OriginalValue, command.Currency);
+        if (existing is not null)
+        {
+            if (existing.TenantId != tenant.TenantId || existing.ProjectId != command.ProjectId || existing.OriginalValue != value) throw new InvalidOperationException("Contract number was already used with different content.");
+            return existing.Id;
+        }
+        ProjectContract contract = ProjectContract.Create(tenant.TenantId, null, command.CompanyId, command.ProjectId, command.Number, value);
+        projects.Add(contract); return contract.Id;
     }
 }
 
@@ -183,6 +207,21 @@ public sealed record ReconcileRebateAgreementCommand(Guid CompanyId, Guid Rebate
 
 public sealed record RebateAgreementResult(Guid Id, Guid CompanyId, string Number, decimal Rate, decimal ThresholdAmount, string Currency, RebateAgreementStatus Status);
 public sealed record CalculateRebateResult(Guid Id, decimal EligibleAmount, decimal RebateAmount, string Currency);
+public sealed record CalculateRebateQuery(Guid CompanyId, Guid RebateId, decimal EligibleAmount, string Currency) : IQuery<CalculateRebateResult>;
+
+public sealed class CalculateRebateQueryHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : IQueryHandler<CalculateRebateQuery, CalculateRebateResult>
+{
+    public async Task<CalculateRebateResult> HandleAsync(CalculateRebateQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query); CreateProjectCommandHandler.EnsureCompany(company, query.CompanyId);
+        RebateAgreement agreement = await projects.FindRebateAsync(query.RebateId, cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("Rebate agreement was not found.");
+        if (agreement.TenantId != tenant.TenantId || agreement.CompanyId != query.CompanyId) throw new InvalidOperationException("Rebate agreement is outside the active tenant/company scope.");
+        Money rebate = agreement.Calculate(new Money(query.EligibleAmount, query.Currency));
+        return new CalculateRebateResult(agreement.Id, query.EligibleAmount, rebate.Amount, rebate.Currency);
+    }
+}
 
 public sealed record ListRebatesQuery(Guid CompanyId) : IQuery<IReadOnlyList<RebateAgreementResult>>;
 

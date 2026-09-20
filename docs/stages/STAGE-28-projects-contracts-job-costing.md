@@ -1,6 +1,6 @@
 # STAGE 28 — Projects, Contracts and Job Costing
 
-**Status:** IN_PROGRESS — project, budget, contract variation and milestone domain foundation implemented; persistence, integrations, APIs and acceptance remain · project writes use the registered `projects.project.manage` permission and `projects` licensing manifest · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8. New names and defaults below are proposed implementation contracts, not claims that types/routes already exist.
+**Status:** IN_PROGRESS — repository-owned project, contract, rebate, budget, cost and milestone persistence and scoped APIs are implemented; procurement cost allocation, WIP, invoice integration, formal reconciliation records, full PostgreSQL/API acceptance and specialist review remain · project writes use the registered `projects.project.manage` permission and `projects` licensing manifest · **Depends on:** 07, 26; integration with 05, 10c, 12 · **Reference reading:** [finance stage](STAGE-07-finance.md), [workforce stage](STAGE-26-workforce-management.md), [invoice stage](STAGE-10c-quotes-invoices-analytics.md); [shared stage requirements](STAGE-SHARED-REQUIREMENTS.md) §§1–5; [execution standard](../EXECUTION_STANDARD.md) Part 1; `CLAUDE.md` §§3,7–8.
 
 ## Objective
 
@@ -44,16 +44,16 @@ Declare granular `projects.view`, `projects.manage` and distinct high-risk appro
 
 ## Parts — the build list
 
-- [~] 28-P01: Implement projects/contracts, budget versions and approval transitions. Domain invariants
-  for budget measures, approved variations and milestone billing are implemented and tested; persistence,
-  commands and authorization remain.
+- [~] 28-P01: Implement projects/contracts, budget versions and approval transitions. Domain invariants,
+  persistence, commands, company authorization and scoped APIs are implemented; full acceptance remains.
 - [~] 28-P02: Integrate labour/procurement cost allocation, WIP and milestone billing. Project
   creation, approval and milestone billing commands are now exposed through the scoped
   `/api/v1/projects` API; labour allocation from closed HR attendance is now available, while
   procurement allocation, WIP and invoice integration remain.
 - [~] 28-P03: Add rebate calculation/reconciliation, APIs and scoped job-cost reports. The
-  currency-aware `RebateAgreement` lifecycle, threshold and percentage calculation are implemented
-  and unit-tested; persistence, reconciliation records, APIs and scoped job-cost reports remain.
+  currency-aware `RebateAgreement` lifecycle, threshold and percentage calculation, persistence,
+  reconciliation command, calculation/list APIs and scoped cost summary are implemented and tested;
+  formal reconciliation records and richer job-cost reporting remain.
 
 Execute parts in this order. These are stage parts, not existing canonical task files. Before implementation, decompose each part into focused tasks using [the full task template](../tasks/README.md), name exact existing source/test paths, and link them from a canonical stage queue. No implementation task is marked READY by this documentation change. Record any durable change to existing architecture as a superseding/proposed ADR.
 
@@ -82,6 +82,10 @@ Execute parts in this order. These are stage parts, not existing canonical task 
   create, cost, labour, approval, milestone and cost-summary operation. This closes the mismatch
   where valid company-scoped project requests were rejected by the application boundary. StoreServer
   Release build passes with **0 errors**; PostgreSQL/API acceptance remains open.
+- 2026-09-20: Added durable project-contract creation with company/tenant validation and replay-safe
+  number handling, plus a scoped rebate calculation query/API. Contract replay, changed-content
+  rejection, cross-tenant rejection and active/currency-safe rebate calculation are covered by
+  `ProjectCostTests`; StoreServer Release build succeeds.
 
 ## Tests / acceptance
 

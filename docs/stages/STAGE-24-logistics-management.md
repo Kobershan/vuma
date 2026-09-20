@@ -7,6 +7,8 @@ Stage 24 adds tenant-scoped delivery execution to the existing Stage 13 shipment
 - carrier directory with unique tenant carrier codes;
 - immutable delivery-address shipment records with tracking numbers and lifecycle state;
 - planned delivery runs and ordered stops;
+- tenant-scoped fleet vehicle registry with registration/VIN uniqueness, odometer monotonicity,
+  service/status metadata and delivery-run vehicle binding;
 - immutable proof-of-delivery records with recipient, outcome, optional signature/photo references and validated GPS coordinates;
 - authenticated API endpoints under `/api/v1/logistics`;
 - PostgreSQL migrations `Stage24Logistics` (compatibility marker) and `Stage24LogisticsAlignment`
@@ -27,3 +29,7 @@ are exposed through authenticated commands and API routes; POD recording validat
 preserves exception outcomes, and rejects duplicate or cross-store stop assignment. Migration, API
 workflow, tenant/company isolation, permission, replay and concurrency acceptance are covered by the
 Stage 24 test suite. Repository-wide verification is subject to the shared build gate.
+
+Completion evidence updated 2026-09-20: fleet vehicle create/update/list routes and delivery-run
+vehicle assignment are persisted and company/tenant scoped. Telematics, route optimization,
+fuel-card integration and live carrier integrations remain outside the repository-owned boundary.

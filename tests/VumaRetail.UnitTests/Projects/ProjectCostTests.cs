@@ -95,6 +95,73 @@ public sealed class ProjectCostTests
     }
 
     [Fact]
+    public async Task Contract_creation_is_idempotent_and_rejects_changed_replay_content()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        Project project = Project.Create(tenantId, null, companyId, "P-3", "Warehouse", "ZAR");
+        ProjectContract existing = ProjectContract.Create(tenantId, null, companyId, project.Id, "CON-1", new Money(1000m, "ZAR"));
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+        repository.FindContractByNumberAsync(companyId, "CON-1", Arg.Any<CancellationToken>()).Returns(existing);
+        var handler = new CreateProjectContractCommandHandler(repository, tenant, company);
+
+        Guid replayed = await handler.HandleAsync(new CreateProjectContractCommand(companyId, project.Id, "CON-1", 1000m, "ZAR"));
+        replayed.Should().Be(existing.Id);
+        repository.DidNotReceive().Add(Arg.Any<ProjectContract>());
+
+        await FluentActions.Invoking(() => handler.HandleAsync(
+                new CreateProjectContractCommand(companyId, project.Id, "CON-1", 1100m, "ZAR")))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Contract_creation_rejects_a_project_from_another_tenant()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        Project project = Project.Create(Guid.NewGuid(), null, companyId, "P-foreign", "Foreign", "ZAR");
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindProjectAsync(project.Id, Arg.Any<CancellationToken>()).Returns(project);
+
+        await FluentActions.Invoking(() => new CreateProjectContractCommandHandler(repository, tenant, company)
+                .HandleAsync(new CreateProjectContractCommand(companyId, project.Id, "CON-2", 10m, "ZAR")))
+            .Should().ThrowAsync<InvalidOperationException>();
+        repository.DidNotReceive().Add(Arg.Any<ProjectContract>());
+    }
+
+    [Fact]
+    public async Task Rebate_calculation_requires_active_agreement_and_preserves_currency()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Guid companyId = Guid.NewGuid();
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var company = Substitute.For<ICompanyContext>();
+        company.CompanyId.Returns(companyId);
+        RebateAgreement agreement = RebateAgreement.Create(tenantId, null, companyId, "REB-1", 5m, new Money(100m, "ZAR"));
+        var repository = Substitute.For<IProjectRepository>();
+        repository.FindRebateAsync(agreement.Id, Arg.Any<CancellationToken>()).Returns(agreement);
+        var handler = new CalculateRebateQueryHandler(repository, company, tenant);
+
+        await FluentActions.Invoking(() => handler.HandleAsync(new CalculateRebateQuery(companyId, agreement.Id, 200m, "ZAR")))
+            .Should().ThrowAsync<InvalidOperationException>();
+
+        agreement.Activate();
+        CalculateRebateResult result = await handler.HandleAsync(new CalculateRebateQuery(companyId, agreement.Id, 200m, "ZAR"));
+        result.RebateAmount.Should().Be(10m);
+        result.Currency.Should().Be("ZAR");
+    }
+
+    [Fact]
     public async Task Labour_cost_allocation_prices_closed_attendance_and_replays_by_period()
     {
         Guid tenantId = Guid.NewGuid();

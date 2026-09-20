@@ -17,6 +17,7 @@ public static class ProjectEndpoints
     {
         RouteGroupBuilder group = endpoints.MapVumaApi().MapGroup("/projects").WithTags("Projects").RequireModule("projects");
         group.MapPost("/", CreateAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
+        group.MapPost("/{projectId:guid}/contracts", CreateContractAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{projectId:guid}/costs", AllocateCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapPost("/{projectId:guid}/labour-costs", AllocateLabourCostAsync).RequirePermission(ProjectPermissions.Manage).Produces<Guid>(StatusCodes.Status201Created);
         group.MapGet("/{projectId:guid}/costs/summary", async (Guid projectId, Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
@@ -36,6 +37,7 @@ public static class ProjectEndpoints
         }).RequirePermission(ProjectPermissions.View);
         group.MapPost("/rebates/{id:guid}/activate", ChangeRebateAsync).RequirePermission(ProjectPermissions.Manage);
         group.MapPost("/rebates/{id:guid}/reconcile", ReconcileRebateAsync).RequirePermission(ProjectPermissions.Manage);
+        group.MapPost("/rebates/{id:guid}/calculate", CalculateRebateAsync).RequirePermission(ProjectPermissions.View);
         group.MapGet("/", async (Guid companyId, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken) =>
         {
             company.SetCompany(companyId);
@@ -115,6 +117,19 @@ public static class ProjectEndpoints
         return Results.Created($"/api/v1/projects/rebates/{id:D}", id);
     }
 
+    private static async Task<IResult> CreateContractAsync(Guid projectId, CreateContractRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(request.CompanyId);
+        Guid id = await dispatcher.SendAsync(new CreateProjectContractCommand(request.CompanyId, projectId, request.Number, request.OriginalValue, request.Currency), cancellationToken);
+        return Results.Created($"/api/v1/projects/{projectId:D}/contracts/{id:D}", id);
+    }
+
+    private static async Task<IResult> CalculateRebateAsync(Guid id, CalculateRebateRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        company.SetCompany(request.CompanyId);
+        return Results.Ok(await dispatcher.QueryAsync(new CalculateRebateQuery(request.CompanyId, id, request.EligibleAmount, request.Currency), cancellationToken));
+    }
+
     private static async Task<IResult> ChangeRebateAsync(Guid id, ProjectCompanyRequest request, ICompanyContext company, IDispatcher dispatcher, CancellationToken cancellationToken)
     {
         company.SetCompany(request.CompanyId);
@@ -135,4 +150,6 @@ public static class ProjectEndpoints
         decimal Amount, string Currency);
     public sealed record AllocateProjectLabourCostRequest(Guid CompanyId, Guid EmployeeId, DateOnly From, DateOnly To);
     public sealed record CreateRebateRequest(Guid CompanyId, string Number, decimal Rate, decimal ThresholdAmount, string Currency);
+    public sealed record CreateContractRequest(Guid CompanyId, string Number, decimal OriginalValue, string Currency);
+    public sealed record CalculateRebateRequest(Guid CompanyId, decimal EligibleAmount, string Currency);
 }

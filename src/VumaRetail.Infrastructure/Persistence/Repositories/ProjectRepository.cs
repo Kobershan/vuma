@@ -9,6 +9,7 @@ public sealed class ProjectRepository(VumaRetailDbContext context) : IProjectRep
     public Task<Project?> FindProjectAsync(Guid id, CancellationToken cancellationToken = default) => context.Projects.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectBudget?> FindBudgetAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectBudgets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectContract?> FindContractAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectContracts.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public Task<ProjectContract?> FindContractByNumberAsync(Guid companyId, string number, CancellationToken cancellationToken = default) => context.ProjectContracts.FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Number == number.Trim(), cancellationToken);
     public Task<ContractVariation?> FindVariationAsync(Guid id, CancellationToken cancellationToken = default) => context.ContractVariations.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default) => context.BillingMilestones.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectCostEntry?> FindCostEntryAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

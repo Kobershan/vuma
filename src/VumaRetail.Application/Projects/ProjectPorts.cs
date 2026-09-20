@@ -8,6 +8,7 @@ public interface IProjectRepository
     Task<Project?> FindProjectAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProjectBudget?> FindBudgetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProjectContract?> FindContractAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ProjectContract?> FindContractByNumberAsync(Guid companyId, string number, CancellationToken cancellationToken = default);
     Task<ContractVariation?> FindVariationAsync(Guid id, CancellationToken cancellationToken = default);
     Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ProjectCostEntry?> FindCostEntryAsync(Guid id, CancellationToken cancellationToken = default);

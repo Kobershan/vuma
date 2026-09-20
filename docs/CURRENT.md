@@ -8,6 +8,13 @@ the current verified checkpoint, including upstream code-gap closure, replay-saf
 persisted dashboard measures and the StoreServer hosted report scheduler. The only uncommitted files are pre-existing desktop artifacts under
 `docs/`; they are intentionally preserved and excluded from commits.
 
+WORK LOG (2026-09-20): Added the remaining repository-owned ERP boundaries identified in the current
+capability audit: fleet vehicle registry and delivery-run binding, durable payroll runs/finalization,
+project-contract creation, and rebate calculation. Payroll, project replay/scope, and rebate
+calculation tests pass; StoreServer Release build succeeds. Statutory payroll, telematics, route
+optimization, live provider integrations, and production deployment infrastructure remain external
+acceptance boundaries.
+
 WORK LOG (2026-09-19): Procurement invoice release now locks the purchase-order row with PostgreSQL
 `FOR UPDATE` before rechecking cumulative invoiced quantity. This closes the remaining concurrent
 double-payment window across separate DbContexts/processes. The PostgreSQL-backed ProcurementCommandTests
