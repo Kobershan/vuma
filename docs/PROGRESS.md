@@ -3,7 +3,17 @@
 > **Progress and issue register.** Read `docs/CURRENT.md` for the small operational state. This file
 > preserves session evidence and deferred work; the reconciliation below is the active status snapshot.
 
-## Active status reconciliation — 2026-09-12
+## Active status reconciliation — 2026-09-20
+
+Current source supersedes older audit notes below for the ERP capability pass. Fleet vehicle
+operations and delivery-run binding, durable payroll runs/finalization, project contracts, rebate
+calculation, Connect supplier portal/order/ASN/settlement APIs, scheduled reporting, and the vendor
+control-plane policy/API boundary are implemented and covered by current unit, architecture,
+control-plane and PostgreSQL migration evidence. Remaining items are explicit acceptance or
+deployment boundaries: statutory payroll/payment providers, telematics/carrier integrations,
+production object storage/KMS/gateway credentials, Windows packaging/live-device evidence, and
+specialist/provider acceptance. Older paragraphs retain historical evidence and are not a current
+statement that those repository implementations are absent.
 
 ## Stage 22/22b repository closure — 2026-09-18
 
@@ -47,9 +57,10 @@ contain historical review context and are superseded where this snapshot disagre
   Stage 00 and Stage 06 architecture-map planning gates are now recorded as complete. Focused
   verification passed 92 unit tests and 85 architecture tests.
 
-- Stage 21/21b audit correction (2026-09-14): the existing completion label for Stage 21 is ahead of
-  its task evidence; order/reservation/gateway/outage acceptance remains open. Stage 21b remains open
-  pending end-to-end supplier trading, ASN/GRN, isolation and settlement evidence.
+- Stage 21/21b audit correction (2026-09-20): repository-side order/payment and Connect supplier
+  trading, ASN-to-draft-GRN, remittance isolation, settlement replay and portal permission surfaces
+  have current focused PostgreSQL/API evidence. Live gateway/provider outage and offline deployment
+  acceptance remain external evidence boundaries.
 
 - Stage 18 audit correction (2026-09-14): the warehouse quality dispatch gate is implemented; source-built
   regression, PostgreSQL shelf-life/dispatch execution, and automatic recall traceability remain open.
@@ -66,7 +77,8 @@ contain historical review context and are superseded where this snapshot disagre
 - Stage 22b — Conversational Commerce: **IN PROGRESS**; identity, six scoped handlers, normalized
   email, durable delivery audit and safety/isolation tests are complete. Provider-backed six-intent
   acceptance, WhatsApp template-window evidence and specialist review remain.
-- Stage 21b — Supplier Network: implementation exists, but supplier portal/API permission-surface work remains open.
+- Stage 21b — Supplier Network: repository implementation and permission surface are complete; live
+  supplier deployment, provider settlement and offline-convergence acceptance remain external.
 - **Next roadmap stage:** Stage 18 acceptance; Stage 17 manufacturing implementation is present but final verification remains open.
 
 The repository audit dated 2026-09-12 remains open. Findings A01–A22 are tracked below; implementation
@@ -1738,20 +1750,23 @@ This slice closes five code-level gaps found by the ground-truth audit, each wit
 2. Projects: `ActivateProjectCommand`, `CloseProjectCommand`, `GetProjectQuery`,
    `ListProjectsQuery`, `IProjectRepository.ListProjectsAsync`, and routes `GET /projects`,
    `GET /projects/{id}`, `POST /{id}/activate`, `POST /{id}/close`. New
-   `ProjectLifecycleTests` 4/4. Rebate persistence, contract/rebate HTTP groups and the
-   `IJobCostReadModel` port remain open.
+   `ProjectLifecycleTests` 4/4. Contract/rebate persistence and scoped HTTP routes are now
+   implemented; richer WIP/job-cost read-model reporting remains a deliberate follow-up.
 3. Marketing: `IOutboundMessageRepository.ListByStatusAsync` plus `ListDeliveriesQuery`
    (Sent+Failed) and `ListSuppressionsQuery` (Suppressed) with `GET /marketing/deliveries` and
    `GET /marketing/suppressions`. New `MarketingReadsTests` 3/3.
 4. Reporting: kept canonical `POST /reports/exports`; added the stage-documented
-   `POST /report-exports` alias to the same handler. Scheduled-report records, export
-   polling/host registration and object-store configuration remain open (per TASK-29-004).
+   `POST /report-exports` alias to the same handler. Scheduled-report persistence, idempotent
+   enqueue, export polling/host registration and filesystem artifact storage are implemented;
+   provider-specific object storage remains a deployment boundary.
 5. Control plane devices: `RebindAsync`/`RevokeAsync`/`RecordDiagnosticsAsync`/
    `RecordTelemetryErrorAsync` with idempotent audit, `FleetOperations.SelectUpdate`, and routes
    `POST /device/v1/activations/{id}/rebind`, `DELETE /device/v1/activations/{id}`,
    `POST /device/v1/diagnostics`, `POST /device/v1/telemetry/errors`,
-   `GET /device/v1/updates/check`. Control-plane suite passes 23/23. The vendor HTTP surface
-   (tenants/fleet/licences/subscriptions/invoices + MFA) remains open.
+   `GET /device/v1/updates/check`. Control-plane suite now passes 30/30. The repository-owned
+   vendor policy surface (tenant provisioning, usage/metering, billing calculation, support grants,
+   abuse and rollout/fleet routes) is present; durable vendor billing/licence back-office storage,
+   MFA/identity-provider integration and production gateway/KMS deployment remain external.
 
 Verified: `dotnet build tests/VumaRetail.ControlPlane.Tests -c Release` 0 errors;
 `dotnet test tests/VumaRetail.ControlPlane.Tests -c Release --no-build` 23/23.
