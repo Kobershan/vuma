@@ -63,4 +63,22 @@ public sealed class LogisticsCommandTests
         await action.Should().ThrowAsync<InvalidOperationException>().WithMessage("Run and shipment must belong to the same store.");
         repository.DidNotReceive().Add(Arg.Any<DeliveryStop>());
     }
+
+    [Fact]
+    public async Task A_delivery_run_rejects_a_vehicle_in_maintenance()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Vehicle vehicle = Vehicle.Create(tenantId, Guid.NewGuid(), "ND 123 GP", "Vuma", "Carrier", VehicleType.Van, null, 800m, 0m, null);
+        vehicle.SetStatus(VehicleStatus.Maintenance);
+        ILogisticsRepository repository = Substitute.For<ILogisticsRepository>();
+        repository.FindVehicleAsync(vehicle.Id, Arg.Any<CancellationToken>()).Returns(vehicle);
+        var tenant = Substitute.For<ITenantContext>();
+        tenant.TenantId.Returns(tenantId);
+        var handler = new LogisticsCommandHandler(repository, tenant, Substitute.For<IClock>());
+
+        Func<Task> action = () => handler.HandleAsync(new CreateDeliveryRunCommand(Guid.NewGuid(), null, "RUN-VEHICLE", new DateOnly(2026, 9, 20), "Driver", null, vehicle.Id));
+
+        await action.Should().ThrowAsync<InvalidOperationException>().WithMessage("Only an active vehicle can be assigned to a delivery run.");
+        repository.DidNotReceive().Add(Arg.Any<DeliveryRun>());
+    }
 }

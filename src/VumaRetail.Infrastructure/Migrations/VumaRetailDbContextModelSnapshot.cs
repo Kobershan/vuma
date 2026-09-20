@@ -15335,6 +15335,10 @@ namespace VumaRetail.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("vehicle_registration");
 
+                    b.Property<Guid?>("VehicleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_id");
+
                     b.HasKey("Id")
                         .HasName("pk_delivery_runs");
 
@@ -15355,6 +15359,10 @@ namespace VumaRetail.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "StoreId")
                         .HasDatabaseName("ix_delivery_runs_tenant_id_store_id");
+
+                    b.HasIndex("VehicleId")
+                        .HasDatabaseName("ix_delivery_runs_vehicle_id")
+                        .HasFilter("vehicle_id IS NOT NULL");
 
                     b.ToTable("delivery_runs", "logistics");
                 });

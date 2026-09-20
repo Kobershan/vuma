@@ -17,7 +17,7 @@ internal sealed class ShipmentConfiguration : EntityConfiguration<Shipment>
 internal sealed class DeliveryRunConfiguration : EntityConfiguration<DeliveryRun>
 {
     protected override string Schema => Schemas.Logistics; protected override string TableName => "delivery_runs";
-    protected override void ConfigureEntity(EntityTypeBuilder<DeliveryRun> b) { b.Property(x => x.RunNumber).IsRequired().HasMaxLength(64); b.Property(x => x.PlannedDate).IsRequired(); b.Property(x => x.DriverName).HasMaxLength(160); b.Property(x => x.VehicleRegistration).HasMaxLength(32); b.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24); b.HasIndex(x => new { x.TenantId, x.RunNumber }).IsUnique().HasDatabaseName("ux_delivery_runs_tenant_id_run_number").HasFilter("deleted_at IS NULL"); }
+    protected override void ConfigureEntity(EntityTypeBuilder<DeliveryRun> b) { b.Property(x => x.RunNumber).IsRequired().HasMaxLength(64); b.Property(x => x.PlannedDate).IsRequired(); b.Property(x => x.DriverName).HasMaxLength(160); b.Property(x => x.VehicleRegistration).HasMaxLength(32); b.Property(x => x.VehicleId); b.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24); b.HasIndex(x => new { x.TenantId, x.RunNumber }).IsUnique().HasDatabaseName("ux_delivery_runs_tenant_id_run_number").HasFilter("deleted_at IS NULL"); b.HasIndex(x => x.VehicleId).HasDatabaseName("ix_delivery_runs_vehicle_id").HasFilter("vehicle_id IS NOT NULL"); }
 }
 internal sealed class DeliveryStopConfiguration : EntityConfiguration<DeliveryStop>
 {
