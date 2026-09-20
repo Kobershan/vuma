@@ -12,16 +12,20 @@ public sealed class ProjectRepository(VumaRetailDbContext context) : IProjectRep
     public Task<ContractVariation?> FindVariationAsync(Guid id, CancellationToken cancellationToken = default) => context.ContractVariations.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<BillingMilestone?> FindMilestoneAsync(Guid id, CancellationToken cancellationToken = default) => context.BillingMilestones.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectCostEntry?> FindCostEntryAsync(Guid id, CancellationToken cancellationToken = default) => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public Task<RebateAgreement?> FindRebateAsync(Guid id, CancellationToken cancellationToken = default) => context.RebateAgreements.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     public Task<ProjectCostEntry?> FindCostBySourceAsync(Guid projectId, string sourceReference, CancellationToken cancellationToken = default)
         => context.ProjectCostEntries.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.SourceReference == sourceReference.Trim(), cancellationToken);
     public async Task<IReadOnlyList<ProjectCostEntry>> ListCostsAsync(Guid projectId, CancellationToken cancellationToken = default)
         => await context.ProjectCostEntries.AsNoTracking().Where(x => x.ProjectId == projectId).OrderBy(x => x.CreatedAt).ToListAsync(cancellationToken).ConfigureAwait(false);
     public async Task<IReadOnlyList<Project>> ListProjectsAsync(Guid companyId, CancellationToken cancellationToken = default)
         => await context.Projects.AsNoTracking().Where(x => x.CompanyId == companyId).OrderBy(x => x.Code).ToListAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<IReadOnlyList<RebateAgreement>> ListRebatesAsync(Guid companyId, CancellationToken cancellationToken = default)
+        => await context.RebateAgreements.AsNoTracking().Where(x => x.CompanyId == companyId).OrderBy(x => x.Number).ToListAsync(cancellationToken).ConfigureAwait(false);
     public void Add(Project project) => context.Projects.Add(project);
     public void Add(ProjectBudget budget) => context.ProjectBudgets.Add(budget);
     public void Add(ProjectContract contract) => context.ProjectContracts.Add(contract);
     public void Add(ContractVariation variation) => context.ContractVariations.Add(variation);
     public void Add(BillingMilestone milestone) => context.BillingMilestones.Add(milestone);
     public void Add(ProjectCostEntry entry) => context.ProjectCostEntries.Add(entry);
+    public void Add(RebateAgreement agreement) => context.RebateAgreements.Add(agreement);
 }

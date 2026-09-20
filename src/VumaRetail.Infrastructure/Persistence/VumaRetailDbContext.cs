@@ -161,6 +161,10 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.HrManagement.LeaveRequest> LeaveRequests => Set<Domain.HrManagement.LeaveRequest>();
     public DbSet<Domain.HrManagement.EmployeeDocument> EmployeeDocuments => Set<Domain.HrManagement.EmployeeDocument>();
     public DbSet<Domain.HrManagement.DisciplinaryCase> DisciplinaryCases => Set<Domain.HrManagement.DisciplinaryCase>();
+    /// <summary>Durable company-scoped payroll runs.</summary>
+    public DbSet<Domain.HrManagement.PayrollRun> PayrollRuns => Set<Domain.HrManagement.PayrollRun>();
+    /// <summary>Immutable employee calculations belonging to payroll runs.</summary>
+    public DbSet<Domain.HrManagement.PayrollLine> PayrollLines => Set<Domain.HrManagement.PayrollLine>();
     public DbSet<Domain.HrWorkforce.Shift> Shifts => Set<Domain.HrWorkforce.Shift>();
     public DbSet<Domain.HrWorkforce.ShiftSwapRequest> ShiftSwapRequests => Set<Domain.HrWorkforce.ShiftSwapRequest>();
     public DbSet<Domain.HrWorkforce.RosterPublication> RosterPublications => Set<Domain.HrWorkforce.RosterPublication>();
@@ -605,6 +609,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Projects.ProjectContract> ProjectContracts => Set<Domain.Projects.ProjectContract>();
     public DbSet<Domain.Projects.ContractVariation> ContractVariations => Set<Domain.Projects.ContractVariation>();
     public DbSet<Domain.Projects.BillingMilestone> BillingMilestones => Set<Domain.Projects.BillingMilestone>();
+    public DbSet<Domain.Projects.RebateAgreement> RebateAgreements => Set<Domain.Projects.RebateAgreement>();
     /// <summary>Reporting definitions and replay-safe projection checkpoints (Stage 29).</summary>
     public DbSet<Domain.Reporting.ReportDefinition> ReportDefinitions => Set<Domain.Reporting.ReportDefinition>();
     public DbSet<Domain.Reporting.ProjectionCheckpoint> ProjectionCheckpoints => Set<Domain.Reporting.ProjectionCheckpoint>();

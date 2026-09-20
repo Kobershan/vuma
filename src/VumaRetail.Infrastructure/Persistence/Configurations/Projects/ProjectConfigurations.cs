@@ -49,3 +49,18 @@ internal sealed class BillingMilestoneConfiguration : EntityConfiguration<Billin
     protected override void ConfigureEntity(EntityTypeBuilder<BillingMilestone> b)
     { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.ContractId).IsRequired(); b.Property(x => x.Name).IsRequired().HasMaxLength(128); b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired(); b.HasMoney(x => x.Amount, "amount"); b.HasIndex(x => new { x.TenantId, x.ContractId, x.Name }).IsUnique().HasFilter("deleted_at IS NULL"); }
 }
+
+internal sealed class RebateAgreementConfiguration : EntityConfiguration<RebateAgreement>
+{
+    protected override string Schema => Schemas.Projects;
+    protected override string TableName => "rebate_agreements";
+    protected override void ConfigureEntity(EntityTypeBuilder<RebateAgreement> b)
+    {
+        b.Property(x => x.CompanyId).IsRequired();
+        b.Property(x => x.Number).IsRequired().HasMaxLength(64);
+        b.Property(x => x.Rate).HasPrecision(18, 6).IsRequired();
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        b.HasMoney(x => x.Threshold, "threshold");
+        b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Number }).IsUnique().HasFilter("deleted_at IS NULL");
+    }
+}

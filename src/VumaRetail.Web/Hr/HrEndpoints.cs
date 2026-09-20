@@ -50,6 +50,19 @@ public static class HrEndpoints
             var rows = await d.QueryAsync(new GeneratePayrollExportQuery(from, to), ct);
             return Results.Text(PayrollExportCsv.Serialize(rows), "text/csv");
         }).RequirePermission(HrPermissions.PayrollExport);
+        hr.MapPost("/payroll/runs", async (CreatePayrollRunRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(r.CompanyId);
+            IReadOnlyCollection<PayrollDeductionInput> deductions = r.Deductions.Select(x => new PayrollDeductionInput(x.EmployeeId, x.Amount)).ToArray();
+            Guid id = await d.SendAsync(new CreatePayrollRunCommand(r.CompanyId, r.From, r.To, r.Currency, r.RequestId, deductions), ct);
+            return Results.Created($"/api/v1/hr/payroll/runs/{id:D}", id);
+        }).RequirePermission(HrPermissions.PayrollExport);
+        hr.MapPost("/payroll/runs/{id:guid}/finalize", async (Guid id, PayrollCompanyRequest r, ICompanyContext company, IDispatcher d, CancellationToken ct) =>
+        {
+            company.SetCompany(r.CompanyId);
+            await d.SendAsync(new FinalizePayrollRunCommand(r.CompanyId, id), ct);
+            return Results.NoContent();
+        }).RequirePermission(HrPermissions.PayrollExport);
         hr.MapGet("/leave", async (Guid? employeeId, IDispatcher d, CancellationToken ct) => Results.Ok(await d.QueryAsync(new ListLeaveRequestsQuery(employeeId), ct))).RequirePermission(HrPermissions.LeaveView);
         hr.MapPost("/leave", async (CreateLeaveRequest r, IDispatcher d, CancellationToken ct) => Results.Created("/api/v1/hr/leave", await d.SendAsync(new CreateLeaveRequestCommand(r.EmployeeId, r.From, r.To, r.LeaveType, r.Reason), ct))).RequirePermission(HrPermissions.LeaveManage);
         hr.MapPost("/leave/{id:guid}/decision", async (Guid id, LeaveDecisionRequest r, IDispatcher d, CancellationToken ct) => { await d.SendAsync(new DecideLeaveCommand(id, r.Approved), ct); return Results.NoContent(); }).RequirePermission(HrPermissions.LeaveManage);
@@ -82,4 +95,7 @@ public static class HrEndpoints
     public sealed record RequestShiftSwapRequest(Guid ShiftId, Guid FromEmployeeId, Guid ToEmployeeId, DateTimeOffset RequestedAt);
     public sealed record ShiftSwapDecisionRequest(bool Approved);
     public sealed record PublishRosterRequest(Guid CompanyId, DateTimeOffset From, DateTimeOffset To, Guid? StoreId);
+    public sealed record CreatePayrollRunRequest(Guid CompanyId, DateOnly From, DateOnly To, string Currency, Guid RequestId, IReadOnlyCollection<PayrollDeductionRequest> Deductions);
+    public sealed record PayrollDeductionRequest(Guid EmployeeId, decimal Amount);
+    public sealed record PayrollCompanyRequest(Guid CompanyId);
 }

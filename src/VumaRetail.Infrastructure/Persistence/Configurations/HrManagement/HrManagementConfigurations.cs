@@ -36,3 +36,15 @@ internal sealed class DisciplinaryCaseConfiguration : EntityConfiguration<Discip
         b.HasIndex(x => new { x.TenantId, x.EmployeeId, x.IncidentOn });
     }
 }
+internal sealed class PayrollRunConfiguration : EntityConfiguration<PayrollRun>
+{
+    protected override string Schema => Schemas.HrManagement; protected override string TableName => "payroll_runs";
+    protected override void ConfigureEntity(EntityTypeBuilder<PayrollRun> b)
+    { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.Currency).HasMaxLength(3).IsRequired(); b.Property(x => x.Status).HasConversion<string>().HasMaxLength(16).IsRequired(); b.Property(x => x.GrossAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.DeductionAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.NetAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.RequestId).IsRequired(); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.RequestId }).IsUnique().HasFilter("deleted_at IS NULL"); b.HasIndex(x => new { x.TenantId, x.CompanyId, x.From, x.To }); }
+}
+internal sealed class PayrollLineConfiguration : EntityConfiguration<PayrollLine>
+{
+    protected override string Schema => Schemas.HrManagement; protected override string TableName => "payroll_lines";
+    protected override void ConfigureEntity(EntityTypeBuilder<PayrollLine> b)
+    { b.Property(x => x.CompanyId).IsRequired(); b.Property(x => x.PayrollRunId).IsRequired(); b.Property(x => x.EmployeeId).IsRequired(); b.Property(x => x.Hours).HasPrecision(18, 6).IsRequired(); b.Property(x => x.HourlyRate).HasPrecision(18, 4).IsRequired(); b.Property(x => x.GrossAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.DeductionAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.NetAmount).HasPrecision(18, 4).IsRequired(); b.Property(x => x.Currency).HasMaxLength(3).IsRequired(); b.HasIndex(x => new { x.TenantId, x.PayrollRunId, x.EmployeeId }).IsUnique().HasFilter("deleted_at IS NULL"); }
+}

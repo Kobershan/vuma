@@ -57,13 +57,13 @@ public sealed record ListDisciplinaryCasesQuery(Guid CompanyId, Guid? EmployeeId
 public sealed record GeneratePayrollExportQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<PayrollExportRow>>;
 public sealed record EmployeeAvailability(Guid EmployeeId, EmploymentStatus EmploymentStatus, bool Available, IReadOnlyList<Shift> ScheduledShifts);
 
-public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant, IClock clock) : ICommandHandler<CreateEmployeeCommand, Guid>
+public sealed class CreateEmployeeCommandHandler(IEmployeeRepository employees, ITenantContext tenant, IClock clock, ICompanyContext company) : ICommandHandler<CreateEmployeeCommand, Guid>
 {
-    public Task<Guid> HandleAsync(CreateEmployeeCommand c, CancellationToken token = default) { var e = Employee.Create(tenant.TenantId, c.EmployeeNumber, c.FirstName, c.LastName, clock.UtcNow, c.EmploymentType, c.PreferredName, c.Email, c.Phone); employees.Add(e); return Task.FromResult(e.Id); }
+    public Task<Guid> HandleAsync(CreateEmployeeCommand c, CancellationToken token = default) { var e = Employee.Create(tenant.TenantId, c.EmployeeNumber, c.FirstName, c.LastName, clock.UtcNow, c.EmploymentType, c.PreferredName, c.Email, c.Phone); if (company.CompanyId is { } companyId) e.AssignCompany(companyId); employees.Add(e); return Task.FromResult(e.Id); }
 }
-public sealed class CreateEmploymentContractCommandHandler(IEmployeeRepository employees, IEmploymentContractRepository contracts, ITenantContext tenant) : ICommandHandler<CreateEmploymentContractCommand, Guid>
+public sealed class CreateEmploymentContractCommandHandler(IEmployeeRepository employees, IEmploymentContractRepository contracts, ITenantContext tenant, ICompanyContext company) : ICommandHandler<CreateEmploymentContractCommand, Guid>
 {
-    public async Task<Guid> HandleAsync(CreateEmploymentContractCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var contract = EmploymentContract.Create(tenant.TenantId, c.EmployeeId, c.StartsOn, c.EndsOn, c.HourlyRate, c.Currency); contracts.Add(contract); return contract.Id; }
+    public async Task<Guid> HandleAsync(CreateEmploymentContractCommand c, CancellationToken token = default) { if (await employees.FindAsync(c.EmployeeId, token) is not { TenantId: var employeeTenant } || employeeTenant != tenant.TenantId) throw new KeyNotFoundException("Employee was not found."); var contract = EmploymentContract.Create(tenant.TenantId, c.EmployeeId, c.StartsOn, c.EndsOn, c.HourlyRate, c.Currency); if (company.CompanyId is { } companyId) contract.AssignCompany(companyId); contracts.Add(contract); return contract.Id; }
 }
 public sealed class CreateLeaveRequestCommandHandler(IEmployeeRepository employees, ILeaveRepository leaves, ITenantContext tenant) : ICommandHandler<CreateLeaveRequestCommand, Guid>
 {

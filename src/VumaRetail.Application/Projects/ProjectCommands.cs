@@ -173,3 +173,70 @@ public sealed class CloseProjectCommandHandler(IProjectRepository projects, ICom
         project.Close(); return Unit.Value;
     }
 }
+
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateRebateAgreementCommand(Guid CompanyId, string Number, decimal Rate, decimal ThresholdAmount, string Currency) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ActivateRebateAgreementCommand(Guid CompanyId, Guid RebateId) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record ReconcileRebateAgreementCommand(Guid CompanyId, Guid RebateId) : ICommand;
+
+public sealed record RebateAgreementResult(Guid Id, Guid CompanyId, string Number, decimal Rate, decimal ThresholdAmount, string Currency, RebateAgreementStatus Status);
+public sealed record CalculateRebateResult(Guid Id, decimal EligibleAmount, decimal RebateAmount, string Currency);
+
+public sealed record ListRebatesQuery(Guid CompanyId) : IQuery<IReadOnlyList<RebateAgreementResult>>;
+
+public sealed class ListRebatesQueryHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : IQueryHandler<ListRebatesQuery, IReadOnlyList<RebateAgreementResult>>
+{
+    public async Task<IReadOnlyList<RebateAgreementResult>> HandleAsync(ListRebatesQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        CreateProjectCommandHandler.EnsureCompany(company, query.CompanyId);
+        return (await projects.ListRebatesAsync(query.CompanyId, cancellationToken).ConfigureAwait(false))
+            .Where(x => x.TenantId == tenant.TenantId && x.CompanyId == query.CompanyId)
+            .Select(x => new RebateAgreementResult(x.Id, x.CompanyId!.Value, x.Number, x.Rate, x.Threshold.Amount, x.Threshold.Currency, x.Status))
+            .ToArray();
+    }
+}
+
+public sealed class CreateRebateAgreementCommandHandler(IProjectRepository projects, ITenantContext tenant, ICompanyContext company)
+    : ICommandHandler<CreateRebateAgreementCommand, Guid>
+{
+    public Task<Guid> HandleAsync(CreateRebateAgreementCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        RebateAgreement agreement = RebateAgreement.Create(tenant.TenantId, null, command.CompanyId, command.Number,
+            command.Rate, new Money(command.ThresholdAmount, command.Currency));
+        projects.Add(agreement);
+        return Task.FromResult(agreement.Id);
+    }
+}
+
+public sealed class ActivateRebateAgreementCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : ICommandHandler<ActivateRebateAgreementCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ActivateRebateAgreementCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        RebateAgreement agreement = await FindAsync(projects, tenant, command, cancellationToken).ConfigureAwait(false);
+        agreement.Activate(); return Unit.Value;
+    }
+    internal static async Task<RebateAgreement> FindAsync(IProjectRepository projects, ITenantContext tenant, ActivateRebateAgreementCommand command, CancellationToken cancellationToken)
+        => await projects.FindRebateAsync(command.RebateId, cancellationToken).ConfigureAwait(false) is { } agreement
+            && agreement.TenantId == tenant.TenantId && agreement.CompanyId == command.CompanyId
+            ? agreement : throw new InvalidOperationException("Rebate agreement is outside the active tenant/company scope.");
+}
+
+public sealed class ReconcileRebateAgreementCommandHandler(IProjectRepository projects, ICompanyContext company, ITenantContext tenant)
+    : ICommandHandler<ReconcileRebateAgreementCommand, Unit>
+{
+    public async Task<Unit> HandleAsync(ReconcileRebateAgreementCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command); CreateProjectCommandHandler.EnsureCompany(company, command.CompanyId);
+        RebateAgreement? agreement = await projects.FindRebateAsync(command.RebateId, cancellationToken).ConfigureAwait(false);
+        if (agreement is null || agreement.TenantId != tenant.TenantId || agreement.CompanyId != command.CompanyId)
+            throw new InvalidOperationException("Rebate agreement is outside the active tenant/company scope.");
+        agreement.Reconcile(); return Unit.Value;
+    }
+}
