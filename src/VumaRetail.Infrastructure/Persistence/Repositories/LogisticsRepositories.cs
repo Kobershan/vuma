@@ -15,9 +15,12 @@ public sealed class LogisticsRepository(VumaRetailDbContext context) : ILogistic
     public Task<DeliveryStop?> FindStopAsync(Guid id, CancellationToken cancellationToken = default) => context.DeliveryStops.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     public async Task<IReadOnlyList<DeliveryStop>> ListStopsAsync(Guid runId, CancellationToken cancellationToken = default) => await context.DeliveryStops.AsNoTracking().Where(x => x.RunId == runId).OrderBy(x => x.Sequence).ToListAsync(cancellationToken);
     public Task<ProofOfDelivery?> FindPodAsync(Guid shipmentId, CancellationToken cancellationToken = default) => context.ProofsOfDelivery.AsNoTracking().SingleOrDefaultAsync(x => x.ShipmentId == shipmentId, cancellationToken);
+    public Task<Vehicle?> FindVehicleAsync(Guid id, CancellationToken cancellationToken = default) => context.Vehicles.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public async Task<IReadOnlyList<Vehicle>> ListVehiclesAsync(VehicleStatus? status, CancellationToken cancellationToken = default) => await context.Vehicles.AsNoTracking().Where(x => status == null || x.Status == status).OrderBy(x => x.Registration).Take(500).ToListAsync(cancellationToken);
     public void Add(Carrier carrier) => context.Carriers.Add(carrier);
     public void Add(Shipment shipment) => context.Shipments.Add(shipment);
     public void Add(DeliveryRun run) => context.DeliveryRuns.Add(run);
     public void Add(DeliveryStop stop) => context.DeliveryStops.Add(stop);
     public void Add(ProofOfDelivery proof) => context.ProofsOfDelivery.Add(proof);
+    public void Add(Vehicle vehicle) => context.Vehicles.Add(vehicle);
 }

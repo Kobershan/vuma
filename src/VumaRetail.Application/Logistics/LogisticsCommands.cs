@@ -32,9 +32,15 @@ public sealed record CancelDeliveryRunCommand(Guid RunId) : ICommand;
 public sealed record StartDeliveryStopCommand(Guid StopId) : ICommand;
  [CommandSideEffect(SideEffect.Write)]
 public sealed record CompleteDeliveryStopCommand(Guid StopId, bool Successful) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record CreateVehicleCommand(Guid? StoreId, string Registration, string Make, string Model, VehicleType Type, string? Vin, decimal CapacityKg, decimal OdometerKm, DateOnly? NextServiceOn) : ICommand<Guid>;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record RecordVehicleOdometerCommand(Guid VehicleId, decimal OdometerKm) : ICommand;
+[CommandSideEffect(SideEffect.Write)]
+public sealed record SetVehicleStatusCommand(Guid VehicleId, VehicleStatus Status) : ICommand;
 
 public sealed class LogisticsCommandHandler(ILogisticsRepository repo, ITenantContext tenant, IClock clock) :
-    ICommandHandler<CreateCarrierCommand, Guid>, ICommandHandler<CreateShipmentCommand, Guid>, ICommandHandler<DispatchShipmentCommand, Unit>, ICommandHandler<MarkShipmentExceptionCommand, Unit>, ICommandHandler<CancelShipmentCommand, Unit>, ICommandHandler<RecordPodCommand, Guid>, ICommandHandler<CreateDeliveryRunCommand, Guid>, ICommandHandler<AddDeliveryStopCommand, Guid>, ICommandHandler<DispatchDeliveryRunCommand, Unit>, ICommandHandler<CompleteDeliveryRunCommand, Unit>, ICommandHandler<CancelDeliveryRunCommand, Unit>, ICommandHandler<StartDeliveryStopCommand, Unit>, ICommandHandler<CompleteDeliveryStopCommand, Unit>
+    ICommandHandler<CreateCarrierCommand, Guid>, ICommandHandler<CreateShipmentCommand, Guid>, ICommandHandler<DispatchShipmentCommand, Unit>, ICommandHandler<MarkShipmentExceptionCommand, Unit>, ICommandHandler<CancelShipmentCommand, Unit>, ICommandHandler<RecordPodCommand, Guid>, ICommandHandler<CreateDeliveryRunCommand, Guid>, ICommandHandler<AddDeliveryStopCommand, Guid>, ICommandHandler<DispatchDeliveryRunCommand, Unit>, ICommandHandler<CompleteDeliveryRunCommand, Unit>, ICommandHandler<CancelDeliveryRunCommand, Unit>, ICommandHandler<StartDeliveryStopCommand, Unit>, ICommandHandler<CompleteDeliveryStopCommand, Unit>, ICommandHandler<CreateVehicleCommand, Guid>, ICommandHandler<RecordVehicleOdometerCommand, Unit>, ICommandHandler<SetVehicleStatusCommand, Unit>
 {
     public Task<Guid> HandleAsync(CreateCarrierCommand c, CancellationToken ct = default) { var x = Carrier.Create(tenant.TenantId, c.Code, c.Name, c.Phone); repo.Add(x); return Task.FromResult(x.Id); }
     public async Task<Guid> HandleAsync(CreateShipmentCommand c, CancellationToken ct = default) { ArgumentNullException.ThrowIfNull(c); if (c.CarrierId is Guid carrierId && (await repo.FindCarrierAsync(carrierId, ct).ConfigureAwait(false) is not { IsActive: true })) throw new KeyNotFoundException("Active carrier not found."); var x = Shipment.Create(tenant.TenantId, c.StoreId, c.Number, c.OrderId, c.ShipmentConfirmationId, c.CarrierId, c.TrackingNumber, c.AddressLine1, c.AddressLine2, c.City, c.PostalCode, c.Country); repo.Add(x); return x.Id; }
@@ -49,4 +55,7 @@ public sealed class LogisticsCommandHandler(ILogisticsRepository repo, ITenantCo
     public async Task<Unit> HandleAsync(CancelDeliveryRunCommand c, CancellationToken ct = default) { var x = await repo.FindRunAsync(c.RunId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Delivery run not found."); x.Cancel(); return Unit.Value; }
     public async Task<Unit> HandleAsync(StartDeliveryStopCommand c, CancellationToken ct = default) { var x = await repo.FindStopAsync(c.StopId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Delivery stop not found."); x.Start(); return Unit.Value; }
     public async Task<Unit> HandleAsync(CompleteDeliveryStopCommand c, CancellationToken ct = default) { var x = await repo.FindStopAsync(c.StopId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Delivery stop not found."); x.Complete(c.Successful); return Unit.Value; }
+    public Task<Guid> HandleAsync(CreateVehicleCommand c, CancellationToken ct = default) { ArgumentNullException.ThrowIfNull(c); var x = Vehicle.Create(tenant.TenantId, c.StoreId, c.Registration, c.Make, c.Model, c.Type, c.Vin, c.CapacityKg, c.OdometerKm, c.NextServiceOn); repo.Add(x); return Task.FromResult(x.Id); }
+    public async Task<Unit> HandleAsync(RecordVehicleOdometerCommand c, CancellationToken ct = default) { var x = await repo.FindVehicleAsync(c.VehicleId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Vehicle not found."); x.RecordOdometer(c.OdometerKm); return Unit.Value; }
+    public async Task<Unit> HandleAsync(SetVehicleStatusCommand c, CancellationToken ct = default) { var x = await repo.FindVehicleAsync(c.VehicleId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Vehicle not found."); x.SetStatus(c.Status); return Unit.Value; }
 }

@@ -54,4 +54,24 @@ public sealed class LogisticsDomainTests
 
         shipment.Status.Should().Be(LogisticsShipmentStatus.Exception);
     }
+
+    [Fact]
+    public void Vehicle_rejects_backwards_odometer_readings()
+    {
+        Vehicle vehicle = Vehicle.Create(TenantId, null, "ND 123 GP", "Vuma", "Carrier", VehicleType.Van, "VIN-1", 800m, 12000m, null);
+
+        Action action = () => vehicle.RecordOdometer(11999.9m);
+
+        action.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Vehicle_registration_is_normalised_and_status_can_be_changed()
+    {
+        Vehicle vehicle = Vehicle.Create(TenantId, null, " nd 123 gp ", "Vuma", "Carrier", VehicleType.Van, null, 800m, 0m, null);
+
+        vehicle.Registration.Should().Be("ND 123 GP");
+        vehicle.SetStatus(VehicleStatus.Maintenance);
+        vehicle.Status.Should().Be(VehicleStatus.Maintenance);
+    }
 }

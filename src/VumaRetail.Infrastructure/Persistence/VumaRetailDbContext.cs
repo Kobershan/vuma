@@ -426,6 +426,7 @@ public class VumaRetailDbContext : DbContext, IUnitOfWork
     public DbSet<Domain.Logistics.DeliveryStop> DeliveryStops => Set<Domain.Logistics.DeliveryStop>();
     /// <summary>Immutable proof that a shipment was delivered or refused.</summary>
     public DbSet<Domain.Logistics.ProofOfDelivery> ProofsOfDelivery => Set<Domain.Logistics.ProofOfDelivery>();
+    public DbSet<Domain.Logistics.Vehicle> Vehicles => Set<Domain.Logistics.Vehicle>();
 
     /// <summary>A physical count of one or more bins. Stage 13.</summary>
     public DbSet<Domain.Warehouse.CycleCount> CycleCounts => Set<Domain.Warehouse.CycleCount>();

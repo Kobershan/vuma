@@ -14,9 +14,12 @@ public interface ILogisticsRepository
     Task<DeliveryStop?> FindStopAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeliveryStop>> ListStopsAsync(Guid runId, CancellationToken cancellationToken = default);
     Task<ProofOfDelivery?> FindPodAsync(Guid shipmentId, CancellationToken cancellationToken = default);
+    Task<Vehicle?> FindVehicleAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Vehicle>> ListVehiclesAsync(VehicleStatus? status, CancellationToken cancellationToken = default);
     void Add(Carrier carrier);
     void Add(Shipment shipment);
     void Add(DeliveryRun run);
     void Add(DeliveryStop stop);
     void Add(ProofOfDelivery proof);
+    void Add(Vehicle vehicle);
 }

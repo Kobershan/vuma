@@ -10,3 +10,5 @@ public sealed record ShipmentResponse(Guid Id, string Number, Guid? OrderId, Gui
 public sealed record DeliveryRunResponse(Guid Id, string RunNumber, DateOnly PlannedDate, Guid? CarrierId, string? DriverName, string? VehicleRegistration, string Status, IReadOnlyList<DeliveryStopResponse> Stops);
 public sealed record DeliveryStopResponse(Guid Id, Guid ShipmentId, int Sequence, string AddressLine1, string City, string Status);
 public sealed record PodResponse(Guid ShipmentId, Guid? StopId, string Outcome, string RecipientName, string? SignatureHash, string? PhotoBlobKey, double? Latitude, double? Longitude, DateTimeOffset DeliveredAt, string? Notes);
+public sealed record CreateVehicleRequest(Guid? StoreId, string Registration, string Make, string Model, string Type, string? Vin, decimal CapacityKg, decimal OdometerKm, DateOnly? NextServiceOn);
+public sealed record VehicleResponse(Guid Id, Guid? StoreId, string Registration, string Make, string Model, string Type, string? Vin, decimal CapacityKg, decimal OdometerKm, DateOnly? NextServiceOn, string Status);

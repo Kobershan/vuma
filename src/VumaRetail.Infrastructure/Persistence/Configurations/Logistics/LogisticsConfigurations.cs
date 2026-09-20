@@ -29,3 +29,20 @@ internal sealed class ProofOfDeliveryConfiguration : EntityConfiguration<ProofOf
     protected override string Schema => Schemas.Logistics; protected override string TableName => "proofs_of_delivery";
     protected override void ConfigureEntity(EntityTypeBuilder<ProofOfDelivery> b) { b.Property(x => x.ShipmentId).IsRequired(); b.Property(x => x.Outcome).IsRequired().HasConversion<string>().HasMaxLength(16); b.Property(x => x.RecipientName).IsRequired().HasMaxLength(160); b.Property(x => x.SignatureHash).HasMaxLength(128); b.Property(x => x.PhotoBlobKey).HasMaxLength(512); b.Property(x => x.Notes).HasMaxLength(1000); b.HasIndex(x => x.ShipmentId).IsUnique().HasDatabaseName("ux_proofs_of_delivery_shipment_id").HasFilter("deleted_at IS NULL"); }
 }
+internal sealed class VehicleConfiguration : EntityConfiguration<Vehicle>
+{
+    protected override string Schema => Schemas.Logistics; protected override string TableName => "vehicles";
+    protected override void ConfigureEntity(EntityTypeBuilder<Vehicle> b)
+    {
+        b.Property(x => x.Registration).IsRequired().HasMaxLength(32);
+        b.Property(x => x.Make).IsRequired().HasMaxLength(80);
+        b.Property(x => x.Model).IsRequired().HasMaxLength(80);
+        b.Property(x => x.Type).IsRequired().HasConversion<string>().HasMaxLength(24);
+        b.Property(x => x.Vin).HasMaxLength(64);
+        b.Property(x => x.CapacityKg).HasPrecision(18, 6);
+        b.Property(x => x.OdometerKm).HasPrecision(18, 6);
+        b.Property(x => x.Status).IsRequired().HasConversion<string>().HasMaxLength(24);
+        b.HasIndex(x => new { x.TenantId, x.Registration }).IsUnique().HasDatabaseName("ux_vehicles_tenant_id_registration").HasFilter("deleted_at IS NULL");
+        b.HasIndex(x => new { x.TenantId, x.Vin }).IsUnique().HasDatabaseName("ux_vehicles_tenant_id_vin").HasFilter("vin IS NOT NULL AND deleted_at IS NULL");
+    }
+}
