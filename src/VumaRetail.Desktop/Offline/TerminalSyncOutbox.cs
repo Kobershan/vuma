@@ -141,7 +141,9 @@ public sealed class TerminalSyncOutbox : IAsyncDisposable
                     : "UPDATE terminal_outbox SET state = 'Failed', error = $error WHERE operation_id = $operation_id;";
                 command.Parameters.AddWithValue("$operation_id", result.OperationId.ToString("D"));
                 if (result.Outcome is not ("Applied" or "Duplicate"))
+                {
                     command.Parameters.AddWithValue("$error", result.Detail ?? result.Outcome);
+                }
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
             transaction.Commit();
