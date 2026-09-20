@@ -1,115 +1,40 @@
 (() => {
+  const $ = (s) => document.querySelector(s);
   const root = document.documentElement;
-  const themeButton = document.querySelector('#theme-toggle');
-  const storedTheme = localStorage.getItem('vuma-theme');
-  let accessToken;
-
-  if (storedTheme === 'dark' || storedTheme === 'light') root.dataset.theme = storedTheme;
-  themeButton?.addEventListener('click', () => {
-    const theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    root.dataset.theme = theme;
-    localStorage.setItem('vuma-theme', theme);
-  });
-
-  const loginPanel = document.querySelector('#login-panel');
-  const dashboard = document.querySelector('#dashboard-content');
-  const loginForm = document.querySelector('#login-form');
-  const loginError = document.querySelector('#login-error');
-
-  const request = (path, options = {}) => {
-    const headers = new Headers(options.headers ?? {});
-    headers.set('Accept', 'application/json');
-    if (options.body) headers.set('Content-Type', 'application/json');
-    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-    return fetch(`/api/v1${path}`, { ...options, headers, credentials: 'same-origin' });
-  };
-
-  const showSignedOut = () => {
-    if (loginPanel) loginPanel.hidden = false;
-    if (dashboard) dashboard.hidden = true;
-  };
-
-  const showSignedIn = (displayName) => {
-    if (loginPanel) loginPanel.hidden = true;
-    if (dashboard) dashboard.hidden = false;
-    const user = document.querySelector('#user-name');
-    if (user) user.textContent = displayName || 'Signed in';
-  };
-
-  const renderOverview = (overview) => {
-    const currency = overview.salesByCurrency?.[0]?.currency ?? overview.recentOrders?.[0]?.currency ?? 'ZAR';
-    document.querySelector('#sales-total').textContent = new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 0 }).format(overview.salesToday ?? 0);
-    document.querySelector('#orders-total').textContent = overview.ordersToday ?? 0;
-    document.querySelector('#open-orders-total').textContent = overview.openOrders ?? 0;
-    document.querySelector('#last-updated').textContent = `Updated ${new Date(overview.asAt ?? Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    const rows = document.querySelector('#recent-orders');
-    if (!rows) return;
-    rows.replaceChildren(...(overview.recentOrders ?? []).map((order) => {
-      const row = document.createElement('tr');
-      row.innerHTML = '<td class="mono"></td><td>—</td><td><span class="status processing"></span></td><td class="numeric"></td>';
-      row.children[0].textContent = order.orderNumber;
-      row.children[2].firstElementChild.textContent = order.status;
-      row.children[3].textContent = new Intl.NumberFormat('en-ZA', { style: 'currency', currency: order.currency ?? currency }).format(order.gross ?? 0);
-      return row;
-    }));
-  };
-
-  const loadModuleSummary = async () => {
-    const [locationsResponse, accountsResponse] = await Promise.all([
-      request('/inventory/locations/'),
-      request('/finance/accounts/')
-    ]);
-    if (locationsResponse.ok) {
-      const locations = await locationsResponse.json();
-      document.querySelector('#inventory-total').textContent = locations.length;
-      document.querySelector('#inventory-meta').textContent = 'Stock locations available';
-    }
-    if (accountsResponse.ok) {
-      const accounts = await accountsResponse.json();
-      document.querySelector('#finance-total').textContent = accounts.length;
-      document.querySelector('#finance-meta').textContent = 'Finance accounts configured';
-    }
-  };
-
-  const loadOverview = async () => {
-    const response = await request('/dashboard/overview');
-    if (response.status === 401 || response.status === 403) {
-      accessToken = undefined;
-      showSignedOut();
-      return;
-    }
-    if (!response.ok) throw new Error(`Dashboard request failed (${response.status})`);
-    renderOverview(await response.json());
-  };
-
-  loginForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    loginError.textContent = '';
-    const form = new FormData(loginForm);
-    const response = await request('/auth/token', {
-      method: 'POST',
-      body: JSON.stringify({ userName: form.get('userName'), password: form.get('password') })
-    });
-    if (!response.ok) {
-      loginError.textContent = 'Sign-in failed. Check the username and password.';
-      return;
-    }
-    const session = await response.json();
-    accessToken = session.accessToken;
-    showSignedIn(session.displayName);
-    await loadOverview();
-    await loadModuleSummary();
-  });
-
-  document.querySelector('#refresh')?.addEventListener('click', async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.textContent = 'Refreshing…';
-    try { await loadOverview(); await loadModuleSummary(); } finally {
-      button.disabled = false;
-      button.textContent = 'Refresh data';
-    }
-  });
-
-  showSignedOut();
+  let token;
+  const modules = [
+    { id:'overview', label:'Overview', icon:'⌂', description:'Live store performance and module health.' },
+    { id:'pos', label:'POS & Sales', icon:'▣', description:'Till sessions, sales, tenders, receipts and dispatch verification.', resources:[['Till sessions','/pos/till-sessions/'],['Orders','/orders'],['Sales analytics','/sales/analytics/']], actions:[['Open sale','POST','/pos/sales/','{"saleId":"","locationId":"","customerId":null,"requestId":""}'],['Lookup barcode','GET','/pos/catalog/barcode/{barcode}','']] },
+    { id:'inventory', label:'Inventory', icon:'▦', description:'Locations, balances, stock ledger, receiving, issuing, transfers and stocktakes.', resources:[['Locations','/inventory/locations/']], actions:[['Receive stock','POST','/inventory/stock/receive','{}'],['Issue stock','POST','/inventory/stock/issue','{}'],['Adjust stock','POST','/inventory/stock/adjust','{}'],['Transfer stock','POST','/inventory/stock/transfer','{}']] },
+    { id:'warehouse', label:'Warehouse', icon:'▤', description:'Bins, putaway, pick waves, packing, shipping and cycle counts.', resources:[['Zones','/warehouse/zones/'],['Bins','/warehouse/bins/']], actions:[['Open pick wave','POST','/warehouse/pick-waves/','{}'],['Open putaway','POST','/warehouse/putaway/','{}']] },
+    { id:'procurement', label:'Procurement', icon:'⇩', description:'Requisitions, RFQs, purchase orders and goods receipts.', resources:[['Purchase requisitions','/procurement/requisitions/'],['Purchase orders','/procurement/purchase-orders/']], actions:[['Create requisition','POST','/procurement/requisitions/','{}'],['Create purchase order','POST','/procurement/purchase-orders/','{}'],['Create goods receipt','POST','/procurement/goods-receipts/','{}']] },
+    { id:'finance', label:'Finance', icon:'R', description:'Chart of accounts, journals, AR, AP, banking, tax and trial balance.', resources:[['Chart of accounts','/finance/accounts/'],['Journals','/finance/journals/'],['Trial balance','/finance/accounts/trial-balance']], actions:[['Create account','POST','/finance/accounts/','{}'],['Post manual journal','POST','/finance/journals/manual','{}'],['Run reconciliation','POST','/finance/periods/reconciliation-check','{}']] },
+    { id:'logistics', label:'Logistics', icon:'⌁', description:'Carriers, shipments, vehicles, delivery runs and stops.', resources:[['Carriers','/logistics/carriers'],['Shipments','/logistics/shipments'],['Vehicles','/logistics/vehicles']], actions:[['Create carrier','POST','/logistics/carriers','{}'],['Create shipment','POST','/logistics/shipments','{}'],['Create delivery run','POST','/logistics/runs','{}']] },
+    { id:'customers', label:'Customers & CRM', icon:'◎', description:'Customers, accounts, conversations and field sales.', resources:[['Customers','/partners/'],['Customer accounts','/customer-accounts/']], actions:[] },
+    { id:'reporting', label:'Reporting', icon:'▥', description:'Sales, inventory, finance and operational reporting.', resources:[['Dashboard overview','/dashboard/overview'],['Sales analytics','/sales/analytics/']], actions:[] },
+    { id:'sync', label:'Offline Sync', icon:'↻', description:'Command batches, inboxes, outbox status and replay diagnostics.', resources:[['Sync status','/sync/status'],['Sync batches','/sync/batches']], actions:[['Submit command batch','POST','/sync/batches','{}']] },
+    { id:'admin', label:'Administration', icon:'⚙', description:'Companies, users, permissions, terminals, imports and configuration.', resources:[['Companies','/registry/companies/'],['Terminals','/registry/terminals/']], actions:[['Open import','POST','/imports/','{}']] }
+  ];
+  const stored = localStorage.getItem('vuma-theme');
+  if (stored === 'dark' || stored === 'light') root.dataset.theme = stored;
+  $('#theme-toggle')?.addEventListener('click', () => { const next = root.dataset.theme === 'dark' ? 'light' : 'dark'; root.dataset.theme = next; localStorage.setItem('vuma-theme', next); });
+  const request = (path, options = {}) => { const headers = new Headers(options.headers || {}); headers.set('Accept','application/json'); if (options.body !== undefined) headers.set('Content-Type','application/json'); if (token) headers.set('Authorization', `Bearer ${token}`); return fetch(`/api/v1${path}`, {...options, headers, credentials:'same-origin'}); };
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const jsonText = (value) => { try { return JSON.stringify(value, null, 2); } catch { return String(value); } };
+  const showLogin = () => { $('#login-panel').hidden = false; $('#app-shell').hidden = true; };
+  const showApp = (name) => { $('#login-panel').hidden = true; $('#app-shell').hidden = false; $('#user-name').textContent = name || 'Signed in'; renderNavigation(); route(); };
+  function renderNavigation() { $('#navigation').innerHTML = modules.map(m => `<a class="nav-item" data-module="${m.id}" href="#${m.id}"><span class="nav-icon">${m.icon}</span>${m.label}</a>`).join(''); $('#navigation').querySelectorAll('a').forEach(a => a.addEventListener('click', () => setTimeout(route))); }
+  function moduleFor(id) { return modules.find(m => m.id === id) || modules[0]; }
+  async function get(path) { const response = await request(path); if (response.status === 401 || response.status === 403) { token = undefined; showLogin(); throw new Error('Your session has expired.'); } if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+  async function loadResource(path, label) { try { return {label, path, data: await get(path)}; } catch (error) { return {label, path, error:error.message}; } }
+  function values(data) { if (Array.isArray(data)) return data; if (Array.isArray(data?.items)) return data.items; if (Array.isArray(data?.data)) return data.data; return data == null ? [] : [data]; }
+  function renderRows(data) { const rows = values(data); if (!rows.length) return '<div class="empty">No records returned.</div>'; const keys = [...new Set(rows.flatMap(x => Object.keys(x || {})))].slice(0,7); return `<table class="data-table"><thead><tr>${keys.map(k => `<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,50).map(row => `<tr>${keys.map(k => `<td>${esc(typeof row?.[k] === 'object' ? JSON.stringify(row[k]) : row?.[k])}</td>`).join('')}</tr>`).join('')}</tbody></table>${rows.length > 50 ? `<p class="muted">Showing 50 of ${rows.length} records.</p>` : ''}`; }
+  async function renderOverview() { $('#page-title').textContent = 'Overview'; $('#workspace').innerHTML = `<div class="page-intro"><div><p class="eyebrow">Live operational control</p><h2>Everything in one workspace</h2></div><button id="refresh-overview" class="button">Refresh</button></div><div id="overview-stats" class="stats-grid"></div><div class="workspace-grid">${modules.slice(1).map(m => `<a class="module-card" href="#${m.id}"><h3>${m.icon} ${m.label}</h3><p>${m.description}</p><span>Open module →</span></a>`).join('')}</div>`; $('#refresh-overview').addEventListener('click', route); const [overview, locations, accounts] = await Promise.all([loadResource('/dashboard/overview',''),loadResource('/inventory/locations/',''),loadResource('/finance/accounts/','')]); const o = overview.data || {}; $('#overview-stats').innerHTML = [['Sales today',new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR'}).format(o.salesToday || 0)],['Orders today',o.ordersToday || 0],['Inventory locations',values(locations.data).length],['Finance accounts',values(accounts.data).length]].map(x => `<article class="stat-card"><span class="stat-label">${x[0]}</span><strong>${x[1]}</strong><span class="stat-meta">Live from the API</span></article>`).join(''); }
+  function actionCard(action) { const [label, method, path, body] = action; return `<article class="action-card"><h3>${esc(label)}</h3><p><span class="pill">${method}</span> <code>${esc(path)}</code></p><form class="action-form" data-method="${method}" data-path="${esc(path)}"><textarea class="json-box" aria-label="JSON request body">${esc(body || '')}</textarea><div class="form-actions"><button class="button primary" type="submit">Run operation</button></div><p class="action-result muted"></p></form></article>`; }
+  async function renderModule(module) { $('#page-title').textContent = module.label; $('#workspace').innerHTML = `<div class="page-intro"><div><p class="eyebrow">ERP module</p><h2>${module.label}</h2><p class="muted">${module.description}</p></div><a class="api-link" href="/openapi/v1.json" target="_blank">Open API reference ↗</a></div>${module.actions?.length ? `<div class="module-actions">${module.actions.map(actionCard).join('')}</div>` : ''}<div id="resource-grid"></div>`; document.querySelectorAll('.action-form').forEach(form => form.addEventListener('submit', runAction)); const grid = $('#resource-grid'); for (const [label,path] of module.resources || []) { const result = await loadResource(path,label); const panel = document.createElement('article'); panel.className = 'panel'; panel.innerHTML = `<div class="panel-head"><div><h3>${esc(label)}</h3><span class="muted"><code>GET ${esc(path)}</code></span></div><button class="button secondary reload" type="button">Reload</button></div>${result.error ? `<p class="error">${esc(result.error)}</p>` : renderRows(result.data)}`; panel.querySelector('.reload').addEventListener('click', route); grid.appendChild(panel); } }
+  async function runAction(event) { event.preventDefault(); const form = event.currentTarget; const result = form.querySelector('.action-result'); const path = form.dataset.path; let body; try { body = form.querySelector('textarea').value.trim(); if (body) JSON.parse(body); } catch { result.textContent = 'Request body must be valid JSON.'; result.className='action-result error'; return; } result.textContent = 'Running…'; result.className='action-result muted'; try { const response = await request(path, {method:form.dataset.method, body:body || undefined}); const text = await response.text(); result.textContent = `${response.status}: ${text || 'Completed successfully'}`; result.className = `action-result ${response.ok ? 'muted' : 'error'}`; } catch (error) { result.textContent = error.message; result.className='action-result error'; } }
+  async function route() { const id = location.hash.slice(1) || 'overview'; document.querySelectorAll('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.module === id)); const module = moduleFor(id); try { if (module.id === 'overview') await renderOverview(); else await renderModule(module); $('#last-updated').textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`; } catch (error) { if ($('#workspace')) $('#workspace').innerHTML = `<div class="panel"><p class="error">${esc(error.message)}</p></div>`; } }
+  $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const error = $('#login-error'); error.textContent = ''; try { const response = await request('/auth/token',{method:'POST',body:JSON.stringify({userName:form.get('userName'),password:form.get('password')})}); if (!response.ok) throw new Error('Sign-in failed. Check the username and password.'); const session = await response.json(); token = session.accessToken; showApp(session.displayName); } catch (e) { error.textContent = e.message; } });
+  $('#sign-out').addEventListener('click', () => { token = undefined; showLogin(); });
+  window.addEventListener('hashchange', route); showLogin();
 })();

@@ -1,31 +1,3 @@
-/* Theme aliases generated from the values in design/tokens.json. */
-:root, [data-theme="light"] {
-  --color-surface-base: #FAFAFA;
-  --color-surface-raised: #FFFFFF;
-  --color-surface-sunken: #F0F0F2;
-  --color-separator: #E3E3E6;
-  --color-text-primary: #0A0A0B;
-  --color-text-secondary: #5A5A62;
-  --color-text-tertiary: #73737B;
-  --color-accent: #0B7A5A;
-  --color-accent-quiet: #E6F3EE;
-  --color-positive: #0B7A5A;
-  --color-warning: #B26A00;
-  --color-critical: #C0261F;
-  --color-info: #1B5FB0;
-}
-[data-theme="dark"] {
-  --color-surface-base: #000000;
-  --color-surface-raised: #141416;
-  --color-surface-sunken: #0A0A0B;
-  --color-separator: #2A2A2E;
-  --color-text-primary: #F5F5F7;
-  --color-text-secondary: #A0A0A8;
-  --color-text-tertiary: #A8A8B0;
-  --color-accent: #16A97D;
-  --color-accent-quiet: #0E2A22;
-  --color-positive: #16A97D;
-  --color-warning: #E5940A;
-  --color-critical: #FF5A4E;
-  --color-info: #4C94F0;
-}
+/* Theme tokens. Both modes define every alias used by the workspace. */
+:root,[data-theme="light"]{color-scheme:light;--page:#f7f8fa;--raised:#fff;--sunken:#eef1f4;--text:#111827;--muted:#667085;--subtle:#98a2b3;--line:#e4e7ec;--accent:#087f5b;--accent-quiet:#e7f6f0;--positive:#087f5b;--warning:#b54708;--critical:#c4322b;--info:#175cd3;--shadow:0 1px 3px #10182812,0 1px 2px #1018280a}
+[data-theme="dark"]{color-scheme:dark;--page:#0b0f14;--raised:#151b23;--sunken:#10151c;--text:#f2f4f7;--muted:#aab4c0;--subtle:#7c8897;--line:#293340;--accent:#35c994;--accent-quiet:#123629;--positive:#35c994;--warning:#fdb022;--critical:#f97066;--info:#84adff;--shadow:0 2px 8px #0008}
