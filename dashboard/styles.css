@@ -4,3 +4,4 @@ body{background:radial-gradient(circle at 80% -10%,color-mix(in srgb,var(--accen
 .sidebar,.topbar,.panel,.stat-card,.module-card{backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .sidebar{margin:16px 0 16px 16px;min-height:calc(100vh - 32px);border-radius:18px}.main{padding:16px;max-width:none}.topbar{border-radius:14px;position:sticky;top:16px;z-index:5}.page-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.modal-backdrop{position:fixed;inset:0;z-index:20;background:#0009;display:grid;place-items:center;padding:20px}.modal{width:min(680px,100%);max-height:90vh;overflow:auto;background:var(--raised)}.modal-x{border:0;background:transparent;font-size:26px;padding:0 8px}.modal-form{margin-top:12px}.success{color:var(--positive)}.modal-result{min-height:20px;margin:14px 0 0}.form-grid{margin-top:8px}
  .rep-result{margin-top:18px;overflow:auto}
+#login-panel[hidden],#app-shell[hidden]{display:none!important}
