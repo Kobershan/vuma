@@ -12,7 +12,7 @@
     { id: 'procurement', label: 'Procurement', icon: '⇩', description: 'Purchase orders, requisitions and goods received.', resources: [['Purchase orders', '/procurement/purchase-orders/'], ['Requisitions', '/procurement/requisitions/']] },
     { id: 'finance', label: 'Finance', icon: 'R', description: 'Accounts, journals, trial balance and cash control.', resources: [['Chart of accounts', '/finance/accounts/'], ['Posted journals', '/finance/journals/'], ['Trial balance', '/finance/accounts/trial-balance']] },
     { id: 'logistics', label: 'Logistics', icon: '⌁', description: 'Shipments, carriers, vehicles and delivery runs.', resources: [['Shipments', '/logistics/shipments'], ['Carriers', '/logistics/carriers'], ['Vehicles', '/logistics/vehicles']] },
-    { id: 'field-sales', label: 'Reps & Field Sales', icon: '♙', description: 'Rep pro-formas, approvals, availability and performance.', resources: [['Rep availability', '/field-sales/availability'], ['Rep performance', '/field-sales/performance']], actions: [['New pro forma', 'pro-forma']] },
+    { id: 'field-sales', label: 'Reps & Field Sales', icon: '♙', description: 'Rep pro-formas, approvals, availability and performance.', resources: [], actions: [['New pro forma', 'pro-forma']] },
     { id: 'customers', label: 'Customers', icon: '◎', description: 'Partners, accounts and customer relationships.', resources: [['Customers', '/partners/'], ['Customer accounts', '/customer-accounts/']] },
     { id: 'sync', label: 'Offline sync', icon: '↻', description: 'Terminal queues, acknowledgements and replay status.', resources: [['Sync status', '/sync/status'], ['Sync batches', '/sync/batches']] },
     { id: 'admin', label: 'Administration', icon: '⚙', description: 'Companies, users, terminals and system configuration.', resources: [['Companies', '/registry/companies/'], ['Terminals', '/registry/terminals/']] }
@@ -82,6 +82,7 @@
     $('#workspace').innerHTML = `<div class="page-intro"><div><p class="eyebrow">ERP workspace</p><h2>${module.label}</h2><p class="muted">${module.description}</p></div><div class="page-actions"><span class="live-badge"><i></i> Live data</span>${(module.actions || []).map(([label, action]) => `<button class="button primary action-button" data-action="${action}">${label}</button>`).join('')}</div></div><div id="resource-grid"></div>`;
     document.querySelectorAll('.action-button').forEach((button) => button.addEventListener('click', () => openAction(button.dataset.action)));
     const grid = $('#resource-grid');
+    if (module.id === 'field-sales') { grid.innerHTML = '<article class="panel"><div class="panel-head"><div><h3>Rep performance and availability</h3><span class="muted">Enter a rep and period to view their live results.</span></div></div><p class="notice">Rep data is company-scoped and permission-controlled. The demo will only show information the signed-in user is authorised to view.</p><div class="form-grid"><label>Rep ID<input id="rep-id" placeholder="Rep UUID"></label><label>Company ID<input id="rep-company-id" placeholder="Optional company UUID"></label></div><div class="form-actions"><button id="rep-availability" class="button secondary">Check availability</button><button id="rep-performance" class="button secondary">View performance</button></div><div id="rep-result" class="rep-result"></div></article>'; $('#rep-availability').addEventListener('click', () => loadRep(`/field-sales/availability?repId=${encodeURIComponent($('#rep-id').value)}&companyId=${encodeURIComponent($('#rep-company-id').value)}`)); $('#rep-performance').addEventListener('click', () => loadRep(`/field-sales/performance?repId=${encodeURIComponent($('#rep-id').value)}&companyId=${encodeURIComponent($('#rep-company-id').value)}&period=2026-09-01&compareTo=2026-08-01&callerRepId=${encodeURIComponent($('#rep-id').value)}&callerCanViewTeam=true`)); }
     for (const [label, path] of module.resources || []) {
       const result = await resource(path, label);
       const panel = document.createElement('article'); panel.className = 'panel';
@@ -90,6 +91,7 @@
     }
     if (module.id === 'inventory') await renderInventoryBalances(grid);
   }
+  async function loadRep(path) { const result = $('#rep-result'); result.textContent = 'Loading…'; try { result.innerHTML = table(await get(path)); } catch (error) { result.textContent = error.message; } }
   async function renderInventoryBalances(grid) {
     const locations = await resource('/inventory/locations/', ''); demoLocations = list(locations.data);
     for (const location of list(locations.data)) {
