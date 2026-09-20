@@ -3,6 +3,7 @@
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
     <PublishDir>$(MSBuildThisFileDirectory)..\..\artifacts\windows-server</PublishDir>
+    <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
